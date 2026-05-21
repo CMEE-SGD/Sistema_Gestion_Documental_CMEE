@@ -28,7 +28,8 @@ model Rol {
   createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  usuarios Usuario[]
+  // Relación N:M con Persona
+  personas                  Persona[] @relation("PersonaRoles")
 
   @@map("rol")
 }
@@ -41,7 +42,6 @@ model Departamento {
   codigo         String  @unique @db.VarChar(20)
   nombre         String  @db.VarChar(200)
   tipo           String  @default("Departamento") @db.VarChar(50)
-  sede           String? @db.VarChar(150)
   descripcion    String? @db.Text
 
   // Jerarquía recursiva
@@ -49,19 +49,15 @@ model Departamento {
   padre          Departamento?  @relation("DeptoJerarquia", fields: [dependencia_id], references: [id])
   hijos          Departamento[] @relation("DeptoJerarquia")
 
-  // FK Diferidas a Persona
+  // FK Diferida a Persona (Responsable)
   responsable_id Int?
   responsable    Persona? @relation("DeptoResponsable", fields: [responsable_id], references: [id])
-
-  sustituto_id   Int?
-  sustituto      Persona? @relation("DeptoSustituto", fields: [sustituto_id], references: [id])
 
   orden     Int?     @default(0) @db.SmallInt
   activo    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  personas          Persona[]       @relation("PersonaDepartamento")
   puestos_asignados PersonaPuesto[]
 
   @@index([dependencia_id])
@@ -95,11 +91,6 @@ model Puesto {
   dependencia_id Int?
   padre          Puesto?  @relation("PuestoJerarquia", fields: [dependencia_id], references: [id])
   hijos          Puesto[] @relation("PuestoJerarquia")
-
-  // Sustituto
-  sustituto_id Int?
-  sustituto    Puesto?  @relation("PuestoSustituto", fields: [sustituto_id], references: [id])
-  sustituidos  Puesto[] @relation("PuestoSustituto")
 
   orden            Int?     @default(0) @db.SmallInt
   activo           Boolean  @default(true)
@@ -140,10 +131,6 @@ model Persona {
   fecha_alta       DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
   idioma           String?   @default("Idioma por defecto del centro") @db.VarChar(50)
 
-  // FK Departamento principal
-  departamento_id Int
-  departamento    Departamento @relation("PersonaDepartamento", fields: [departamento_id], references: [id], onDelete: Restrict)
-
   activo    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -153,9 +140,8 @@ model Persona {
   puestos            PersonaPuesto[]
   documentos         DocumentoPersona[]
   deptos_responsable Departamento[]     @relation("DeptoResponsable")
-  deptos_sustituto   Departamento[]     @relation("DeptoSustituto")
+  roles              Rol[]              @relation("PersonaRoles") // N:M con Rol
 
-  @@index([departamento_id])
   @@map("persona")
 }
 
@@ -174,13 +160,9 @@ model Usuario {
   password_hash  String  @db.VarChar(255)
   estado_cuenta  Boolean @default(true)
 
-  rol_id         Int
-  rol            Rol     @relation(fields: [rol_id], references: [id], onDelete: Restrict)
-
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@index([rol_id])
   @@index([nombre_usuario])
   @@map("usuario")
 }
