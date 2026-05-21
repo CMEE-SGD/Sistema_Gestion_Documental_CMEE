@@ -150,15 +150,24 @@ model Persona {
 // ==========================================
 model Usuario {
   id             Int     @id @default(autoincrement())
-  
   persona_id     Int     @unique
   persona        Persona @relation(fields: [persona_id], references: [id], onDelete: Cascade)
   
-  nombre_usuario String  @unique @db.VarChar(80)
-  perfil_sistema String? @db.VarChar(100)
-  interfaz       String? @db.VarChar(50)
-  password_hash  String  @db.VarChar(255)
-  estado_cuenta  Boolean @default(true)
+  // -- Tab 1: Nuevo usuario --
+  nombre_usuario   String    @unique @db.VarChar(80)
+  fecha_caducidad  DateTime? @db.Date
+  estado_cuenta    Boolean   @default(true)
+  bloqueado        Boolean   @default(false)
+  grupos           Grupo[]   @relation("UsuarioGrupos")
+
+  // -- Tab 2: Clave --
+  password_hash                String  @db.VarChar(255)
+  cambiar_clave_proxima_sesion Boolean @default(false)
+
+  // -- Tab 3: Configuración --
+  idioma              String? @db.VarChar(50)
+  acceso_preferencias Boolean @default(false)
+  acceso_chat         Boolean @default(false)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -166,7 +175,6 @@ model Usuario {
   @@index([nombre_usuario])
   @@map("usuario")
 }
-
 // ==========================================
 // 6. PERSONA_PUESTO
 // ==========================================
@@ -209,4 +217,21 @@ model DocumentoPersona {
 
   @@index([persona_id])
   @@map("documento_persona")
+}
+
+
+// ==========================================
+// 8. GRUPO (Solo tabla base por ahora)
+// ==========================================
+model Grupo {
+  id          Int       @id @default(autoincrement())
+  nombre      String    @unique @db.VarChar(100)
+  descripcion String?   @db.Text
+  activo      Boolean   @default(true)
+  usuarios    Usuario[] @relation("UsuarioGrupos")
+  
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("grupo")
 }

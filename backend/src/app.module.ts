@@ -6,6 +6,7 @@ import { DepartamentosModule } from './departamentos/departamentos.module';
 import { PersonasModule } from './personas/personas.module';
 import { PuestosModule } from './puestos/puestos.module';
 import { PersonaPuestoModule } from './persona-puesto/persona-puesto.module';
+import { UsuariosModule } from './usuarios/usuarios.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PersonaPuestoModule } from './persona-puesto/persona-puesto.module';
     PersonasModule,
     PuestosModule,
     PersonaPuestoModule,
+    UsuariosModule,
   ],
   controllers: [],
   providers: [],
