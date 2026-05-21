@@ -1,26 +1,29 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { modules, Module } from '../data/modulos';
-import { logoCentro } from "../assets"; // Asegúrate de que este camino sea correcto
-
+import { currentUser } from '../data/users';
+import { useAuth } from '../hooks/useAuth';
+import { logoCentro } from '../assets';
 
 const Navbar = () => {
-  const [searchTerm, setSearchTerm]         = useState<string>('');
-  const [filtered, setFiltered]             = useState<Module[]>([]);
-  const [showDropdown, setShowDropdown]     = useState<boolean>(false);
-  const [activeIndex, setActiveIndex]       = useState<number>(-1);
-  const [showUserMenu, setShowUserMenu]     = useState<boolean>(false);
-  const inputRef   = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const navigate   = useNavigate();
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [filtered, setFiltered] = useState<Module[]>([]);
+  const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
 
-  // Cerrar dropdown al hacer click fuera
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // ── Importar cerrarSesion desde useAuth ───────────────────────────────
+  const { cerrarSesion } = useAuth();
+
+  // ── Cerrar search dropdown al click fuera ─────────────────────────────
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowDropdown(false);
         setActiveIndex(-1);
       }
@@ -29,15 +32,30 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // ── Cerrar user menu al click fuera ───────────────────────────────────
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // ── Busqueda ───────────────────────────────────────────────────────────
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setSearchTerm(term);
     setActiveIndex(-1);
+
     if (term.trim() === '') {
-      setFiltered([]);
-      setShowDropdown(false);
+      // Mostrar TODOS los modulos cuando el campo esta vacio
+      setFiltered(modules);
+      setShowDropdown(true);
       return;
     }
+
     const results = modules.filter((m) =>
       m.name.toLowerCase().includes(term.toLowerCase()) ||
       m.category.toLowerCase().includes(term.toLowerCase())
@@ -46,6 +64,8 @@ const Navbar = () => {
     setShowDropdown(true);
   };
 
+
+  // ── Navegacion por teclado ────────────────────────────────────────────
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!showDropdown) return;
     if (e.key === 'ArrowDown') {
@@ -61,6 +81,7 @@ const Navbar = () => {
     }
   };
 
+  // ── Resaltar coincidencia ─────────────────────────────────────────────
   const highlightMatch = (text: string, query: string) => {
     if (!query) return text;
     const index = text.toLowerCase().indexOf(query.toLowerCase());
@@ -76,26 +97,37 @@ const Navbar = () => {
     );
   };
 
-  return (
-    <nav className="w-full h-12 flex items-center px-3 gap-3"
-      style={{ backgroundColor: '#0057A8' }}>
+  // ── Handler cerrar sesion ─────────────────────────────────────────────
+  const handleCerrarSesion = () => {
+    setShowUserMenu(false);
+    cerrarSesion(); // logica desde hooks/useAuth.ts
+  };
 
-      {/* Logo */}
-      <div className="flex items-center gap-2 shrink-0 mr-2">
-        {/* ESG circle icon */}
-        <div className="flex justify-center">
-                      <img
-                        src={logoCentro}
-                        alt="Logo CMEE"
-                        className="h-12 w-auto"
-                      />
-                    </div>
+  // ── Badge de rol ──────────────────────────────────────────────────────
+  const rolBadgeStyle: Record<string, string> = {
+    admin: 'bg-red-100 text-red-600',
+    supervisor: 'bg-yellow-100 text-yellow-600',
+    usuario: 'bg-green-100 text-green-600',
+  };
+
+  // ════════════════════════════════════════════════════════════════════════
+  return (
+    <nav
+      className="w-full h-12 flex items-center px-3 gap-3"
+      style={{ backgroundColor: '#0057A8' }}
+    >
+      {/* ── Logo + nombre ────────────────────────────────────────────── */}
+      <div
+        className="flex items-center gap-2 shrink-0 mr-2 cursor-pointer"
+        onClick={() => navigate('/welcome')}
+      >
+        <img src={logoCentro} alt="Logo CMEE" className="h-12 w-auto" />
         <span className="text-white font-black text-sm tracking-widest uppercase">
           SGD-CMEE
         </span>
       </div>
 
-      {/* Search bar */}
+      {/* ── Barra de busqueda ────────────────────────────────────────── */}
       <div className="relative flex-1 max-w-md" ref={dropdownRef}>
         <div className="flex items-center bg-white bg-opacity-15 border border-white border-opacity-30 rounded px-3 h-8">
           <input
@@ -104,21 +136,33 @@ const Navbar = () => {
             value={searchTerm}
             onChange={handleSearch}
             onKeyDown={handleKeyDown}
-            onFocus={() => searchTerm && setShowDropdown(true)}
+            onFocus={() => {
+              // Al hacer click: si no hay termino, mostrar todos los modulos
+              setFiltered(searchTerm ? filtered : modules);
+              setShowDropdown(true);
+            }}
             placeholder="Buscar aplicacion"
-            className="bg-transparent text-blue placeholder-blue-200 text-sm outline-none flex-1 w-full"
+            className="bg-transparent text-black placeholder-blue-200 text-sm outline-none flex-1 w-full"
           />
-          {/* Search icon SVG */}
-          <svg className="w-4 h-4 text-blue-200 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+
+          <svg
+            className="w-4 h-4 text-blue-200 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+          >
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </div>
 
-        {/* Dropdown results */}
+        {/* Resultados de busqueda */}
         {showDropdown && (
-          <div className="absolute top-10 left-0 w-full rounded shadow-2xl overflow-hidden z-50"
-            style={{ backgroundColor: '#004A8F', border: '1px solid rgba(255,255,255,0.15)' }}>
+          <div
+            className="absolute top-10 left-0 w-full rounded shadow-2xl overflow-hidden z-50"
+            style={{ backgroundColor: '#004A8F', border: '1px solid rgba(255,255,255,0.15)' }}
+          >
             {filtered.length === 0 ? (
               <div className="px-4 py-3 text-blue-200 text-sm">
                 No se encontraron modulos
@@ -133,11 +177,11 @@ const Navbar = () => {
                       setShowDropdown(false);
                       setSearchTerm('');
                     }}
-                    className={`flex items-center justify-between px-4 py-2 cursor-pointer text-sm transition-colors ${
-                      i === activeIndex
+                    className={`flex items-center justify-between px-4 py-2 cursor-pointer text-sm transition-colors ${i === activeIndex
                         ? 'bg-white bg-opacity-20'
                         : 'hover:bg-white hover:bg-opacity-10'
-                    }`}>
+                      }`}
+                  >
                     <span className="text-blue-100">
                       {highlightMatch(mod.name, searchTerm)}
                     </span>
@@ -152,42 +196,88 @@ const Navbar = () => {
         )}
       </div>
 
-      {/* Spacer */}
+      {/* ── Spacer ───────────────────────────────────────────────────── */}
       <div className="flex-1" />
 
-      {/* More options (...) */}
-      <button className="text-white text-lg font-bold tracking-widest px-2 opacity-80 hover:opacity-100">
-        ...
-      </button>
+      {/* ── Menu de usuario ──────────────────────────────────────────── */}
+      <div className="relative" ref={userMenuRef}>
 
-      {/* User avatar */}
-      <div className="relative">
+        {/* Boton avatar */}
         <button
-          onClick={() => setShowUserMenu(!showUserMenu)}
-          className="w-8 h-8 rounded-full bg-white bg-opacity-20 border border-white border-opacity-40 flex items-center justify-center text-white hover:bg-opacity-30 transition-colors">
-          {/* Person icon SVG */}
+          onClick={() => setShowUserMenu((prev) => !prev)}
+          className="w-8 h-8 rounded-full bg-white bg-opacity-20 border border-white border-opacity-40 flex items-center justify-center text-white hover:bg-opacity-30 transition-colors"
+          aria-label="Menu de usuario"
+        >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
           </svg>
         </button>
 
-        {/* User dropdown */}
+        {/* Panel desplegable */}
         {showUserMenu && (
-          <div className="absolute right-0 top-10 w-40 rounded shadow-2xl z-50 overflow-hidden"
-            style={{ backgroundColor: '#004A8F', border: '1px solid rgba(255,255,255,0.15)' }}>
-            <ul className="text-sm text-blue-100">
-              <li className="px-4 py-2 hover:bg-white hover:bg-opacity-10 cursor-pointer">Mi Perfil</li>
-              <li className="px-4 py-2 hover:bg-white hover:bg-opacity-10 cursor-pointer">Configuracion</li>
-              <li className="px-4 py-2 hover:bg-white hover:bg-opacity-10 cursor-pointer text-red-300">Cerrar Sesion</li>
-            </ul>
+          <div
+            className="absolute right-0 top-10 w-72 rounded shadow-2xl z-50 overflow-hidden"
+            style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}
+          >
+
+            {/* ── Seccion info usuario ── */}
+            <div
+              className="flex items-center gap-4 px-4 py-4"
+              style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}
+            >
+              {/* Avatar o logo */}
+              <div className="shrink-0 w-14 h-14 rounded-full border border-gray-200 overflow-hidden bg-white flex items-center justify-center shadow-sm">
+                {currentUser.avatar ? (
+                  <img
+                    src={currentUser.avatar}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={logoCentro}
+                    alt="Logo CMEE"
+                    className="w-12 h-12 object-contain"
+                  />
+                )}
+              </div>
+
+              {/* Nombre + cargo + rol */}
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-sm font-bold text-gray-800 leading-tight truncate">
+                  {currentUser.nombre} {currentUser.apellido}
+                </span>
+                <span className="text-xs text-gray-500 leading-tight truncate">
+                  {currentUser.cargo}
+                </span>
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-full w-fit capitalize mt-0.5 ${rolBadgeStyle[currentUser.rol] ?? 'bg-gray-100 text-gray-600'
+                    }`}
+                >
+                  {currentUser.rol}
+                </span>
+              </div>
+            </div>
+
+            {/* ── Botones: DEBAJO de la info ── */}
+            <div className="flex items-center gap-2 px-4 py-3">
+              <button
+                onClick={() => { setShowUserMenu(false); navigate('/preferencias'); }}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 rounded transition-colors"
+              >
+                Preferencias
+              </button>
+              <button
+                onClick={handleCerrarSesion}
+                className="flex-1 border border-red-300 hover:border-red-400 bg-white hover:bg-red-50 text-red-600 text-sm font-medium py-1.5 rounded transition-colors"
+              >
+                Cerrar Sesion
+              </button>
+            </div>
+
           </div>
         )}
       </div>
-
-      {/* Chevron down */}
-      <svg className="w-3 h-3 text-white opacity-60" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
     </nav>
   );
 };
