@@ -5,6 +5,7 @@ import { RolesModule } from './roles/roles.module';
 import { DepartamentosModule } from './departamentos/departamentos.module';
 import { PersonasModule } from './personas/personas.module';
 import { PuestosModule } from './puestos/puestos.module';
+import { PersonaPuestoModule } from './persona-puesto/persona-puesto.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PuestosModule } from './puestos/puestos.module';
     DepartamentosModule,
     PersonasModule,
     PuestosModule,
+    PersonaPuestoModule,
   ],
   controllers: [],
   providers: [],
