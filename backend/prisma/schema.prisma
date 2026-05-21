@@ -6,3 +6,225 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ==========================================
+// 1. ROL
+// ==========================================
+model Rol {
+  id                        Int       @id @default(autoincrement())
+  codigo                    String    @unique @db.VarChar(20)
+  nombre                    String    @db.VarChar(150)
+  funciones                 String?   @db.Text
+  educacion_indispensable   String?   @db.Text
+  educacion_deseable        String?   @db.Text
+  formacion_indispensable   String?   @db.Text
+  formacion_deseable        String?   @db.Text
+  capacidades_indispensable String?   @db.Text
+  capacidades_deseable      String?   @db.Text
+  experiencia_indispensable String?   @db.Text
+  experiencia_deseable      String?   @db.Text
+  orden                     Int?      @default(0) @db.SmallInt
+  activo                    Boolean   @default(true)
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  usuarios Usuario[]
+
+  @@map("rol")
+}
+
+// ==========================================
+// 2. DEPARTAMENTO
+// ==========================================
+model Departamento {
+  id             Int     @id @default(autoincrement())
+  codigo         String  @unique @db.VarChar(20)
+  nombre         String  @db.VarChar(200)
+  tipo           String  @default("Departamento") @db.VarChar(50)
+  sede           String? @db.VarChar(150)
+  descripcion    String? @db.Text
+
+  // Jerarquía recursiva
+  dependencia_id Int?
+  padre          Departamento?  @relation("DeptoJerarquia", fields: [dependencia_id], references: [id])
+  hijos          Departamento[] @relation("DeptoJerarquia")
+
+  // FK Diferidas a Persona
+  responsable_id Int?
+  responsable    Persona? @relation("DeptoResponsable", fields: [responsable_id], references: [id])
+
+  sustituto_id   Int?
+  sustituto      Persona? @relation("DeptoSustituto", fields: [sustituto_id], references: [id])
+
+  orden     Int?     @default(0) @db.SmallInt
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  personas          Persona[]       @relation("PersonaDepartamento")
+  puestos_asignados PersonaPuesto[]
+
+  @@index([dependencia_id])
+  @@map("departamento")
+}
+
+// ==========================================
+// 3. PUESTO
+// ==========================================
+model Puesto {
+  id                             Int     @id @default(autoincrement())
+  codigo                         String  @unique @db.VarChar(20)
+  nombre                         String  @db.VarChar(200)
+  educacion                      String? @db.Text
+  formacion                      String? @db.Text
+  habilidad                      String? @db.Text
+  experiencia                    String? @db.Text
+  conocimiento_tecnico           String? @db.Text
+  calificacion                   String? @db.Text
+  autoridad                      String? @db.Text
+  responsabilidades              String? @db.Text
+  funcion_principal              String? @db.Text
+  funciones_alternas             String? @db.Text
+  funciones                      String? @db.Text
+  perfil_educacion_indispensable String? @db.Text
+  perfil_formacion_deseable      String? @db.Text
+  perfil_capacidades_deseable    String? @db.Text
+  perfil_experiencia_deseable    String? @db.Text
+
+  // Jerarquía recursiva
+  dependencia_id Int?
+  padre          Puesto?  @relation("PuestoJerarquia", fields: [dependencia_id], references: [id])
+  hijos          Puesto[] @relation("PuestoJerarquia")
+
+  // Sustituto
+  sustituto_id Int?
+  sustituto    Puesto?  @relation("PuestoSustituto", fields: [sustituto_id], references: [id])
+  sustituidos  Puesto[] @relation("PuestoSustituto")
+
+  orden            Int?     @default(0) @db.SmallInt
+  activo           Boolean  @default(true)
+  fecha_ultima_mod DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  personas_asignadas PersonaPuesto[]
+
+  @@index([dependencia_id])
+  @@map("puesto")
+}
+
+// ==========================================
+// 4. PERSONA
+// ==========================================
+model Persona {
+  id               Int       @id @default(autoincrement())
+  codigo           String?   @unique @db.VarChar(30)
+  saludo           String?   @db.VarChar(10)
+  nombre           String    @db.VarChar(100)
+  apellidos        String    @db.VarChar(100)
+  cedula_identidad String?   @unique @db.VarChar(20)
+  fecha_nacimiento DateTime? @db.Date
+  sexo             String?   @db.Char(1)
+  domicilio        String?   @db.VarChar(250)
+  ciudad           String?   @db.VarChar(100)
+  codigo_postal    String?   @db.VarChar(15)
+  provincia        String?   @db.VarChar(100)
+  telefono         String?   @db.VarChar(20)
+  fax              String?   @db.VarChar(20)
+  celular          String?   @db.VarChar(20)
+  email_1          String?   @db.VarChar(150)
+  email_2          String?   @db.VarChar(150)
+  foto_ruta        String?   @db.VarChar(500)
+  hoja_vida_ruta   String?   @db.VarChar(500)
+  tipo_recurso     String?   @default("Usuario del sistema") @db.VarChar(50)
+  fecha_alta       DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  idioma           String?   @default("Idioma por defecto del centro") @db.VarChar(50)
+
+  // FK Departamento principal
+  departamento_id Int
+  departamento    Departamento @relation("PersonaDepartamento", fields: [departamento_id], references: [id], onDelete: Restrict)
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relaciones inversas
+  usuario            Usuario?
+  puestos            PersonaPuesto[]
+  documentos         DocumentoPersona[]
+  deptos_responsable Departamento[]     @relation("DeptoResponsable")
+  deptos_sustituto   Departamento[]     @relation("DeptoSustituto")
+
+  @@index([departamento_id])
+  @@map("persona")
+}
+
+// ==========================================
+// 5. USUARIO
+// ==========================================
+model Usuario {
+  id             Int     @id @default(autoincrement())
+  
+  persona_id     Int     @unique
+  persona        Persona @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+  
+  nombre_usuario String  @unique @db.VarChar(80)
+  perfil_sistema String? @db.VarChar(100)
+  interfaz       String? @db.VarChar(50)
+  password_hash  String  @db.VarChar(255)
+  estado_cuenta  Boolean @default(true)
+
+  rol_id         Int
+  rol            Rol     @relation(fields: [rol_id], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([rol_id])
+  @@index([nombre_usuario])
+  @@map("usuario")
+}
+
+// ==========================================
+// 6. PERSONA_PUESTO
+// ==========================================
+model PersonaPuesto {
+  id               Int      @id @default(autoincrement())
+  
+  persona_id       Int
+  persona          Persona  @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+  
+  puesto_id        Int
+  puesto           Puesto   @relation(fields: [puesto_id], references: [id], onDelete: Restrict)
+  
+  departamento_id  Int
+  departamento     Departamento @relation(fields: [departamento_id], references: [id], onDelete: Restrict)
+  
+  orden_puesto     Int      @db.SmallInt
+  fecha_asignacion DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([persona_id, puesto_id], name: "uq_persona_puesto")
+  @@unique([persona_id, orden_puesto], name: "uq_persona_orden_puesto")
+  @@index([persona_id])
+  @@index([puesto_id])
+  @@map("persona_puesto")
+}
+
+// ==========================================
+// 7. DOCUMENTOS_PERSONA
+// ==========================================
+model DocumentoPersona {
+  id             Int      @id @default(autoincrement())
+  persona_id     Int
+  persona        Persona  @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+  nombre_archivo String   @db.VarChar(300)
+  ruta           String   @db.VarChar(500)
+  tipo_documento String?  @db.VarChar(100)
+  fecha_subida   DateTime @default(now()) @db.Timestamptz
+  activo         Boolean  @default(true)
+
+  @@index([persona_id])
+  @@map("documento_persona")
+}
