@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
 import { users } from "../data/users"; // Asegúrate de que este camino sea correcto
 import { logoCentro } from "../assets"; // Asegúrate de que este camino sea correcto
 import { laboratorio } from "../assets"; // Asegúrate de que este camino sea correcto
@@ -36,7 +37,7 @@ export default function LoginPage() {
               backgroundSize: "24px 24px",
             }}
           />
-          
+
           {/* Contenedor de la imagen que permite el borde */}
           <div className="w-full h-full flex items-center justify-center z-10">
             <img
@@ -141,14 +142,13 @@ export default function LoginPage() {
                   {error}
                 </div>
               )}
-
-              {/* Botón */}
-              <button
+              <Button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-200 transition-all duration-200 hover:shadow-blue-300 hover:scale-[1.01] active:scale-[0.99] text-sm tracking-widest uppercase mt-2"
+                className="w-full py-3 text-sm tracking-widest uppercase mt-2"
               >
                 Acceder
-              </button>
+              </Button>
+
             </form>
           </div>
         </div>
