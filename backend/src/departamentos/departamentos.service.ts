@@ -18,11 +18,10 @@ export class DepartamentosService {
 
   findAll() {
     return this.prisma.departamento.findMany({
-      where: { activo: true },
       orderBy: { orden: 'asc' },
       include: {
-        padre: { select: { id: true, nombre: true } },
-      },
+        puestos_asignados: { where: { activo: true } }
+      }
     });
   }
 
@@ -30,8 +29,15 @@ export class DepartamentosService {
     const departamento = await this.prisma.departamento.findUnique({
       where: { id },
       include: {
-        padre: { select: { id: true, nombre: true } },
-        hijos: { select: { id: true, nombre: true, activo: true } },
+        padre: { select: { nombre: true } },
+        responsable: { select: { nombre: true, apellidos: true } },
+        puestos_asignados: { 
+          where: { activo: true },
+          include: {
+            persona: { select: { nombre: true, apellidos: true } },
+            puesto: { select: { nombre: true } } 
+          }
+        }
       },
     });
     if (!departamento) throw new NotFoundException(`Departamento con ID ${id} no encontrado`);
