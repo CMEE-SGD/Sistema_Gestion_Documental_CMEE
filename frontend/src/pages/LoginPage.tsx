@@ -1,26 +1,66 @@
 import { useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { users } from "../data/users"; // Asegúrate de que este camino sea correcto
-import { logoCentro } from "../assets"; // Asegúrate de que este camino sea correcto
-import { laboratorio } from "../assets"; // Asegúrate de que este camino sea correcto
+import { users } from "../data/users"; // Fallback a usuarios quemados
+import { logoCentro } from "../assets";
+import { laboratorio } from "../assets";
+import api from "../lib/axios";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = users.find(
-      (u) => u.username === username && u.password === password
-    );
-    if (user) {
-      navigate('/welcome');
-    } else {
-      setError("Usuario o contraseña incorrectos");
+    setError("");
+    setLoading(true);
+
+    try {
+      // 1. Primero intentar con el backend
+      try {
+        const response = await api.post('/usuarios/login', {
+          nombre_usuario: username,
+          clave: password
+        });
+        
+        // Guardar token y datos del usuario
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('usuario', JSON.stringify(response.data));
+        navigate('/welcome');
+        return;
+      } catch (backendError: any) {
+        // Si falla, verificar si es un error de conexión o de credenciales
+        if (backendError.response?.status === 404) {
+          // Usuario no encontrado en BD, continuar con fallback
+        } else if (backendError.message === 'Network Error') {
+          // Error de conexión, continuar con fallback
+        } else {
+          // Otro error del backend
+          setError(backendError.response?.data?.message || "Error al conectar con el servidor");
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 2. Fallback: validar con usuarios quemados
+      const user = users.find(
+        (u) => u.username === username && u.password === password
+      );
+      
+      if (user) {
+        // Guardar token local y datos del usuario
+        localStorage.setItem('token', `${user.id}-${user.username}`);
+        localStorage.setItem('usuario', JSON.stringify(user));
+        navigate('/welcome');
+      } else {
+        setError("Usuario o contraseña incorrectos");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -144,9 +184,10 @@ export default function LoginPage() {
               )}
               <Button
                 type="submit"
-                className="w-full py-3 text-sm tracking-widest uppercase mt-2"
+                disabled={loading}
+                className="w-full py-3 text-sm tracking-widest uppercase mt-2 disabled:opacity-50"
               >
-                Acceder
+                {loading ? 'Validando...' : 'Acceder'}
               </Button>
 
             </form>

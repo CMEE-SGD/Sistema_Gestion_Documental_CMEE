@@ -2,12 +2,19 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from 
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
+import { LoginDto } from './dto/login.dto';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Usuarios')
 @Controller('usuarios')
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
+
+  @Post('login')
+  @ApiOperation({ summary: 'Login con nombre de usuario y contraseña' })
+  login(@Body() loginDto: LoginDto) {
+    return this.usuariosService.login(loginDto.nombre_usuario, loginDto.clave);
+  }
 
   @Post()
   @ApiOperation({ summary: 'Crear usuario con clave encriptada' })

@@ -8,71 +8,149 @@ import * as bcrypt from 'bcrypt';
 export class UsuariosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateUsuarioDto) {
-    const { password, grupoIds, ...userData } = dto;
+  async create(createUsuarioDto: CreateUsuarioDto) {
+    const { persona_id, nombre_usuario, clave, fecha_caducidad, grupoIds, ...configData } = createUsuarioDto;
 
-    const existeUsername = await this.prisma.usuario.findUnique({ where: { nombre_usuario: userData.nombre_usuario } });
-    if (existeUsername) throw new ConflictException('El usuario ya existe');
+    // 1. Validar existencia de la persona y que no tenga una cuenta activa vinculada
+    const persona = await this.prisma.persona.findUnique({ where: { id: persona_id }, include: { usuario: true } });
+    if (!persona) throw new NotFoundException('Persona no encontrada');
+    if (persona.usuario) throw new ConflictException('Esta persona ya tiene un usuario asignado');
 
-    const existePersona = await this.prisma.usuario.findUnique({ where: { persona_id: userData.persona_id } });
-    if (existePersona) throw new ConflictException('La persona ya tiene un usuario');
+    // 2. Validar unicidad del username
+    const existeUsername = await this.prisma.usuario.findUnique({ where: { nombre_usuario } });
+    if (existeUsername) throw new ConflictException('El nombre de usuario ya está en uso');
 
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
+    // 3. Hashear la contraseña recibida
+    const saltRounds = 10;
+    const hash = await bcrypt.hash(clave, saltRounds);
 
+    // 4. Inserción con el mapeo correcto hacia el modelo
     return this.prisma.usuario.create({
       data: {
-        ...userData,
-        password_hash,
-        fecha_caducidad: userData.fecha_caducidad ? new Date(userData.fecha_caducidad) : null,
-        grupos: grupoIds ? { connect: grupoIds.map(id => ({ id })) } : undefined,
+        persona_id,
+        nombre_usuario,
+        password_hash: hash,
+        fecha_caducidad: fecha_caducidad ? new Date(fecha_caducidad) : null,
+        ...configData,
+        grupos: grupoIds?.length > 0 ? {
+          connect: grupoIds.map(id => ({ id }))
+        } : undefined
       },
-      select: { id: true, nombre_usuario: true, estado_cuenta: true, grupos: true } 
-    });
-  }
-
-  findAll() {
-    return this.prisma.usuario.findMany({
       select: {
-        id: true, nombre_usuario: true, estado_cuenta: true, bloqueado: true,
+        id: true,
+        nombre_usuario: true,
+        estado_cuenta: true,
+        bloqueado: true,
         persona: { select: { nombre: true, apellidos: true } },
         grupos: { select: { id: true, nombre: true } }
       }
     });
   }
 
+  // Lista todos los usuarios activos
+  async findAll() {
+    return this.prisma.usuario.findMany({
+      where: { estado_cuenta: true },
+      select: {
+        id: true,
+        nombre_usuario: true,
+        estado_cuenta: true,
+        bloqueado: true,
+        fecha_caducidad: true,
+        persona: { select: { id: true, nombre: true, apellidos: true } },
+        grupos: { select: { id: true, nombre: true } }
+      }
+    });
+  }
+
+  // Trae un usuario específico con todas sus relaciones
   async findOne(id: number) {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
-      include: { persona: true, grupos: true }
+      include: {
+        persona: true,
+        grupos: true
+      }
     });
-    if (!usuario) throw new NotFoundException('Usuario no encontrado');
-    const { password_hash, ...result } = usuario; 
+    
+    if (!usuario) throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    
+    // Evitamos enviar el hash de la contraseña al frontend por seguridad
+    const { password_hash, ...result } = usuario;
     return result;
   }
 
-  async update(id: number, dto: UpdateUsuarioDto) {
-    await this.findOne(id);
-    const { password, grupoIds, ...userData } = dto;
+  // Actualiza datos, relaciones y clave (si se provee)
+  async update(id: number, updateUsuarioDto: UpdateUsuarioDto) {
+    await this.findOne(id); // Validamos que exista
+    
+    // updateUsuarioDto debe estar configurado con PartialType en NestJS
+    const { clave, fecha_caducidad, grupoIds, ...configData } = updateUsuarioDto as any;
 
-    let dataToUpdate: any = {
-      ...userData,
-      fecha_caducidad: userData.fecha_caducidad ? new Date(userData.fecha_caducidad) : undefined,
-      grupos: grupoIds ? { set: grupoIds.map(id => ({ id })) } : undefined,
-    };
+    let dataToUpdate: any = { ...configData };
 
-    if (password) {
-      const salt = await bcrypt.genSalt(10);
-      dataToUpdate.password_hash = await bcrypt.hash(password, salt);
+    // Si se envía una nueva clave, la encriptamos antes de guardar
+    if (clave) {
+      dataToUpdate.password_hash = await bcrypt.hash(clave, 10);
     }
 
-    const actualizado = await this.prisma.usuario.update({ where: { id }, data: dataToUpdate });
-    const { password_hash, ...result } = actualizado;
-    return result;
+    if (fecha_caducidad !== undefined) {
+      dataToUpdate.fecha_caducidad = fecha_caducidad ? new Date(fecha_caducidad) : null;
+    }
+
+    // Si se envían grupos, usamos 'set' para reemplazar la lista anterior
+    if (grupoIds) {
+      dataToUpdate.grupos = { set: grupoIds.map((gId: number) => ({ id: gId })) };
+    }
+
+    return this.prisma.usuario.update({
+      where: { id },
+      data: dataToUpdate,
+      select: {
+        id: true,
+        nombre_usuario: true,
+        estado_cuenta: true,
+        bloqueado: true,
+        persona: { select: { nombre: true, apellidos: true } },
+        grupos: { select: { id: true, nombre: true } }
+      }
+    });
   }
 
+  // Validar credenciales y retornar token (simple)
+  async login(nombre_usuario: string, clave: string) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { nombre_usuario },
+      include: {
+        persona: true,
+        grupos: { select: { id: true, nombre: true } }
+      }
+    });
+
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+    
+    if (usuario.bloqueado) throw new NotFoundException('El usuario está bloqueado');
+    
+    if (!usuario.estado_cuenta) throw new NotFoundException('La cuenta está inactiva');
+
+    // Verificar contraseña
+    const passwordValida = await bcrypt.compare(clave, usuario.password_hash);
+    if (!passwordValida) throw new NotFoundException('Usuario o contraseña incorrectos');
+
+    // Retornar usuario sin password_hash
+    const { password_hash, ...result } = usuario;
+    return {
+      ...result,
+      token: `${usuario.id}-${usuario.nombre_usuario}` // Token simple para desarrollo
+    };
+  }
+
+  // Borrado lógico desactivando la cuenta
   async remove(id: number) {
     await this.findOne(id);
-    return this.prisma.usuario.update({ where: { id }, data: { estado_cuenta: false } });
+    return this.prisma.usuario.update({
+      where: { id },
+      data: { estado_cuenta: false } 
+    });
   }
 }

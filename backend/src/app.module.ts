@@ -7,6 +7,9 @@ import { PersonasModule } from './personas/personas.module';
 import { PuestosModule } from './puestos/puestos.module';
 import { PersonaPuestoModule } from './persona-puesto/persona-puesto.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
+import { DocumentosModule } from './documentos/documentos.module';
+import { GruposModule } from './grupos/grupos.module';
+import { AplicacionesModule } from './aplicaciones/aplicaciones.module';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     PuestosModule,
     PersonaPuestoModule,
     UsuariosModule,
+    DocumentosModule,
+    GruposModule,
+    AplicacionesModule,
   ],
   controllers: [],
   providers: [],

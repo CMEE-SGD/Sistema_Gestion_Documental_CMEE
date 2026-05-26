@@ -19,6 +19,13 @@ import { NuevaPersonaPage } from '../pages/rrhh/NuevaPersonaPage';
 import { DetallePersonaPage } from '../pages/rrhh/DetallePersonaPage';
 import { EditarPersonaPage } from '../pages/rrhh/EditarPersonaPage';
 
+// --- IMPORTACIONES DE USUARIOS CORREGIDAS ---
+import { UsuarioFormPage } from '../pages/usuarios/UsuarioFormPage';
+import { UsuariosLayout } from '../pages/usuarios/UsuariosLayout';
+import { UsuariosPage } from '../pages/usuarios/UsuariosPage';
+import { UsuariosGruposPage } from '../pages/usuarios/UsuariosGrupoPage'; // Nombre exacto del archivo
+import { GrupoFormPage } from '../pages/usuarios/GrupoFormPage'; // ¡ESTA IMPORTACIÓN FALTABA!
+
 const AppRouter = () => {
   return (
     <Router>
@@ -27,7 +34,23 @@ const AppRouter = () => {
         <Route path="/" element={<LoginPage />} />
         <Route path="/welcome" element={<WelcomePage />} />
 
-        {/* Nuevo Módulo de Recursos Humanos (Rutas protegidas por el Layout) */}
+        {/* ---------------------------------------------------- */}
+        {/* MÓDULO DE GESTIÓN DE USUARIOS                        */}
+        {/* ---------------------------------------------------- */}
+        <Route path="/usuarios" element={<UsuariosLayout />}>
+          <Route index element={<UsuariosPage />} />
+          <Route path="nuevo" element={<UsuarioFormPage />} />
+          <Route path="editar/:id" element={<UsuarioFormPage />} />
+          
+          <Route path="grupos" element={<UsuariosGruposPage />} /> 
+          
+          <Route path="grupos/nuevo" element={<GrupoFormPage />} />
+          <Route path="grupos/editar/:id" element={<GrupoFormPage />} />
+        </Route>
+
+        {/* ---------------------------------------------------- */}
+        {/* MÓDULO DE RECURSOS HUMANOS                           */}
+        {/* ---------------------------------------------------- */}
         <Route path="/rrhh" element={<RRHHLayout />}>
           {/* Se carga por defecto al entrar a /rrhh */}
           <Route index element={<div>Dashboard de RRHH</div>} />
