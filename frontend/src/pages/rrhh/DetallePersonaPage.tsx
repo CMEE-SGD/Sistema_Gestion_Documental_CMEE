@@ -11,7 +11,7 @@ interface DocumentoAdjunto {
     url: string;
 }
 
-export const PersonaDetallesPage = () => {
+export const DetallePersonaPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [persona, setPersona] = useState<Persona | null>(null);

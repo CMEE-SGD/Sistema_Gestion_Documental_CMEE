@@ -14,6 +14,10 @@ import { PuestosPage } from '../pages/rrhh/PuestosPage';
 import { NuevoPuestoPage } from '../pages/rrhh/NuevoPuestoPage';
 import { EditarPuestoPage } from '../pages/rrhh/EditarPuestoPage';
 import { DetallePuestoPage } from '../pages/rrhh/DetallePuestoPage';
+import { PersonasPage } from '../pages/rrhh/PersonasPage';
+import { NuevaPersonaPage } from '../pages/rrhh/NuevaPersonaPage';
+import { DetallePersonaPage } from '../pages/rrhh/DetallePersonaPage';
+import { EditarPersonaPage } from '../pages/rrhh/EditarPersonaPage';
 
 const AppRouter = () => {
   return (
@@ -41,7 +45,10 @@ const AppRouter = () => {
           <Route path="roles/nuevo" element={<NuevoRolPage />} />
           <Route path="roles/:id" element={<DetalleRolPage />} />
           <Route path="roles/editar/:id" element={<EditarRolPage />} />
-          <Route path="personas" element={<div>Vista de Personas</div>} />
+          <Route path="personas" element={<PersonasPage />} />
+          <Route path="personas/nuevo" element={<NuevaPersonaPage />} />
+          <Route path="personas/:id" element={<DetallePersonaPage />} />
+          <Route path="personas/editar/:id" element={<EditarPersonaPage />} />
           <Route path="personalizacion" element={<div>Configuración de RRHH</div>} />
         </Route>
       </Routes>

@@ -4,7 +4,7 @@ import { UserPlus, Info } from 'lucide-react';
 import api from '../../lib/axios';
 import { Persona } from '../../data/users'; // Ajusta la ruta a tu interfaz
 
-export const PersonaNuevaPage = () => {
+export const EditarPersonaPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
 
