@@ -22,6 +22,21 @@ export const DetalleGrupoPage = () => {
         fetchDetalle();
     }, [id]);
 
+    const handleEliminar = async () => {
+        const confirmar = window.confirm('¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?');
+        if (!confirmar) return;
+
+        try {
+            // Llama al método DELETE del controlador que ejecuta el soft delete (activo: false)
+            await api.delete(`/departamentos/${id}`);
+            alert('El recurso ha sido inactivado correctamente.');
+            navigate('/rrhh/grupos'); // Redirige de vuelta al listado principal
+        } catch (error) {
+            console.error('Error al inactivar el recurso', error);
+            alert('No se pudo desactivar el recurso. Inténtelo de nuevo.');
+        }
+    };
+
     if (loading) return <div className="p-4">Cargando...</div>;
     if (!departamento) return <div className="p-4">Grupo no encontrado.</div>;
 
@@ -39,7 +54,9 @@ export const DetalleGrupoPage = () => {
                 <button onClick={() => navigate(`/rrhh/grupos/editar/${departamento.id}`)} className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
                     Editar
                 </button>
-                <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Eliminar</button>
+                <button onClick={handleEliminar} className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+                    Eliminar
+                </button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Imprimir</button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Documentos</button>
             </div>

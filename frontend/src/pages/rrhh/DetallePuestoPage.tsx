@@ -8,6 +8,7 @@ export const DetallePuestoPage = () => {
     const [puesto, setPuesto] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
+
     useEffect(() => {
         const fetchPuesto = async () => {
             try {
@@ -24,6 +25,20 @@ export const DetallePuestoPage = () => {
 
     if (loading) return <div className="p-4">Cargando...</div>;
     if (!puesto) return <div className="p-4">Puesto no encontrado.</div>;
+    const handleEliminar = async () => {
+        const confirmar = window.confirm('¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?');
+        if (!confirmar) return;
+
+        try {
+            // Llama al método DELETE del controlador que ejecuta el soft delete (activo: false)
+            await api.delete(`/puestos/${id}`);
+            alert('El recurso ha sido inactivado correctamente.');
+            navigate('/rrhh/puestos'); // Redirige de vuelta al listado principal
+        } catch (error) {
+            console.error('Error al inactivar el recurso', error);
+            alert('No se pudo desactivar el recurso. Inténtelo de nuevo.');
+        }
+    };
 
     const HTMLRow = ({ label, htmlContent }: { label: string, htmlContent: string }) => (
         <div className="grid grid-cols-[250px_1fr] border-b border-gray-200 p-3 items-start min-h-[48px]">
@@ -47,7 +62,9 @@ export const DetallePuestoPage = () => {
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-2 mb-2">
                 <button onClick={() => navigate('/rrhh/puestos')} className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Atrás</button>
-                <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Eliminar</button>
+                <button onClick={handleEliminar} className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+                    Eliminar
+                </button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Nueva versión</button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Competencias</button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Imprimir</button>

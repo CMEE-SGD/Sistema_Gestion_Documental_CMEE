@@ -22,7 +22,7 @@ export interface Persona {
   nombre: string;
   apellidos: string;
   cedula_identidad: string;
-  fecha_nacimiento: string; // Generalmente llega como string ISO 8601 desde el backend
+  fecha_nacimiento: string; 
   sexo: string;
   domicilio: string;
   ciudad: string;
@@ -42,12 +42,23 @@ export interface Persona {
   created_at: string;
   updated_at: string;
 
-  // --- Campos calculados o relacionados ---
-  // Es muy probable que tu backend devuelva estos campos adicionales
-  // haciendo JOIN con otras tablas para pintar la vista principal.
-  puestos?: string[];
+  // --- Campos calculados o relacionados (JOINs) ---
   usuario?: string;
   esUsuarioExterno?: boolean;
+  
+  // Agregamos las relaciones que vienen de la base de datos
+  roles?: { 
+    id: number; 
+    nombre: string; 
+  }[];
+  
+  puestos?: {
+    id?: number;
+    departamento_id?: number | string;
+    puesto_id?: number | string;
+    departamento?: { id: number; nombre: string };
+    puesto?: { id: number; nombre: string };
+  }[];
 }
 
 export const currentUser: UserInfo = {

@@ -65,14 +65,39 @@ export const EditarRolPage = () => {
         }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+   const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await api.patch(`/roles/${id}`, formData);
+            // Construimos un "payload" limpio ÚNICAMENTE con los campos editables
+            // Ignorando id, created_at, updated_at y cualquier otro dato extra
+            const payload = {
+                codigo: formData.codigo,
+                nombre: formData.nombre,
+                funciones: formData.funciones,
+                educacion_indispensable: formData.educacion_indispensable,
+                educacion_deseable: formData.educacion_deseable,
+                formacion_indispensable: formData.formacion_indispensable,
+                formacion_deseable: formData.formacion_deseable,
+                capacidades_indispensable: formData.capacidades_indispensable,
+                capacidades_deseable: formData.capacidades_deseable,
+                experiencia_indispensable: formData.experiencia_indispensable,
+                experiencia_deseable: formData.experiencia_deseable,
+                orden: Number(formData.orden),
+                activo: Boolean(formData.activo)
+            };
+
+            await api.patch(`/roles/${id}`, payload);
             navigate(`/rrhh/roles/${id}`);
-        } catch (error) {
-            console.error('Error al actualizar', error);
-            alert('Error actualizando el rol');
+        } catch (error: any) {
+            // Mejoramos el log de error para poder leer el mensaje exacto que manda el backend
+            console.error('Detalle del error del backend:', error.response?.data || error);
+            
+            const mensajeBackend = error.response?.data?.message;
+            const mensajeAlerta = Array.isArray(mensajeBackend) 
+                ? mensajeBackend.join('\n') // Si el backend manda varios errores (ej: ["código muy corto", "nombre debe ser string"])
+                : mensajeBackend || 'Error al actualizar el rol';
+
+            alert(`Error 400 (Bad Request):\n${mensajeAlerta}`);
         }
     };
 

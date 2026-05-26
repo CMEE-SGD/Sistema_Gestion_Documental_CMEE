@@ -22,6 +22,10 @@ export const GruposPage = () => {
     const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // 1. ESTADOS PARA LOS FILTROS
+    const [palabraClave, setPalabraClave] = useState('');
+    const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo');
+
     useEffect(() => {
         cargarDepartamentos();
     }, []);
@@ -53,6 +57,24 @@ export const GruposPage = () => {
         return resultado;
     };
 
+    // 2. LÓGICA DE FILTRADO
+    const gruposFiltrados = departamentos.filter(dep => {
+        // Filtro por Estado
+        if (filtroEstado === 'activo' && !dep.activo) return false;
+        if (filtroEstado === 'inactivo' && dep.activo) return false;
+
+        // Filtro por Palabra Clave (Busca en nombre y código)
+        if (palabraClave) {
+            const busqueda = palabraClave.toLowerCase();
+            const textoGrupo = `${dep.nombre || ''} ${dep.codigo || ''}`.toLowerCase();
+            if (!textoGrupo.includes(busqueda)) {
+                return false;
+            }
+        }
+
+        return true; 
+    });
+
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 p-3 rounded border border-gray-200">
@@ -71,10 +93,33 @@ export const GruposPage = () => {
                     </button>
                 </div>
                 
-                <select className="p-1.5 text-sm border border-gray-300 rounded bg-white">
-                    <option>Sólo grupos activos</option>
-                    <option>Todos</option>
-                </select>
+                {/* 3. CUADRO DE FILTROS DINÁMICOS */}
+                <div className="flex items-center gap-4 ml-auto">
+                    <div className="flex items-center gap-2">
+                        <label htmlFor="filtroEstado" className="text-sm font-bold text-gray-700">Estado:</label>
+                        <select
+                            id="filtroEstado"
+                            value={filtroEstado}
+                            onChange={(e) => setFiltroEstado(e.target.value as 'activo' | 'inactivo' | 'todos')}
+                            className="p-1.5 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:border-blue-500"
+                        >
+                            <option value="activo">Sólo grupos activos</option>
+                            <option value="inactivo">Sólo grupos inactivos</option>
+                            <option value="todos">Todos</option>
+                        </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <label htmlFor="palabraClave" className="text-sm font-bold text-gray-700">Palabra clave:</label>
+                        <input 
+                            id="palabraClave"
+                            type="text" 
+                            className="border border-gray-300 rounded px-2 py-1.5 text-sm w-48 focus:outline-none focus:border-blue-500"
+                            value={palabraClave}
+                            onChange={(e) => setPalabraClave(e.target.value)}
+                        />
+                    </div>
+                </div>
             </div>
 
             <div className="overflow-x-auto border border-gray-200 rounded shadow-sm">
@@ -94,20 +139,22 @@ export const GruposPage = () => {
                                     Cargando estructura...
                                 </td>
                             </tr>
-                        ) : departamentos.length === 0 ? (
+                        ) : gruposFiltrados.length === 0 ? (
                             <tr>
                                 <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                                    No hay grupos registrados.
+                                    No se encontraron grupos con esos filtros.
                                 </td>
                             </tr>
                         ) : (
-                            departamentos.map((dep) => (
+                            // 4. MAPEO CON EL ARREGLO FILTRADO
+                            gruposFiltrados.map((dep) => (
                                 <tr 
                                     key={dep.id} 
                                     onClick={() => navigate(`/rrhh/grupos/${dep.id}`)}
-                                    className="hover:bg-gray-100 cursor-pointer transition-colors"
+                                    className={`hover:bg-gray-100 cursor-pointer transition-colors ${!dep.activo ? 'opacity-70 bg-gray-50' : ''}`}
                                 >
                                     <td className="px-4 py-2 flex items-center gap-2">
+                                        {/* Manteniendo la indentación jerárquica */}
                                         <span style={{ paddingLeft: `${(dep.nivel || 0) * 1.5}rem` }}></span>
                                         <Users className="w-4 h-4 text-blue-600" />
                                         <span className={dep.nivel === 0 ? 'font-bold' : ''}>
@@ -121,7 +168,6 @@ export const GruposPage = () => {
                                         </span>
                                     </td>
                                     <td className="px-4 py-2 text-center">
-                                        {/* AHORA LEE puestos_asignados */}
                                         {dep.puestos_asignados?.length || 0}
                                     </td>
                                 </tr>
