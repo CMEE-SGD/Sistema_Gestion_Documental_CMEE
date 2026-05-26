@@ -15,6 +15,41 @@ export interface UserInfo {
   avatar?: string;
 }
 
+export interface Persona {
+  id: number;
+  codigo: string;
+  saludo: string;
+  nombre: string;
+  apellidos: string;
+  cedula_identidad: string;
+  fecha_nacimiento: string; // Generalmente llega como string ISO 8601 desde el backend
+  sexo: string;
+  domicilio: string;
+  ciudad: string;
+  codigo_postal: string;
+  provincia: string;
+  telefono: string;
+  fax: string;
+  celular: string;
+  email_1: string;
+  email_2: string;
+  foto_ruta: string;
+  hoja_vida_ruta: string;
+  tipo_recurso: string;
+  fecha_alta: string;
+  idioma: string;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+
+  // --- Campos calculados o relacionados ---
+  // Es muy probable que tu backend devuelva estos campos adicionales
+  // haciendo JOIN con otras tablas para pintar la vista principal.
+  puestos?: string[];
+  usuario?: string;
+  esUsuarioExterno?: boolean;
+}
+
 export const currentUser: UserInfo = {
   id: 1,
   nombre: 'José Tomás',
