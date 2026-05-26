@@ -1,55 +1,47 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
 import api from '../../lib/axios';
-import { Persona } from '../../data/users';
+import { UserPlus, User } from 'lucide-react';
 
-// Interfaces para los catálogos basados en tu diagrama
-interface Departamento {
-    id: number | string;
-    nombre: string;
-}
+interface Departamento { id: number; nombre: string; }
+interface Puesto { id: number; nombre: string; }
+interface Rol { id: number; nombre: string; }
 
-interface Puesto {
-    id: number | string;
-    nombre: string;
-}
+// COMPONENTES AUXILIARES
+const InfoIcon = () => (
+    <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-b from-[#8eb8d5] to-[#4a84b5] text-white flex items-center justify-center text-[9px] font-bold font-serif shadow-sm shrink-0">
+        i
+    </div>
+);
 
-interface Rol {
-    id: number | string;
-    nombre: string;
-}
+const LabelRow = ({ label, requerido = false, children, mb = "mb-3" }: any) => (
+    <div className={`flex items-start ${mb}`}>
+        <div className="w-40 flex items-center gap-1.5 text-[11px] text-gray-800 shrink-0 pt-1">
+            <InfoIcon />
+            <span>{label} {requerido && <span>*</span>}</span>
+        </div>
+        <div className="flex-1">
+            {children}
+        </div>
+    </div>
+);
 
+// COMPONENTE PRINCIPAL
 export const NuevaPersonaPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     
-    // Estados para los catálogos obtenidos de la BD
     const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
     const [puestosLista, setPuestosLista] = useState<Puesto[]>([]);
     const [rolesLista, setRolesLista] = useState<Rol[]>([]);
 
-    // Estado inicial completo del formulario
-    const [formData, setFormData] = useState<Partial<Persona> & { rol_id: string, puestos_asignados: any[] }>({
-        codigo: '',
-        saludo: '',
-        nombre: '',
-        apellidos: '',
-        cedula_identidad: '',
-        fecha_nacimiento: '',
-        sexo: 'Hombre',
-        domicilio: '',
-        ciudad: '',
-        codigo_postal: '',
-        provincia: '',
-        telefono: '',
-        fax: '',
-        celular: '',
-        email_1: '',
-        email_2: '',
-        activo: true, // Por defecto el recurso está activo
-        tipo_recurso: 'Usuario del sistema',
-        rol_id: '',
+    const [formData, setFormData] = useState({
+        codigo: '', saludo: '', nombre: '', apellidos: '',
+        cedula_identidad: '', fecha_nacimiento: '', sexo: 'M',
+        domicilio: '', ciudad: '', codigo_postal: '', provincia: '',
+        telefono: '', fax: '', celular: '', email_1: '', email_2: '',
+        activo: true, tipo_recurso: 'Usuario del sistema',
+        roles: [] as number[], // AHORA ES UN ARREGLO DE ROLES
         puestos_asignados: [
             { departamento_id: '', puesto_id: '' },
             { departamento_id: '', puesto_id: '' },
@@ -57,21 +49,17 @@ export const NuevaPersonaPage = () => {
         ]
     });
 
-    // Cargar los catálogos al iniciar la página
     useEffect(() => {
         const fetchCatalogos = async () => {
             try {
                 const [resDeptos, resPuestos, resRoles] = await Promise.all([
-                    api.get('/departamentos'),
-                    api.get('/puestos'),
-                    api.get('/roles')
+                    api.get('/departamentos'), api.get('/puestos'), api.get('/roles')
                 ]);
-                
-                setDepartamentos(resDeptos.data);
-                setPuestosLista(resPuestos.data);
-                setRolesLista(resRoles.data);
+                if (Array.isArray(resDeptos.data)) setDepartamentos(resDeptos.data);
+                if (Array.isArray(resPuestos.data)) setPuestosLista(resPuestos.data);
+                if (Array.isArray(resRoles.data)) setRolesLista(resRoles.data);
             } catch (error) {
-                console.error('Error al cargar los catálogos', error);
+                console.error('Error al cargar catálogos', error);
             }
         };
         fetchCatalogos();
@@ -79,11 +67,8 @@ export const NuevaPersonaPage = () => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
-        
-        // Manejo especial para checkboxes
         if (type === 'checkbox') {
-            const checked = (e.target as HTMLInputElement).checked;
-            setFormData({ ...formData, [name]: checked });
+            setFormData({ ...formData, [name]: (e.target as HTMLInputElement).checked });
         } else {
             setFormData({ ...formData, [name]: value });
         }
@@ -95,253 +80,202 @@ export const NuevaPersonaPage = () => {
         setFormData({ ...formData, puestos_asignados: nuevosPuestos });
     };
 
+    // Función específica para manejar los checkboxes de los roles
+    const handleRoleToggle = (rolId: number) => {
+        setFormData(prev => ({
+            ...prev,
+            roles: prev.roles.includes(rolId)
+                ? prev.roles.filter(id => id !== rolId) // Si ya estaba, lo quita
+                : [...prev.roles, rolId] // Si no estaba, lo agrega
+        }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            // Nota: Si vas a enviar archivos (foto, hoja de vida), deberás convertir
-            // formData a un objeto FormData real de JavaScript (multipart/form-data) antes de enviarlo.
-            await api.post('/personas', formData);
+            const payload = {
+                ...formData,
+                fecha_nacimiento: formData.fecha_nacimiento ? new Date(formData.fecha_nacimiento).toISOString() : null,
+                puestos_asignados: formData.puestos_asignados
+                    .filter(p => p.departamento_id !== '' && p.puesto_id !== '')
+                    .map(p => ({
+                        departamento_id: Number(p.departamento_id),
+                        puesto_id: Number(p.puesto_id)
+                    }))
+            };
+
+            await api.post('/personas', payload);
             navigate('/rrhh/personas'); 
-        } catch (error) {
-            console.error('Error al crear la persona', error);
+        } catch (error: any) {
+            console.error(error.response?.data);
+            alert(`Error al crear: ${JSON.stringify(error.response?.data?.message || 'Error del servidor')}`);
         } finally {
             setLoading(false);
         }
     };
 
-    // Componente auxiliar para las etiquetas con el ícono 'i'
-    const LabelConIcono = ({ label, requerido = false }: { label: string, requerido?: boolean }) => (
-        <div className="w-48 flex items-center gap-2 text-xs text-gray-700 font-medium shrink-0">
-            <div className="w-3 h-3 rounded-full border border-green-600 text-green-600 flex items-center justify-center text-[8px] font-bold">i</div>
-            <label>{label} {requerido && <span className="text-red-500">*</span>}</label>
-        </div>
-    );
-
     return (
-        <div className="flex flex-col gap-4 bg-white min-h-screen">
-            {/* Cabecera */}
-            <div className="flex items-center justify-between border-b border-green-600 pb-2 pt-2 px-4">
-                <div className="flex items-center gap-2">
-                    <UserPlus className="w-5 h-5 text-gray-700" />
-                    <span className="font-bold text-sm text-gray-800">Nuevo recurso</span>
-                </div>
-                <div className="flex gap-2">
-                    <button type="button" onClick={() => navigate('/rrhh/personas')} className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Cancelar</button>
-                    <button onClick={handleSubmit} disabled={loading} className="px-4 py-1.5 text-sm bg-[#007b00] text-white rounded hover:bg-green-700 disabled:opacity-50">
-                        {loading ? 'Guardando...' : 'Guardar'}
-                    </button>
-                </div>
+        <div className="bg-white min-h-screen font-sans">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-300 text-sm">
+                <UserPlus className="w-5 h-5 text-blue-600" />
+                <span className="font-bold text-gray-800">Nuevo recurso</span>
             </div>
 
-            {/* Contenedor Principal */}
-            <div className="px-4 pb-8">
-                <div className="border border-gray-300 shadow-sm">
-                    <div className="bg-[#007b00] text-white font-bold px-3 py-1.5 text-xs">
+            <div className="p-4">
+                <div className="border border-gray-300">
+                    <div className="bg-[#006400] text-white font-bold px-4 py-2 text-xs">
                         Nuevo recurso
                     </div>
 
-                    <div className="bg-[#f0f0f0] border-l-4 border-[#007b00] p-6 flex flex-col gap-6">
-                        
-                        {/* SECCIÓN: DATOS PERSONALES */}
-                        <div>
-                            <h3 className="font-bold text-sm mb-4 border-b border-gray-300 pb-1 text-gray-800 underline">Datos personales</h3>
-                            <div className="flex flex-col gap-3">
-                                
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Código:" />
-                                    <input type="text" name="codigo" value={formData.codigo} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-48 focus:border-blue-500 outline-none bg-white" />
+                    <form onSubmit={handleSubmit} className="bg-[#f2f2f2] border-l-[6px] border-[#006400] text-[11px]">
+                        <div className="p-6">
+                            
+                            {/* --- DATOS PERSONALES --- */}
+                            <h3 className="font-bold text-[12px] mb-4 text-gray-900 underline">Datos personales</h3>
+                            
+                            <LabelRow label="Código:">
+                                <input type="text" name="codigo" value={formData.codigo} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-40 bg-white outline-none focus:border-blue-500" />
+                            </LabelRow>
+                            
+                            <LabelRow label="Saludo:">
+                                <select name="saludo" value={formData.saludo} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-48 bg-white outline-none focus:border-blue-500">
+                                    <option value="">Seleccione un saludo</option>
+                                    <option value="Sr.">Sr.</option>
+                                    <option value="Sra.">Sra.</option>
+                                    <option value="Ing.">Ing.</option>
+                                    <option value="Lic.">Lic.</option>
+                                </select>
+                            </LabelRow>
+                            
+                            <LabelRow label="Nombre:" requerido mb="mb-2">
+                                <input type="text" name="nombre" required value={formData.nombre} onChange={handleChange} className="border-2 border-black px-1.5 py-0.5 w-56 bg-white outline-none focus:border-blue-500" />
+                            </LabelRow>
+                            
+                            <LabelRow label="Apellidos:" requerido>
+                                <input type="text" name="apellidos" required value={formData.apellidos} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-80 bg-white outline-none focus:border-blue-500" />
+                            </LabelRow>
+                            
+                            <LabelRow label="C.I.:">
+                                <input type="text" name="cedula_identidad" value={formData.cedula_identidad} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-40 bg-white outline-none focus:border-blue-500" />
+                            </LabelRow>
+                            
+                            <LabelRow label="Fecha de nacimiento:">
+                                <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-32 bg-white outline-none focus:border-blue-500" />
+                            </LabelRow>
+                            
+                            <LabelRow label="Sexo:">
+                                <div className="flex items-center gap-4 mt-1">
+                                    <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name="sexo" value="M" checked={formData.sexo === 'M'} onChange={handleChange} /> Masculino</label>
+                                    <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name="sexo" value="F" checked={formData.sexo === 'F'} onChange={handleChange} /> Femenino</label>
                                 </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Saludo:" />
-                                    <select name="saludo" value={formData.saludo} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-48 focus:border-blue-500 outline-none bg-white">
-                                        <option value="">Seleccione un saludo</option>
-                                        <option value="Sr.">Sr.</option>
-                                        <option value="Sra.">Sra.</option>
-                                        <option value="Ing.">Ing.</option>
-                                        <option value="Lic.">Lic.</option>
-                                    </select>
+                            </LabelRow>
+                            
+                            <LabelRow label="Domicilio:">
+                                <input type="text" name="domicilio" value={formData.domicilio} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-96 bg-white outline-none focus:border-blue-500" />
+                            </LabelRow>
+                            
+                            <LabelRow label="Ciudad:">
+                                <input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-64 bg-white outline-none focus:border-blue-500" />
+                            </LabelRow>
+                            
+                            <LabelRow label="Código postal:">
+                                <input type="text" name="codigo_postal" value={formData.codigo_postal} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-24 bg-white outline-none focus:border-blue-500" />
+                            </LabelRow>
+                            
+                            <LabelRow label="Provincia:">
+                                <input type="text" name="provincia" value={formData.provincia} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-80 bg-white outline-none focus:border-blue-500" />
+                            </LabelRow>
+                            
+                            <LabelRow label="Teléfono:">
+                                <div className="flex items-center gap-4">
+                                    <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-24 bg-white outline-none focus:border-blue-500" />
+                                    <span>Fax:</span>
+                                    <input type="text" name="fax" value={formData.fax} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-24 bg-white outline-none focus:border-blue-500" />
+                                    <span>Celular:</span>
+                                    <input type="text" name="celular" value={formData.celular} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-24 bg-white outline-none focus:border-blue-500" />
                                 </div>
+                            </LabelRow>
+                            
+                            <div className="mt-4">
+                                <LabelRow label="E-mail 1:">
+                                    <input type="email" name="email_1" value={formData.email_1} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-80 bg-white outline-none focus:border-blue-500" />
+                                </LabelRow>
+                                <LabelRow label="E-mail 2:">
+                                    <input type="email" name="email_2" value={formData.email_2} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-80 bg-white outline-none focus:border-blue-500" />
+                                </LabelRow>
+                            </div>
 
-                                {/* Select Dinámico de Rol */}
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Rol de usuario:" requerido />
-                                    <select 
-                                        name="rol_id" 
-                                        value={formData.rol_id} 
-                                        onChange={handleChange} 
-                                        required
-                                        className="border-2 border-gray-400 px-2 py-1 text-xs w-48 focus:border-blue-500 outline-none bg-white"
-                                    >
-                                        <option value="">Seleccione un rol</option>
-                                        {rolesLista.map((rol) => (
-                                            <option key={rol.id} value={rol.id}>{rol.nombre}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Nombre:" requerido />
-                                    <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} required className="border-2 border-gray-400 px-2 py-1 text-xs w-64 focus:border-blue-500 outline-none bg-white" />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Apellidos:" requerido />
-                                    <input type="text" name="apellidos" value={formData.apellidos} onChange={handleChange} required className="border border-gray-300 px-2 py-1 text-xs w-64 focus:border-blue-500 outline-none bg-white" />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="C.I.:" />
-                                    <input type="text" name="cedula_identidad" value={formData.cedula_identidad} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-48 focus:border-blue-500 outline-none bg-white" />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Fecha de nacimiento:" />
-                                    <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-32 focus:border-blue-500 outline-none bg-white" />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Sexo:" />
-                                    <div className="flex items-center gap-4 text-xs">
-                                        <label className="flex items-center gap-1 cursor-pointer">
-                                            <input type="radio" name="sexo" value="Hombre" checked={formData.sexo === 'Hombre'} onChange={handleChange} /> Hombre
-                                        </label>
-                                        <label className="flex items-center gap-1 cursor-pointer">
-                                            <input type="radio" name="sexo" value="Mujer" checked={formData.sexo === 'Mujer'} onChange={handleChange} /> Mujer
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Domicilio:" />
-                                    <input type="text" name="domicilio" value={formData.domicilio} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-80 focus:border-blue-500 outline-none bg-white" />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Ciudad:" />
-                                    <input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-48 focus:border-blue-500 outline-none bg-white" />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Código postal:" />
-                                    <input type="text" name="codigo_postal" value={formData.codigo_postal} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-24 focus:border-blue-500 outline-none bg-white" />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Provincia:" />
-                                    <input type="text" name="provincia" value={formData.provincia} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-64 focus:border-blue-500 outline-none bg-white" />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="Teléfono:" />
-                                    <div className="flex items-center gap-4">
-                                        <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-32 focus:border-blue-500 outline-none bg-white" />
-                                        
-                                        <span className="text-xs text-gray-700">Fax:</span>
-                                        <input type="text" name="fax" value={formData.fax} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-32 focus:border-blue-500 outline-none bg-white" />
-                                        
-                                        <span className="text-xs text-gray-700">Celular:</span>
-                                        <input type="text" name="celular" value={formData.celular} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-32 focus:border-blue-500 outline-none bg-white" />
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center mt-2">
-                                    <LabelConIcono label="E-mail 1:" />
-                                    <input type="email" name="email_1" value={formData.email_1} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-80 focus:border-blue-500 outline-none bg-white" />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <LabelConIcono label="E-mail 2:" />
-                                    <input type="email" name="email_2" value={formData.email_2} onChange={handleChange} className="border border-gray-300 px-2 py-1 text-xs w-80 focus:border-blue-500 outline-none bg-white" />
-                                </div>
-
-                                {/* Fotografía */}
-                                <div className="flex items-start mt-4">
-                                    <LabelConIcono label="Fotografía:" />
-                                    <div className="flex flex-col gap-2">
-                                        <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                                            <input type="checkbox" /> Mostrar ampliación en listado
-                                        </label>
-                                    </div>
-                                </div>
-
-                                {/* Carga de Ficheros de Imagen */}
-                                <div className="flex items-start">
-                                    <LabelConIcono label="Fichero:" />
-                                    <div className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-2">
-                                            <input type="file" accept="image/*" className="text-xs" />
-                                        </div>
-                                        <span className="text-[10px] text-gray-500">dimensiones recomendadas 61px x 84px</span>
-                                    </div>
-                                </div>
-
-                                {/* Estado Activo */}
-                                <div className="flex items-center mt-2">
-                                    <LabelConIcono label="Estado del recurso:" />
-                                    <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                                        <input 
-                                            type="checkbox" 
-                                            name="activo" 
-                                            checked={formData.activo} 
-                                            onChange={handleChange} 
-                                        /> 
-                                        Recurso Activo en el sistema
-                                    </label>
-                                </div>
-
-                                {/* Hoja de Vida (Archivo PDF/Word) */}
-                                <div className="flex items-center border-t border-b border-gray-300 py-3 my-2">
-                                    <div className="w-48 text-xs text-gray-700 pl-4 font-medium">Hoja de Vida:</div>
-                                    <input type="file" accept=".pdf,.doc,.docx" className="text-xs bg-white border border-gray-300 px-2 py-1 w-80" />
+                            <div className="flex items-center gap-2 mt-4 mb-2">
+                                <div className="w-40"><img src="https://cdn-icons-png.flaticon.com/128/1374/1374128.png" className="w-4 inline mr-1" alt="img"/> Fotografía:</div>
+                                <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" /> Mostrar ampliación en listado</label>
+                            </div>
+                            <div className="flex items-start gap-2 mb-6">
+                                <div className="w-40"><img src="https://cdn-icons-png.flaticon.com/128/711/711186.png" className="w-4 inline mr-1" alt="file"/> Fichero:</div>
+                                <div>
+                                    <input type="file" className="text-[10px]" />
+                                    <div className="text-[9px] mt-1 text-black font-semibold">dimensiones Recomendadas 61px x 84px</div>
                                 </div>
                             </div>
-                        </div>
+                            
+                            <div className="border-t border-b border-gray-300 py-3 mb-6 flex items-center">
+                                <div className="w-40 font-bold">Hoja de Vida:</div>
+                                <input type="text" readOnly placeholder="Ver adjunto" className="border border-gray-300 px-2 py-1 w-96 bg-white outline-none cursor-default" />
+                            </div>
 
-                        {/* SECCIÓN: PUESTOS */}
-                        <div>
-                            <h3 className="font-bold text-sm mb-4 border-b border-gray-300 pb-1 text-gray-800 underline">Puestos</h3>
-                            <div className="flex flex-col gap-2 pl-4">
+                            {/* --- PUESTOS --- */}
+                            <h3 className="font-bold text-[12px] mb-4 text-gray-900 underline">Puestos</h3>
+                            <div className="flex flex-col gap-5 mb-8">
                                 {formData.puestos_asignados.map((asignacion, index) => (
-                                    <div key={index} className="flex items-center gap-4 mb-1">
-                                        <div className="flex items-center gap-2 w-24">
-                                            <span className="text-xs text-gray-700">Puesto {index + 1}:</span>
+                                    <div key={index} className="flex items-start">
+                                        <div className="w-40 flex items-center gap-1 shrink-0 pt-1">
+                                            <User className="w-4 h-4 fill-blue-800 text-blue-800" />
+                                            <span>Puesto {index + 1}:</span>
                                         </div>
-                                        
-                                        {/* Select Dinámico de Departamento */}
-                                        <select 
-                                            value={asignacion.departamento_id}
-                                            onChange={(e) => handlePuestoChange(index, 'departamento_id', e.target.value)}
-                                            className="border border-gray-300 px-2 py-1 text-xs w-48 bg-white outline-none focus:border-blue-500"
-                                        >
-                                            <option value="">Seleccione un departamento</option>
-                                            {departamentos.map((dep) => (
-                                                <option key={dep.id} value={dep.id}>
-                                                    {dep.nombre}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        {/* Select Dinámico de Puesto */}
-                                        <select 
-                                            value={asignacion.puesto_id}
-                                            onChange={(e) => handlePuestoChange(index, 'puesto_id', e.target.value)}
-                                            className="border border-gray-300 px-2 py-1 text-xs w-48 bg-white outline-none focus:border-blue-500"
-                                        >
-                                            <option value="">Seleccione un puesto</option>
-                                            {puestosLista.map((puesto) => (
-                                                <option key={puesto.id} value={puesto.id}>
-                                                    {puesto.nombre}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="flex flex-col gap-1.5">
+                                            <select value={asignacion.departamento_id} onChange={(e) => handlePuestoChange(index, 'departamento_id', e.target.value)} className="border border-gray-300 px-1.5 py-0.5 w-64 bg-white outline-none focus:border-blue-500">
+                                                <option value="">Seleccione un departamento</option>
+                                                {departamentos.map(dep => (<option key={dep.id} value={dep.id}>{dep.nombre}</option>))}
+                                            </select>
+                                            <select value={asignacion.puesto_id} onChange={(e) => handlePuestoChange(index, 'puesto_id', e.target.value)} className="border border-gray-300 px-1.5 py-0.5 w-64 bg-white outline-none focus:border-blue-500">
+                                                <option value="">Seleccione cargo</option>
+                                                {puestosLista.map(puesto => (<option key={puesto.id} value={puesto.id}>{puesto.nombre}</option>))}
+                                            </select>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                        </div>
 
-                    </div>
+                            {/* --- ROLES --- */}
+                            <div className="border-t border-gray-300 pt-4 mb-8">
+                                <h3 className="font-bold text-[12px] mb-4 underline">Roles</h3>
+                                <div className="flex flex-col gap-3">
+                                    {rolesLista.map((rol) => (
+                                        <label key={rol.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-200 p-1 w-max rounded">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={formData.roles.includes(rol.id)} 
+                                                onChange={() => handleRoleToggle(rol.id)} 
+                                                className="w-3 h-3"
+                                            />
+                                            <User className="w-4 h-4 fill-blue-800 text-blue-800" />
+                                            <span>{rol.nombre}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                        </div>
+                        
+                        <div className="bg-white border-t border-gray-300 p-4 flex gap-2">
+                            <button type="submit" disabled={loading} className="bg-[#006699] text-white px-4 py-1 rounded hover:bg-blue-800 font-bold disabled:opacity-50">
+                                {loading ? 'Cargando...' : 'Aceptar'}
+                            </button>
+                            <button type="button" onClick={() => navigate('/rrhh/personas')} className="bg-white border border-gray-400 px-4 py-1 rounded hover:bg-gray-100 text-gray-800">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

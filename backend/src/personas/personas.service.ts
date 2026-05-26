@@ -8,7 +8,7 @@ export class PersonasService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createPersonaDto: CreatePersonaDto) {
-    const { roleIds, ...personaData } = createPersonaDto;
+    const { roles, puestos_asignados, ...personaData } = createPersonaDto;
 
     if (personaData.cedula_identidad) {
       const existeCedula = await this.prisma.persona.findUnique({ where: { cedula_identidad: personaData.cedula_identidad } });
@@ -24,17 +24,34 @@ export class PersonasService {
       data: {
         ...personaData,
         fecha_nacimiento: personaData.fecha_nacimiento ? new Date(personaData.fecha_nacimiento) : null,
-        // Conecta los múltiples roles en la tabla intermedia implícita
-        roles: roleIds ? { connect: roleIds.map(id => ({ id })) } : undefined,
+        
+        roles: roles?.length > 0 ? {
+          connect: roles.map(id => ({ id }))
+        } : undefined,
+
+        // CORRECCIÓN: Usamos connect para las llaves foráneas y agregamos orden_puesto
+        puestos: puestos_asignados?.length > 0 ? {
+          create: puestos_asignados.map((puesto, index) => ({
+            orden_puesto: index + 1,
+            departamento: { connect: { id: puesto.departamento_id } },
+            puesto: { connect: { id: puesto.puesto_id } }
+          }))
+        } : undefined
       },
-      include: { roles: true },
+      include: { 
+        roles: true,
+        puestos: true
+      },
     });
   }
 
   findAll() {
     return this.prisma.persona.findMany({
       where: { activo: true },
-      include: { roles: { select: { id: true, nombre: true } } },
+      include: { 
+        roles: { select: { id: true, nombre: true } },
+        puestos: { include: { puesto: true, departamento: true } }
+      },
     });
   }
 
@@ -43,7 +60,7 @@ export class PersonasService {
       where: { id },
       include: { 
         roles: { select: { id: true, nombre: true } },
-        puestos: { include: { puesto: true, departamento: true } } // Trae su historial de puestos asignados
+        puestos: { include: { puesto: true, departamento: true } } 
       },
     });
     if (!persona) throw new NotFoundException(`Persona con ID ${id} no encontrada`);
@@ -52,17 +69,33 @@ export class PersonasService {
 
   async update(id: number, updatePersonaDto: UpdatePersonaDto) {
     await this.findOne(id);
-    const { roleIds, ...personaData } = updatePersonaDto;
+    const { roles, puestos_asignados, ...personaData } = updatePersonaDto;
+
+    if (puestos_asignados) {
+      await this.prisma.personaPuesto.deleteMany({ where: { persona_id: id } });
+    }
 
     return this.prisma.persona.update({
       where: { id },
       data: {
         ...personaData,
         fecha_nacimiento: personaData.fecha_nacimiento ? new Date(personaData.fecha_nacimiento) : undefined,
-        // Reemplaza por completo el arreglo de roles anterior por el nuevo
-        roles: roleIds ? { set: roleIds.map(id => ({ id })) } : undefined,
+        
+        roles: roles ? { set: roles.map(id => ({ id })) } : undefined,
+
+        // CORRECCIÓN: Aplicamos la misma estructura de connect y orden_puesto
+        puestos: puestos_asignados ? {
+          create: puestos_asignados.map((puesto, index) => ({
+            orden_puesto: index + 1,
+            departamento: { connect: { id: puesto.departamento_id } },
+            puesto: { connect: { id: puesto.puesto_id } }
+          }))
+        } : undefined
       },
-      include: { roles: true },
+      include: { 
+        roles: true,
+        puestos: { include: { puesto: true, departamento: true } }
+      },
     });
   }
 

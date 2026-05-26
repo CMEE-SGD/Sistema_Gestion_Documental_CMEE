@@ -24,10 +24,16 @@ export class CreatePersonaDto {
     @ApiPropertyOptional({ default: 'Idioma por defecto del centro' }) @IsOptional() @IsString() @MaxLength(50) idioma?: string;
     @ApiPropertyOptional({ default: true }) @IsOptional() @IsBoolean() activo?: boolean;
 
-    // Recibe los IDs de los roles seleccionados en la UI
+    // Coincide con la clave "roles" que envía el Frontend
     @ApiPropertyOptional({ example: [1, 2], description: 'Arreglo de IDs de roles a asignar' })
     @IsOptional()
     @IsArray()
     @IsInt({ each: true })
-    roleIds?: number[];
+    roles?: number[];
+
+    // Coincide con la clave "puestos_asignados" que envía el Frontend
+    @ApiPropertyOptional({ description: 'Arreglo de objetos con departamento_id y puesto_id' })
+    @IsOptional()
+    @IsArray()
+    puestos_asignados?: { departamento_id: number, puesto_id: number }[];
 }

@@ -13,10 +13,9 @@ export const PersonasPage = () => {
     useEffect(() => {
         const fetchPersonas = async () => {
             try {
-                // Ajusta la ruta del endpoint según tu backend
                 const response = await api.get('/personas');
                 
-                // Ordenar por apellidos por defecto (como sugiere la flecha en la imagen)
+                // Ordenar por apellidos por defecto
                 const ordenados = response.data.sort((a: Persona, b: Persona) => 
                     (a.apellidos || '').localeCompare(b.apellidos || '')
                 );
@@ -67,7 +66,7 @@ export const PersonasPage = () => {
                     </button>
                 </div>
 
-                {/* Buscador alineado a la derecha como en la imagen */}
+                {/* Buscador alineado a la derecha */}
                 <div className="flex items-center gap-2">
                     <label htmlFor="palabraClave" className="text-sm text-gray-700">Palabra clave:</label>
                     <input 
@@ -137,28 +136,34 @@ export const PersonasPage = () => {
                                         <span className="font-medium text-gray-800">{persona.apellidos}</span>
                                     </td>
 
-                                    {/* Nombre (adaptado a tu BD) */}
+                                    {/* Nombre */}
                                     <td className="px-4 py-3 text-gray-700 align-middle">
                                         {persona.nombre}
                                     </td>
 
-                                    {/* Puestos */}
-                                    <td className="px-4 py-3 text-gray-700 align-middle">
+                                    {/* Puestos (CORREGIDO PARA EVITAR ERROR DE REACT) */}
+                                    <td className="px-4 py-3 text-gray-700 align-middle whitespace-normal">
                                         <div className="flex flex-col gap-1">
-                                            {persona.puestos && persona.puestos.map((puesto, index) => (
-                                                <span key={index}>{puesto}</span>
-                                            ))}
+                                            {persona.puestos && persona.puestos.length > 0 ? (
+                                                persona.puestos.map((p: any, index: number) => (
+                                                    <span key={index} className="text-xs bg-gray-100 px-2 py-1 rounded w-max">
+                                                        {p.puesto?.nombre} <span className="text-gray-500">({p.departamento?.nombre})</span>
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-gray-400 italic text-xs">Sin puestos asignados</span>
+                                            )}
                                         </div>
                                     </td>
 
                                     {/* Usuario */}
                                     <td className="px-4 py-3 align-middle">
-                                        <span className={persona.usuario === 'Usuario externo' || persona.esUsuarioExterno ? "text-green-600" : "text-gray-800"}>
-                                            {persona.usuario || '-'}
+                                        <span className={persona.usuario === 'Usuario externo' || (persona as any).esUsuarioExterno ? "text-green-600" : "text-gray-800"}>
+                                            {typeof persona.usuario === 'string' ? persona.usuario : '-'}
                                         </span>
                                     </td>
 
-                                    {/* Estado (usando el booleano 'activo' de la BD) */}
+                                    {/* Estado */}
                                     <td className="px-4 py-3 align-middle text-gray-800">
                                         {persona.activo ? 'Activo' : 'Inactivo'}
                                     </td>
