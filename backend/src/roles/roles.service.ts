@@ -16,7 +16,6 @@ export class RolesService {
 
   findAll() {
     return this.prisma.rol.findMany({ 
-      where: { activo: true },
       orderBy: { orden: 'asc' } 
     });
   }

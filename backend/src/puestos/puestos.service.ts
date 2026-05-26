@@ -18,7 +18,6 @@ export class PuestosService {
 
   findAll() {
     return this.prisma.puesto.findMany({
-      where: { activo: true },
       orderBy: { orden: 'asc' },
       include: {
         padre: { select: { id: true, nombre: true } },

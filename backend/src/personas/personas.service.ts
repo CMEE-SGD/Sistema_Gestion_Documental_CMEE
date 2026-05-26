@@ -47,7 +47,6 @@ export class PersonasService {
 
   findAll() {
     return this.prisma.persona.findMany({
-      where: { activo: true },
       include: { 
         roles: { select: { id: true, nombre: true } },
         puestos: { include: { puesto: true, departamento: true } }
