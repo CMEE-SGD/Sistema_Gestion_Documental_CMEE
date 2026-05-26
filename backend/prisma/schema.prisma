@@ -235,3 +235,103 @@ model Grupo {
 
   @@map("grupo")
 }
+// =========================================================================
+// MÓDULO 2: GESTIÓN DOCUMENTAL (Biblioteca, Carpetas y Archivos)
+// =========================================================================
+
+enum TipoNivelCarpeta {
+  LIBRERIA     // Nivel 1 (Raíz principal)
+  AREA         // Nivel 2
+  SUBCARPETA   // Nivel 3 en adelante (Nivel infinito recursivo)
+}
+
+model Carpeta {
+  id               Int              @id @default(autoincrement())
+  nombre           String           // Ej: "DOCUMENTOS EXTERNOS", "Calibración"
+  tipo             TipoNivelCarpeta @default(SUBCARPETA)
+  orden            Int              @default(0)
+  activo           Boolean          @default(true)
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+
+  // Jerarquía Auto-referenciada (Árbol/Organigrama de carpetas)
+  carpeta_padre_id Int?
+  carpeta_padre    Carpeta?         @relation("JerarquiaCarpetas", fields: [carpeta_padre_id], references: [id], onDelete: Cascade)
+  subcarpetas      Carpeta[]        @relation("JerarquiaCarpetas")
+  
+  // Relaciones estructurales
+  documentos       Documento[]
+  permisos         CarpetaPermiso[]
+
+  @@map("carpetas")
+}
+
+model Documento {
+  id               Int       @id @default(autoincrement())
+  codigo           String?   // Ej: "GD2.1.F3-2"
+  nombre           String    // Ej: "Lista Maestra de Documentos"
+  archivo_url      String    // Ruta física o almacenamiento en la nube del archivo
+  version          String?   // Ej: "1", "2"
+  orden            Int       @default(0)
+  activo           Boolean   @default(true)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  // Carpeta contenedora
+  carpeta_id       Int
+  carpeta          Carpeta   @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
+
+  // Relaciones entre documentos (Botón: Relaciones de documentos)
+  documentos_origen  DocumentoRelacion[] @relation("DocOrigen")
+  documentos_destino DocumentoRelacion[] @relation("DocDestino")
+
+  @@map("documentos")
+}
+
+model DocumentoRelacion {
+  id               Int       @id @default(autoincrement())
+  doc_origen_id    Int
+  doc_destino_id   Int
+  tipo_relacion    String?   // Ej: "Sustituye a", "Anexo de", "Complementa a"
+
+  doc_origen       Documento @relation("DocOrigen", fields: [doc_origen_id], references: [id], onDelete: Cascade)
+  doc_destino      Documento @relation("DocDestino", fields: [doc_destino_id], references: [id], onDelete: Cascade)
+
+  @@map("documentos_relaciones")
+}
+
+// -------------------------------------------------------------------------
+// ROLES Y SEGURIDAD EXCLUSIVA DE LA BIBLIOTECA DOCUMENTAL
+// -------------------------------------------------------------------------
+
+model RolCarpeta {
+  id          Int      @id @default(autoincrement())
+  nombre      String   // Ej: "Solo Lector", "Editor de Área", "Administrador Documental"
+  descripcion String?
+  
+  // Nivel de Privilegios asignado (1 al 5):
+  // 1: Ver | 2: Ver y Descargar | 3: Ver, Descargar y Editar 
+  // 4: Ver, Descargar, Editar y Mover | 5: Todos los privilegios (+Eliminar)
+  nivel       Int      @default(1) 
+  
+  activo      Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  permisos    CarpetaPermiso[]
+
+  @@map("roles_carpetas")
+}
+
+model CarpetaPermiso {
+  id               Int        @id @default(autoincrement())
+  carpeta_id       Int
+  rol_carpeta_id   Int
+
+  carpeta          Carpeta    @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
+  rol_carpeta      RolCarpeta @relation(fields: [rol_carpeta_id], references: [id], onDelete: Cascade)
+
+  // Restricción única para no duplicar un mismo rol en una misma carpeta
+  @@unique([carpeta_id, rol_carpeta_id])
+  @@map("carpetas_permisos")
+}
