@@ -11,25 +11,25 @@ datasource db {
 // 1. ROL
 // ==========================================
 model Rol {
-  id                        Int       @id @default(autoincrement())
-  codigo                    String    @unique @db.VarChar(20)
-  nombre                    String    @db.VarChar(150)
-  funciones                 String?   @db.Text
-  educacion_indispensable   String?   @db.Text
-  educacion_deseable        String?   @db.Text
-  formacion_indispensable   String?   @db.Text
-  formacion_deseable        String?   @db.Text
-  capacidades_indispensable String?   @db.Text
-  capacidades_deseable      String?   @db.Text
-  experiencia_indispensable String?   @db.Text
-  experiencia_deseable      String?   @db.Text
-  orden                     Int?      @default(0) @db.SmallInt
-  activo                    Boolean   @default(true)
-  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  id                        Int      @id @default(autoincrement())
+  codigo                    String   @unique @db.VarChar(20)
+  nombre                    String   @db.VarChar(150)
+  funciones                 String?  @db.Text
+  educacion_indispensable   String?  @db.Text
+  educacion_deseable        String?  @db.Text
+  formacion_indispensable   String?  @db.Text
+  formacion_deseable        String?  @db.Text
+  capacidades_indispensable String?  @db.Text
+  capacidades_deseable      String?  @db.Text
+  experiencia_indispensable String?  @db.Text
+  experiencia_deseable      String?  @db.Text
+  orden                     Int?     @default(0) @db.SmallInt
+  activo                    Boolean  @default(true)
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relación N:M con Persona
-  personas                  Persona[] @relation("PersonaRoles")
+  personas Persona[] @relation("PersonaRoles")
 
   @@map("rol")
 }
@@ -38,11 +38,11 @@ model Rol {
 // 2. DEPARTAMENTO
 // ==========================================
 model Departamento {
-  id             Int     @id @default(autoincrement())
-  codigo         String  @unique @db.VarChar(20)
-  nombre         String  @db.VarChar(200)
-  tipo           String  @default("Departamento") @db.VarChar(50)
-  descripcion    String? @db.Text
+  id          Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(20)
+  nombre      String  @db.VarChar(200)
+  tipo        String  @default("Departamento") @db.VarChar(50)
+  descripcion String? @db.Text
 
   // Jerarquía recursiva
   dependencia_id Int?
@@ -68,24 +68,24 @@ model Departamento {
 // 3. PUESTO
 // ==========================================
 model Puesto {
-  id                             Int     @id @default(autoincrement())
-  codigo                         String  @unique @db.VarChar(20)
-  nombre                         String  @db.VarChar(200)
-  educacion                      String? @db.Text
-  formacion                      String? @db.Text
-  habilidad                      String? @db.Text
-  experiencia                    String? @db.Text
-  conocimiento_tecnico           String? @db.Text
-  calificacion                   String? @db.Text
-  autoridad                      String? @db.Text
-  responsabilidades              String? @db.Text
-  funcion_principal              String? @db.Text
-  funciones_alternas             String? @db.Text
-  funciones                      String? @db.Text
-  perfil_educacion_indispensable String? @db.Text
-  perfil_formacion_deseable      String? @db.Text
-  perfil_capacidades_deseable    String? @db.Text
-  perfil_experiencia_deseable    String? @db.Text
+  id                             Int      @id @default(autoincrement())
+  codigo                         String   @unique @db.VarChar(20)
+  nombre                         String   @db.VarChar(200)
+  educacion                      String?  @db.Text
+  formacion                      String?  @db.Text
+  habilidad                      String?  @db.Text
+  experiencia                    String?  @db.Text
+  conocimiento_tecnico           String?  @db.Text
+  calificacion                   String?  @db.Text
+  autoridad                      String?  @db.Text
+  responsabilidades              String?  @db.Text
+  funcion_principal              String?  @db.Text
+  funciones_alternas             String?  @db.Text
+  funciones                      String?  @db.Text
+  perfil_educacion_indispensable String?  @db.Text
+  perfil_formacion_deseable      String?  @db.Text
+  perfil_capacidades_deseable    String?  @db.Text
+  perfil_experiencia_deseable    String?  @db.Text
 
   // Jerarquía recursiva
   dependencia_id Int?
@@ -136,11 +136,11 @@ model Persona {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relaciones inversas
-  usuario            Usuario?
-  puestos            PersonaPuesto[]
-  documentos         DocumentoPersona[]
+  usuario          Usuario?
+  puestos          PersonaPuesto[]
+  documentos       DocumentoPersona[]
   deptos_responsable Departamento[]     @relation("DeptoResponsable")
-  roles              Rol[]              @relation("PersonaRoles") // N:M con Rol
+  roles            Rol[]              @relation("PersonaRoles") // N:M con Rol
 
   @@map("persona")
 }
@@ -149,19 +149,19 @@ model Persona {
 // 5. USUARIO
 // ==========================================
 model Usuario {
-  id             Int     @id @default(autoincrement())
-  persona_id     Int     @unique
-  persona        Persona @relation(fields: [persona_id], references: [id], onDelete: Cascade)
-  
+  id         Int     @id @default(autoincrement())
+  persona_id Int     @unique
+  persona    Persona @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+
   // -- Tab 1: Nuevo usuario --
-  nombre_usuario   String    @unique @db.VarChar(80)
-  fecha_caducidad  DateTime? @db.Date
-  estado_cuenta    Boolean   @default(true)
-  bloqueado        Boolean   @default(false)
-  grupos           Grupo[]   @relation("UsuarioGrupos")
+  nombre_usuario  String    @unique @db.VarChar(80)
+  fecha_caducidad DateTime? @db.Date
+  estado_cuenta   Boolean   @default(true)
+  bloqueado       Boolean   @default(false)
+  grupos          Grupo[]   @relation("UsuarioGrupos")
 
   // -- Tab 2: Clave --
-  password_hash                String  @db.VarChar(255)
+  password_hash              String  @db.VarChar(255)
   cambiar_clave_proxima_sesion Boolean @default(false)
 
   // -- Tab 3: Configuración --
@@ -175,21 +175,22 @@ model Usuario {
   @@index([nombre_usuario])
   @@map("usuario")
 }
+
 // ==========================================
 // 6. PERSONA_PUESTO
 // ==========================================
 model PersonaPuesto {
-  id               Int      @id @default(autoincrement())
-  
-  persona_id       Int
-  persona          Persona  @relation(fields: [persona_id], references: [id], onDelete: Cascade)
-  
-  puesto_id        Int
-  puesto           Puesto   @relation(fields: [puesto_id], references: [id], onDelete: Restrict)
-  
-  departamento_id  Int
-  departamento     Departamento @relation(fields: [departamento_id], references: [id], onDelete: Restrict)
-  
+  id Int @id @default(autoincrement())
+
+  persona_id Int
+  persona    Persona @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+
+  puesto_id Int
+  puesto    Puesto @relation(fields: [puesto_id], references: [id], onDelete: Restrict)
+
+  departamento_id Int
+  departamento    Departamento @relation(fields: [departamento_id], references: [id], onDelete: Restrict)
+
   orden_puesto     Int      @db.SmallInt
   fecha_asignacion DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
   activo           Boolean  @default(true)
@@ -219,22 +220,70 @@ model DocumentoPersona {
   @@map("documento_persona")
 }
 
-
 // ==========================================
-// 8. GRUPO (Solo tabla base por ahora)
+// 8. GRUPO
 // ==========================================
 model Grupo {
-  id          Int       @id @default(autoincrement())
-  nombre      String    @unique @db.VarChar(100)
-  descripcion String?   @db.Text
-  activo      Boolean   @default(true)
-  usuarios    Usuario[] @relation("UsuarioGrupos")
-  
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  id          Int     @id @default(autoincrement())
+  nombre      String  @unique @db.VarChar(100)
+  descripcion String? @db.Text
+  activo      Boolean @default(true)
+
+  // Relación N:M implícita con Usuarios
+  usuarios Usuario[] @relation("UsuarioGrupos")
+
+  // Relación 1:N hacia la tabla intermedia para los niveles por aplicación
+  aplicaciones GrupoAplicacion[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("grupo")
 }
+
+// ==========================================
+// 9. APLICACION (Catálogo de Módulos)
+// ==========================================
+model Aplicacion {
+  id          Int     @id @default(autoincrement())
+  nombre      String  @unique @db.VarChar(100) // Ej: "Recursos Humanos", "Gestor Documental"
+  descripcion String? @db.Text
+  activo      Boolean @default(true)
+
+  // Relación inversa a la tabla intermedia
+  grupos GrupoAplicacion[]
+
+  @@map("aplicacion")
+}
+
+// ==========================================
+// 10. GRUPO_APLICACION (Tabla Intermedia)
+// ==========================================
+model GrupoAplicacion {
+  id Int @id @default(autoincrement())
+
+  grupo_id Int
+  grupo    Grupo @relation(fields: [grupo_id], references: [id], onDelete: Cascade)
+
+  aplicacion_id Int
+  aplicacion    Aplicacion @relation(fields: [aplicacion_id], references: [id], onDelete: Cascade)
+
+  // Aquí guardamos el nivel de permiso según el PDF (1 al 5)
+  nivel Int @db.SmallInt
+
+  // El orden de aparición en el menú (ej: 510, 40, 20)
+  orden Int? @default(0) @db.SmallInt
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Un grupo no puede tener la misma aplicación asignada dos veces
+  @@unique([grupo_id, aplicacion_id])
+  @@index([grupo_id])
+  @@index([aplicacion_id])
+  @@map("grupo_aplicacion")
+}
+
 // =========================================================================
 // MÓDULO 2: GESTIÓN DOCUMENTAL (Biblioteca, Carpetas y Archivos)
 // =========================================================================
