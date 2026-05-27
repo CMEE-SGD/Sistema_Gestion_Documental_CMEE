@@ -1,26 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import { CreateCarpetaDto } from './dto/create-carpeta.dto';
 import { UpdateCarpetaDto } from './dto/update-carpeta.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CarpetasService {
+  constructor(private prisma: PrismaService) {}
+
   create(createCarpetaDto: CreateCarpetaDto) {
-    return 'This action adds a new carpeta';
+    // Guarda la carpeta en la base de datos
+    return this.prisma.carpeta.create({
+      data: createCarpetaDto,
+    });
   }
 
   findAll() {
-    return `This action returns all carpetas`;
+    // Devuelve todas las carpetas
+    return this.prisma.carpeta.findMany();
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} carpeta`;
+    return this.prisma.carpeta.findUnique({
+      where: { id },
+    });
   }
 
   update(id: number, updateCarpetaDto: UpdateCarpetaDto) {
-    return `This action updates a #${id} carpeta`;
+    return this.prisma.carpeta.update({
+      where: { id },
+      data: updateCarpetaDto,
+    });
   }
 
   remove(id: number) {
-    return `This action removes a #${id} carpeta`;
+    return this.prisma.carpeta.delete({
+      where: { id },
+    });
   }
 }

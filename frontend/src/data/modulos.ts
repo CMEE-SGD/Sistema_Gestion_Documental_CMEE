@@ -11,7 +11,7 @@ export const modules: Module[] = [
   { id: 1, name: "Dashboard", category: "General", path: "/dashboard" },
   { id: 2, name: "Gestion de Usuarios", category: "Administracion", path: "/usuarios" },
   { id: 3, name: "Roles y Permisos", category: "Administracion", path: "/roles" },
-  { id: 4, name: "Reportes", category: "Analisis", path: "/reportes" },
+  { id: 4, name: 'Gestor Documental', category: "Administracion", path: '/gestordocumental'},
   { id: 5, name: "Facturacion", category: "Finanzas", path: "/facturacion" },
   { id: 6, name: "Inventario", category: "Almacen", path: "/inventario" },
   { id: 7, name: "Proveedores", category: "Compras", path: "/proveedores" },

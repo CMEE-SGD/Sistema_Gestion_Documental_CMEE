@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import LoginPage from '../pages/LoginPage'; 
-import WelcomePage from '../pages/Index'; 
+import LoginPage from '../pages/LoginPage';
+import WelcomePage from '../pages/Index';
 import { IndexRRHHPage } from '@/pages/rrhh/index';
 import { RRHHLayout } from '../pages/rrhh/RRHHLayout';
 import { GruposPage } from '../pages/rrhh/GruposPage';
@@ -27,6 +27,10 @@ import { UsuariosPage } from '../pages/usuarios/UsuariosPage';
 import { UsuariosGruposPage } from '../pages/usuarios/UsuariosGrupoPage'; // Nombre exacto del archivo
 import { GrupoFormPage } from '../pages/usuarios/GrupoFormPage'; // ¡ESTA IMPORTACIÓN FALTABA!
 
+//-----------------Gestor Documental-----------------
+import { GestorDocumentalPage } from '../pages/gestorDocumental/index';
+import { NuevaCarpetaPage } from '../pages/gestorDocumental/NuevaCarpetaPage';
+
 const AppRouter = () => {
   return (
     <Router>
@@ -42,9 +46,9 @@ const AppRouter = () => {
           <Route index element={<UsuariosPage />} />
           <Route path="nuevo" element={<UsuarioFormPage />} />
           <Route path="editar/:id" element={<UsuarioFormPage />} />
-          
-          <Route path="grupos" element={<UsuariosGruposPage />} /> 
-          
+
+          <Route path="grupos" element={<UsuariosGruposPage />} />
+
           <Route path="grupos/nuevo" element={<GrupoFormPage />} />
           <Route path="grupos/editar/:id" element={<GrupoFormPage />} />
         </Route>
@@ -53,7 +57,7 @@ const AppRouter = () => {
         {/* MÓDULO DE RECURSOS HUMANOS                           */}
         {/* ---------------------------------------------------- */}
         <Route path="/rrhh" element={<RRHHLayout />}>
-          <Route index element={<IndexRRHHPage/>}/>
+          <Route index element={<IndexRRHHPage />} />
           <Route path="grupos" element={<GruposPage />} />
           <Route path="grupos/nuevo" element={<NuevoGrupoPage />} />
           <Route path="grupos/:id" element={<DetalleGrupoPage />} />
@@ -72,6 +76,10 @@ const AppRouter = () => {
           <Route path="personas/editar/:id" element={<EditarPersonaPage />} />
           <Route path="personalizacion" element={<div>Configuración de RRHH</div>} />
         </Route>
+
+        {/* Gestor Documental */}
+        <Route path="/gestordocumental" element={<GestorDocumentalPage />} />
+        <Route path="/gestordocumental/nueva-carpeta" element={<NuevaCarpetaPage />} />
       </Routes>
     </Router>
   );

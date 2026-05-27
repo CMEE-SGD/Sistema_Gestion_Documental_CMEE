@@ -21,6 +21,12 @@ const ModuleIcon = ({ name }: { name: string }) => {
       <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8">
         <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
       </svg>
+    ),
+    // AÑADIDO: Ícono para el Gestor Documental (Forma de Carpeta/Archivo)
+    'Gestor Documental': (
+      <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8">
+        <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+      </svg>
     )
   };
 
@@ -38,7 +44,8 @@ const ModuleIcon = ({ name }: { name: string }) => {
 const favorites = [
   'Dashboard',
   'Gestion de Usuarios', 
-  'Recursos Humanos'
+  'Recursos Humanos',
+  'Gestor Documental' // AÑADIDO A FAVORITOS
 ];
 
 // 3. Colores para cada módulo
@@ -46,6 +53,7 @@ const getBgColor = (name: string) => {
   if (name === 'Gestion de Usuarios') return '#2185d0'; // Azul
   if (name === 'Recursos Humanos') return '#C9A800'; // Dorado
   if (name === 'Dashboard') return '#9E9E9E'; // Gris
+  if (name === 'Gestor Documental') return '#16a085'; // AÑADIDO: Verde azulado (Teal) para diferenciarlo
   return '#4a5568'; // Color genérico para los demás
 };
 
