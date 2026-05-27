@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LoginPage from '../pages/LoginPage'; 
 import WelcomePage from '../pages/Index'; 
+import { IndexRRHHPage } from '@/pages/rrhh/index';
 import { RRHHLayout } from '../pages/rrhh/RRHHLayout';
 import { GruposPage } from '../pages/rrhh/GruposPage';
 import { NuevoGrupoPage } from '../pages/rrhh/NuevoGrupoPage';
@@ -52,10 +53,7 @@ const AppRouter = () => {
         {/* MÓDULO DE RECURSOS HUMANOS                           */}
         {/* ---------------------------------------------------- */}
         <Route path="/rrhh" element={<RRHHLayout />}>
-          {/* Se carga por defecto al entrar a /rrhh */}
-          <Route index element={<div>Dashboard de RRHH</div>} />
-          
-          {/* Vistas hijas que aparecerán junto al menú lateral */}
+          <Route index element={<IndexRRHHPage/>}/>
           <Route path="grupos" element={<GruposPage />} />
           <Route path="grupos/nuevo" element={<NuevoGrupoPage />} />
           <Route path="grupos/:id" element={<DetalleGrupoPage />} />
