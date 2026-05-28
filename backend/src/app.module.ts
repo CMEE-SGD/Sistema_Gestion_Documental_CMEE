@@ -11,6 +11,7 @@ import { CarpetasModule } from './carpetas/carpetas.module';
 import { DocumentosModule } from './documentos/documentos.module';
 import { GruposModule } from './grupos/grupos.module';
 import { AplicacionesModule } from './aplicaciones/aplicaciones.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AplicacionesModule } from './aplicaciones/aplicaciones.module';
     DocumentosModule,
     GruposModule,
     AplicacionesModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [],

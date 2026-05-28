@@ -19,13 +19,14 @@ import { PersonasPage } from '../pages/rrhh/PersonasPage';
 import { NuevaPersonaPage } from '../pages/rrhh/NuevaPersonaPage';
 import { DetallePersonaPage } from '../pages/rrhh/DetallePersonaPage';
 import { EditarPersonaPage } from '../pages/rrhh/EditarPersonaPage';
+import AccesoDenegadoPage from '../pages/AccesoDenegadoPage';
 
 // --- IMPORTACIONES DE USUARIOS CORREGIDAS ---
 import { UsuarioFormPage } from '../pages/usuarios/UsuarioFormPage';
 import { UsuariosLayout } from '../pages/usuarios/UsuariosLayout';
 import { UsuariosPage } from '../pages/usuarios/UsuariosPage';
-import { UsuariosGruposPage } from '../pages/usuarios/UsuariosGrupoPage'; // Nombre exacto del archivo
-import { GrupoFormPage } from '../pages/usuarios/GrupoFormPage'; // ¡ESTA IMPORTACIÓN FALTABA!
+import { UsuariosGruposPage } from '../pages/usuarios/UsuariosGrupoPage';
+import { GrupoFormPage } from '../pages/usuarios/GrupoFormPage';
 
 //-----------------Gestor Documental-----------------
 import { GestorDocumentalPage } from '../pages/gestorDocumental/index';
@@ -38,6 +39,7 @@ const AppRouter = () => {
         {/* Rutas base existentes */}
         <Route path="/" element={<LoginPage />} />
         <Route path="/welcome" element={<WelcomePage />} />
+        <Route path="/403" element={<AccesoDenegadoPage />} />
 
         {/* ---------------------------------------------------- */}
         {/* MÓDULO DE GESTIÓN DE USUARIOS                        */}
