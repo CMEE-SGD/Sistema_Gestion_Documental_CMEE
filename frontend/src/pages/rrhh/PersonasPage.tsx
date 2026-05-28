@@ -58,7 +58,10 @@ export const PersonasPage = () => {
             {/* Barra de herramientas y acciones */}
             <div className="flex flex-wrap items-center justify-between gap-4 p-3 border-b border-gray-300 bg-gray-50">
                 <div className="flex flex-wrap items-center gap-1.5">
-                    <button className="px-2.5 py-1 text-[11px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm">
+                    <button 
+                        onClick={() => navigate('/rrhh')}
+                        className="px-2.5 py-1 text-[11px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm"
+                    >
                         Atrás
                     </button>
                     <button 

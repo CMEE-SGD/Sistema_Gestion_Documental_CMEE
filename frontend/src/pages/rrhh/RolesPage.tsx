@@ -52,7 +52,12 @@ export const RolesPage = () => {
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2 bg-gray-50 p-3 rounded border border-gray-200">
-                <button className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Atrás</button>
+                <button 
+                    onClick={() => navigate('/rrhh')}
+                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                >
+                    Atrás
+                </button>
                 <button 
                     onClick={() => navigate('/rrhh/roles/nuevo')}
                     className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"

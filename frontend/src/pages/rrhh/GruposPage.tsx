@@ -79,7 +79,8 @@ export const GruposPage = () => {
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 p-3 rounded border border-gray-200">
                 <div className="flex gap-2">
-                    <button className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+                    <button onClick={() => navigate('/rrhh')}
+                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
                         Atrás
                     </button>
                     <button 
