@@ -2,11 +2,12 @@ import { Injectable, ConflictException, NotFoundException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
+import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsuariosService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService, private readonly jwtService: JwtService) { }
 
   async create(createUsuarioDto: CreateUsuarioDto) {
     const { persona_id, nombre_usuario, clave, fecha_caducidad, grupoIds, ...configData } = createUsuarioDto;
@@ -152,9 +153,10 @@ export class UsuariosService {
 
     // Retornar usuario sin password_hash
     const { password_hash, ...result } = usuario;
+    const payload = { sub: usuario.id };
     return {
       ...result,
-      token: `${usuario.id}-${usuario.nombre_usuario}` // Token simple para desarrollo
+      token: this.jwtService.sign(payload)
     };
   }
 

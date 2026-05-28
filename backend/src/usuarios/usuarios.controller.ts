@@ -4,6 +4,10 @@ import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { LoginDto } from './dto/login.dto';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AccessGuard } from '../auth/guards/access.guard';
+import { RequireAccess } from '../auth/decorators/access.decorator';
 
 @ApiTags('Usuarios')
 @Controller('usuarios')
@@ -17,12 +21,16 @@ export class UsuariosController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Gestion de Usuarios', 5)
   @ApiOperation({ summary: 'Crear usuario con clave encriptada' })
   create(@Body() createUsuarioDto: CreateUsuarioDto) {
     return this.usuariosService.create(createUsuarioDto);
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Gestion de Usuarios', 1)
   @ApiOperation({ summary: 'Listar usuarios activos' })
   findAll() {
     return this.usuariosService.findAll();
