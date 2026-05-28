@@ -1,0 +1,201 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Settings, FolderPlus, Search, LayoutGrid, Folder, Menu, ChevronRight, ChevronDown } from 'lucide-react';
+import api from '../../lib/axios';
+
+export const SidebarGestorDocumental = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    const [carpetas, setCarpetas] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    const [expandedFolders, setExpandedFolders] = useState<Record<number, boolean>>({});
+
+    // 1. Memorizamos la función en el Sidebar
+    const fetchDatos = useCallback(async () => {
+        try {
+            const res = await api.get('/carpetas');
+            setCarpetas(Array.isArray(res.data) ? res.data : []);
+        } catch (error) {
+            console.error("Error al cargar la biblioteca:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // 2. Efecto seguro
+    useEffect(() => {
+        fetchDatos();
+
+        window.addEventListener('refreshCarpetas', fetchDatos);
+        return () => window.removeEventListener('refreshCarpetas', fetchDatos);
+    }, [fetchDatos]);
+
+    // 2. EFECTO NUEVO: Sincronizar el menú lateral cuando cambia la URL desde el visor central
+    useEffect(() => {
+
+        if (carpetas.length === 0) return;
+
+        // Extraemos el ID de la carpeta actual desde la URL
+        const match = location.pathname.match(/\/carpeta\/(\d+)/);
+        if (!match) return; // Si estamos en la raíz, no hacemos nada
+
+        const activeFolderId = parseInt(match[1], 10);
+
+        // Rastrear todos los padres de la carpeta actual hacia arriba
+        const getAncestors = (folderId: number) => {
+            const ancestors: number[] = [];
+            let current = carpetas.find(c => c.id === folderId);
+
+            while (current && current.carpeta_padre_id) {
+                ancestors.push(current.carpeta_padre_id);
+                current = carpetas.find(c => c.id === current.carpeta_padre_id);
+            }
+            return ancestors;
+        };
+
+        const ancestorsToOpen = getAncestors(activeFolderId);
+
+        // Actualizamos el estado para abrir automáticamente esos padres
+        setExpandedFolders(prev => {
+            const newState = { ...prev };
+            let hasChanges = false;
+
+            ancestorsToOpen.forEach(id => {
+                if (!newState[id]) {
+                    newState[id] = true;
+                    hasChanges = true;
+                }
+            });
+
+            return hasChanges ? newState : prev;
+        });
+
+    }, [location.pathname, carpetas]); // Se ejecuta cada vez que navegas o se cargan las carpetas
+
+    // Función para desplegar/contraer una carpeta manualmente con la flecha
+    const toggleFolder = (id: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setExpandedFolders(prev => ({
+            ...prev,
+            [id]: !prev[id]
+        }));
+    };
+
+    // Función recursiva para dibujar el árbol
+    const RenderTree = ({ parentId, depth = 0 }: { parentId: number | null, depth?: number }) => {
+        const children = parentId === null
+            ? carpetas.filter(c => c.tipo === 'LIBRERIA')
+            : carpetas.filter(c => c.carpeta_padre_id === parentId);
+
+        if (children.length === 0) return null;
+
+        return (
+            <div className={`flex flex-col ${depth > 0 ? 'ml-4 pl-2 border-l border-gray-200' : ''}`}>
+                {children.map(carpeta => {
+                    const isActive = location.pathname.includes(`/gestordocumental/carpeta/${carpeta.id}`);
+                    const isExpanded = expandedFolders[carpeta.id];
+                    const hasChildren = carpetas.some(c => c.carpeta_padre_id === carpeta.id);
+
+                    return (
+                        <div key={carpeta.id} className="flex flex-col mt-1">
+                            <div
+                                onClick={() => navigate(`/gestordocumental/carpeta/${carpeta.id}`)}
+                                className={`flex items-center gap-1.5 font-medium py-1.5 px-2 rounded cursor-pointer transition-colors ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                            >
+                                {hasChildren ? (
+                                    <button
+                                        onClick={(e) => toggleFolder(carpeta.id, e)}
+                                        className="p-0.5 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-700 transition-colors"
+                                    >
+                                        {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                                    </button>
+                                ) : (
+                                    <div className="w-4 h-4 shrink-0" />
+                                )}
+
+                                <Folder className={`w-4 h-4 shrink-0 fill-current ${isActive ? 'text-blue-600' : 'text-gray-800'}`} />                                <span className="truncate text-xs">{carpeta.nombre}</span>
+                            </div>
+
+                            {isExpanded && <RenderTree parentId={carpeta.id} depth={depth + 1} />}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
+    return (
+        <aside
+            className={`${sidebarOpen ? 'w-72 border-r' : 'w-12 border-r'
+                } transition-all duration-300 ease-in-out bg-white shrink-0 overflow-hidden border-gray-200 relative shadow-sm z-10`}
+        >
+            <div className="w-72 h-full absolute top-0 left-0 flex flex-col">
+
+                <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50 h-12">
+                    <button
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                        className="p-1.5 hover:bg-gray-200 rounded text-gray-600 transition-colors"
+                        title={sidebarOpen ? "Ocultar panel" : "Mostrar panel"}
+                    >
+                        <Menu className="w-5 h-5 shrink-0" />
+                    </button>
+
+                    {sidebarOpen && (
+                        <span className="font-bold text-xs text-gray-500 uppercase tracking-wider mr-2">
+                            Menú Documental
+                        </span>
+                    )}
+                </div>
+
+                <div className={`p-3 flex flex-col gap-3 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                    <div className="flex items-center gap-1">
+                        <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors" title="Configuración">
+                            <Settings className="w-4 h-4 text-gray-600" />
+                        </button>
+                        <button
+                            onClick={() => navigate('/gestordocumental/nueva-carpeta')}
+                            className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"
+                            title="Nueva carpeta"
+                        >
+                            <FolderPlus className="w-4 h-4 text-gray-600" />
+                        </button>
+                        <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors" title="Buscar">
+                            <Search className="w-4 h-4 text-gray-600" />
+                        </button>
+                        <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors" title="Ver esquema">
+                            <LayoutGrid className="w-4 h-4 text-gray-600" />
+                        </button>
+                    </div>
+
+                    <button className="w-full py-1.5 px-3 text-xs bg-gray-50 border border-gray-300 rounded hover:bg-gray-100 text-gray-700 font-medium transition-all shadow-sm">
+                        Relaciones de documentos
+                    </button>
+
+                    <input
+                        type="text"
+                        placeholder="Filtrar..."
+                        className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-500"
+                    />
+
+                    <div className="flex flex-col gap-1 mt-2 overflow-y-auto pb-20">
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Estructura Documental</h4>
+
+                        {loading ? (
+                            <span className="text-xs text-gray-400 italic">Cargando estructura...</span>
+                        ) : carpetas.length === 0 ? (
+                            <div className="text-xs text-gray-400 italic py-1">
+                                No hay carpetas registradas.
+                            </div>
+                        ) : (
+                            <RenderTree parentId={null} />
+                        )}
+                    </div>
+                </div>
+            </div>
+        </aside>
+    );
+};

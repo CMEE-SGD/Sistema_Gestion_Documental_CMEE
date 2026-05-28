@@ -1,174 +1,166 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Settings, FolderPlus, Search, LayoutGrid, HelpCircle, Folder } from 'lucide-react';
-import Navbar from '../../components/Navbar'; 
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { HelpCircle, Folder, FileSignature } from 'lucide-react';
 import api from '../../lib/axios';
 
 export const GestorDocumentalPage = () => {
     const navigate = useNavigate();
-    
-    // Estados
-    const [carpetas, setCarpetas] = useState<any[]>([]);
-    const [documentos, setDocumentos] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    
-    // Carpeta actual en la que el usuario ha hecho clic
-    const [carpetaSeleccionada, setCarpetaSeleccionada] = useState<any>(null);
-    const [ordenarPor, setOrdenarPor] = useState<'alfabetico' | 'orden'>('orden');
+    const { id } = useParams();
 
-    // 1. Cargar las carpetas desde la base de datos al iniciar la página
-    useEffect(() => {
-        const fetchDatos = async () => {
-            try {
-                const res = await api.get('/carpetas');
-                setCarpetas(Array.isArray(res.data) ? res.data : []);
-            } catch (error) {
-                console.error("Error al cargar la biblioteca:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchDatos();
+    const [carpetas, setCarpetas] = useState<any[]>([]);
+    const [documentos, setDocumentos] = useState<any[]>([]); // Para el futuro, cuando agregues archivos
+    const [loading, setLoading] = useState(true);
+
+    // Controles de la vista de árbol
+    const [ordenarPor, setOrdenarPor] = useState<'alfabetico' | 'orden'>('orden');
+    const [expandedFolders, setExpandedFolders] = useState<Record<number, boolean>>({});
+
+    const fetchDatos = useCallback(async () => {
+        try {
+            setLoading(true);
+            const res = await api.get('/carpetas');
+            setCarpetas(Array.isArray(res.data) ? res.data : []);
+        } catch (error) {
+            console.error("Error al cargar la biblioteca:", error);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    // 2. Lógica de visualización:
-    // Raíces para el menú lateral (Librerías)
-    const librerias = carpetas.filter(c => c.tipo === 'LIBRERIA');
-    
-    // Lo que se muestra en el centro: 
-    // Si hay una carpeta seleccionada, mostramos sus hijas. Si no, mostramos las librerías raíz.
-    const contenidoCentral = carpetaSeleccionada 
-        ? carpetas.filter(c => c.carpeta_padre_id === carpetaSeleccionada.id)
-        : librerias;
+    useEffect(() => {
+        fetchDatos();
+        window.addEventListener('refreshCarpetas', fetchDatos);
+        return () => window.removeEventListener('refreshCarpetas', fetchDatos);
+    }, [fetchDatos]);
+
+    // Expandir automáticamente la carpeta de la URL (opcional)
+    useEffect(() => {
+        if (id) {
+            setExpandedFolders(prev => ({ ...prev, [parseInt(id)]: true }));
+        }
+    }, [id]);
+
+    const carpetaSeleccionada = id ? carpetas.find(c => c.id.toString() === id) : null;
+
+    const handleAtras = () => {
+        if (!carpetaSeleccionada) return;
+        if (carpetaSeleccionada.carpeta_padre_id) {
+            navigate(`/gestordocumental/carpeta/${carpetaSeleccionada.carpeta_padre_id}`);
+        } else {
+            navigate('/gestordocumental');
+        }
+    };
+
+    // Función para ordenar las carpetas
+    const sortItems = (items: any[]) => {
+        return [...items].sort((a, b) => {
+            if (ordenarPor === 'alfabetico') {
+                return a.nombre.localeCompare(b.nombre);
+            }
+            return (a.orden || 0) - (b.orden || 0);
+        });
+    };
+
+    // --- RENDERIZADO RECURSIVO DEL ÁRBOL (Estilo Imagen) ---
+    const RenderTreeView = ({ parentId, depth = 0 }: { parentId: number | null, depth?: number }) => {
+        // Filtrar hijas o raíces
+        const rawChildren = parentId === null
+            ? carpetas.filter(c => c.tipo === 'LIBRERIA')
+            : carpetas.filter(c => c.carpeta_padre_id === parentId);
+
+        const children = sortItems(rawChildren);
+
+        if (children.length === 0) return null;
+
+        return (
+            <div className="flex flex-col">
+                {children.map(carpeta => {
+                    const isExpanded = expandedFolders[carpeta.id];
+                    // Validar si tiene subcarpetas para permitir expandir
+                    const hasChildren = carpetas.some(c => c.carpeta_padre_id === carpeta.id);
+
+                    return (
+                        <div key={carpeta.id} className="flex flex-col">
+                            <div
+                                className="flex items-center gap-2 py-1 hover:bg-blue-50 cursor-pointer rounded px-2 w-max transition-colors"
+                                onClick={() => {
+                                    // Al hacer clic, navegamos y expandimos
+                                    navigate(`/gestordocumental/carpeta/${carpeta.id}`);
+                                    if (hasChildren) {
+                                        setExpandedFolders(prev => ({ ...prev, [carpeta.id]: !prev[carpeta.id] }));
+                                    }
+                                }}
+                            >
+                                {/* Espaciado e Identador visual "L..." */}
+                                <div style={{ paddingLeft: `${depth * 24}px` }} className="flex items-center">
+                                    {depth > 0 && (
+                                        <span className="text-gray-300 font-mono text-xs tracking-widest mr-2 select-none">
+                                            L...
+                                        </span>
+                                    )}
+                                    {/* Carpeta negra estilo sistema clásico */}
+                                    <Folder className="w-4 h-4 text-gray-800 fill-current shrink-0" />
+                                </div>
+
+                                {/* Nombre de la carpeta */}
+                                <span className={`text-sm text-gray-900 ${depth === 0 ? 'uppercase font-bold' : 'font-semibold'}`}>
+                                    {carpeta.nombre}
+                                </span>
+                            </div>
+
+                            {/* Dibujar hijas si está expandida o si es la raíz (opcional) */}
+                            {isExpanded && <RenderTreeView parentId={carpeta.id} depth={depth + 1} />}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-100 text-sm">
-            <Navbar />
+        <div className="flex flex-col w-full h-full bg-white p-2">
 
-            {/* Sub-Header */}
-            <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200 shadow-sm">
-                <div className="flex items-center gap-2">
-                    <div className="p-1 bg-[#c9a800] rounded text-white">
-                        <FolderPlus className="w-4 h-4" />
-                    </div>
-                    <span className="font-semibold text-gray-700 text-base">Biblioteca de Documentos</span>
-                </div>
+            {/* Controles de Ordenamiento */}
+            <div className="flex items-center gap-4 mb-6 px-2">
+                <span className="font-bold text-sm text-gray-900">Ordenar por:</span>
+                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                    <input
+                        type="radio"
+                        name="ordenarPor"
+                        value="alfabetico"
+                        checked={ordenarPor === 'alfabetico'}
+                        onChange={() => setOrdenarPor('alfabetico')}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    Nombre alfabéticamente
+                </label>
+                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                    <input
+                        type="radio"
+                        name="ordenarPor"
+                        value="orden"
+                        checked={ordenarPor === 'orden'}
+                        onChange={() => setOrdenarPor('orden')}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    Orden
+                </label>
             </div>
 
-            <div className="flex flex-1 bg-white">
-                
-                {/* --- PANEL LATERAL IZQUIERDO --- */}
-                <aside className="w-72 border-r border-gray-200 bg-white p-3 flex flex-col gap-3 shrink-0">
-                    
-                    <div className="flex items-center gap-1">
-                        <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors" title="Configuración">
-                            <Settings className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <button 
-                            onClick={() => navigate('/gestordocumental/nueva-carpeta')}
-                            className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors" 
-                            title="Nueva carpeta"
-                        >
-                            <FolderPlus className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors" title="Buscar">
-                            <Search className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors" title="Ver esquema">
-                            <LayoutGrid className="w-4 h-4 text-gray-600" />
-                        </button>
+            {/* Árbol Principal */}
+            <div className="overflow-auto bg-white rounded-lg pb-10">
+                {loading ? (
+                    <div className="flex justify-center text-gray-400 p-10">Cargando árbol documental...</div>
+                ) : carpetas.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center text-gray-400 gap-3 border-2 border-dashed border-gray-200 rounded-xl p-10">
+                        <HelpCircle className="w-10 h-10 text-gray-300" />
+                        <p className="text-sm font-medium">La biblioteca está vacía.</p>
                     </div>
-
-                    <button className="w-full py-1.5 px-3 text-xs bg-gray-50 border border-gray-300 rounded hover:bg-gray-100 text-gray-700 font-medium transition-all shadow-sm">
-                        Relaciones de documentos
-                    </button>
-
-                    <input 
-                        type="text" 
-                        placeholder="Filtrar..." 
-                        className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-500"
-                    />
-
-                    {/* Árbol Dinámico de Librerías */}
-                    <div className="flex flex-col gap-1 mt-2">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Librerías principales</h4>
-                        
-                        {loading ? (
-                            <span className="text-xs text-gray-400 italic">Cargando estructura...</span>
-                        ) : librerias.length === 0 ? (
-                            <div className="text-xs text-gray-400 italic py-1">
-                                No hay carpetas registradas.
-                            </div>
-                        ) : (
-                            librerias.map(lib => (
-                                <div 
-                                    key={lib.id}
-                                    onClick={() => setCarpetaSeleccionada(lib)}
-                                    className={`flex items-center gap-2 font-medium py-1.5 px-2 rounded cursor-pointer transition-colors ${
-                                        carpetaSeleccionada?.id === lib.id ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    <Folder className={`w-4 h-4 ${carpetaSeleccionada?.id === lib.id ? 'text-blue-600' : 'text-yellow-600'}`} />
-                                    <span className="truncate">{lib.nombre}</span>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </aside>
-
-                {/* --- VISOR CENTRAL DERECHO --- */}
-                <main className="flex-1 p-6 bg-white">
-                    
-                    {/* Migas de pan (Breadcrumb) */}
-                    <div className="mb-6 pb-2 border-b border-gray-200">
-                        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                            <Folder className="w-5 h-5 text-yellow-500" />
-                            {carpetaSeleccionada ? carpetaSeleccionada.nombre : 'Directorio Raíz'}
-                        </h2>
-                        {carpetaSeleccionada && (
-                            <button 
-                                onClick={() => setCarpetaSeleccionada(null)}
-                                className="text-xs text-blue-600 hover:underline mt-1"
-                            >
-                                ← Volver a la raíz
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Renderizado de Subcarpetas */}
-                    {loading ? (
-                        <div className="text-center text-gray-400 mt-10">Cargando elementos...</div>
-                    ) : contenidoCentral.length === 0 && documentos.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-64 text-gray-400 gap-2 border-2 border-dashed border-gray-100 rounded-lg bg-gray-50/50">
-                            <HelpCircle className="w-8 h-8 text-gray-300" />
-                            <p className="text-sm font-medium">Esta carpeta está vacía.</p>
-                            <button 
-                                onClick={() => navigate('/gestordocumental/nueva-carpeta')}
-                                className="text-blue-600 hover:underline text-xs mt-2"
-                            >
-                                + Crear nueva carpeta aquí
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {/* Pintamos las carpetas hijas */}
-                            {contenidoCentral.map(carpeta => (
-                                <div 
-                                    key={carpeta.id}
-                                    onClick={() => setCarpetaSeleccionada(carpeta)}
-                                    className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:shadow-md cursor-pointer hover:border-blue-300 transition-all bg-gray-50 group"
-                                >
-                                    <Folder className="w-8 h-8 text-yellow-500 flex-shrink-0 group-hover:text-yellow-600" />
-                                    <div className="overflow-hidden">
-                                        <p className="font-semibold text-gray-700 truncate" title={carpeta.nombre}>{carpeta.nombre}</p>
-                                        <p className="text-xs text-gray-500 truncate">{carpeta.tipo}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </main>
-
+                ) : (
+                    // Si estamos en una carpeta específica, podemos optar por mostrar solo sus hijas o todo el árbol.
+                    // Según la imagen, se muestra todo el árbol desde las raíces.
+                    <RenderTreeView parentId={null} />
+                )}
             </div>
         </div>
     );

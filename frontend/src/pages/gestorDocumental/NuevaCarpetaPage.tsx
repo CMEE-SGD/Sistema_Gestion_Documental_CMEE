@@ -102,6 +102,7 @@ export const NuevaCarpetaPage = () => {
             };
 
             await api.post('/carpetas', payload);
+            window.dispatchEvent(new Event('refreshCarpetas'));
             navigate('/gestordocumental');
         } catch (error) {
             console.error('Error guardando carpeta', error);

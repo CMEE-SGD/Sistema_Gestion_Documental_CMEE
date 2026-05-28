@@ -30,6 +30,7 @@ import { GrupoFormPage } from '../pages/usuarios/GrupoFormPage'; // ¡ESTA IMPOR
 //-----------------Gestor Documental-----------------
 import { GestorDocumentalPage } from '../pages/gestorDocumental/index';
 import { NuevaCarpetaPage } from '../pages/gestorDocumental/NuevaCarpetaPage';
+import { GestorDocumentalLayout } from '../pages/gestorDocumental/GDLayout'; // <-- Añade esta línea
 
 const AppRouter = () => {
   return (
@@ -77,9 +78,19 @@ const AppRouter = () => {
           <Route path="personalizacion" element={<div>Configuración de RRHH</div>} />
         </Route>
 
-        {/* Gestor Documental */}
-        <Route path="/gestordocumental" element={<GestorDocumentalPage />} />
-        <Route path="/gestordocumental/nueva-carpeta" element={<NuevaCarpetaPage />} />
+       {/* ---------------------------------------------------- */}
+        {/* MÓDULO DE GESTOR DOCUMENTAL                          */}
+        {/* ---------------------------------------------------- */}
+        <Route path="/gestordocumental" element={<GestorDocumentalLayout />}>
+          {/* Ruta raíz (Muestra las librerías principales) */}
+          <Route index element={<GestorDocumentalPage />} />
+          
+          {/* Ruta dinámica para navegar dentro de una carpeta específica */}
+          <Route path="carpeta/:id" element={<GestorDocumentalPage />} />
+          
+          {/* Ruta para crear nueva carpeta */}
+          <Route path="nueva-carpeta" element={<NuevaCarpetaPage />} />
+        </Route>
       </Routes>
     </Router>
   );
