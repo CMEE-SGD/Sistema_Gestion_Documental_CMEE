@@ -47,7 +47,7 @@ export const UsuariosPage = () => {
         <div className="p-6">
             <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
                 <h1 className="text-xl font-semibold text-gray-800">Usuarios del sistema</h1>
-                <button 
+                <button
                     onClick={() => navigate('/usuarios/nuevo')}
                     className="bg-[#2185d0] text-white px-4 py-2 rounded text-sm hover:bg-blue-600 flex items-center gap-2"
                 >
@@ -72,7 +72,7 @@ export const UsuariosPage = () => {
                 <div className="text-center py-8 text-gray-500">Cargando usuarios...</div>
             ) : usuariosFiltrados.length === 0 ? (
                 <div className="bg-white border border-gray-200 rounded shadow-sm p-8 text-center text-gray-500">
-                    {usuarios.length === 0 
+                    {usuarios.length === 0
                         ? "No hay usuarios registrados. Haz clic en 'Nuevo usuario' para crear uno."
                         : "No se encontraron usuarios con esos criterios de búsqueda."
                     }
@@ -110,18 +110,17 @@ export const UsuariosPage = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-4 text-sm">
-                                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                            usuario.estado_cuenta && !usuario.bloqueado
+                                        <span className={`px-2 py-1 rounded text-xs font-medium ${usuario.estado_cuenta && !usuario.bloqueado
                                                 ? 'bg-green-100 text-green-800'
                                                 : 'bg-red-100 text-red-800'
-                                        }`}>
+                                            }`}>
                                             {usuario.bloqueado ? 'Bloqueado' : usuario.estado_cuenta ? 'Activo' : 'Inactivo'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex justify-center gap-2">
                                             <button
-                                                onClick={() => navigate(`/usuarios/${usuario.id}`)}
+                                                onClick={() => navigate(`/usuarios/editar/${usuario.id}`)}
                                                 className="text-blue-600 hover:text-blue-900 p-1"
                                                 title="Editar usuario"
                                             >

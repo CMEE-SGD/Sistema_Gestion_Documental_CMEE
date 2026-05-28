@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { modules, Module } from '../data/modulos';
-import { currentUser } from '../data/users';
 import { useAuth } from '../hooks/useAuth';
 import { logoCentro } from '../assets';
 
 const Navbar = () => {
+  const { user, cerrarSesion } = useAuth(); // ← aquí adentro
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filtered, setFiltered] = useState<Module[]>([]);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
@@ -16,9 +16,6 @@ const Navbar = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-
-  // ── Importar cerrarSesion desde useAuth ───────────────────────────────
-  const { cerrarSesion } = useAuth();
 
   // ── Cerrar search dropdown al click fuera ─────────────────────────────
   useEffect(() => {
@@ -178,8 +175,8 @@ const Navbar = () => {
                       setSearchTerm('');
                     }}
                     className={`flex items-center justify-between px-4 py-2 cursor-pointer text-sm transition-colors ${i === activeIndex
-                        ? 'bg-white bg-opacity-20'
-                        : 'hover:bg-white hover:bg-opacity-10'
+                      ? 'bg-white bg-opacity-20'
+                      : 'hover:bg-white hover:bg-opacity-10'
                       }`}
                   >
                     <span className="text-blue-100">
@@ -227,9 +224,9 @@ const Navbar = () => {
             >
               {/* Avatar o logo */}
               <div className="shrink-0 w-14 h-14 rounded-full border border-gray-200 overflow-hidden bg-white flex items-center justify-center shadow-sm">
-                {currentUser.avatar ? (
+                {user?.persona?.avatar ? (
                   <img
-                    src={currentUser.avatar}
+                    src={user.persona.avatar}
                     alt="Avatar"
                     className="w-full h-full object-cover"
                   />
@@ -242,20 +239,22 @@ const Navbar = () => {
                 )}
               </div>
 
-              {/* Nombre + cargo + rol */}
+              {/* Nombre y Puesto Real */}
               <div className="flex flex-col gap-1 min-w-0">
+
+                {/* Nombre y Apellidos */}
                 <span className="text-sm font-bold text-gray-800 leading-tight truncate">
-                  {currentUser.nombre} {currentUser.apellido}
+                  {user?.persona?.nombre}
                 </span>
-                <span className="text-xs text-gray-500 leading-tight truncate">
-                  {currentUser.cargo}
+                <span className="text-sm font-bold text-gray-800 leading-tight truncate">
+                  {user?.persona?.apellidos}
                 </span>
-                <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full w-fit capitalize mt-0.5 ${rolBadgeStyle[currentUser.rol] ?? 'bg-gray-100 text-gray-600'
-                    }`}
-                >
-                  {currentUser.rol}
+
+                {/* Etiqueta con el Puesto Real (Ej: Director del CMEE) */}
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full w-fit uppercase tracking-wide bg-blue-100 text-blue-700 border border-blue-200 shadow-sm mt-0.5">
+                  {user?.persona?.puesto || 'Puesto no asignado'}
                 </span>
+
               </div>
             </div>
 

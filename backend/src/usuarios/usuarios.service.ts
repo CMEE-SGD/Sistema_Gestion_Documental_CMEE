@@ -6,7 +6,7 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsuariosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(createUsuarioDto: CreateUsuarioDto) {
     const { persona_id, nombre_usuario, clave, fecha_caducidad, grupoIds, ...configData } = createUsuarioDto;
@@ -72,9 +72,9 @@ export class UsuariosService {
         grupos: true
       }
     });
-    
+
     if (!usuario) throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
-    
+
     // Evitamos enviar el hash de la contraseña al frontend por seguridad
     const { password_hash, ...result } = usuario;
     return result;
@@ -83,7 +83,7 @@ export class UsuariosService {
   // Actualiza datos, relaciones y clave (si se provee)
   async update(id: number, updateUsuarioDto: UpdateUsuarioDto) {
     await this.findOne(id); // Validamos que exista
-    
+
     // updateUsuarioDto debe estar configurado con PartialType en NestJS
     const { clave, fecha_caducidad, grupoIds, ...configData } = updateUsuarioDto as any;
 
@@ -122,15 +122,28 @@ export class UsuariosService {
     const usuario = await this.prisma.usuario.findUnique({
       where: { nombre_usuario },
       include: {
-        persona: true,
+        persona: {
+          include: {
+            puestos: {
+              where: { activo: true },
+              orderBy: { orden_puesto: 'asc' },
+              take: 1,
+              include: {
+                puesto: {
+                  select: { nombre: true }
+                }
+              }
+            }
+          }
+        },
         grupos: { select: { id: true, nombre: true } }
       }
     });
 
     if (!usuario) throw new NotFoundException('Usuario no encontrado');
-    
+
     if (usuario.bloqueado) throw new NotFoundException('El usuario está bloqueado');
-    
+
     if (!usuario.estado_cuenta) throw new NotFoundException('La cuenta está inactiva');
 
     // Verificar contraseña
@@ -150,7 +163,7 @@ export class UsuariosService {
     await this.findOne(id);
     return this.prisma.usuario.update({
       where: { id },
-      data: { estado_cuenta: false } 
+      data: { estado_cuenta: false }
     });
   }
 }

@@ -20,45 +20,104 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. Primero intentar con el backend
+      // 1. Intentar autenticación con el backend
       try {
         const response = await api.post('/usuarios/login', {
           nombre_usuario: username,
           clave: password
         });
-        
-        // Guardar token y datos del usuario
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('usuario', JSON.stringify(response.data));
+
+        const resData = response.data;
+        // Asumimos que el backend devuelve el objeto persona anidado
+        const personaRaw = resData.persona || resData;
+
+        // 2. Lógica para obtener el nombre del puesto desde la relación de Prisma
+        let puestoExtraido = 'Puesto no asignado';
+
+        // Evaluamos cómo el backend nos está enviando el dato:
+        if (typeof personaRaw.puesto === 'string') {
+          // Caso A: El backend ya hizo el mapeo directo
+          puestoExtraido = personaRaw.puesto;
+        } else if (typeof personaRaw.cargo === 'string') {
+          // Caso B: El backend usó la variable cargo
+          puestoExtraido = personaRaw.cargo;
+        } else if (personaRaw.puestos && Array.isArray(personaRaw.puestos) && personaRaw.puestos.length > 0) {
+          // Caso C (El de Prisma): Busca en el arreglo 'puestos' la relación activa
+          const relacionActiva = personaRaw.puestos.find((rel: any) => rel.activo === true) || personaRaw.puestos[0];
+          if (relacionActiva?.puesto?.nombre) {
+            puestoExtraido = relacionActiva.puesto.nombre;
+          }
+        } else if (personaRaw.persona_puesto && Array.isArray(personaRaw.persona_puesto)) {
+          // Caso D: Fallback por si la relación se llamó 'persona_puesto'
+          const relacionActiva = personaRaw.persona_puesto.find((rel: any) => rel.activo === true);
+          if (relacionActiva?.puesto?.nombre) {
+            puestoExtraido = relacionActiva.puesto.nombre;
+          }
+        }
+
+        // 3. Construir el objeto final compatible con useAuth y Navbar
+        const userData = {
+          id: resData.id,
+          nombre_usuario: resData.nombre_usuario,
+          rol: resData.rol || 'usuario', // Aseguramos que haya un rol para el badge
+          persona: {
+            nombre: personaRaw.nombre,
+            apellidos: personaRaw.apellidos,
+            // Mapeamos foto_ruta o avatar
+            avatar: personaRaw.foto_ruta || personaRaw.avatar || '',
+            // Asignamos la variable exacta
+            puesto: puestoExtraido 
+          }
+        };
+
+        // 4. Guardar y navegar
+        localStorage.setItem('token', resData.token);
+        localStorage.setItem('usuario', JSON.stringify(userData));
+
+        console.log("✅ Usuario formateado:", userData);
         navigate('/welcome');
         return;
+
       } catch (backendError: any) {
-        // Si falla, verificar si es un error de conexión o de credenciales
-        if (backendError.response?.status === 404) {
-          // Usuario no encontrado en BD, continuar con fallback
-        } else if (backendError.message === 'Network Error') {
-          // Error de conexión, continuar con fallback
-        } else {
-          // Otro error del backend
-          setError(backendError.response?.data?.message || "Error al conectar con el servidor");
+        console.warn("⚠️ Error backend:", backendError);
+        // Si es error de red o 404, pasamos al fallback
+        if (backendError.message !== 'Network Error' && backendError.response?.status !== 404) {
+          setError(backendError.response?.data?.message || "Error de conexión");
           setLoading(false);
           return;
         }
       }
 
-      // 2. Fallback: validar con usuarios quemados
-      const user = users.find(
+      // 5. Fallback: Usuarios quemados (si el backend falla)
+      const localUser = users.find(
         (u) => u.username === username && u.password === password
       );
-      
-      if (user) {
-        // Guardar token local y datos del usuario
-        localStorage.setItem('token', `${user.id}-${user.username}`);
-        localStorage.setItem('usuario', JSON.stringify(user));
+
+      if (localUser) {
+        const localUserAny = localUser as any;
+        const userData = {
+          id: localUser.id,
+          nombre_usuario: localUser.username,
+          rol: localUserAny.rol || 'usuario',
+          persona: {
+            nombre: localUserAny.nombre || localUser.username || 'Usuario',
+            apellidos: localUserAny.apellidos || '',
+            cargo: localUserAny.cargo || localUserAny.puesto || 'Sin cargo',
+            puesto: localUserAny.puesto || localUserAny.cargo || 'Sin puesto',
+            avatar: localUserAny.avatar || localUserAny.foto || ''
+          }
+        };
+
+        localStorage.setItem('token', `${localUser.id}-${localUser.username}`);
+        localStorage.setItem('usuario', JSON.stringify(userData));
         navigate('/welcome');
       } else {
         setError("Usuario o contraseña incorrectos");
       }
+
+    } catch (err) {
+      setError("Error inesperado");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -89,10 +148,8 @@ export default function LoginPage() {
         </div>
 
         {/* Panel Derecho - Formulario */}
-        {/* Usamos items-center para centrar el contenedor interno */}
         <div className="w-full md:w-1/2 bg-white flex flex-col justify-center items-center px-6 py-12">
 
-          {/* Contenedor interno para hacer los inputs más pequeños (max-w-sm = 384px) */}
           <div className="w-full max-w-sm">
 
             {/* Logo */}
