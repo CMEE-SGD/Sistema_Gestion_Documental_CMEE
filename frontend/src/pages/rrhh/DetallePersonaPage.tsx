@@ -135,8 +135,8 @@ export const DetallePersonaPage = () => {
                                         <div className="flex flex-col gap-1">
                                             {persona.puestos.map((puesto: any, i: number) => (
                                                 <span key={i}>
-                                                    <span className="text-blue-600 underline cursor-pointer">{puesto?.nombre}</span> 
-                                                    {' En el departamento '} 
+                                                    <span className="text-blue-600 underline cursor-pointer">{puesto?.puesto?.nombre}</span> 
+                                                    {' en el departamento '} 
                                                     <span className="text-blue-600 underline cursor-pointer">{puesto?.departamento?.nombre}</span>
                                                 </span>
                                             ))}
@@ -200,7 +200,7 @@ export const DetallePersonaPage = () => {
                                 <User className="w-4 h-4 text-red-600" />
                                 <h3 className="font-bold text-[12px] text-gray-900">Datos de usuario</h3>
                             </div>
-                            <DataRow label="Nombre de usuario" value={persona.usuario || '-'} />
+                            <DataRow label="Nombre de usuario" value={persona.usuario?.nombre_usuario || '-'} />
                             <DataRow label="Perfil" value="Responsable de proceso" />
                             <DataRow label="Interfaz" value="ISOTools 2007" />
                         </div>

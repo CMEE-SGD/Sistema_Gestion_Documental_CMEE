@@ -42,10 +42,10 @@ const ModuleIcon = ({ name }: { name: string }) => {
 
 // 2. FAVORITOS: Deben llamarse EXACTAMENTE igual que el "name" en modulos.ts
 const favorites = [
-  'Dashboard',
+  //'Dashboard',
   'Gestion de Usuarios', 
   'Recursos Humanos',
-  'Gestor Documental' // AÑADIDO A FAVORITOS
+  //'Gestor Documental'
 ];
 
 // 3. Colores para cada módulo
@@ -106,7 +106,7 @@ const Index = () => {
               >
                 Favoritos
               </button>
-              <button
+              {/* <button
                 onClick={() => setActiveTab('aplicaciones')}
                 className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors ${activeTab === 'aplicaciones'
                   ? 'border-gray-700 text-gray-800'
@@ -114,7 +114,7 @@ const Index = () => {
                   }`}
               >
                 Aplicaciones
-              </button>
+              </button> */}
             </div>
 
             {/* Cuadrícula de Módulos */}
@@ -144,12 +144,12 @@ const Index = () => {
               )}
 
               <div className="flex justify-end mt-6">
-                <button
+                {/* <button
                   onClick={() => navigate('/configuracion')}
                   className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1.5 rounded transition-colors"
                 >
                   Configurar
-                </button>
+                </button> */}
               </div>
             </div>
           </div>
