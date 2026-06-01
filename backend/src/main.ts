@@ -2,6 +2,9 @@ import { NestFactory } from "@nestjs/core"
 import { ValidationPipe } from "@nestjs/common"
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger"
 import { AppModule } from "./app.module"
+import { AuditoriaInterceptor } from './auditoria/auditoria.interceptor';
+import { AuditoriaService } from './auditoria/auditoria.service';
+import { PrismaService } from './prisma/prisma.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
@@ -35,6 +38,10 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config)
   SwaggerModule.setup("api/docs", app, document)
+
+  const prismaService = app.get(PrismaService);
+  const auditoriaService = new AuditoriaService(prismaService);
+  app.useGlobalInterceptors(new AuditoriaInterceptor(auditoriaService));
 
   const port = process.env.PORT || 3001
   await app.listen(port)
