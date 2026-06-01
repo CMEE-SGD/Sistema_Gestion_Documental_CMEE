@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FileText, Folder, Plus, ArrowLeft } from 'lucide-react';
 import api from '../../lib/axios';
 
 export const NuevaCarpetaPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    
+    // Atrapamos los datos si venimos del botón "Subcarpeta" en el gestor
+    const carpetaPadreId = location.state?.carpetaPadreId;
+    const carpetaPadreNombre = location.state?.carpetaPadreNombre;
 
     // Estados para almacenar los datos de la base de datos
     const [carpetas, setCarpetas] = useState<any[]>([]);
@@ -20,7 +25,7 @@ export const NuevaCarpetaPage = () => {
         nombre: '',
         descripcion: '',
         codigo: '',
-        orden: 0,
+        orden: 10,
         versionInicial: '1',
         activo: true
     });
@@ -35,13 +40,11 @@ export const NuevaCarpetaPage = () => {
                 ]);
                 
                 // VALIDACIÓN CRÍTICA: Nos aseguramos de que siempre guardemos un Array.
-                // Si la data no es un Array, guardamos un Array vacío [] para que .map y .filter no exploten.
                 setCarpetas(Array.isArray(resCarpetas?.data) ? resCarpetas.data : []);
                 setDepartamentos(Array.isArray(resDeptos?.data) ? resDeptos.data : []);
 
             } catch (error) {
                 console.error('Error cargando datos:', error);
-                // Si el servidor da error (ej: 404 o 500), forzamos arrays vacíos
                 setCarpetas([]);
                 setDepartamentos([]);
             }
@@ -79,14 +82,21 @@ export const NuevaCarpetaPage = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Determinar quién es el padre real basándose en el tipo seleccionado
+        // --- MAGIA CONDICIONAL AQUÍ ---
         let padre_final_id = null;
+        let tipo_final = formData.tipo_nivel;
         
-        if (formData.tipo_nivel === 'AREA') {
-            padre_final_id = Number(formData.libreria_id);
-        } else if (formData.tipo_nivel === 'SUBCARPETA') {
-            // Si eligió una subcarpeta específica, esa es el padre. Si no, es el área.
-            padre_final_id = formData.carpeta_padre_id ? Number(formData.carpeta_padre_id) : Number(formData.area_id);
+        if (carpetaPadreId) {
+            // MODO AUTOMÁTICO: Si venimos desde una subcarpeta, forzamos estos valores
+            padre_final_id = Number(carpetaPadreId);
+            tipo_final = 'SUBCARPETA';
+        } else {
+            // MODO MANUAL: La lógica original si creamos desde cero
+            if (formData.tipo_nivel === 'AREA') {
+                padre_final_id = Number(formData.libreria_id);
+            } else if (formData.tipo_nivel === 'SUBCARPETA') {
+                padre_final_id = formData.carpeta_padre_id ? Number(formData.carpeta_padre_id) : Number(formData.area_id);
+            }
         }
 
         try {
@@ -97,13 +107,15 @@ export const NuevaCarpetaPage = () => {
                 orden: Number(formData.orden),
                 version_inicial: formData.versionInicial,
                 activo: formData.activo,
-                tipo: formData.tipo_nivel,
+                tipo: tipo_final,
                 carpeta_padre_id: padre_final_id || undefined
             };
 
             await api.post('/carpetas', payload);
             window.dispatchEvent(new Event('refreshCarpetas'));
-            navigate('/gestordocumental');
+            
+            // Regresamos a la vista donde estábamos
+            navigate(-1);
         } catch (error) {
             console.error('Error guardando carpeta', error);
             alert('Hubo un error al guardar la carpeta');
@@ -122,61 +134,65 @@ export const NuevaCarpetaPage = () => {
 
             <form onSubmit={handleSubmit} className="flex flex-col max-w-4xl px-8 py-6">
                 
-                {/* --- SECCIÓN DE JERARQUÍA DINÁMICA --- */}
-                <div className="grid grid-cols-[150px_1fr] gap-y-4 items-center mb-8 border-b border-gray-200 pb-6">
-                    
-                    <label className="text-gray-700 font-medium">Nivel a crear:</label>
-                    <div className="flex gap-6">
-                        <label className="flex items-center gap-1.5 cursor-pointer">
-                            <input type="radio" name="tipo_nivel" value="LIBRERIA" checked={formData.tipo_nivel === 'LIBRERIA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                            Librería (Raíz)
-                        </label>
-                        <label className="flex items-center gap-1.5 cursor-pointer">
-                            <input type="radio" name="tipo_nivel" value="AREA" checked={formData.tipo_nivel === 'AREA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                            Área
-                        </label>
-                        <label className="flex items-center gap-1.5 cursor-pointer">
-                            <input type="radio" name="tipo_nivel" value="SUBCARPETA" checked={formData.tipo_nivel === 'SUBCARPETA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                            Subcarpeta
-                        </label>
+                {/* --- SECCIÓN DE JERARQUÍA CONDICIONAL --- */}
+                {carpetaPadreId ? (
+                    // VISTA AUTOMÁTICA (Si se hizo clic desde una subcarpeta)
+                    <div className="mb-8 border-b border-gray-200 pb-6">
+                        <label className="block text-gray-700 font-bold mb-2">Ubicación de destino:</label>
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-gray-700 flex items-center gap-2">
+                            Se creará automáticamente dentro de: 
+                            <span className="font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded border border-blue-200">
+                                {carpetaPadreNombre}
+                            </span>
+                        </div>
                     </div>
+                ) : (
+                    // VISTA MANUAL ORIGINAL
+                    <div className="grid grid-cols-[150px_1fr] gap-y-4 items-center mb-8 border-b border-gray-200 pb-6">
+                        
+                        <label className="text-gray-700 font-medium">Nivel a crear:</label>
+                        <div className="flex gap-6">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" name="tipo_nivel" value="LIBRERIA" checked={formData.tipo_nivel === 'LIBRERIA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                Librería (Raíz)
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" name="tipo_nivel" value="AREA" checked={formData.tipo_nivel === 'AREA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                Área
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" name="tipo_nivel" value="SUBCARPETA" checked={formData.tipo_nivel === 'SUBCARPETA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                Subcarpeta
+                            </label>
+                        </div>
 
-                    {/* Mostrar Librería solo si creamos un Área o Subcarpeta */}
-                    {formData.tipo_nivel !== 'LIBRERIA' && (
-                        <>
-                            <label className="text-gray-700">Librería Padre:</label>
-                            <select name="libreria_id" value={formData.libreria_id} onChange={handleChange} required className="border border-gray-300 rounded px-3 py-1.5 w-full md:w-3/4 outline-none focus:border-blue-500">
-                                <option value="">-- Seleccione la Librería --</option>
-                                {librerias.map(lib => (
-                                    <option key={lib.id} value={lib.id}>{lib.nombre}</option>
-                                ))}
-                            </select>
-                        </>
-                    )}
+                        {formData.tipo_nivel !== 'LIBRERIA' && (
+                            <>
+                                <label className="text-gray-700">Librería Padre:</label>
+                                <select name="libreria_id" value={formData.libreria_id} onChange={handleChange} required className="border border-gray-300 rounded px-3 py-1.5 w-full md:w-3/4 outline-none focus:border-blue-500">
+                                    <option value="">-- Seleccione la Librería --</option>
+                                    {librerias.map(lib => (
+                                        <option key={lib.id} value={lib.id}>{lib.nombre}</option>
+                                    ))}
+                                </select>
+                            </>
+                        )}
 
-                    {/* Mostrar Área solo si creamos una Subcarpeta */}
-                    {formData.tipo_nivel === 'SUBCARPETA' && (
-                        <>
-                            <label className="text-gray-700">Área Padre:</label>
-                            <select name="area_id" value={formData.area_id} onChange={handleChange} required className="border border-gray-300 rounded px-3 py-1.5 w-full md:w-3/4 outline-none focus:border-blue-500">
-                                <option value="">-- Seleccione el Área --</option>
-                                {areas.map(a => (
-                                    <option key={a.id} value={a.id}>{a.nombre}</option>
-                                ))}
-                            </select>
-                            
-                            <label className="text-gray-700">Subcarpeta Interna (Opcional):</label>
-                            <select name="carpeta_padre_id" value={formData.carpeta_padre_id} onChange={handleChange} className="border border-gray-300 rounded px-3 py-1.5 w-full md:w-3/4 outline-none focus:border-blue-500">
-                                <option value="">-- Ubicar directamente en el Área --</option>
-                                {subcarpetas.map(sub => (
-                                    <option key={sub.id} value={sub.id}>{sub.nombre}</option>
-                                ))}
-                            </select>
-                        </>
-                    )}
-                </div>
+                        {formData.tipo_nivel === 'SUBCARPETA' && (
+                            <>
+                                <label className="text-gray-700">Área Padre:</label>
+                                <select name="area_id" value={formData.area_id} onChange={handleChange} required className="border border-gray-300 rounded px-3 py-1.5 w-full md:w-3/4 outline-none focus:border-blue-500">
+                                    <option value="">-- Seleccione el Área --</option>
+                                    {areas.map(a => (
+                                        <option key={a.id} value={a.id}>{a.nombre}</option>
+                                    ))}
+                                </select>
+                            </>
+                        )}
+                    </div>
+                )}
 
-                {/* --- SECCIÓN DE FORMULARIO DE CARPETA --- */}
+                {/* --- SECCIÓN DE FORMULARIO DE CARPETA (INTACTA) --- */}
                 <div className="grid grid-cols-[150px_1fr] gap-y-4 items-center mb-8">
                     <label className="text-gray-700 font-bold">Nombre:</label>
                     <input 
@@ -218,7 +234,7 @@ export const NuevaCarpetaPage = () => {
                     </label>
                 </div>
 
-                {/* --- SECCIÓN DE PERMISOS (Visual) --- */}
+                {/* --- SECCIÓN DE PERMISOS INTACTA (Visual) --- */}
                 <div className="mt-2 border-t border-gray-200 pt-6">
                     <h3 className="text-black font-bold mb-4 underline">Permisos de Acceso:</h3>
 

@@ -291,25 +291,54 @@ model GrupoAplicacion {
 // =========================================================================
 
 enum TipoNivelCarpeta {
-  LIBRERIA     // Nivel 1 (Raíz principal)
-  AREA         // Nivel 2
-  SUBCARPETA   // Nivel 3 en adelante (Nivel infinito recursivo)
+  LIBRERIA     
+  AREA         
+  SUBCARPETA   
 }
 
+// 1. Añadimos el Enum con todas las opciones de tu imagen
+enum CircuitoDocumento {
+  SIN_CLASIFICAR
+  ALTA_FRECUENCIA
+  ATENCION_AL_CLIENTE
+  BAJA_FRECUENCIA
+  CALIDAD
+  CAPACITACION
+  CUALIFICACION
+  FORMATOS
+  GESTION_DE_PATRONES
+  GESTION_LOGISTICA
+  LEGALIZACION
+  PRESION
+  PROCEDIMIENTOS_GESTION_DOCUMENTAL
+  TERMOMETRIA
+  TIEMPO
+}
+
+// 2. Modificamos el modelo Documento para que empate con tu formulario
 model Documento {
-  id               Int       @id @default(autoincrement())
-  codigo           String?   // Ej: "GD2.1.F3-2"
-  nombre           String    // Ej: "Lista Maestra de Documentos"
-  archivo_url      String    // Ruta física o almacenamiento en la nube del archivo
-  version          String?   // Ej: "1", "2"
-  orden            Int       @default(0)
-  activo           Boolean   @default(true)
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
+  id                 Int               @id @default(autoincrement())
+  
+  // -- Campos del Formulario "Nuevo Fichero" --
+  empresa            String?           @default("Centro de Metrología del Ejército Ecuatoriano") @db.VarChar(200)
+  fecha_documento    DateTime?         @db.Date // La fecha que sale a la derecha (01/06/2026)
+  circuito           CircuitoDocumento @default(SIN_CLASIFICAR)
+  activo             Boolean           @default(true) // El checkbox de "Estado"
+  
+  // Fichero
+  archivo_url        String            // Aquí va la ruta donde se guardó el PDF (/uploads/...)
+  nombre             String            // Es el "Título" del formulario
+  version            String?           @default("1")
+  
+  // -- Campos internos --
+  codigo             String?           @db.VarChar(50)
+  orden              Int               @default(0)
+  created_at         DateTime          @default(now())
+  updated_at         DateTime          @updatedAt
 
   // Carpeta contenedora
-  carpeta_id       Int
-  carpeta          Carpeta   @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
+  carpeta_id         Int
+  carpeta            Carpeta           @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
 
   // Relaciones entre documentos (Botón: Relaciones de documentos)
   documentos_origen  DocumentoRelacion[] @relation("DocOrigen")
