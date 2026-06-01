@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { modules } from '../data/modulos';
+import { modules } from '../data/modulos'; // <-- NOTA: Asegúrate de que "Configuracion" o "Auditoria" esté en este archivo
 import logoCentro from '../assets/LOGO_CENTRO.png';
 import Navbar from '../components/Navbar';
 import { useState } from 'react';
@@ -22,15 +22,19 @@ const ModuleIcon = ({ name }: { name: string }) => {
         <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
       </svg>
     ),
-    // AÑADIDO: Ícono para el Gestor Documental (Forma de Carpeta/Archivo)
     'Gestor Documental': (
       <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8">
         <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
       </svg>
+    ),
+    // 👇 AÑADIDO: Ícono de escudo para Auditoría / Configuración Global
+    'Auditoria Global': (
+      <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8">
+        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+      </svg>
     )
   };
 
-  // Ícono por defecto para los módulos que no tienen uno específico arriba
   const defaultIcon = (
     <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8">
       <path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z" />
@@ -40,30 +44,36 @@ const ModuleIcon = ({ name }: { name: string }) => {
   return iconMap[name] ?? defaultIcon;
 };
 
-// 2. FAVORITOS: Deben llamarse EXACTAMENTE igual que el "name" en modulos.ts
+// 2. FAVORITOS: Añadimos Auditoría a la lista
 const favorites = [
-  //'Dashboard',
   'Gestion de Usuarios', 
   'Recursos Humanos',
-  //'Gestor Documental'
+  'Auditoria Global' // 👇 AÑADIDO
 ];
 
 // 3. Colores para cada módulo
 const getBgColor = (name: string) => {
-  if (name === 'Gestion de Usuarios') return '#2185d0'; // Azul
-  if (name === 'Recursos Humanos') return '#C9A800'; // Dorado
-  if (name === 'Dashboard') return '#9E9E9E'; // Gris
-  if (name === 'Gestor Documental') return '#16a085'; // AÑADIDO: Verde azulado (Teal) para diferenciarlo
-  return '#4a5568'; // Color genérico para los demás
+  if (name === 'Gestion de Usuarios') return '#2185d0';
+  if (name === 'Recursos Humanos') return '#C9A800';
+  if (name === 'Dashboard') return '#9E9E9E';
+  if (name === 'Gestor Documental') return '#16a085';
+  if (name === 'Auditoria Global') return '#b91c1c'; // 👇 AÑADIDO: Rojo oscuro para denotar seguridad
+  return '#4a5568';
 };
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<'favoritos' | 'aplicaciones'>('favoritos');
   const navigate = useNavigate();
 
-  // Filtra los módulos de la BD local basándose en el arreglo de favoritos
-  const favModules = modules.filter((m) => favorites.includes(m.name));
-  const allModules = modules;
+  // ⚠️ IMPORTANTE: Añadimos temporalmente el objeto al arreglo si no existe en data/modulos.ts
+  const modulosExtendidos = [
+    ...modules,
+    { id: 99, name: 'Auditoria Global', path: '/auditoria' }
+  ];
+
+  // Filtramos sobre el arreglo extendido
+  const favModules = modulosExtendidos.filter((m) => favorites.includes(m.name));
+  const allModules = modulosExtendidos;
 
   const displayModules = activeTab === 'favoritos' ? favModules : allModules;
 
@@ -106,15 +116,6 @@ const Index = () => {
               >
                 Favoritos
               </button>
-              {/* <button
-                onClick={() => setActiveTab('aplicaciones')}
-                className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors ${activeTab === 'aplicaciones'
-                  ? 'border-gray-700 text-gray-800'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'
-                  }`}
-              >
-                Aplicaciones
-              </button> */}
             </div>
 
             {/* Cuadrícula de Módulos */}
@@ -144,12 +145,6 @@ const Index = () => {
               )}
 
               <div className="flex justify-end mt-6">
-                {/* <button
-                  onClick={() => navigate('/configuracion')}
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1.5 rounded transition-colors"
-                >
-                  Configurar
-                </button> */}
               </div>
             </div>
           </div>

@@ -31,6 +31,8 @@ model Rol {
   // Relación N:M con Persona
   personas Persona[] @relation("PersonaRoles")
 
+  logs_auditoria Auditoria[]
+
   @@map("rol")
 }
 
@@ -100,6 +102,8 @@ model Puesto {
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   personas_asignadas PersonaPuesto[]
+
+  logs_auditoria Auditoria[]
 
   @@index([dependencia_id])
   @@map("puesto")
@@ -427,6 +431,12 @@ model Auditoria {
   // Vínculo a RRHH (Opcional - a quién le editaron o vieron la ficha)
   persona_afectada_id Int?
   persona_afectada    Persona?   @relation("LogPersonaAfectada", fields: [persona_afectada_id], references: [id], onDelete: Cascade)
+
+  rol_afectado_id     Int?
+  rol_afectado        Rol?       @relation(fields: [rol_afectado_id], references: [id], onDelete: Cascade)
+
+  puesto_afectado_id  Int?
+  puesto_afectado     Puesto?    @relation(fields: [puesto_afectado_id], references: [id], onDelete: Cascade)
 
   fecha_hora          DateTime @default(now()) @db.Timestamptz
 
