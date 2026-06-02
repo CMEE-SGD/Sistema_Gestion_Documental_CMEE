@@ -11,9 +11,12 @@ export const GestorDocumentalPage = () => {
     const [documentos, setDocumentos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadingDocs, setLoadingDocs] = useState(false);
+    const [documentosSeleccionados, setDocumentosSeleccionados] = useState<number[]>([]);
 
     const [ordenarPor, setOrdenarPor] = useState<'alfabetico' | 'orden'>('orden');
     const [expandedFolders, setExpandedFolders] = useState<Record<number, boolean>>({});
+    const carpetaSeleccionada = id ? carpetas.find(c => c.id.toString() === id) : null;
+    const esSubcarpeta = carpetaSeleccionada?.tipo === 'SUBCARPETA';
 
     const fetchDatos = useCallback(async () => {
         try {
@@ -54,8 +57,57 @@ export const GestorDocumentalPage = () => {
         }
     }, [id, fetchDocumentos]);
 
-    const carpetaSeleccionada = id ? carpetas.find(c => c.id.toString() === id) : null;
-    const esSubcarpeta = carpetaSeleccionada?.tipo === 'SUBCARPETA';
+    const toggleSeleccion = (docId: number) => {
+        setDocumentosSeleccionados(prev =>
+            prev.includes(docId)
+                ? prev.filter(id => id !== docId)
+                : [...prev, docId]
+        );
+    };
+
+    const toggleSeleccionarTodos = () => {
+        if (documentosSeleccionados.length === documentos.length) {
+            setDocumentosSeleccionados([]); // Desmarcar todos
+        } else {
+            setDocumentosSeleccionados(documentos.map(doc => doc.id)); // Marcar todos
+        }
+    };
+
+    const handleEliminarDocumentos = async () => {
+        if (documentosSeleccionados.length === 0) {
+            alert("Por favor, seleccione al menos un documento para eliminar.");
+            return;
+        }
+
+        const confirmacion = window.confirm(`¿Está seguro de eliminar ${documentosSeleccionados.length} documento(s)? Esta acción no se puede deshacer.`);
+        if (!confirmacion) return;
+
+        try {
+            setLoadingDocs(true);
+
+            // Usamos Promise.all para enviar todas las peticiones DELETE a tu backend de NestJS al mismo tiempo
+            await Promise.all(
+                documentosSeleccionados.map(docId => api.delete(`/documentos/${docId}`))
+            );
+
+            // Limpiamos la selección
+            setDocumentosSeleccionados([]);
+
+            // Volvemos a cargar la tabla para que los documentos borrados desaparezcan
+            if (id) fetchDocumentos(id);
+
+        } catch (error) {
+            console.error("Error al eliminar los documentos:", error);
+            alert("Ocurrió un error al intentar eliminar. Es posible que no tenga permisos.");
+        } finally {
+            setLoadingDocs(false);
+        }
+    };
+
+    // 👉 5. (Opcional) Limpiar la selección si el usuario cambia de carpeta
+    useEffect(() => {
+        setDocumentosSeleccionados([]);
+    }, [id]);
 
     const handleAtras = () => {
         if (!carpetaSeleccionada) return;
@@ -71,6 +123,21 @@ export const GestorDocumentalPage = () => {
         } else {
             navigate('/gestordocumental');
         }
+    };
+    // 👉 Función para el botón Mover
+    const handleMoverDocumentos = () => {
+        if (documentosSeleccionados.length === 0) {
+            alert("Por favor, seleccione al menos un documento para mover.");
+            return;
+        }
+
+        // Extraemos los objetos completos de los documentos seleccionados
+        const docsAMover = documentos.filter(doc => documentosSeleccionados.includes(doc.id));
+
+        // Navegamos al nuevo formulario enviando los documentos en el estado
+        navigate('/gestordocumental/mover-documentos', {
+            state: { documentos: docsAMover }
+        });
     };
 
     const getBreadcrumb = () => {
@@ -189,9 +256,17 @@ export const GestorDocumentalPage = () => {
                                 Nuevo fichero
                             </button>
                             <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Nuevo enlace</button>
-                            <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Mover</button>
-                            <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Eliminar</button>
-                            <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Imprimir</button>
+                            <button
+                                onClick={handleMoverDocumentos}
+                                className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                            >
+                                Mover {documentosSeleccionados.length > 0 && `(${documentosSeleccionados.length})`}
+                            </button>                            <button
+                                onClick={handleEliminarDocumentos} // <-- Aquí lo conectamos
+                                className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                            >
+                                Eliminar {documentosSeleccionados.length > 0 && `(${documentosSeleccionados.length})`}
+                            </button>                            <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Imprimir</button>
                             <button
                                 onClick={() => navigate('/gestordocumental/nueva-carpeta', {
                                     state: {
@@ -214,7 +289,15 @@ export const GestorDocumentalPage = () => {
                                 <table className="w-full text-left text-xs text-gray-800 border-collapse">
                                     <thead className="bg-[#006400] text-white font-bold">
                                         <tr>
-                                            <th className="px-2 py-2 w-8 text-center border-r border-[#004d00]"></th>
+                                            <th className="px-2 py-2 w-8 text-center border-r border-[#004d00]">
+                                                {/* Checkbox "Seleccionar Todos" */}
+                                                <input
+                                                    type="checkbox"
+                                                    className="cursor-pointer"
+                                                    checked={documentos.length > 0 && documentosSeleccionados.length === documentos.length}
+                                                    onChange={toggleSeleccionarTodos}
+                                                />
+                                            </th>
                                             <th className="px-2 py-2 w-8 text-center border-r border-[#004d00]"></th>
                                             <th className="px-2 py-2 w-8 text-center border-r border-[#004d00]"></th>
                                             <th className="px-3 py-2 border-r border-[#004d00]">Título ▼</th>
@@ -227,6 +310,7 @@ export const GestorDocumentalPage = () => {
                                     <tbody>
                                         {documentos.length === 0 ? (
                                             <tr>
+                                                {/* EL TD ES OBLIGATORIO PARA EVITAR EL ERROR DE DOMNesting */}
                                                 <td colSpan={8} className="text-center py-6 text-gray-400 italic bg-gray-50">
                                                     No hay documentos en esta carpeta.
                                                 </td>
@@ -234,19 +318,37 @@ export const GestorDocumentalPage = () => {
                                         ) : (
                                             documentos.map((doc, idx) => (
                                                 <tr key={doc.id || idx} className="border-b border-gray-200 even:bg-gray-100 odd:bg-white hover:bg-gray-200 transition-colors">
-                                                    <td className="px-2 py-1.5 text-center align-middle"><input type="checkbox" className="cursor-pointer" /></td>
-                                                    <td className="px-2 py-1.5 text-center align-middle"><Edit2 className="w-3.5 h-3.5 mx-auto text-gray-600 cursor-pointer" /></td>
+                                                    <td className="px-2 py-1.5 text-center align-middle">
+                                                        {/* Checkbox Individual */}
+                                                        <input
+                                                            type="checkbox"
+                                                            className="cursor-pointer"
+                                                            checked={documentosSeleccionados.includes(doc.id)}
+                                                            onChange={() => toggleSeleccion(doc.id)}
+                                                        />
+                                                    </td>
+                                                    <td className="px-2 py-1.5 text-center align-middle">
+                                                        <Edit2 className="w-3.5 h-3.5 mx-auto text-gray-600 cursor-pointer" />
+                                                    </td>
                                                     <td className="px-2 py-1.5 text-center align-middle">
                                                         <div className="bg-gray-500 text-white text-[8px] font-bold px-1 rounded flex items-center justify-center mx-auto w-max">
                                                             PDF
                                                         </div>
                                                     </td>
-                                                    <td className="px-3 py-1.5 uppercase">{doc.nombre}</td>
-                                                    <td className="px-3 py-1.5">{doc.fase || ''}</td>
-                                                    <td className="px-3 py-1.5">{doc.propietario || 'Toaquiza Bohorquez'}</td>
-                                                    <td className="px-3 py-1.5 text-center">{doc.version || '1'}</td>
+                                                    <td className="px-3 py-1.5 uppercase">
+                                                        {doc.nombre}
+                                                    </td>
+                                                    <td className="px-3 py-1.5">
+                                                        {doc.fase || ''}
+                                                    </td>
+                                                    <td className="px-3 py-1.5 font-medium text-gray-700">
+                                                        {doc.propietario || 'Desconocido'}
+                                                    </td>
                                                     <td className="px-3 py-1.5 text-center">
-                                                        {doc.created_at ? new Date(doc.created_at).toLocaleDateString('es-ES') : '04/02/2021'}
+                                                        {doc.version || '1'}
+                                                    </td>
+                                                    <td className="px-3 py-1.5 text-center">
+                                                        {doc.created_at ? new Date(doc.created_at).toLocaleDateString('es-ES') : ''}
                                                     </td>
                                                 </tr>
                                             ))

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Upload, ArrowLeft, Save, X } from 'lucide-react';
 import api from '../../lib/axios';
@@ -7,25 +7,63 @@ export const NuevoFicheroPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Atrapamos la carpeta destino (igual que hicimos con la creación de carpetas)
+    // Atrapamos la carpeta destino
     const carpetaPadreId = location.state?.carpetaPadreId;
     const carpetaPadreNombre = location.state?.carpetaPadreNombre;
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [nombrePropietario, setNombrePropietario] = useState('Cargando...');
+    const [listaCircuitos, setListaCircuitos] = useState<string[]>([]);
 
     // Estado para el archivo físico
     const [archivoPdf, setArchivoPdf] = useState<File | null>(null);
 
-    // Estados para los campos de texto (basado en Prisma)
+    // Estados para los campos de texto
     const [formData, setFormData] = useState({
         empresa: 'Centro de Metrología del Ejército Ecuatoriano',
-        circuito: 'SIN_CLASIFICAR', // Valores exactos de tu Enum en Prisma
-        fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+        circuito: 'SIN_CLASIFICAR',
+        fecha: new Date().toISOString().split('T')[0],
         estado: true,
         titulo: '',
         version: '1'
     });
+
+    useEffect(() => {
+        // 1. Lógica del propietario
+        const userStr = localStorage.getItem('usuario'); 
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                const nombrePersona = user.persona?.nombre || user.nombre || '';
+                const apellidoPersona = user.persona?.apellidos || user.apellidos || '';
+                const nombreUsuario = user.nombre_usuario || '';
+                let nombreCompleto = '';
+                
+                if (nombrePersona || apellidoPersona) {
+                    nombreCompleto = `${nombrePersona} ${apellidoPersona}`.trim();
+                } else if (nombreUsuario) {
+                    nombreCompleto = nombreUsuario;
+                }
+                setNombrePropietario(nombreCompleto || 'Usuario Desconocido');
+            } catch (error) {
+                setNombrePropietario('Usuario Desconocido');
+            }
+        } else {
+            setNombrePropietario('Usuario no identificado');
+        }
+
+        // 2. Consultar los Circuitos al Backend
+        const fetchCircuitos = async () => {
+            try {
+                const res = await api.get('/documentos/circuitos');
+                setListaCircuitos(res.data);
+            } catch (error) {
+                console.error("Error al cargar los circuitos:", error);
+            }
+        };
+        fetchCircuitos();
+    }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -38,11 +76,10 @@ export const NuevoFicheroPage = () => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
-            // Validación opcional: Asegurarnos de que sea PDF
             if (file.type !== 'application/pdf') {
                 setError('Por favor, seleccione únicamente un archivo PDF.');
                 setArchivoPdf(null);
-                e.target.value = ''; // Limpiar el input
+                e.target.value = ''; 
                 return;
             }
             setError('');
@@ -53,43 +90,28 @@ export const NuevoFicheroPage = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!carpetaPadreId) {
-            setError('Error: No se ha seleccionado una carpeta destino.');
-            return;
-        }
-
-        if (!archivoPdf) {
-            setError('Debe seleccionar un archivo para subir.');
-            return;
-        }
+        if (!carpetaPadreId) return setError('Error: No se ha seleccionado una carpeta destino.');
+        if (!archivoPdf) return setError('Debe seleccionar un archivo para subir.');
 
         setLoading(true);
         setError('');
 
         try {
-            // 🔥 LA MAGIA OCURRE AQUÍ: Empaquetamos todo en FormData
             const submitData = new FormData();
-            
-            // Adjuntamos el archivo físico (el backend buscará un archivo llamado 'archivo')
             submitData.append('archivo', archivoPdf);
-            
-            // Adjuntamos los datos de texto
+            submitData.append('propietario', nombrePropietario);
             submitData.append('carpeta_id', carpetaPadreId.toString());
             submitData.append('empresa', formData.empresa);
             submitData.append('circuito', formData.circuito);
             submitData.append('fecha_documento', formData.fecha);
-            submitData.append('activo', String(formData.estado)); // FormData solo acepta strings
+            submitData.append('activo', String(formData.estado));
             submitData.append('nombre', formData.titulo);
             submitData.append('version', formData.version);
 
-            // Enviamos por Axios con cabecera multipart
             await api.post('/documentos', submitData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            // Disparamos evento (opcional si la tabla escucha) y volvemos
             window.dispatchEvent(new Event('refreshDocumentos'));
             navigate(-1);
 
@@ -131,17 +153,17 @@ export const NuevoFicheroPage = () => {
                 {/* Fila 1: Empresa y Fecha */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex items-center gap-4">
-                        <label className="w-24 text-gray-700">Empresa:</label>
+                        <label className="w-24 text-gray-700 font-medium">Empresa:</label>
                         <input 
                             type="text" name="empresa" value={formData.empresa} readOnly
                             className="flex-1 border border-gray-300 rounded px-3 py-1.5 bg-gray-50 text-gray-600 outline-none"
                         />
                     </div>
                     <div className="flex items-center gap-4">
-                        <label className="w-16 text-gray-700 text-right">Fecha:</label>
+                        <label className="w-24 md:w-16 text-gray-700 font-medium text-left md:text-right">Fecha:</label>
                         <input 
                             type="date" name="fecha" value={formData.fecha} onChange={handleChange}
-                            className="w-40 border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500"
+                            className="w-full md:w-40 border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500"
                         />
                     </div>
                 </div>
@@ -149,30 +171,20 @@ export const NuevoFicheroPage = () => {
                 {/* Fila 2: Circuito y Estado */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex items-center gap-4">
-                        <label className="w-24 text-gray-700">Circuito:</label>
+                        <label className="w-24 text-gray-700 font-medium">Circuito:</label>
                         <select 
                             name="circuito" value={formData.circuito} onChange={handleChange}
                             className="flex-1 border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500"
                         >
-                            <option value="SIN_CLASIFICAR">Sin clasificar</option>
-                            <option value="ALTA_FRECUENCIA">ALTA FRECUENCIA</option>
-                            <option value="ATENCION_AL_CLIENTE">ATENCIÓN AL CLIENTE</option>
-                            <option value="BAJA_FRECUENCIA">BAJA FRECUENCIA</option>
-                            <option value="CALIDAD">CALIDAD</option>
-                            <option value="CAPACITACION">CAPACITACION</option>
-                            <option value="CUALIFICACION">CUALIFICACIÓN</option>
-                            <option value="FORMATOS">FORMATOS</option>
-                            <option value="GESTION_DE_PATRONES">GESTIÓN DE PATRONES</option>
-                            <option value="GESTION_LOGISTICA">GESTION LOGISTICA</option>
-                            <option value="LEGALIZACION">LEGALIZACION</option>
-                            <option value="PRESION">PRESIÓN</option>
-                            <option value="PROCEDIMIENTOS_GESTION_DOCUMENTAL">PROCEDIMIENTOS GESTIÓN DOCUMENTAL</option>
-                            <option value="TERMOMETRIA">TERMOMETRIA</option>
-                            <option value="TIEMPO">TIEMPO</option>
+                            {listaCircuitos.map(circuito => (
+                                <option key={circuito} value={circuito}>
+                                    {circuito.replace(/_/g, ' ')}
+                                </option>
+                            ))}
                         </select>
                     </div>
                     <div className="flex items-center gap-4">
-                        <label className="w-16 text-gray-700 text-right">Estado:</label>
+                        <label className="w-24 md:w-16 text-gray-700 font-medium text-left md:text-right">Estado:</label>
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input 
                                 type="checkbox" name="estado" checked={formData.estado} onChange={handleChange}
@@ -183,20 +195,21 @@ export const NuevoFicheroPage = () => {
                     </div>
                 </div>
 
-                {/* Links visuales de tu diseño */}
-                <div className="flex flex-col gap-2 mt-2">
-                    <a href="#" className="text-blue-600 underline text-xs">Más información:</a>
-                    <a href="#" className="text-blue-600 underline text-xs">Otros datos:</a>
-                    <div className="mt-2">
-                        <span className="border border-black px-2 py-0.5 text-xs font-bold rounded cursor-pointer hover:bg-gray-100">Permisos</span>
+                {/* Fila 3: Propietario (Solo lectura) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex items-center gap-4">
+                        <label className="w-24 text-gray-700 font-medium">Propietario:</label>
+                        <div className="flex-1 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-800 font-semibold rounded text-sm">
+                            {nombrePropietario}
+                        </div>
                     </div>
                 </div>
 
-                {/* Fila 3: Selección de Archivo y Título */}
-                <div className="mt-4 border-t border-gray-200 pt-6">
-                    <div className="flex items-start gap-4 mb-4">
-                        <label className="w-24 text-gray-700 mt-1">Fichero:</label>
-                        <div className="flex-1 flex flex-col gap-2">
+                {/* Fila 4: Selección de Archivo y Título */}
+                <div className="mt-2 border-t border-gray-200 pt-6">
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
+                        <label className="w-24 text-gray-700 font-medium">Fichero:</label>
+                        <div className="flex-1 w-full">
                             <input 
                                 type="file" 
                                 accept="application/pdf"
@@ -206,32 +219,34 @@ export const NuevoFicheroPage = () => {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <label className="w-24 text-gray-700 text-right">Título:</label>
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                        <label className="w-24 text-gray-700 font-medium">Título:</label>
                         <input 
                             type="text" name="titulo" value={formData.titulo} onChange={handleChange} required
                             placeholder="Nombre del documento"
-                            className="flex-1 border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 uppercase"
+                            className="flex-1 w-full border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 uppercase"
                         />
-                        <label className="text-gray-700 ml-4">Versión:</label>
-                        <input 
-                            type="text" name="version" value={formData.version} onChange={handleChange}
-                            className="w-16 border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-center"
-                        />
+                        <div className="flex items-center gap-2 mt-4 md:mt-0">
+                            <label className="text-gray-700 font-medium md:ml-4">Versión:</label>
+                            <input 
+                                type="text" name="version" value={formData.version} onChange={handleChange}
+                                className="w-16 border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-center"
+                            />
+                        </div>
                     </div>
                 </div>
 
                 {/* Botonera inferior */}
-                <div className="flex items-center gap-3 mt-6 border-t border-gray-200 pt-6">
+                <div className="flex items-center gap-3 mt-4 border-t border-gray-200 pt-6">
                     <button 
                         type="submit" disabled={loading}
-                        className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        className="px-6 py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
                     >
                         {loading ? 'Subiendo...' : 'Aceptar'}
                     </button>
                     <button 
                         type="button" onClick={() => navigate(-1)}
-                        className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded shadow-sm hover:bg-gray-50 transition-colors"
+                        className="px-6 py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded shadow-sm hover:bg-gray-50 transition-colors"
                     >
                         Cancelar
                     </button>

@@ -1,20 +1,34 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, BadRequestException, Query } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentosService } from './documentos.service';
-import { CreateDocumentoDto } from './dto/create-documento.dto';
 import { UpdateDocumentoDto } from './dto/update-documento.dto';
+import { CircuitoDocumento } from '@prisma/client';
 
 @Controller('documentos')
 export class DocumentosController {
   constructor(private readonly documentosService: DocumentosService) {}
 
   @Post()
-  create(@Body() createDocumentoDto: CreateDocumentoDto) {
-    return this.documentosService.create(createDocumentoDto);
+  @UseInterceptors(FileInterceptor('archivo'))
+  async create(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('El archivo PDF es obligatorio.');
+    }
+    return this.documentosService.create(file, body);
   }
 
   @Get()
-  findAll() {
-    return this.documentosService.findAll();
+  findAll(@Query('carpeta_id') carpetaId?: string) {
+    return this.documentosService.findAll(carpetaId ? parseInt(carpetaId, 10) : undefined);
+  }
+
+  @Get('circuitos')
+  getCircuitos() {
+    // Devuelve un arreglo con todos los valores del Enum: ['SIN_CLASIFICAR', 'ALTA_FRECUENCIA', ...]
+    return Object.values(CircuitoDocumento);
   }
 
   @Get(':id')
@@ -23,8 +37,8 @@ export class DocumentosController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateDocumentoDto: UpdateDocumentoDto) {
-    return this.documentosService.update(+id, updateDocumentoDto);
+  update(@Param('id') id: string, @Body() data: any) {
+    return this.documentosService.update(+id, data);
   }
 
   @Delete(':id')

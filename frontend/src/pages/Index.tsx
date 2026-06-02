@@ -47,8 +47,10 @@ const ModuleIcon = ({ name }: { name: string }) => {
 // 2. FAVORITOS: Añadimos Auditoría a la lista
 const favorites = [
   'Gestion de Usuarios', 
+  'Gestor Documental',
   'Recursos Humanos',
   'Auditoria Global' // 👇 AÑADIDO
+
 ];
 
 // 3. Colores para cada módulo

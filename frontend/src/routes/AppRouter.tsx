@@ -32,6 +32,8 @@ import { GrupoFormPage } from '../pages/usuarios/GrupoFormPage';
 import { GestorDocumentalPage } from '../pages/gestorDocumental/index';
 import { NuevaCarpetaPage } from '../pages/gestorDocumental/NuevaCarpetaPage';
 import { GestorDocumentalLayout } from '../pages/gestorDocumental/GDLayout';
+import {NuevoFicheroPage} from '../pages/gestorDocumental/NuevoFicheroPage';
+import { MoverDocumentosPage } from '../pages/gestorDocumental/MoverDocumentoPage';
 
 import { AuditoriaPage } from '../pages/configuracion/AuditoriaPage';
 
@@ -92,6 +94,10 @@ const AppRouter = () => {
           <Route path="carpeta/:id" element={<GestorDocumentalPage />} />
           {/* Ruta para crear nueva carpeta */}
           <Route path="nueva-carpeta" element={<NuevaCarpetaPage />} />
+          {/* Ruta para crear nuevo fichero */}
+          <Route path="nuevo-fichero" element={<NuevoFicheroPage />} />
+          {/* Ruta para mover documentos */}
+          <Route path="mover-documentos" element={<MoverDocumentosPage />} />
         </Route>
 
         {/* ---------------------------------------------------- */}

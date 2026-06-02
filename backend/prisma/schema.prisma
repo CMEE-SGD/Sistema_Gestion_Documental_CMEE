@@ -333,7 +333,7 @@ model Documento {
   fecha_documento    DateTime?         @db.Date // La fecha que sale a la derecha (01/06/2026)
   circuito           CircuitoDocumento @default(SIN_CLASIFICAR)
   activo             Boolean           @default(true) // El checkbox de "Estado"
-  
+  propietario        String?           @db.VarChar(150)
   // Fichero
   archivo_url        String            // Aquí va la ruta donde se guardó el PDF (/uploads/...)
   nombre             String            // Es el "Título" del formulario
