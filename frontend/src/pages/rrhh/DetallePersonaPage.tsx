@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, FileText, Contact, ShieldAlert } from 'lucide-react';
+import { User, Contact, ShieldAlert, BookOpen, UserCog } from 'lucide-react'; // Añadidos nuevos iconos
 import api from '../../lib/axios';
 import { Persona } from '../../data/users';
 import { TablaHistorial } from '../../components/shared/TablaHistorial';
 
+// Interfaz para los documentos adjuntos
 interface DocumentoAdjunto {
     id: number;
     nombre: string;
@@ -22,7 +23,8 @@ export const DetallePersonaPage = () => {
     const [logsPersona, setLogsPersona] = useState([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
 
-    const [documentos] = useState<DocumentoAdjunto[]>([
+    // Estado dinámico para los documentos
+    const [documentos, setDocumentos] = useState<DocumentoAdjunto[]>([
         { id: 1, nombre: 'Curriculum Vitae Apolo_J_2025_signed.pdf', url: '#' },
         { id: 2, nombre: 'Declaracion de Salvaguardia Conf Etica Apolo_J.PDF', url: '#' },
         { id: 3, nombre: 'HOJA_DE_VIDA.pdf', url: '#' },
@@ -34,6 +36,11 @@ export const DetallePersonaPage = () => {
             try {
                 const response = await api.get(`/personas/${id}`);
                 setPersona(response.data);
+                
+                // NOTA: Si tu API devuelve los documentos en response.data.documentos, 
+                // puedes actualizar el estado aquí:
+                // if(response.data.documentos) setDocumentos(response.data.documentos);
+                
             } catch (error) {
                 console.error('Error cargando los detalles de la persona', error);
             } finally {
@@ -43,11 +50,8 @@ export const DetallePersonaPage = () => {
         if (id) fetchPersonaDetalle();
     }, [id]);
 
-    // Lógica para traer los logs solo cuando el usuario decide verlos
     const handleToggleLogs = async () => {
         setMostrarLogs(!mostrarLogs);
-        
-        // Si ya hay logs cargados, no vuelve a consultar a la API
         if (!mostrarLogs && logsPersona.length === 0) {
             setLoadingLogs(true);
             try {
@@ -75,14 +79,40 @@ export const DetallePersonaPage = () => {
         }
     };
 
+    // Función para manejar la eliminación dinámica de un documento
+    const handleEliminarDocumento = async (docId: number) => {
+        const confirmar = window.confirm('¿Desea eliminar este documento adjunto?');
+        if (!confirmar) return;
+
+        try {
+            // Aquí iría tu llamada a la API para borrar el documento, ej:
+            // await api.delete(`/documentos/${docId}`);
+            
+            // Actualizamos el estado para quitarlo de la vista al instante
+            setDocumentos(prevDocs => prevDocs.filter(doc => doc.id !== docId));
+        } catch (error) {
+            console.error('Error al eliminar documento', error);
+            alert('Error al eliminar el documento.');
+        }
+    };
+
+    const formatFecha = (fecha?: string) => {
+        if (!fecha) return '-';
+        if (fecha.includes('T')) {
+            const [year, month, day] = fecha.split('T')[0].split('-');
+            return `${day}/${month}/${year}`;
+        }
+        return fecha;
+    };
+
     if (loading) return <div className="p-8 text-center text-[11px] text-gray-500 font-sans">Cargando ficha del recurso...</div>;
     if (!persona) return <div className="p-8 text-center text-[11px] text-red-500 font-sans">No se encontró la persona solicitada.</div>;
 
-    const DataRow = ({ label, value, isLink = false, children }: { label: string, value?: string | React.ReactNode, isLink?: boolean, children?: React.ReactNode }) => (
-        <div className="flex items-start mb-2.5 text-[11px]">
-            <div className="w-40 font-bold text-gray-900 shrink-0">{label}</div>
+    const DataRow = ({ label, value, isLink = false, children, mb = "mb-3" }: { label: string, value?: string | React.ReactNode, isLink?: boolean, children?: React.ReactNode, mb?: string }) => (
+        <div className={`flex items-start ${mb} text-[11px]`}>
+            <div className="w-[180px] font-bold text-gray-900 shrink-0 mt-1">{label}</div>
             <div className={`flex-1 ${isLink ? 'text-blue-600 underline cursor-pointer' : 'text-gray-800'}`}>
-                {value !== undefined ? value : children || '-'}
+                {value !== undefined && value !== null && value !== '' ? value : children || '-'}
             </div>
         </div>
     );
@@ -101,9 +131,8 @@ export const DetallePersonaPage = () => {
                 <button onClick={() => navigate('/rrhh/personas')} className="px-2.5 py-1 text-[10px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm">Atrás</button>
                 <button onClick={() => navigate(`/rrhh/personas/editar/${id}`)} className="px-2.5 py-1 text-[10px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm">Editar</button>
                 <button onClick={handleEliminar} className="px-2.5 py-1 text-[10px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm">Eliminar</button>
-                <button className="px-2.5 py-1 text-[10px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm">Imprimir</button>
+                <button onClick={() => window.print()} className="px-2.5 py-1 text-[10px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm">Imprimir</button>
                 
-                {/* 👇 Botón Log ahora activa el despliegue */}
                 <button 
                     onClick={handleToggleLogs} 
                     className={`px-2.5 py-1 text-[10px] font-medium border rounded shadow-sm transition-colors ${mostrarLogs ? 'bg-[#006400] text-white border-[#006400]' : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-100'}`}
@@ -113,53 +142,150 @@ export const DetallePersonaPage = () => {
             </div>
 
             <div className="p-4">
-                <div className="border border-gray-300 bg-white">
+                <div className="border border-gray-300 bg-white shadow-sm">
                     
                     <div className="bg-[#006400] text-white font-bold px-4 py-2 text-xs">
                         Usuario del sistema
                     </div>
 
-                    <div className="bg-[#f2f2f2] border-l-[6px] border-[#006400] text-[11px] p-6">
+                    <div className="bg-[#f2f2f2] border-l-[6px] border-[#006400] text-[11px] p-8">
                         
-                        {/* SECCIÓN SUPERIOR: Foto y Datos Básicos */}
-                        <div className="flex flex-col md:flex-row gap-6 mb-8">
-                            <div className="w-32 h-40 shrink-0 border border-gray-400 bg-gray-200 flex items-center justify-center overflow-hidden">
+                        {/* SECCIÓN SUPERIOR */}
+                        <div className="flex flex-col md:flex-row gap-8 mb-8">
+                            <div className="w-[130px] h-[160px] shrink-0 border border-gray-300 bg-[#e2e6ea] flex items-center justify-center overflow-hidden">
                                 {persona.foto_ruta ? (
                                     <img src={persona.foto_ruta} alt="Foto perfil" className="w-full h-full object-cover" />
                                 ) : (
-                                    <User className="w-12 h-12 text-gray-400" />
+                                    <User className="w-16 h-16 text-gray-400 stroke-[1.5]" />
                                 )}
                             </div>
 
-                            <div className="flex-1 flex flex-col pt-1">
+                            <div className="flex-1 flex flex-col justify-start pt-1">
                                 <DataRow label="Código" value={persona.codigo} />
-                                <DataRow label="Nombre completo" value={`${persona.nombre} ${persona.apellidos}`} />
-                                <DataRow label="Tipo de recurso" value={persona.tipo_recurso || 'Usuario del sistema'} />
-                                <DataRow label="Estado" value={persona.activo ? 'Activo' : 'Inactivo'} />
+                                <DataRow label="Saludo" value={persona.saludo} />
+                                <DataRow label="Nombre" value={persona.nombre} />
+                                <DataRow label="Apellidos" value={persona.apellidos} />
+                                
+                                <DataRow label="Puesto">
+                                    {persona.puestos && persona.puestos.length > 0 ? (
+                                        <div className="flex flex-col gap-1.5">
+                                            {persona.puestos.map((p, idx) => (
+                                                <div key={idx} className="text-[11px] leading-tight">
+                                                    {p.puesto?.nombre && (
+                                                        <span className="text-blue-600 underline cursor-pointer font-medium mr-1 hover:text-blue-800">
+                                                            {p.puesto.nombre}
+                                                        </span>
+                                                    )}
+                                                    {p.puesto?.nombre && p.departamento?.nombre && <span className="text-gray-600"> en </span>}
+                                                    {p.departamento?.nombre && (
+                                                        <span className="text-blue-600 underline cursor-pointer hover:text-blue-800">
+                                                            el departamento {p.departamento.nombre}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : '-'}
+                                </DataRow>
+                                
+                                <DataRow label="Roles">
+                                    {persona.roles && persona.roles.length > 0 ? persona.roles.map(r => r.nombre).join(', ') : '-'}
+                                </DataRow>
                             </div>
                         </div>
 
-                        {/* SECCIÓN: Información Personal */}
+                        <div className="mb-10">
+                            <DataRow label="Fecha de alta" value={formatFecha(persona.fecha_alta)} />
+                            <DataRow label="Tipo de recurso" value={persona.tipo_recurso || 'Usuario del sistema'} />
+                            <DataRow label="Estado" value={persona.activo ? 'Activo' : 'Inactivo'} />
+                        </div>
+
                         <div className="mb-8">
-                            <div className="flex items-center gap-2 mb-4">
+                            <div className="flex items-center gap-2 mb-6">
                                 <Contact className="w-4 h-4 text-gray-700" />
                                 <h3 className="font-bold text-[12px] text-gray-900">Información Personal</h3>
                             </div>
+                            
                             <DataRow label="C.I." value={persona.cedula_identidad} />
+                            <DataRow label="Fecha de nacimiento" value={formatFecha(persona.fecha_nacimiento)} />
                             <DataRow label="Domicilio" value={persona.domicilio} />
                             <DataRow label="Ciudad" value={persona.ciudad} />
+                            <DataRow label="Código postal" value={persona.codigo_postal} />
+                            
+                            <div className="h-4"></div>
+                            
                             <DataRow label="Teléfono" value={persona.telefono} />
-                            <DataRow label="E-mail 1" value={persona.email_1} />
+                            <DataRow label="Fax" value={persona.fax} />
+                            <DataRow label="Celular" value={persona.celular} />
+                            
+                            <div className="h-4"></div>
+                            
+                            <DataRow label="E-mail 1">
+                                {persona.email_1 ? <a href={`mailto:${persona.email_1}`} >{persona.email_1}</a> : '-'}
+                            </DataRow>
+                            {persona.email_2 && (
+                                <DataRow label="E-mail 2">
+                                    <a href={`mailto:${persona.email_2}`} className="text-blue-600 underline">{persona.email_2}</a>
+                                </DataRow>
+                            )}
                         </div>
 
-                        {/* 👇 NUEVA SECCIÓN: Log de actividades (Oculta por defecto) */}
+                        {/* NUEVA SECCIÓN: Documentos (Curriculum Vitae) */}
+                        <div className="mb-8 mt-10">
+                            <div className="flex items-center gap-2 mb-4">
+                                <BookOpen className="w-4 h-4 text-[#d9a05b]" fill="#f7e1b5" />
+                                <h3 className="font-bold text-[12px] text-gray-900">Curriculum Vitae</h3>
+                            </div>
+                            
+                            <DataRow label="Documentos">
+                                <div className="flex flex-col gap-2.5 max-w-4xl">
+                                    {documentos.length > 0 ? (
+                                        documentos.map((doc) => (
+                                            <div key={doc.id} className="flex items-center justify-between bg-white border border-gray-300 px-3 py-1.5 rounded-sm">
+                                                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800 text-[11px]">
+                                                    {doc.nombre}
+                                                </a>
+                                                <button 
+                                                    onClick={() => handleEliminarDocumento(doc.id)}
+                                                    className="text-blue-600 underline hover:text-blue-800 text-[11px] px-2 py-0.5 border border-gray-300 rounded hover:bg-gray-50"
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <span className="text-gray-500 italic">No hay documentos adjuntos.</span>
+                                    )}
+                                </div>
+                            </DataRow>
+                            
+                            <div className="h-4"></div>
+                            <DataRow label="Hoja de Vida:">
+                                <span className="text-gray-800">Ver adjunto</span>
+                            </DataRow>
+                        </div>
+
+                        {/* NUEVA SECCIÓN: Datos de usuario */}
+                        <div className="mb-8 mt-10">
+                            <div className="flex items-center gap-2 mb-4">
+                                <UserCog className="w-4 h-4 text-blue-700" />
+                                <h3 className="font-bold text-[12px] text-gray-900">Datos de usuario</h3>
+                            </div>
+                            
+                            <DataRow label="Nombre de usuario" value={persona.usuario?.nombre_usuario || '-'} />
+                            <DataRow label="Perfil">
+                                {persona.roles && persona.roles.length > 0 ? persona.roles.map(r => r.nombre).join(', ') : 'Responsable de proceso'}
+                            </DataRow>
+                            <DataRow label="Interfaz" value="SGD-CMEE" />
+                        </div>
+
+                        {/* SECCIÓN: Log de actividades */}
                         {mostrarLogs && (
-                            <div className="mt-8 border-t-2 border-gray-300 pt-6 animate-fade-in">
+                            <div className="mt-10 border-t border-gray-300 pt-6 animate-fade-in">
                                 <div className="flex items-center gap-2 mb-4">
                                     <ShieldAlert className="w-4 h-4 text-[#006400]" />
                                     <h3 className="font-bold text-[12px] text-gray-900">Log de actividades del recurso</h3>
                                 </div>
-                                {/* Llamamos a la tabla en Modo Local */}
                                 <TablaHistorial logs={logsPersona} loading={loadingLogs} esGlobal={false} />
                             </div>
                         )}

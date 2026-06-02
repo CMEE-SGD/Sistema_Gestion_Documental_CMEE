@@ -20,7 +20,14 @@ export class DepartamentosService {
     return this.prisma.departamento.findMany({
       orderBy: { orden: 'asc' },
       include: {
-        puestos_asignados: { where: { activo: true } }
+        puestos_asignados: { 
+          where: { activo: true },
+          // AÑADIR ESTE BLOQUE INCLUDE
+          include: {
+            persona: { select: { nombre: true, apellidos: true } },
+            puesto: { select: { nombre: true } }
+          }
+        }
       }
     });
   }
