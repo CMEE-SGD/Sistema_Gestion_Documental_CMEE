@@ -15,10 +15,19 @@ export class RolesService {
   }
 
   findAll() {
-    return this.prisma.rol.findMany({ 
-      orderBy: { orden: 'asc' } 
-    });
-  }
+  return this.prisma.rol.findMany({
+    orderBy: { orden: 'asc' },
+    include: {
+      personas: {
+        select: {
+          nombre: true,
+          apellidos: true,
+          codigo: true, // Importante para el código entre paréntesis
+        },
+      },
+    },
+  });
+}
 
   async findOne(id: number) {
     const rol = await this.prisma.rol.findUnique({ where: { id } });

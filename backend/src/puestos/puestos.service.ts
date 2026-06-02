@@ -17,13 +17,20 @@ export class PuestosService {
   }
 
   findAll() {
-    return this.prisma.puesto.findMany({
-      orderBy: { orden: 'asc' },
-      include: {
-        padre: { select: { id: true, nombre: true } },
-      },
-    });
-  }
+  return this.prisma.puesto.findMany({
+    orderBy: { orden: 'asc' },
+    include: {
+      personas_asignadas: { 
+        where: { activo: true },
+        include: {
+          persona: { 
+            select: { nombre: true, apellidos: true, codigo: true } 
+          }
+        }
+      }
+    }
+  });
+}
 
   async findOne(id: number) {
     const puesto = await this.prisma.puesto.findUnique({
