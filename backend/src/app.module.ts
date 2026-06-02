@@ -12,6 +12,7 @@ import { DocumentosModule } from './documentos/documentos.module';
 import { GruposModule } from './grupos/grupos.module';
 import { AplicacionesModule } from './aplicaciones/aplicaciones.module';
 import { AuthModule } from './auth/auth.module';
+import { AuditoriaModule } from './auditoria/auditoria.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AuthModule } from './auth/auth.module';
     GruposModule,
     AplicacionesModule,
     AuthModule,
+    AuditoriaModule,
   ],
   controllers: [],
   providers: [],

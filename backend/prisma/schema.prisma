@@ -31,6 +31,8 @@ model Rol {
   // Relación N:M con Persona
   personas Persona[] @relation("PersonaRoles")
 
+  logs_auditoria Auditoria[]
+
   @@map("rol")
 }
 
@@ -101,6 +103,8 @@ model Puesto {
 
   personas_asignadas PersonaPuesto[]
 
+  logs_auditoria Auditoria[]
+
   @@index([dependencia_id])
   @@map("puesto")
 }
@@ -144,6 +148,8 @@ model Persona {
   roles            Rol[]              @relation("PersonaRoles") // N:M con Rol
   carpetas_permisos CarpetaPermiso[]
 
+  logs_recibidos Auditoria[] @relation("LogPersonaAfectada")
+
   @@map("persona")
 }
 
@@ -166,6 +172,8 @@ model Usuario {
   password_hash              String  @db.VarChar(255)
   cambiar_clave_proxima_sesion Boolean @default(false)
 
+  auditorias Auditoria[] 
+
   // -- Tab 3: Configuración --
   idioma              String? @db.VarChar(50)
   acceso_preferencias Boolean @default(false)
@@ -173,6 +181,7 @@ model Usuario {
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
 
   @@index([nombre_usuario])
   @@map("usuario")
@@ -344,6 +353,8 @@ model Documento {
   documentos_origen  DocumentoRelacion[] @relation("DocOrigen")
   documentos_destino DocumentoRelacion[] @relation("DocDestino")
 
+  logs_auditoria Auditoria[]
+
   @@map("documentos")
 }
 
@@ -425,4 +436,41 @@ model CarpetaPermiso {
   persona          Persona?      @relation(fields: [persona_id], references: [id], onDelete: Cascade)
 
   @@map("carpetas_permisos")
+}
+
+// ==========================================
+// 11. BITÁCORA DE ACCESOS Y AUDITORÍA (LOGS)
+// ==========================================
+model Auditoria {
+  id                  Int      @id @default(autoincrement())
+  
+  // Quién realiza la acción (Obligatorio)
+  usuario_id          Int
+  usuario             Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Restrict)
+
+  // Qué se hizo
+  modulo              String   @db.VarChar(50)  // Ej: "RRHH", "GESTOR_DOCUMENTAL"
+  accion              String   @db.VarChar(100) // Ej: "Ver ficha de recurso", "Descarga del documento"
+  descripcion         String?  @db.Text         // Ej: "De: Carpeta A -> A: Carpeta B" o IPs
+
+  // Vínculo al Gestor Documental (Opcional)
+  documento_id        Int?
+  documento           Documento? @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+
+  // Vínculo a RRHH (Opcional - a quién le editaron o vieron la ficha)
+  persona_afectada_id Int?
+  persona_afectada    Persona?   @relation("LogPersonaAfectada", fields: [persona_afectada_id], references: [id], onDelete: Cascade)
+
+  rol_afectado_id     Int?
+  rol_afectado        Rol?       @relation(fields: [rol_afectado_id], references: [id], onDelete: Cascade)
+
+  puesto_afectado_id  Int?
+  puesto_afectado     Puesto?    @relation(fields: [puesto_afectado_id], references: [id], onDelete: Cascade)
+
+  fecha_hora          DateTime @default(now()) @db.Timestamptz
+
+  @@index([usuario_id])
+  @@index([documento_id])
+  @@index([modulo])
+  @@map("auditoria")
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ShieldAlert } from 'lucide-react';
 import api from '../../lib/axios';
+import { TablaHistorial } from '../../components/shared/TablaHistorial';
 
 export const DetallePuestoPage = () => {
     const { id } = useParams();
@@ -8,6 +10,10 @@ export const DetallePuestoPage = () => {
     const [puesto, setPuesto] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
+    // Estados para el Log
+    const [mostrarLogs, setMostrarLogs] = useState(false);
+    const [logsPuesto, setLogsPuesto] = useState([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
 
     useEffect(() => {
         const fetchPuesto = async () => {
@@ -23,17 +29,33 @@ export const DetallePuestoPage = () => {
         fetchPuesto();
     }, [id]);
 
+    // Función para manejar el despliegue de la tabla de auditoría
+    const handleToggleLogs = async () => {
+        setMostrarLogs(!mostrarLogs);
+        if (!mostrarLogs && logsPuesto.length === 0) {
+            setLoadingLogs(true);
+            try {
+                const response = await api.get(`/auditoria/puesto/${id}`);
+                setLogsPuesto(response.data);
+            } catch (error) {
+                console.error('Error al cargar logs del puesto', error);
+            } finally {
+                setLoadingLogs(false);
+            }
+        }
+    };
+
     if (loading) return <div className="p-4">Cargando...</div>;
     if (!puesto) return <div className="p-4">Puesto no encontrado.</div>;
+    
     const handleEliminar = async () => {
         const confirmar = window.confirm('¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?');
         if (!confirmar) return;
 
         try {
-            // Llama al método DELETE del controlador que ejecuta el soft delete (activo: false)
             await api.delete(`/puestos/${id}`);
             alert('El recurso ha sido inactivado correctamente.');
-            navigate('/rrhh/puestos'); // Redirige de vuelta al listado principal
+            navigate('/rrhh/puestos'); 
         } catch (error) {
             console.error('Error al inactivar el recurso', error);
             alert('No se pudo desactivar el recurso. Inténtelo de nuevo.');
@@ -44,7 +66,6 @@ export const DetallePuestoPage = () => {
         <div className="grid grid-cols-[250px_1fr] border-b border-gray-200 p-3 items-start min-h-[48px]">
             <span className="font-bold text-gray-800">{label}:</span>
             <div 
-                // Estas clases fuerzan a Tailwind a mostrar las viñetas y márgenes generados por Quill
                 className="text-gray-700 max-w-none [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>p]:mb-2" 
                 dangerouslySetInnerHTML={{ __html: htmlContent || '' }} 
             />
@@ -68,7 +89,15 @@ export const DetallePuestoPage = () => {
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Nueva versión</button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Competencias</button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Imprimir</button>
-                <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Log</button>
+                
+                {/* Botón Log actualizado */}
+                <button 
+                    onClick={handleToggleLogs} 
+                    className={`px-4 py-1 text-sm border rounded transition-colors shadow-sm ${mostrarLogs ? 'bg-[#006400] text-white border-[#006400]' : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'}`}
+                >
+                    Log
+                </button>
+
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Documentos</button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Histórico</button>
                 <button onClick={() => navigate(`/rrhh/puestos/editar/${id}`)} className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Editar</button>
@@ -116,6 +145,17 @@ export const DetallePuestoPage = () => {
                     <TextRow label="Estado" value={puesto.activo ? 'Activo' : 'Inactivo'} />
                 </div>
             </div>
+
+            {/* Renderizado condicional de la tabla de auditoría */}
+            {mostrarLogs && (
+                <div className="border border-gray-300 shadow-sm bg-white mt-2 p-4 animate-fade-in max-w-6xl">
+                    <div className="flex items-center gap-2 mb-4 border-b pb-2">
+                        <ShieldAlert className="w-5 h-5 text-[#006400]" />
+                        <h3 className="font-bold text-sm text-gray-900 uppercase">Log de actividades del puesto</h3>
+                    </div>
+                    <TablaHistorial logs={logsPuesto} loading={loadingLogs} esGlobal={false} />
+                </div>
+            )}
         </div>
     );
 };

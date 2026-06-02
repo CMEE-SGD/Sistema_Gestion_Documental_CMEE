@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ShieldAlert } from 'lucide-react';
 import api from '../../lib/axios';
+import { TablaHistorial } from '../../components/shared/TablaHistorial';
 
 export const DetalleRolPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [rol, setRol] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+
+    // Estados para el Log
+    const [mostrarLogs, setMostrarLogs] = useState(false);
+    const [logsRol, setLogsRol] = useState([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
 
     useEffect(() => {
         const fetchRol = async () => {
@@ -22,6 +29,22 @@ export const DetalleRolPage = () => {
         fetchRol();
     }, [id]);
 
+    // Función para manejar el despliegue de la tabla de auditoría
+    const handleToggleLogs = async () => {
+        setMostrarLogs(!mostrarLogs);
+        if (!mostrarLogs && logsRol.length === 0) {
+            setLoadingLogs(true);
+            try {
+                const response = await api.get(`/auditoria/rol/${id}`);
+                setLogsRol(response.data);
+            } catch (error) {
+                console.error('Error al cargar logs del rol', error);
+            } finally {
+                setLoadingLogs(false);
+            }
+        }
+    };
+
     if (loading) return <div className="p-4">Cargando...</div>;
     if (!rol) return <div className="p-4">Rol no encontrado.</div>;
 
@@ -30,10 +53,9 @@ export const DetalleRolPage = () => {
         if (!confirmar) return;
 
         try {
-            // Llama al método DELETE del controlador que ejecuta el soft delete (activo: false)
             await api.delete(`/roles/${id}`);
             alert('El recurso ha sido inactivado correctamente.');
-            navigate('/rrhh/roles'); // Redirige de vuelta al listado principal
+            navigate('/rrhh/roles'); 
         } catch (error) {
             console.error('Error al inactivar el recurso', error);
             alert('No se pudo desactivar el recurso. Inténtelo de nuevo.');
@@ -62,7 +84,15 @@ export const DetalleRolPage = () => {
                 </button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Competencias</button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Imprimir</button>
-                <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Log</button>
+                
+                {/* Botón Log actualizado */}
+                <button 
+                    onClick={handleToggleLogs} 
+                    className={`px-4 py-1 text-sm border rounded transition-colors shadow-sm ${mostrarLogs ? 'bg-[#006400] text-white border-[#006400]' : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'}`}
+                >
+                    Log
+                </button>
+                
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Documentos</button>
                 <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Procesos</button>
                 <button onClick={() => navigate(`/rrhh/roles/editar/${id}`)} className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Editar</button>
@@ -99,6 +129,17 @@ export const DetalleRolPage = () => {
                     <DataRow label="Estado" value={rol.activo ? 'Activo' : 'Inactivo'} />
                 </div>
             </div>
+
+            {/* Renderizado condicional de la tabla de auditoría */}
+            {mostrarLogs && (
+                <div className="border border-gray-300 shadow-sm bg-white mt-2 p-4 animate-fade-in">
+                    <div className="flex items-center gap-2 mb-4 border-b pb-2">
+                        <ShieldAlert className="w-5 h-5 text-[#006400]" />
+                        <h3 className="font-bold text-sm text-gray-900 uppercase">Log de actividades del rol</h3>
+                    </div>
+                    <TablaHistorial logs={logsRol} loading={loadingLogs} esGlobal={false} />
+                </div>
+            )}
         </div>
     );
 };

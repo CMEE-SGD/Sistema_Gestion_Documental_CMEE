@@ -49,7 +49,9 @@ export class PersonasService {
     return this.prisma.persona.findMany({
       include: { 
         roles: { select: { id: true, nombre: true } },
-        puestos: { include: { puesto: true, departamento: true } }
+        puestos: { include: { puesto: true, departamento: true } },
+        usuario: { select: { nombre_usuario: true, estado_cuenta: true } }
+
       },
     });
   }
@@ -59,7 +61,8 @@ export class PersonasService {
       where: { id },
       include: { 
         roles: { select: { id: true, nombre: true } },
-        puestos: { include: { puesto: true, departamento: true } } 
+        puestos: { include: { puesto: true, departamento: true } },
+        usuario: { select: { nombre_usuario: true, estado_cuenta: true } }
       },
     });
     if (!persona) throw new NotFoundException(`Persona con ID ${id} no encontrada`);

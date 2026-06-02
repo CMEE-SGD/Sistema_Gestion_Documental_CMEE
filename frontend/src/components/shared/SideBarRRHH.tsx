@@ -6,7 +6,7 @@ const menuItems = [
     { name: 'Puestos', path: '/rrhh/puestos', icon: Briefcase },
     { name: 'Roles', path: '/rrhh/roles', icon: Shield },
     { name: 'Personas', path: '/rrhh/personas', icon: Users },
-    { name: 'Personalización', path: '/rrhh/personalizacion', icon: Settings },
+    // { name: 'Personalización', path: '/rrhh/personalizacion', icon: Settings },
 ];
 
 export const SidebarRRHH = () => {

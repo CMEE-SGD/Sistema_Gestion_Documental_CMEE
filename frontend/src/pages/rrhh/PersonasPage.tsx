@@ -175,8 +175,8 @@ export const PersonasPage = () => {
                                         </td>
                                             
                                         <td className="px-4 py-2 align-middle border-r border-gray-200">
-                                            <span className={persona.usuario === 'Usuario externo' ? "text-green-600" : "text-gray-800"}>
-                                                {persona.usuario || '-'}
+                                            <span className={persona.usuario?.nombre_usuario === 'Usuario externo' ? "text-green-600" : "text-gray-800"}>
+                                                {persona.usuario?.nombre_usuario || '-'}
                                             </span>
                                         </td>
 

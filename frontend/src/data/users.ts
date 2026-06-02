@@ -43,7 +43,10 @@ export interface Persona {
   updated_at: string;
 
   // --- Campos calculados o relacionados (JOINs) ---
-  usuario?: string;
+  usuario?: {
+    nombre_usuario: string;
+    estado_cuenta?: boolean;
+  } | null;
   esUsuarioExterno?: boolean;
   
   // Agregamos las relaciones que vienen de la base de datos

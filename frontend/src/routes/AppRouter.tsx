@@ -31,7 +31,9 @@ import { GrupoFormPage } from '../pages/usuarios/GrupoFormPage';
 //-----------------Gestor Documental-----------------
 import { GestorDocumentalPage } from '../pages/gestorDocumental/index';
 import { NuevaCarpetaPage } from '../pages/gestorDocumental/NuevaCarpetaPage';
-import { GestorDocumentalLayout } from '../pages/gestorDocumental/GDLayout'; // <-- Añade esta línea
+import { GestorDocumentalLayout } from '../pages/gestorDocumental/GDLayout';
+
+import { AuditoriaPage } from '../pages/configuracion/AuditoriaPage';
 
 const AppRouter = () => {
   return (
@@ -86,13 +88,16 @@ const AppRouter = () => {
         <Route path="/gestordocumental" element={<GestorDocumentalLayout />}>
           {/* Ruta raíz (Muestra las librerías principales) */}
           <Route index element={<GestorDocumentalPage />} />
-          
           {/* Ruta dinámica para navegar dentro de una carpeta específica */}
           <Route path="carpeta/:id" element={<GestorDocumentalPage />} />
-          
           {/* Ruta para crear nueva carpeta */}
           <Route path="nueva-carpeta" element={<NuevaCarpetaPage />} />
         </Route>
+
+        {/* ---------------------------------------------------- */}
+        {/* MÓDULO DE CONFIGURACIÓN / AUDITORÍA                  */}
+        {/* ---------------------------------------------------- */}
+        <Route path="/auditoria" element={<AuditoriaPage />} />
       </Routes>
     </Router>
   );
