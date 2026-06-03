@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/axios';
-// 1. Importar Quill y sus estilos CSS base
+import { Button } from '../../components/ui/button';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 // 2. Nuevo componente con ReactQuill
 interface RichTextFieldProps {
-    label: string; 
-    name: string; 
+    label: string;
+    name: string;
     value: string;
     onChange: (content: string, name: string) => void;
 }
@@ -17,10 +17,10 @@ export const RichTextField = ({ label, name, value, onChange }: RichTextFieldPro
     <div className="grid grid-cols-[200px_1fr] items-start gap-4 pb-4 border-b border-gray-100 last:border-0">
         <label className="font-medium mt-2">{label}:</label>
         <div className="bg-white w-full max-w-4xl">
-            <ReactQuill 
-                theme="snow" 
-                value={value || ''} 
-                onChange={(content) => onChange(content, name)} 
+            <ReactQuill
+                theme="snow"
+                value={value || ''}
+                onChange={(content) => onChange(content, name)}
                 className="h-40 mb-12" // mb-12 da espacio para la barra de herramientas de Quill
             />
         </div>
@@ -119,8 +119,8 @@ export const NuevoPuestoPage = () => {
                 </div>
 
                 <div className="pt-4 flex gap-2 border-t border-gray-200 mt-4">
-                    <button type="submit" className="bg-[#006699] text-white px-6 py-1.5 rounded hover:bg-blue-800 font-medium">Aceptar</button>
-                    <button type="button" onClick={() => navigate('/rrhh/puestos')} className="bg-gray-100 border border-gray-300 px-6 py-1.5 rounded hover:bg-gray-200 font-medium">Cancelar</button>
+                    <Button variant="submit">Aceptar</Button>
+                    <Button variant="cancelar" />
                 </div>
             </form>
         </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '../../components/ui/button';
 import api from '../../lib/axios';
 
 // 1. EL COMPONENTE AUXILIAR VA AFUERA
@@ -111,8 +112,8 @@ export const NuevoRolPage = () => {
                 </div>
 
                 <div className="pt-4 flex gap-2">
-                    <button type="submit" className="bg-[#006699] text-white px-4 py-1 rounded hover:bg-blue-800">Aceptar</button>
-                    <button type="button" onClick={() => navigate('/rrhh/roles')} className="bg-gray-100 border border-gray-300 px-4 py-1 rounded hover:bg-gray-200">Cancelar</button>
+                    <Button variant="submit">Aceptar</Button>
+                    <Button variant="cancelar" />
                 </div>
             </form>
         </div>

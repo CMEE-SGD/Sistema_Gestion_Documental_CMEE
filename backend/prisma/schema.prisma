@@ -223,7 +223,8 @@ model DocumentoPersona {
   persona        Persona  @relation(fields: [persona_id], references: [id], onDelete: Cascade)
   nombre_archivo String   @db.VarChar(300)
   ruta           String   @db.VarChar(500)
-  tipo_documento String?  @db.VarChar(100)
+  tipo_documento String?  @db.VarChar(100) // Ej: "CV", "Certificado", "Contrato"
+  peso_bytes     Int?     // <-- Nuevo campo recomendado
   fecha_subida   DateTime @default(now()) @db.Timestamptz
   activo         Boolean  @default(true)
 

@@ -4,6 +4,9 @@ import { User, Contact, ShieldAlert, BookOpen, UserCog } from 'lucide-react'; //
 import api from '../../lib/axios';
 import { Persona } from '../../data/users';
 import { TablaHistorial } from '../../components/shared/TablaHistorial';
+import { PrintHeader } from '../../components/shared/PrintHeader';
+import { Button } from '../../components/ui/button';
+
 
 // Interfaz para los documentos adjuntos
 interface DocumentoAdjunto {
@@ -17,7 +20,7 @@ export const DetallePersonaPage = () => {
     const navigate = useNavigate();
     const [persona, setPersona] = useState<Persona | null>(null);
     const [loading, setLoading] = useState(true);
-    
+
     // Estados para el Log Individual
     const [mostrarLogs, setMostrarLogs] = useState(false);
     const [logsPersona, setLogsPersona] = useState([]);
@@ -36,11 +39,11 @@ export const DetallePersonaPage = () => {
             try {
                 const response = await api.get(`/personas/${id}`);
                 setPersona(response.data);
-                
+
                 // NOTA: Si tu API devuelve los documentos en response.data.documentos, 
                 // puedes actualizar el estado aquí:
                 // if(response.data.documentos) setDocumentos(response.data.documentos);
-                
+
             } catch (error) {
                 console.error('Error cargando los detalles de la persona', error);
             } finally {
@@ -87,7 +90,7 @@ export const DetallePersonaPage = () => {
         try {
             // Aquí iría tu llamada a la API para borrar el documento, ej:
             // await api.delete(`/documentos/${docId}`);
-            
+
             // Actualizamos el estado para quitarlo de la vista al instante
             setDocumentos(prevDocs => prevDocs.filter(doc => doc.id !== docId));
         } catch (error) {
@@ -119,43 +122,46 @@ export const DetallePersonaPage = () => {
 
     return (
         <div className="flex flex-col bg-white min-h-screen font-sans">
-            
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-300">
+            <PrintHeader
+                subtitulo={`Ficha técnica de: ${persona?.nombre} ${persona?.apellidos}`}
+            />
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-300 print:hidden">
                 <User className="w-5 h-5 text-blue-600" />
                 <h1 className="text-sm font-bold text-gray-800">
                     Ficha del recurso {persona.nombre} {persona.apellidos}
                 </h1>
             </div>
-
-            <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-gray-300 bg-gray-50">
-                <button onClick={() => navigate('/rrhh/personas')} className="px-2.5 py-1 text-[10px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm">Atrás</button>
-                <button onClick={() => navigate(`/rrhh/personas/editar/${id}`)} className="px-2.5 py-1 text-[10px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm">Editar</button>
-                <button onClick={handleEliminar} className="px-2.5 py-1 text-[10px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm">Eliminar</button>
-                <button onClick={() => window.print()} className="px-2.5 py-1 text-[10px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm">Imprimir</button>
-                
-                <button 
-                    onClick={handleToggleLogs} 
-                    className={`px-2.5 py-1 text-[10px] font-medium border rounded shadow-sm transition-colors ${mostrarLogs ? 'bg-[#006400] text-white border-[#006400]' : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-100'}`}
-                >
-                    Log
-                </button>
+            <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-gray-300 bg-gray-50 print:hidden">
+                <Button variant="cancelar">Atrás</Button>
+                <Button onClick={() => navigate(`/rrhh/personas/editar/${id}`)} variant="clasico">Editar</Button>
+                <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
+                <Button variant="imprimir" />
+                <Button onClick={handleToggleLogs} variant="clasico">Log</Button>
             </div>
 
-            <div className="p-4">
-                <div className="border border-gray-300 bg-white shadow-sm">
-                    
-                    <div className="bg-[#006400] text-white font-bold px-4 py-2 text-xs">
+            {/* 1. CONTENEDOR EXTERNO: Le damos print:my-6 para que tenga margen arriba y ABAJO */}
+            <div className="p-4 print:p-0 print:my-6">
+
+                {/* 2. RECUADRO PRINCIPAL: Añadimos rounded para que las esquinas se vean suaves */}
+                <div className="border border-gray-300 bg-white shadow-sm print:shadow-none print:border print:border-gray-400 rounded-sm">
+
+                    <div className="bg-[#006400] text-white font-bold px-4 py-2 text-xs print:bg-gray-200 print:text-black print:border-b print:border-gray-400">
                         Usuario del sistema
                     </div>
 
-                    <div className="bg-[#f2f2f2] border-l-[6px] border-[#006400] text-[11px] p-8">
-                        
-                        {/* SECCIÓN SUPERIOR */}
-                        <div className="flex flex-col md:flex-row gap-8 mb-8">
-                            <div className="w-[130px] h-[160px] shrink-0 border border-gray-300 bg-[#e2e6ea] flex items-center justify-center overflow-hidden">
+                    {/* 3. CUERPO DE DATOS: Aumentamos el padding vertical en impresión (print:py-8) para que no quede pegado al borde inferior */}
+                    <div className="bg-[#f2f2f2] border-l-[6px] border-[#006400] text-[11px] p-8 print:bg-white print:border-none print:px-6 print:py-8">
+
+                        {/* 4. SOLUCIÓN AL APILAMIENTO: Forzamos 'print:flex-row' para que la foto y los datos siempre estén lado a lado */}
+                        <div className="flex flex-col md:flex-row print:flex-row gap-8 mb-8">
+
+                            <div className="w-[130px] h-[160px] shrink-0 border border-gray-300 print:border-gray-400 bg-[#e2e6ea] print:bg-transparent flex items-center justify-center overflow-hidden">
                                 {persona.foto_ruta ? (
-                                    <img src={persona.foto_ruta} alt="Foto perfil" className="w-full h-full object-cover" />
-                                ) : (
+                                    <img
+                                        src={`${import.meta.env.VITE_BACKEND_URL}${persona.foto_ruta}`}
+                                        alt="Foto perfil"
+                                        className="w-full h-full object-cover"
+                                    />) : (
                                     <User className="w-16 h-16 text-gray-400 stroke-[1.5]" />
                                 )}
                             </div>
@@ -165,7 +171,7 @@ export const DetallePersonaPage = () => {
                                 <DataRow label="Saludo" value={persona.saludo} />
                                 <DataRow label="Nombre" value={persona.nombre} />
                                 <DataRow label="Apellidos" value={persona.apellidos} />
-                                
+
                                 <DataRow label="Puesto">
                                     {persona.puestos && persona.puestos.length > 0 ? (
                                         <div className="flex flex-col gap-1.5">
@@ -187,7 +193,7 @@ export const DetallePersonaPage = () => {
                                         </div>
                                     ) : '-'}
                                 </DataRow>
-                                
+
                                 <DataRow label="Roles">
                                     {persona.roles && persona.roles.length > 0 ? persona.roles.map(r => r.nombre).join(', ') : '-'}
                                 </DataRow>
@@ -205,21 +211,21 @@ export const DetallePersonaPage = () => {
                                 <Contact className="w-4 h-4 text-gray-700" />
                                 <h3 className="font-bold text-[12px] text-gray-900">Información Personal</h3>
                             </div>
-                            
+
                             <DataRow label="C.I." value={persona.cedula_identidad} />
                             <DataRow label="Fecha de nacimiento" value={formatFecha(persona.fecha_nacimiento)} />
                             <DataRow label="Domicilio" value={persona.domicilio} />
                             <DataRow label="Ciudad" value={persona.ciudad} />
                             <DataRow label="Código postal" value={persona.codigo_postal} />
-                            
+
                             <div className="h-4"></div>
-                            
+
                             <DataRow label="Teléfono" value={persona.telefono} />
                             <DataRow label="Fax" value={persona.fax} />
                             <DataRow label="Celular" value={persona.celular} />
-                            
+
                             <div className="h-4"></div>
-                            
+
                             <DataRow label="E-mail 1">
                                 {persona.email_1 ? <a href={`mailto:${persona.email_1}`} >{persona.email_1}</a> : '-'}
                             </DataRow>
@@ -236,7 +242,7 @@ export const DetallePersonaPage = () => {
                                 <BookOpen className="w-4 h-4 text-[#d9a05b]" fill="#f7e1b5" />
                                 <h3 className="font-bold text-[12px] text-gray-900">Curriculum Vitae</h3>
                             </div>
-                            
+
                             <DataRow label="Documentos">
                                 <div className="flex flex-col gap-2.5 max-w-4xl">
                                     {documentos.length > 0 ? (
@@ -245,7 +251,7 @@ export const DetallePersonaPage = () => {
                                                 <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800 text-[11px]">
                                                     {doc.nombre}
                                                 </a>
-                                                <button 
+                                                <button
                                                     onClick={() => handleEliminarDocumento(doc.id)}
                                                     className="text-blue-600 underline hover:text-blue-800 text-[11px] px-2 py-0.5 border border-gray-300 rounded hover:bg-gray-50"
                                                 >
@@ -258,7 +264,7 @@ export const DetallePersonaPage = () => {
                                     )}
                                 </div>
                             </DataRow>
-                            
+
                             <div className="h-4"></div>
                             <DataRow label="Hoja de Vida:">
                                 <span className="text-gray-800">Ver adjunto</span>
@@ -271,7 +277,7 @@ export const DetallePersonaPage = () => {
                                 <UserCog className="w-4 h-4 text-blue-700" />
                                 <h3 className="font-bold text-[12px] text-gray-900">Datos de usuario</h3>
                             </div>
-                            
+
                             <DataRow label="Nombre de usuario" value={persona.usuario?.nombre_usuario || '-'} />
                             <DataRow label="Perfil">
                                 {persona.roles && persona.roles.length > 0 ? persona.roles.map(r => r.nombre).join(', ') : 'Responsable de proceso'}
@@ -281,7 +287,7 @@ export const DetallePersonaPage = () => {
 
                         {/* SECCIÓN: Log de actividades */}
                         {mostrarLogs && (
-                            <div className="mt-10 border-t border-gray-300 pt-6 animate-fade-in">
+                            <div className="mt-10 border-t border-gray-300 pt-6 animate-fade-in print:hidden">
                                 <div className="flex items-center gap-2 mb-4">
                                     <ShieldAlert className="w-4 h-4 text-[#006400]" />
                                     <h3 className="font-bold text-[12px] text-gray-900">Log de actividades del recurso</h3>

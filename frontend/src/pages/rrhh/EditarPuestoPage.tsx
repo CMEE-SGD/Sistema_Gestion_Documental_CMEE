@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Button } from '../../components/ui/button';
 import api from '../../lib/axios';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -164,8 +165,8 @@ export const EditarPuestoPage = () => {
                 </div>
 
                 <div className="pt-4 flex gap-2 border-t border-gray-200 mt-4">
-                    <button type="submit" className="bg-[#006699] text-white px-6 py-1.5 rounded hover:bg-blue-800 font-medium">Guardar Cambios</button>
-                    <button type="button" onClick={() => navigate(`/rrhh/puestos/${id}`)} className="bg-gray-100 border border-gray-300 px-6 py-1.5 rounded hover:bg-gray-200 font-medium">Cancelar</button>
+                    <Button variant="submit">Guardar Cambios</Button>
+                    <Button variant="cancelar" />
                 </div>
             </form>
         </div>

@@ -13,11 +13,17 @@ import { GruposModule } from './grupos/grupos.module';
 import { AplicacionesModule } from './aplicaciones/aplicaciones.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
+import { ServeStaticModule } from '@nestjs/serve-static'; // <- NUEVO
+import { join } from 'path'; // <- NUEVO
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
     }),
     PrismaModule,
     RolesModule,

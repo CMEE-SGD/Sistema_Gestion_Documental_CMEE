@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button } from '../../components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/axios';
 import { UserPlus, User } from 'lucide-react';
@@ -30,10 +31,12 @@ const LabelRow = ({ label, requerido = false, children, mb = "mb-3" }: any) => (
 export const NuevaPersonaPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    
+
     const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
     const [puestosLista, setPuestosLista] = useState<Puesto[]>([]);
     const [rolesLista, setRolesLista] = useState<Rol[]>([]);
+    const [fotoFile, setFotoFile] = useState<File | null>(null);
+    const [documentosFiles, setDocumentosFiles] = useState<File[]>([]);
 
     const [formData, setFormData] = useState({
         codigo: '', saludo: '', nombre: '', apellidos: '',
@@ -92,23 +95,55 @@ export const NuevaPersonaPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("Submit iniciado");
         setLoading(true);
         try {
-            const payload = {
-                ...formData,
-                fecha_nacimiento: formData.fecha_nacimiento ? new Date(formData.fecha_nacimiento).toISOString() : null,
-                puestos_asignados: formData.puestos_asignados
-                    .filter(p => p.departamento_id !== '' && p.puesto_id !== '')
-                    .map(p => ({
-                        departamento_id: Number(p.departamento_id),
-                        puesto_id: Number(p.puesto_id)
-                    }))
-            };
+            const formDataToSend = new FormData();
 
-            await api.post('/personas', payload);
-            navigate('/rrhh/personas'); 
+            // 1. Agregamos todos los campos de texto simples al FormData
+            Object.keys(formData).forEach((key) => {
+                if (key !== 'roles' && key !== 'puestos_asignados' && key !== 'fecha_nacimiento') {
+                    formDataToSend.append(key, String(formData[key as keyof typeof formData]));
+                }
+            });
+
+            // 2. Formateamos y agregamos la fecha
+            if (formData.fecha_nacimiento) {
+                formDataToSend.append('fecha_nacimiento', new Date(formData.fecha_nacimiento).toISOString());
+            }
+
+            // 3. Formateamos y agregamos los arreglos como JSON string
+            formDataToSend.append('roles', JSON.stringify(formData.roles));
+
+            const puestosValidos = formData.puestos_asignados
+                .filter(p => p.departamento_id !== '' && p.puesto_id !== '')
+                .map(p => ({
+                    departamento_id: Number(p.departamento_id),
+                    puesto_id: Number(p.puesto_id)
+                }));
+            formDataToSend.append('puestos_asignados', JSON.stringify(puestosValidos));
+
+            // 4. Si el usuario seleccionó una foto, la adjuntamos
+            if (fotoFile) {
+                formDataToSend.append('foto', fotoFile);
+            }
+
+            documentosFiles.forEach(file => {
+                formDataToSend.append('documentos', file);
+            });
+            // 5. Enviamos todo configurando el encabezado para multipart/form-data
+            await api.post('/personas', formDataToSend, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+
+            navigate('/rrhh/personas');
         } catch (error: any) {
-            console.error(error.response?.data);
+            console.log("Error detallado:", error); // Esto es vital
+            if (error.response) {
+                console.log("Datos del error:", error.response.data);
+            }
+            alert("Revisa la consola para ver el error.");
             alert(`Error al crear: ${JSON.stringify(error.response?.data?.message || 'Error del servidor')}`);
         } finally {
             setLoading(false);
@@ -130,14 +165,14 @@ export const NuevaPersonaPage = () => {
 
                     <form onSubmit={handleSubmit} className="bg-[#f2f2f2] border-l-[6px] border-[#006400] text-[11px]">
                         <div className="p-6">
-                            
+
                             {/* --- DATOS PERSONALES --- */}
                             <h3 className="font-bold text-[12px] mb-4 text-gray-900 underline">Datos personales</h3>
-                            
+
                             <LabelRow label="Código:">
                                 <input type="text" name="codigo" value={formData.codigo} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-40 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Saludo:">
                                 <select name="saludo" value={formData.saludo} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-48 bg-white outline-none focus:border-blue-500">
                                     <option value="">Seleccione un saludo</option>
@@ -147,46 +182,46 @@ export const NuevaPersonaPage = () => {
                                     <option value="Lic.">Lic.</option>
                                 </select>
                             </LabelRow>
-                            
+
                             <LabelRow label="Nombre:" requerido mb="mb-2">
                                 <input type="text" name="nombre" required value={formData.nombre} onChange={handleChange} className="border-2 border-black px-1.5 py-0.5 w-56 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Apellidos:" requerido>
                                 <input type="text" name="apellidos" required value={formData.apellidos} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-80 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="C.I.:">
                                 <input type="text" name="cedula_identidad" value={formData.cedula_identidad} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-40 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Fecha de nacimiento:">
                                 <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-32 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Sexo:">
                                 <div className="flex items-center gap-4 mt-1">
                                     <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name="sexo" value="M" checked={formData.sexo === 'M'} onChange={handleChange} /> Masculino</label>
                                     <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name="sexo" value="F" checked={formData.sexo === 'F'} onChange={handleChange} /> Femenino</label>
                                 </div>
                             </LabelRow>
-                            
+
                             <LabelRow label="Domicilio:">
                                 <input type="text" name="domicilio" value={formData.domicilio} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-96 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Ciudad:">
                                 <input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-64 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Código postal:">
                                 <input type="text" name="codigo_postal" value={formData.codigo_postal} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-24 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Provincia:">
                                 <input type="text" name="provincia" value={formData.provincia} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-80 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Teléfono:">
                                 <div className="flex items-center gap-4">
                                     <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-24 bg-white outline-none focus:border-blue-500" />
@@ -196,7 +231,7 @@ export const NuevaPersonaPage = () => {
                                     <input type="text" name="celular" value={formData.celular} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-24 bg-white outline-none focus:border-blue-500" />
                                 </div>
                             </LabelRow>
-                            
+
                             <div className="mt-4">
                                 <LabelRow label="E-mail 1:">
                                     <input type="email" name="email_1" value={formData.email_1} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-80 bg-white outline-none focus:border-blue-500" />
@@ -207,20 +242,48 @@ export const NuevaPersonaPage = () => {
                             </div>
 
                             <div className="flex items-center gap-2 mt-4 mb-2">
-                                <div className="w-40"><img src="https://cdn-icons-png.flaticon.com/128/1374/1374128.png" className="w-4 inline mr-1" alt="img"/> Fotografía:</div>
+                                <div className="w-40"><img src="https://cdn-icons-png.flaticon.com/128/1374/1374128.png" className="w-4 inline mr-1" alt="img" /> Fotografía:</div>
                                 <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" /> Mostrar ampliación en listado</label>
                             </div>
                             <div className="flex items-start gap-2 mb-6">
-                                <div className="w-40"><img src="https://cdn-icons-png.flaticon.com/128/711/711186.png" className="w-4 inline mr-1" alt="file"/> Fichero:</div>
+                                <div className="w-40"><img src="https://cdn-icons-png.flaticon.com/128/711/711186.png" className="w-4 inline mr-1" alt="file" /> Fichero:</div>
                                 <div>
-                                    <input type="file" className="text-[10px]" />
+                                    {/* 👇 Modificamos el input para capturar la imagen */}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => setFotoFile(e.target.files?.[0] || null)}
+                                        className="text-[10px]"
+                                    />
                                     <div className="text-[9px] mt-1 text-black font-semibold">dimensiones Recomendadas 61px x 84px</div>
                                 </div>
                             </div>
-                            
-                            <div className="border-t border-b border-gray-300 py-3 mb-6 flex items-center">
-                                <div className="w-40 font-bold">Hoja de Vida:</div>
-                                <input type="text" readOnly placeholder="Ver adjunto" className="border border-gray-300 px-2 py-1 w-96 bg-white outline-none cursor-default" />
+
+                            <div className="border-t border-b border-gray-300 py-3 mb-6 flex flex-col gap-2">
+                                <div className="flex items-start gap-2">
+                                    <div className="w-40 font-bold pt-1">Documentos adjuntos <br /><span className="font-normal text-gray-500 text-[9px]">(CV, Certificados, etc)</span></div>
+                                    <div className="flex-1">
+                                        <input
+                                            type="file"
+                                            multiple // Permite elegir varios archivos a la vez
+                                            accept=".pdf" // Restringe el selector solo a PDFs
+                                            onChange={(e) => setDocumentosFiles(Array.from(e.target.files || []))}
+                                            className="text-[11px] file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-[11px] file:bg-gray-200 hover:file:bg-gray-300 cursor-pointer"
+                                        />
+
+                                        {/* Lista visual de los PDFs seleccionados */}
+                                        {documentosFiles.length > 0 && (
+                                            <ul className="mt-2 text-[10px] text-gray-700 list-disc pl-4 bg-gray-50 p-2 border border-gray-200 rounded w-max">
+                                                {documentosFiles.map((file, idx) => (
+                                                    <li key={idx} className="mb-0.5">
+                                                        <span className="font-semibold text-blue-700">{file.name}</span>
+                                                        <span className="text-gray-500 ml-1">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* --- PUESTOS --- */}
@@ -252,10 +315,10 @@ export const NuevaPersonaPage = () => {
                                 <div className="flex flex-col gap-3">
                                     {rolesLista.map((rol) => (
                                         <label key={rol.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-200 p-1 w-max rounded">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={formData.roles.includes(rol.id)} 
-                                                onChange={() => handleRoleToggle(rol.id)} 
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.roles.includes(rol.id)}
+                                                onChange={() => handleRoleToggle(rol.id)}
                                                 className="w-3 h-3"
                                             />
                                             <User className="w-4 h-4 fill-blue-800 text-blue-800" />
@@ -266,14 +329,10 @@ export const NuevaPersonaPage = () => {
                             </div>
 
                         </div>
-                        
+
                         <div className="bg-white border-t border-gray-300 p-4 flex gap-2">
-                            <button type="submit" disabled={loading} className="bg-[#006699] text-white px-4 py-1 rounded hover:bg-blue-800 font-bold disabled:opacity-50">
-                                {loading ? 'Cargando...' : 'Aceptar'}
-                            </button>
-                            <button type="button" onClick={() => navigate('/rrhh/personas')} className="bg-white border border-gray-400 px-4 py-1 rounded hover:bg-gray-100 text-gray-800">
-                                Cancelar
-                            </button>
+                            <Button variant="submit">Aceptar</Button>
+                            <Button variant="cancelar" />
                         </div>
                     </form>
                 </div>

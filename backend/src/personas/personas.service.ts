@@ -5,7 +5,7 @@ import { UpdatePersonaDto } from './dto/update-persona.dto';
 
 @Injectable()
 export class PersonasService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(createPersonaDto: CreatePersonaDto) {
     const { roles, puestos_asignados, ...personaData } = createPersonaDto;
@@ -24,7 +24,7 @@ export class PersonasService {
       data: {
         ...personaData,
         fecha_nacimiento: personaData.fecha_nacimiento ? new Date(personaData.fecha_nacimiento) : null,
-        
+
         roles: roles?.length > 0 ? {
           connect: roles.map(id => ({ id }))
         } : undefined,
@@ -38,7 +38,7 @@ export class PersonasService {
           }))
         } : undefined
       },
-      include: { 
+      include: {
         roles: true,
         puestos: true
       },
@@ -47,7 +47,7 @@ export class PersonasService {
 
   findAll() {
     return this.prisma.persona.findMany({
-      include: { 
+      include: {
         roles: { select: { id: true, nombre: true } },
         puestos: { include: { puesto: true, departamento: true } },
         usuario: { select: { nombre_usuario: true, estado_cuenta: true } }
@@ -59,7 +59,7 @@ export class PersonasService {
   async findOne(id: number) {
     const persona = await this.prisma.persona.findUnique({
       where: { id },
-      include: { 
+      include: {
         roles: { select: { id: true, nombre: true } },
         puestos: { include: { puesto: true, departamento: true } },
         usuario: { select: { nombre_usuario: true, estado_cuenta: true } }
@@ -82,7 +82,7 @@ export class PersonasService {
       data: {
         ...personaData,
         fecha_nacimiento: personaData.fecha_nacimiento ? new Date(personaData.fecha_nacimiento) : undefined,
-        
+
         roles: roles ? { set: roles.map(id => ({ id })) } : undefined,
 
         // CORRECCIÓN: Aplicamos la misma estructura de connect y orden_puesto
@@ -94,10 +94,18 @@ export class PersonasService {
           }))
         } : undefined
       },
-      include: { 
+      include: {
         roles: true,
         puestos: { include: { puesto: true, departamento: true } }
       },
+    });
+  }
+
+  // En el archivo personas.service.ts
+  async guardarDocumentos(documentos: any[]) {
+    // Usamos prisma para insertar varios registros de una vez
+    return await this.prisma.documentoPersona.createMany({
+      data: documentos,
     });
   }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Button } from '../../components/ui/button';
 import api from '../../lib/axios';
 import { UserCheck, User } from 'lucide-react';
 
@@ -27,11 +28,12 @@ const LabelRow = ({ label, requerido = false, children, mb = "mb-3" }: any) => (
 );
 
 export const EditarPersonaPage = () => {
-    const { id } = useParams<{ id: string }>(); 
+    const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [fetching, setFetching] = useState(true); 
-    
+    const [fetching, setFetching] = useState(true);
+    const [fotoFile, setFotoFile] = useState<File | null>(null);
+
     const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
     const [puestosLista, setPuestosLista] = useState<Puesto[]>([]);
     const [rolesLista, setRolesLista] = useState<Rol[]>([]);
@@ -76,7 +78,7 @@ export const EditarPersonaPage = () => {
                         { departamento_id: '', puesto_id: '' },
                         { departamento_id: '', puesto_id: '' }
                     ];
-                    
+
                     if (p.puestos && Array.isArray(p.puestos)) {
                         p.puestos.forEach((asig: any, index: number) => {
                             if (index < 3) {
@@ -117,7 +119,7 @@ export const EditarPersonaPage = () => {
                 setFetching(false);
             }
         };
-        
+
         fetchDatosIniciales();
     }, [id]);
 
@@ -140,8 +142,8 @@ export const EditarPersonaPage = () => {
         setFormData(prev => ({
             ...prev,
             roles: prev.roles.includes(rolId)
-                ? prev.roles.filter(id => id !== rolId) 
-                : [...prev.roles, rolId] 
+                ? prev.roles.filter(id => id !== rolId)
+                : [...prev.roles, rolId]
         }));
     };
 
@@ -149,18 +151,40 @@ export const EditarPersonaPage = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const payload = {
-                ...formData,
-                fecha_nacimiento: formData.fecha_nacimiento ? new Date(formData.fecha_nacimiento).toISOString() : null,
-                puestos_asignados: formData.puestos_asignados
-                    .filter(p => p.departamento_id !== '' && p.puesto_id !== '')
-                    .map(p => ({
-                        departamento_id: Number(p.departamento_id),
-                        puesto_id: Number(p.puesto_id)
-                    }))
-            };
+            const formDataToSend = new FormData();
 
-            await api.patch(`/personas/${id}`, payload);
+            // A. Agregamos todos los campos de texto
+            Object.keys(formData).forEach((key) => {
+                if (key !== 'roles' && key !== 'puestos_asignados' && key !== 'fecha_nacimiento') {
+                    formDataToSend.append(key, String(formData[key as keyof typeof formData]));
+                }
+            });
+
+            // B. Formateamos fecha y arreglos
+            if (formData.fecha_nacimiento) {
+                formDataToSend.append('fecha_nacimiento', new Date(formData.fecha_nacimiento).toISOString());
+            }
+
+            formDataToSend.append('roles', JSON.stringify(formData.roles));
+
+            const puestosValidos = formData.puestos_asignados
+                .filter(p => p.departamento_id !== '' && p.puesto_id !== '')
+                .map(p => ({
+                    departamento_id: Number(p.departamento_id),
+                    puesto_id: Number(p.puesto_id)
+                }));
+            formDataToSend.append('puestos_asignados', JSON.stringify(puestosValidos));
+
+            // C. Si el usuario seleccionó una NUEVA foto, la adjuntamos
+            if (fotoFile) {
+                formDataToSend.append('foto', fotoFile);
+            }
+
+            // D. Enviamos como multipart/form-data usando PATCH
+            await api.patch(`/personas/${id}`, formDataToSend, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
             navigate(`/rrhh/personas/${id}`);
         } catch (error: any) {
             console.error(error);
@@ -189,14 +213,14 @@ export const EditarPersonaPage = () => {
 
                     <form onSubmit={handleSubmit} className="bg-[#f2f2f2] border-l-[6px] border-[#006400] text-[11px]">
                         <div className="p-6">
-                            
+
                             {/* --- DATOS PERSONALES --- */}
                             <h3 className="font-bold text-[12px] mb-4 text-gray-900 underline">Datos personales</h3>
-                            
+
                             <LabelRow label="Código:">
                                 <input type="text" name="codigo" value={formData.codigo} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-40 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Saludo:">
                                 <select name="saludo" value={formData.saludo} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-48 bg-white outline-none focus:border-blue-500">
                                     <option value="">Seleccione un saludo</option>
@@ -206,46 +230,46 @@ export const EditarPersonaPage = () => {
                                     <option value="Lic.">Lic.</option>
                                 </select>
                             </LabelRow>
-                            
+
                             <LabelRow label="Nombre:" requerido mb="mb-2">
                                 <input type="text" name="nombre" required value={formData.nombre} onChange={handleChange} className="border-2 border-black px-1.5 py-0.5 w-56 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Apellidos:" requerido>
                                 <input type="text" name="apellidos" required value={formData.apellidos} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-80 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="C.I.:">
                                 <input type="text" name="cedula_identidad" value={formData.cedula_identidad} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-40 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Fecha de nacimiento:">
                                 <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-32 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Sexo:">
                                 <div className="flex items-center gap-4 mt-1">
                                     <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name="sexo" value="M" checked={formData.sexo === 'M'} onChange={handleChange} /> Masculino</label>
                                     <label className="flex items-center gap-1 cursor-pointer"><input type="radio" name="sexo" value="F" checked={formData.sexo === 'F'} onChange={handleChange} /> Femenino</label>
                                 </div>
                             </LabelRow>
-                            
+
                             <LabelRow label="Domicilio:">
                                 <input type="text" name="domicilio" value={formData.domicilio} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-96 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Ciudad:">
                                 <input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-64 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Código postal:">
                                 <input type="text" name="codigo_postal" value={formData.codigo_postal} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-24 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Provincia:">
                                 <input type="text" name="provincia" value={formData.provincia} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-80 bg-white outline-none focus:border-blue-500" />
                             </LabelRow>
-                            
+
                             <LabelRow label="Teléfono:">
                                 <div className="flex items-center gap-4">
                                     <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-24 bg-white outline-none focus:border-blue-500" />
@@ -255,7 +279,7 @@ export const EditarPersonaPage = () => {
                                     <input type="text" name="celular" value={formData.celular} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-24 bg-white outline-none focus:border-blue-500" />
                                 </div>
                             </LabelRow>
-                            
+
                             <div className="mt-4">
                                 <LabelRow label="E-mail 1:">
                                     <input type="email" name="email_1" value={formData.email_1} onChange={handleChange} className="border border-gray-300 px-1.5 py-0.5 w-80 bg-white outline-none focus:border-blue-500" />
@@ -266,17 +290,26 @@ export const EditarPersonaPage = () => {
                             </div>
 
                             <div className="flex items-center gap-2 mt-4 mb-2">
-                                <div className="w-40"><img src="https://cdn-icons-png.flaticon.com/128/1374/1374128.png" className="w-4 inline mr-1" alt="img"/> Fotografía:</div>
+                                <div className="w-40"><img src="https://cdn-icons-png.flaticon.com/128/1374/1374128.png" className="w-4 inline mr-1" alt="img" /> Fotografía:</div>
                                 <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" /> Mostrar ampliación en listado</label>
                             </div>
                             <div className="flex items-start gap-2 mb-6">
-                                <div className="w-40"><img src="https://cdn-icons-png.flaticon.com/128/711/711186.png" className="w-4 inline mr-1" alt="file"/> Fichero:</div>
+                                <div className="w-40"><img src="https://cdn-icons-png.flaticon.com/128/711/711186.png" className="w-4 inline mr-1" alt="file" /> Fichero:</div>
                                 <div>
-                                    <input type="file" className="text-[10px]" />
-                                    <div className="text-[9px] mt-1 text-black font-semibold">dimensiones Recomendadas 61px x 84px</div>
+                                    {/* 👇 3. ACTUALIZAMOS EL INPUT PARA CAPTURAR LA FOTO */}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => setFotoFile(e.target.files?.[0] || null)}
+                                        className="text-[10px]"
+                                    />
+                                    <div className="text-[9px] mt-1 text-black font-semibold">
+                                        Dimensiones recomendadas 61px x 84px. <br />
+                                        <span className="text-gray-500 font-normal">(Si sube un archivo nuevo, reemplazará al anterior)</span>
+                                    </div>
                                 </div>
                             </div>
-                            
+
                             <div className="border-t border-b border-gray-300 py-3 mb-6 flex items-center">
                                 <div className="w-40 font-bold">Hoja de Vida:</div>
                                 <input type="text" readOnly placeholder="Ver adjunto" className="border border-gray-300 px-2 py-1 w-96 bg-white outline-none cursor-default" />
@@ -286,13 +319,13 @@ export const EditarPersonaPage = () => {
                             {!formData.activo && (
                                 <LabelRow label="Estado del recurso:">
                                     <label className="flex items-center gap-2 text-[11px] text-gray-700 cursor-pointer font-bold text-red-600 bg-red-50 p-1 w-max rounded border border-red-200">
-                                        <input 
-                                            type="checkbox" 
-                                            name="activo" 
-                                            checked={formData.activo} 
-                                            onChange={handleChange} 
+                                        <input
+                                            type="checkbox"
+                                            name="activo"
+                                            checked={formData.activo}
+                                            onChange={handleChange}
                                             className="w-3.5 h-3.5 cursor-pointer"
-                                        /> 
+                                        />
                                         Marcar para volver a Activar recurso en el sistema
                                     </label>
                                 </LabelRow>
@@ -327,10 +360,10 @@ export const EditarPersonaPage = () => {
                                 <div className="flex flex-col gap-3">
                                     {rolesLista.map((rol) => (
                                         <label key={rol.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-200 p-1 w-max rounded">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={formData.roles.includes(rol.id)} 
-                                                onChange={() => handleRoleToggle(rol.id)} 
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.roles.includes(rol.id)}
+                                                onChange={() => handleRoleToggle(rol.id)}
                                                 className="w-3 h-3"
                                             />
                                             <User className="w-4 h-4 fill-blue-800 text-blue-800" />
@@ -341,14 +374,10 @@ export const EditarPersonaPage = () => {
                             </div>
 
                         </div>
-                        
+
                         <div className="bg-white border-t border-gray-300 p-4 flex gap-2">
-                            <button type="submit" disabled={loading} className="bg-[#006699] text-white px-4 py-1 rounded hover:bg-blue-800 font-bold disabled:opacity-50">
-                                {loading ? 'Guardando...' : 'Guardar Cambios'}
-                            </button>
-                            <button type="button" onClick={() => navigate(`/rrhh/personas/${id}`)} className="bg-white border border-gray-400 px-4 py-1 rounded hover:bg-gray-100 text-gray-800">
-                                Cancelar
-                            </button>
+                            <Button variant="submit">Guardar Cambios</Button>
+                            <Button variant="cancelar" />
                         </div>
                     </form>
                 </div>

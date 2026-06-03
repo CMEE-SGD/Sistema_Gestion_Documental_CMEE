@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
+import { Printer } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -10,8 +11,19 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 shadow-lg shadow-blue-200",
-         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        clasico:
+          "px-2.5 py-1 text-[11px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm text-gray-800",
+        imprimir: 
+          "px-2.5 py-1 text-[11px] font-medium bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm text-gray-800 gap-1",
+        
+        // 👇 NUEVA VARIANTE: SUBMIT / ACEPTAR
+        submit: 
+          "bg-[#006699] text-white px-4 py-1.5 rounded text-[11px] hover:bg-blue-800 font-bold disabled:opacity-50 shadow-sm",
+        
+        // 👇 NUEVA VARIANTE: CANCELAR
+        cancelar: 
+          "bg-white border border-gray-400 px-4 py-1.5 rounded text-[11px] hover:bg-gray-100 text-gray-800 shadow-sm",
+
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
@@ -46,6 +58,9 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  onClick,
+  children,
+  type, // Extraemos type para manejar submits
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
@@ -53,14 +68,60 @@ function Button({
   }) {
   const Comp = asChild ? Slot.Root : "button"
 
+  const handleClick = (e: any) => {
+    // Lógica para Imprimir
+    if (variant === "imprimir") {
+      window.print();
+    }
+    
+
+    if (variant === "cancelar") {
+
+      e.preventDefault(); 
+
+      window.history.back(); 
+    }
+
+    if (onClick) {
+      onClick(e);
+    }
+  }
+
+  const renderChildren = () => {
+    if (variant === "imprimir" && !asChild) {
+      return (
+        <>
+          {children || "Imprimir"}
+        </>
+      )
+    }
+    // Si es submit y no tiene hijos, por defecto dirá "Aceptar"
+    if (variant === "submit" && !children && !asChild) {
+      return "Aceptar";
+    }
+    // Si es cancelar y no tiene hijos, por defecto dirá "Cancelar"
+    if (variant === "cancelar" && !children && !asChild) {
+      return "Cancelar";
+    }
+    
+    return children;
+  }
+
+  // Si la variante es 'submit', forzamos el type html a 'submit'
+  const buttonType = variant === 'submit' ? 'submit' : (type || 'button');
+
   return (
     <Comp
+      type={buttonType}
       data-slot="button"
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
+      onClick={handleClick}
       {...props}
-    />
+    >
+      {renderChildren()}
+    </Comp>
   )
 }
 

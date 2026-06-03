@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Button } from '../../components/ui/button';
 import { ShieldAlert } from 'lucide-react';
 import api from '../../lib/axios';
 import { TablaHistorial } from '../../components/shared/TablaHistorial';
+import { PrintHeader } from '../../components/shared/PrintHeader';
+
 
 export const DetallePuestoPage = () => {
     const { id } = useParams();
@@ -47,7 +50,7 @@ export const DetallePuestoPage = () => {
 
     if (loading) return <div className="p-4">Cargando...</div>;
     if (!puesto) return <div className="p-4">Puesto no encontrado.</div>;
-    
+
     const handleEliminar = async () => {
         const confirmar = window.confirm('¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?');
         if (!confirmar) return;
@@ -55,7 +58,7 @@ export const DetallePuestoPage = () => {
         try {
             await api.delete(`/puestos/${id}`);
             alert('El recurso ha sido inactivado correctamente.');
-            navigate('/rrhh/puestos'); 
+            navigate('/rrhh/puestos');
         } catch (error) {
             console.error('Error al inactivar el recurso', error);
             alert('No se pudo desactivar el recurso. Inténtelo de nuevo.');
@@ -65,9 +68,9 @@ export const DetallePuestoPage = () => {
     const HTMLRow = ({ label, htmlContent }: { label: string, htmlContent: string }) => (
         <div className="grid grid-cols-[250px_1fr] border-b border-gray-200 p-3 items-start min-h-[48px]">
             <span className="font-bold text-gray-800">{label}:</span>
-            <div 
-                className="text-gray-700 max-w-none [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>p]:mb-2" 
-                dangerouslySetInnerHTML={{ __html: htmlContent || '' }} 
+            <div
+                className="text-gray-700 max-w-none [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>p]:mb-2"
+                dangerouslySetInnerHTML={{ __html: htmlContent || '' }}
             />
         </div>
     );
@@ -81,38 +84,31 @@ export const DetallePuestoPage = () => {
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap gap-2 mb-2">
-                <button onClick={() => navigate('/rrhh/puestos')} className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Atrás</button>
-                <button onClick={handleEliminar} className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
-                    Eliminar
-                </button>
-                <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Nueva versión</button>
-                <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Competencias</button>
-                <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Imprimir</button>
-                
-                {/* Botón Log actualizado */}
-                <button 
-                    onClick={handleToggleLogs} 
-                    className={`px-4 py-1 text-sm border rounded transition-colors shadow-sm ${mostrarLogs ? 'bg-[#006400] text-white border-[#006400]' : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'}`}
-                >
-                    Log
-                </button>
-
-                <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Documentos</button>
-                <button className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Histórico</button>
-                <button onClick={() => navigate(`/rrhh/puestos/editar/${id}`)} className="px-4 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">Editar</button>
+            <PrintHeader
+                subtitulo={`Ficha técnica del Puesto: ${puesto?.nombre}`}
+            />
+            <div className="flex flex-wrap items-center justify-between gap-4 p-3 border-b border-gray-300 bg-gray-50 print:hidden">
+                <div className="flex flex-wrap gap-2 mb-2">
+                    <Button variant="cancelar">Atrás</Button>
+                    <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
+                    <Button variant="imprimir"/>
+                    <Button onClick={handleToggleLogs} variant="clasico">Log</Button>
+                    <Button onClick={() => navigate(`/rrhh/puestos/editar/${id}`)} variant="clasico">
+                        Editar
+                    </Button>
+                </div>
             </div>
 
             <div className="border border-gray-300 shadow-sm text-sm bg-white max-w-6xl">
                 <div className="bg-[#8eb8d5] px-4 py-2 text-white font-bold text-lg">
-                    Puesto {puesto.nombre} 
+                    Puesto {puesto.nombre}
                 </div>
-                
+
                 <div className="bg-gray-50">
                     <TextRow label="Código" value={puesto.codigo} />
                     <TextRow label="Nombre" value={puesto.nombre} />
                     <TextRow label="Fecha última mod." value={new Date(puesto.fecha_ultima_mod || puesto.updatedAt).toLocaleDateString()} />
-                    
+
                     <HTMLRow label="Educación" htmlContent={puesto.educacion} />
                     <HTMLRow label="Formación" htmlContent={puesto.formacion} />
                     <HTMLRow label="Habilidad" htmlContent={puesto.habilidad} />
@@ -128,7 +124,7 @@ export const DetallePuestoPage = () => {
                     <div className="bg-blue-50 text-[#8eb8d5] px-3 py-2 font-bold text-sm uppercase tracking-wider border-b border-gray-200">
                         PERFIL PROFESIONAL
                     </div>
-                    
+
                     <div className="px-3 py-2 font-bold text-gray-700 bg-white border-b border-gray-100">Educación</div>
                     <TextRow label="Indispensable" value={puesto.perfil_educacion_indispensable} />
 
@@ -147,15 +143,17 @@ export const DetallePuestoPage = () => {
             </div>
 
             {/* Renderizado condicional de la tabla de auditoría */}
-            {mostrarLogs && (
-                <div className="border border-gray-300 shadow-sm bg-white mt-2 p-4 animate-fade-in max-w-6xl">
-                    <div className="flex items-center gap-2 mb-4 border-b pb-2">
-                        <ShieldAlert className="w-5 h-5 text-[#006400]" />
-                        <h3 className="font-bold text-sm text-gray-900 uppercase">Log de actividades del puesto</h3>
+            {
+                mostrarLogs && (
+                    <div className="border border-gray-300 shadow-sm bg-white mt-2 p-4 animate-fade-in max-w-6xl">
+                        <div className="flex items-center gap-2 mb-4 border-b pb-2">
+                            <ShieldAlert className="w-5 h-5 text-[#006400]" />
+                            <h3 className="font-bold text-sm text-gray-900 uppercase">Log de actividades del puesto</h3>
+                        </div>
+                        <TablaHistorial logs={logsPuesto} loading={loadingLogs} esGlobal={false} />
                     </div>
-                    <TablaHistorial logs={logsPuesto} loading={loadingLogs} esGlobal={false} />
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };

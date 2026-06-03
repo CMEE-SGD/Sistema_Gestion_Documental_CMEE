@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '../../components/ui/button'; 
 import { Plus, Briefcase, Users, Printer, ArrowLeft, LayoutList } from 'lucide-react';
 import api from '../../lib/axios';
 
@@ -54,21 +55,10 @@ export const PuestosPage = () => {
         return true; 
     });
 
-    const handleImprimir = () => {
-        window.print();
-    };
 
     return (
         <div className="flex flex-col gap-4 print:bg-white print:m-0">
-            <style type="text/css" media="print">
-                {`
-                    @page { size: auto; margin: 10mm; }
-                    /* Ocultamos las etiquetas html comunes de navegación y barra lateral */
-                    aside, nav, header { display: none !important; }
-                    /* Evitamos que el contenedor de la derecha deje espacio vacío */
-                    main, #root, body { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; }
-                `}
-            </style>
+            
             <PrintHeader 
                 subtitulo={vistaActual === 'tabla' ? 'Listado General de Puestos' : 'Esquema de Puestos y Personal'}
                 filtroAplicado={filtroEstado}
@@ -79,20 +69,12 @@ export const PuestosPage = () => {
             ========================================================= */}
             {vistaActual === 'tabla' ? (
                 <div className="flex flex-wrap items-center gap-2 bg-gray-50 p-3 rounded border border-gray-200 print:hidden">
-                    <button onClick={() => navigate('/rrhh')} className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm">
-                        Atrás
-                    </button>
-                    <button onClick={() => navigate('/rrhh/puestos/nuevo')} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm">
-                        <Plus className="w-4 h-4" /> Nuevo puesto
-                    </button>
-                    <button 
-                        onClick={() => setVistaActual('esquema')}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm"
-                    > Ver esquema
-                    </button>
-                    <button onClick={handleImprimir} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm">
-                    Imprimir
-                    </button>
+                    <Button onClick={() => navigate('/rrhh')} variant="clasico">Atrás</Button>
+                    <Button onClick={() => navigate('/rrhh/puestos/nuevo')} variant="clasico">
+                        Nuevo puesto
+                    </Button>
+                    <Button onClick={() => setVistaActual('esquema')} variant="clasico"> Ver esquema </Button>
+                    <Button variant="imprimir">Imprimir</Button>
                     
                     <div className="flex items-center gap-4 ml-auto">
                         <div className="flex items-center gap-2">
@@ -122,18 +104,8 @@ export const PuestosPage = () => {
                 </div>
             ) : (
                 <div className="flex items-center gap-4 bg-gray-50 p-3 rounded border border-gray-200 print:hidden">
-                    <button 
-                        onClick={() => setVistaActual('tabla')}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm"
-                    >
-                        <ArrowLeft className="w-4 h-4" /> Atrás
-                    </button>
-                    <button 
-                        onClick={handleImprimir}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm"
-                    >
-                        <Printer className="w-4 h-4" /> Imprimir
-                    </button>
+                    <Button onClick={() => setVistaActual('tabla')} variant="clasico"> Atrás </Button>
+                    <Button variant="imprimir"> Imprimir</Button>
                 </div>
             )}
 

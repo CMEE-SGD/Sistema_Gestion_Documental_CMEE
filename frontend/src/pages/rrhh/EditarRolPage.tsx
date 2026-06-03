@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Button } from '../../components/ui/button';
 import api from '../../lib/axios';
 
 // 1. COMPONENTE AUXILIAR AFUERA (Evita perder el foco)
@@ -155,9 +156,9 @@ export const EditarRolPage = () => {
                 </div>
 
                 <div className="pt-4 flex gap-2">
-                    <button type="submit" className="bg-[#006699] text-white px-4 py-1 rounded hover:bg-blue-800">Guardar Cambios</button>
-                    <button type="button" onClick={() => navigate(`/rrhh/roles/${id}`)} className="bg-gray-100 border border-gray-300 px-4 py-1 rounded hover:bg-gray-200">Cancelar</button>
-                </div>
+                    <Button variant="submit">Guardar Cambios</Button>
+                    <Button variant="cancelar" />
+                     </div>
             </form>
         </div>
     );

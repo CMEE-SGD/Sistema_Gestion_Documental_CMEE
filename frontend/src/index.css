@@ -128,3 +128,21 @@
     @apply font-sans;
     }
 }
+
+/* Al final de tu index.css */
+
+/* Al final de tu index.css */
+@media print {
+    @page { 
+        size: auto; 
+        margin: 0; /* Quita URLs y fechas feas del navegador */
+    }
+    
+    body { 
+        margin: 1.5cm !important; /* Le da el margen perfecto de documento Word */
+        padding: 0 !important; 
+    }
+    
+    aside, nav, header { display: none !important; }
+    main, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+}

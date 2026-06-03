@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Users, FolderTree, Printer, ArrowLeft } from 'lucide-react';
+import { Button } from '../../components/ui/button';
 import api from '../../lib/axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -84,23 +85,8 @@ export const GruposPage = () => {
         }
     }
 
-    const handleImprimir = () => {
-        window.print();
-    };
-
     return (
         <div className="flex flex-col gap-4 print:bg-white print:m-0">
-            
-            {/* =========================================================
-                BLOQUE PARA OCULTAR BARRA LATERAL AL IMPRIMIR
-            ========================================================= */}
-            <style type="text/css" media="print">
-                {`
-                    @page { size: auto; margin: 10mm; }
-                    aside, nav, header { display: none !important; }
-                    main, #root, body { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; }
-                `}
-            </style>
 
             {/* CABECERA DE IMPRESIÓN (COMPONENTE REUTILIZABLE) */}
             <PrintHeader 
@@ -114,18 +100,10 @@ export const GruposPage = () => {
             {vistaActual === 'tabla' ? (
                 <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 p-3 rounded border border-gray-200 print:hidden">
                     <div className="flex gap-2">
-                        <button onClick={() => navigate('/rrhh')} className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm">
-                            Atrás
-                        </button>
-                        <button onClick={() => navigate('/rrhh/grupos/nuevo')} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm">
-                            <Plus className="w-4 h-4" /> Nuevo grupo
-                        </button>
-                        <button onClick={() => setVistaActual('organigrama')} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm">
-                             Organigrama
-                        </button>
-                        <button onClick={handleImprimir} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm">
-                             Imprimir
-                        </button>
+                        <Button onClick={() => navigate('/rrhh')} variant="clasico">Atrás</Button>
+                        <Button onClick={() => navigate('/rrhh/grupos/nuevo')} variant="clasico">Nuevo grupo</Button>
+                        <Button onClick={() => setVistaActual('organigrama')} variant="clasico">Organigrama</Button>
+                        <Button variant="imprimir" />
                     </div>
                     
                     <div className="flex items-center gap-4 ml-auto">
@@ -156,12 +134,8 @@ export const GruposPage = () => {
                 </div>
             ) : (
                 <div className="flex items-center gap-4 bg-gray-50 p-3 rounded border border-gray-200 print:hidden">
-                    <button onClick={() => setVistaActual('tabla')} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm">
-                        <ArrowLeft className="w-4 h-4" /> Atrás
-                    </button>
-                    <button onClick={handleImprimir} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm">
-                         Imprimir
-                    </button>
+                    <Button onClick={() => setVistaActual('tabla')} variant="clasico">Atrás</Button>
+                    <Button variant = "imprimir"/>
                     
                     <div className="flex items-center gap-4 ml-4 border-l border-gray-300 pl-4">
                         <label className="flex items-center gap-2 text-sm cursor-pointer">
