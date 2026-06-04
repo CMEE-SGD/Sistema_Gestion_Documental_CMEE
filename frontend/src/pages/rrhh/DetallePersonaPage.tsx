@@ -110,7 +110,7 @@ export const DetallePersonaPage = () => {
                 </h1>
             </div>
             <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-gray-300 bg-gray-50 print:hidden">
-                <Button variant="cancelar">Atrás</Button>
+                <Button variant="clasico" onClick={() => navigate('/rrhh/personas')}> Atrás</Button>
                 <Button onClick={() => navigate(`/rrhh/personas/editar/${id}`)} variant="clasico">Editar</Button>
                 <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
                 <Button onClick={() => navigate(`/rrhh/personas/${id}/documentos`)} variant="clasico">Documentos</Button>

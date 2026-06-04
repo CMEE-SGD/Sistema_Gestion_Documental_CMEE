@@ -18,6 +18,7 @@ export const PersonasPage = () => {
     // Estados para los filtros
     const [palabraClave, setPalabraClave] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo');
+    const [seleccionados, setSeleccionados] = useState<number[]>([]);
 
     useEffect(() => {
         const fetchPersonas = async () => {
@@ -50,6 +51,51 @@ export const PersonasPage = () => {
         }
         return true;
     });
+    // 1. Manejar un checkbox individual
+    const handleCheckIndividual = (id: number) => {
+        setSeleccionados(prev => 
+            prev.includes(id) 
+                ? prev.filter(item => item !== id) // Si ya estaba, lo quita
+                : [...prev, id]                    // Si no estaba, lo agrega
+        );
+    };
+
+    // 2. Manejar el checkbox "Seleccionar Todos" de la cabecera
+    const handleCheckTodos = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            // Si marca "Todos", mete todos los IDs en el arreglo
+            setSeleccionados(personas.map(p => p.id));
+        } else {
+            // Si desmarca, vacía el arreglo
+            setSeleccionados([]);
+        }
+    };
+
+    // 3. Función para el botón "Eliminar"
+    const handleEliminarSeleccionados = async () => {
+        if (seleccionados.length === 0) {
+            alert("Por favor, seleccione al menos un recurso para eliminar.");
+            return;
+        }
+
+        const confirmar = window.confirm(`¿Está seguro de que desea desactivar ${seleccionados.length} recurso(s)?`);
+        if (!confirmar) return;
+
+        try {
+            // Enviamos la petición DELETE por cada ID seleccionado al mismo tiempo
+            await Promise.all(seleccionados.map(id => api.delete(`/personas/${id}`)));
+            
+            alert('Recursos desactivados exitosamente.');
+            setSeleccionados([]); // Limpiamos la selección
+            
+            // Llama aquí a la función que recarga tu tabla, por ejemplo:
+            // fetchPersonas(); o recargar la página:
+            window.location.reload(); 
+        } catch (error) {
+            console.error('Error al desactivar en masa', error);
+            alert('Hubo un error al intentar desactivar algunos recursos.');
+        }
+    };
 
     return (
         <div className="flex flex-col gap-4 font-sans bg-white min-h-screen print:bg-white print:m-0">
@@ -69,11 +115,8 @@ export const PersonasPage = () => {
                 <div className="flex flex-wrap items-center gap-1.5">
                     <Button variant="clasico" onClick={() => navigate('/rrhh')}>Atrás</Button>
                     <Button variant="clasico" onClick={() => navigate('/rrhh/personas/nuevo')}>Nuevo recurso</Button>
-                    <Button variant="imprimir" />
-                    <Button variant="clasico">Importar</Button>
-                    <Button variant="clasico">Exportar</Button>
-                    <Button variant="clasico">Plan de Capacitación</Button>
-                    <Button variant="clasico">Eliminar</Button>
+                    <Button variant="imprimir"/>
+                    <Button variant="clasico" onClick={handleEliminarSeleccionados} disabled={seleccionados.length === 0}>Eliminar</Button>
                     <Button variant="clasico" onClick={() => window.location.reload()}>Actualizar Listado</Button>
                 </div>
 
@@ -116,7 +159,7 @@ export const PersonasPage = () => {
                             <tr>
                                 {/* Ocultamos la columna de checkboxes al imprimir porque en papel no sirven */}
                                 <th className="px-4 py-2 w-10 text-center border-r border-[#004d00] print:hidden">
-                                    <input type="checkbox" className="rounded" />
+                                    <input type="checkbox" className="rounded" checked={seleccionados.length > 0 && seleccionados.length === personas.length} onChange={handleCheckTodos}/>
                                 </th>
                                 <th className="px-4 py-2 border-r border-[#004d00] print:border-gray-400 cursor-pointer hover:bg-[#004d00] print:hover:bg-transparent">
                                     Apellidos
@@ -140,7 +183,7 @@ export const PersonasPage = () => {
                                     >
                                         {/* Ocultamos el checkbox al imprimir */}
                                         <td className="px-4 py-2 text-center align-middle border-r border-gray-200 print:hidden">
-                                            <input type="checkbox" className="rounded" />
+                                            <input type="checkbox" className="rounded" checked={seleccionados.includes(persona.id)} onChange={() => handleCheckIndividual(persona.id)}/>
                                         </td>
 
                                         <td className="px-4 py-2 border-r border-gray-200 print:border-gray-400 cursor-pointer" onClick={() => navigate(`/rrhh/personas/${persona.id}`)}>
