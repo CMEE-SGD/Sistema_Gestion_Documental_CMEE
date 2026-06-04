@@ -20,6 +20,7 @@ import { NuevaPersonaPage } from '../pages/rrhh/NuevaPersonaPage';
 import { DetallePersonaPage } from '../pages/rrhh/DetallePersonaPage';
 import { EditarPersonaPage } from '../pages/rrhh/EditarPersonaPage';
 import AccesoDenegadoPage from '../pages/AccesoDenegadoPage';
+import { DocumentosPersonaPage } from '../pages/rrhh/DocumentosPersonaPage';
 
 // --- IMPORTACIONES DE USUARIOS CORREGIDAS ---
 import { UsuarioFormPage } from '../pages/usuarios/UsuarioFormPage';
@@ -81,6 +82,7 @@ const AppRouter = () => {
           <Route path="personas/nuevo" element={<NuevaPersonaPage />} />
           <Route path="personas/:id" element={<DetallePersonaPage />} />
           <Route path="personas/editar/:id" element={<EditarPersonaPage />} />
+          <Route path="personas/:id/documentos" element={<DocumentosPersonaPage />} />
           <Route path="personalizacion" element={<div>Configuración de RRHH</div>} />
         </Route>
 

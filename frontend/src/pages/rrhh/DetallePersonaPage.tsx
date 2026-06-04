@@ -77,23 +77,6 @@ export const DetallePersonaPage = () => {
         }
     };
 
-    // Función para manejar la eliminación dinámica de un documento
-    const handleEliminarDocumento = async (docId: number) => {
-        const confirmar = window.confirm('¿Desea eliminar este documento adjunto?');
-        if (!confirmar) return;
-
-        try {
-            // Aquí iría tu llamada a la API para borrar el documento, ej:
-            // await api.delete(`/documentos/${docId}`);
-
-            // Actualizamos el estado para quitarlo de la vista al instante
-            setDocumentos(prevDocs => prevDocs.filter(doc => doc.id !== docId));
-        } catch (error) {
-            console.error('Error al eliminar documento', error);
-            alert('Error al eliminar el documento.');
-        }
-    };
-
     const formatFecha = (fecha?: string) => {
         if (!fecha) return '-';
         if (fecha.includes('T')) {
@@ -130,6 +113,7 @@ export const DetallePersonaPage = () => {
                 <Button variant="cancelar">Atrás</Button>
                 <Button onClick={() => navigate(`/rrhh/personas/editar/${id}`)} variant="clasico">Editar</Button>
                 <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
+                <Button onClick={() => navigate(`/rrhh/personas/${id}/documentos`)} variant="clasico">Documentos</Button>
                 <Button variant="imprimir" />
                 <Button onClick={handleToggleLogs} variant="clasico">Log</Button>
             </div>
@@ -252,23 +236,12 @@ export const DetallePersonaPage = () => {
                                                 >
                                                     {doc.nombre_archivo}
                                                 </a>
-                                                <button
-                                                    onClick={() => handleEliminarDocumento(doc.id)}
-                                                    className="text-blue-600 underline hover:text-blue-800 text-[11px] px-2 py-0.5 border border-gray-300 rounded hover:bg-gray-50 print:hidden"
-                                                >
-                                                    Eliminar
-                                                </button>
                                             </div>
                                         ))
                                     ) : (
                                         <span className="text-gray-500 italic">No hay documentos adjuntos.</span>
                                     )}
                                 </div>
-                            </DataRow>
-
-                            <div className="h-4"></div>
-                            <DataRow label="Hoja de Vida:">
-                                <span className="text-gray-800">Ver adjunto</span>
                             </DataRow>
                         </div>
 
