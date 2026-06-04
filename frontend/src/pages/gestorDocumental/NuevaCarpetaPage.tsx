@@ -11,16 +11,20 @@ export const NuevaCarpetaPage = () => {
     const carpetaPadreId = location.state?.carpetaPadreId;
     const carpetaPadreNombre = location.state?.carpetaPadreNombre;
 
+    // 👉 ATRAPAMOS EL MODO FORZADO PARA LA CONFIGURACIÓN DE LIBRERÍAS
+    const forzarTipo = location.state?.forzarTipo; 
+
     // Estados para almacenar los datos de la base de datos
     const [carpetas, setCarpetas] = useState<any[]>([]);
     const [departamentos, setDepartamentos] = useState<any[]>([]);
 
     // Estado del formulario mapeado a la jerarquía
     const [formData, setFormData] = useState({
-        tipo_nivel: 'SUBCARPETA', // LIBRERIA, AREA, SUBCARPETA
+        // Si viene forzado, arrancamos con LIBRERIA, si no, con SUBCARPETA
+        tipo_nivel: forzarTipo || 'SUBCARPETA', 
         libreria_id: '',
         area_id: '',
-        carpeta_padre_id: '', // Para subcarpetas dentro de subcarpetas (niveles infinitos)
+        carpeta_padre_id: '', 
         
         nombre: '',
         descripcion: '',
@@ -151,20 +155,29 @@ export const NuevaCarpetaPage = () => {
                     <div className="grid grid-cols-[150px_1fr] gap-y-4 items-center mb-8 border-b border-gray-200 pb-6">
                         
                         <label className="text-gray-700 font-medium">Nivel a crear:</label>
-                        <div className="flex gap-6">
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input type="radio" name="tipo_nivel" value="LIBRERIA" checked={formData.tipo_nivel === 'LIBRERIA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                                Librería (Raíz)
-                            </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input type="radio" name="tipo_nivel" value="AREA" checked={formData.tipo_nivel === 'AREA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                                Área
-                            </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input type="radio" name="tipo_nivel" value="SUBCARPETA" checked={formData.tipo_nivel === 'SUBCARPETA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                                Subcarpeta
-                            </label>
-                        </div>
+
+                        {/* 👉 SI ESTÁ FORZADO, MOSTRAMOS UN TEXTO ESTÁTICO */}
+                        {forzarTipo === 'LIBRERIA' ? (
+                            <div className="font-bold text-blue-800 bg-blue-50 px-3 py-1.5 rounded border border-blue-200 w-max text-xs uppercase">
+                                Creando nueva Librería Raíz
+                            </div>
+                        ) : (
+                            // 👉 SI NO ESTÁ FORZADO, MOSTRAMOS LOS RADIO BUTTONS ORIGINALES
+                            <div className="flex gap-6">
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" name="tipo_nivel" value="LIBRERIA" checked={formData.tipo_nivel === 'LIBRERIA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                    Librería (Raíz)
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" name="tipo_nivel" value="AREA" checked={formData.tipo_nivel === 'AREA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                    Área
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" name="tipo_nivel" value="SUBCARPETA" checked={formData.tipo_nivel === 'SUBCARPETA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                    Subcarpeta
+                                </label>
+                            </div>
+                        )}
 
                         {formData.tipo_nivel !== 'LIBRERIA' && (
                             <>
