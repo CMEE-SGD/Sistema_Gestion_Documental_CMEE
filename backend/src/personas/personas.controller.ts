@@ -121,6 +121,7 @@ export class PersonasController {
   @Patch(':id')
   @RequireAccess('Recursos Humanos', 4)
   @ApiOperation({ summary: 'Actualizar datos de una persona, foto y agregar documentos' })
+  // 👇 Nos aseguramos de que acepte ambos campos
   @UseInterceptors(FileFieldsInterceptor([
     { name: 'foto', maxCount: 1 },
     { name: 'documentos', maxCount: 10 }
@@ -130,10 +131,15 @@ export class PersonasController {
         if (file.fieldname === 'foto') {
           cb(null, './uploads/fotosPersonas');
         } else {
+          // Gracias al frontend, ahora esto siempre tendrá los datos correctos
           const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
           const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
           const path = join('.', 'uploads', 'documentosPersona', `${nombre}_${apellidos}`);
-          if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
+          
+          try {
+            if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
+          } catch(e) {}
+          
           cb(null, path);
         }
       },
@@ -159,22 +165,19 @@ export class PersonasController {
   ) {
     const archivos = files || {};
 
-    // 1. Si viene una nueva foto, sobrescribimos la ruta en el DTO
     if (archivos.foto && archivos.foto.length > 0) {
       updatePersonaDto.foto_ruta = `/uploads/fotosPersonas/${archivos.foto[0].filename}`;
     }
 
-    // 2. Parseo de arreglos (Protegido por Try/Catch)
     try { if (typeof updatePersonaDto.roles === 'string') updatePersonaDto.roles = JSON.parse(updatePersonaDto.roles); } catch (e) { updatePersonaDto.roles = undefined; }
     try { if (typeof updatePersonaDto.puestos_asignados === 'string') updatePersonaDto.puestos_asignados = JSON.parse(updatePersonaDto.puestos_asignados); } catch (e) { updatePersonaDto.puestos_asignados = undefined; }
-
-    // Convertir Booleano
+    
     if (typeof updatePersonaDto.activo === 'string') updatePersonaDto.activo = updatePersonaDto.activo === 'true';
 
-    // 3. Actualizamos la persona
+    // Actualiza la persona en la base de datos
     const personaActualizada = await this.personasService.update(id, updatePersonaDto);
 
-    // 4. Si se enviaron NUEVOS documentos, los guardamos en la carpeta y en la base de datos
+    // Registra los documentos en la base de datos
     if (archivos.documentos && archivos.documentos.length > 0) {
       const nombre = (updatePersonaDto.nombre || personaActualizada.nombre).replace(/\s+/g, '_');
       const apellidos = (updatePersonaDto.apellidos || personaActualizada.apellidos).replace(/\s+/g, '_');
@@ -184,8 +187,7 @@ export class PersonasController {
         persona_id: id,
         nombre_archivo: doc.originalname,
         ruta: `/uploads/documentosPersona/${nombreCarpeta}/${doc.filename}`,
-        tipo_documento: 'Documento adjunto',
-        peso_bytes: doc.size
+        tipo_documento: 'Documento adjunto'
       }));
 
       await this.personasService.guardarDocumentos(docsToSave);
@@ -200,4 +202,12 @@ export class PersonasController {
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.personasService.remove(id);
   }
+
+  @Delete('documento/:id')
+  @RequireAccess('Recursos Humanos', 4) // Nivel de permiso requerido
+  @ApiOperation({ summary: 'Eliminar un documento adjunto de una persona' })
+  removeDocumento(@Param('id', ParseIntPipe) id: number) {
+    return this.personasService.eliminarDocumento(id);
+  }
+
 }

@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePersonaDto } from './dto/create-persona.dto';
 import { UpdatePersonaDto } from './dto/update-persona.dto';
+import * as fs from 'fs';
+import { join } from 'path';
 
 function emptyToNull(value: string | null | undefined): string | null {
   if (value === undefined || value === null) return null;
@@ -82,6 +84,39 @@ export class PersonasService {
     });
     if (!persona) throw new NotFoundException(`Persona con ID ${id} no encontrada`);
     return persona;
+  }
+
+  // 👇 VERSIÓN MEJORADA: Borra de la BD y del disco duro
+  async eliminarDocumento(id: number) {
+    const documento = await this.prisma.documentoPersona.findUnique({ where: { id } });
+    
+    if (!documento) {
+      throw new NotFoundException(`Documento con ID ${id} no encontrado`);
+    }
+    
+    // 1. Borrar el archivo físico del disco duro
+    try {
+      // Como guardamos la ruta en Prisma empezando con "/" (ej. /uploads/documentosPersona/...), 
+      // le quitamos ese primer slash para que Node.js no se confunda buscando en la raíz del disco C:
+      const rutaRelativa = documento.ruta.startsWith('/') ? documento.ruta.substring(1) : documento.ruta;
+      
+      // join(process.cwd(), ...) nos da la ruta exacta de la carpeta de tu proyecto backend
+      const rutaFisica = join(process.cwd(), rutaRelativa);
+      
+      // Verificamos si el archivo realmente existe antes de intentar borrarlo
+      if (fs.existsSync(rutaFisica)) {
+        fs.unlinkSync(rutaFisica); // ¡Esta es la línea mágica que borra el PDF de la carpeta uploads!
+      }
+    } catch (error) {
+      // Si por alguna razón falla el borrado del archivo (ej. alguien lo borró manualmente),
+      // solo lo imprimimos en consola pero NO detenemos la ejecución.
+      console.error(`Aviso: No se pudo borrar el archivo físico en ${documento.ruta}`, error);
+    }
+
+    // 2. Borrar el registro de la base de datos (Prisma)
+    return await this.prisma.documentoPersona.delete({
+      where: { id },
+    });
   }
 
   async update(id: number, updatePersonaDto: UpdatePersonaDto) {

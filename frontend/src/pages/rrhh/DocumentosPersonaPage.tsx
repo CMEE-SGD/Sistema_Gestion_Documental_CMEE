@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import api from '../../lib/axios';
-import { FileText, Eye, Download, Printer } from 'lucide-react';
+import { FileText, Eye, Download, Printer, Trash2 } from 'lucide-react';
 
 export const DocumentosPersonaPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [persona, setPersona] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [subiendo, setSubiendo] = useState(false);
 
     useEffect(() => {
         const fetchDatos = async () => {
@@ -24,13 +26,71 @@ export const DocumentosPersonaPage = () => {
         };
         fetchDatos();
     }, [id]);
-// Forzar descarga automática usando Blobs (Salto de seguridad Cross-Origin)
+    const handleEliminar = async (docId: number, nombreArchivo: string) => {
+        const confirmar = window.confirm(`¿Está seguro de que desea eliminar el documento "${nombreArchivo}"?`);
+        if (!confirmar) return;
+
+        try {
+            // 👇 CORRECCIÓN: Apuntamos a la nueva ruta que acabamos de crear en NestJS
+            await api.delete(`/personas/documento/${docId}`);
+
+            // Actualizamos el estado local para que desaparezca
+            setPersona((prev: any) => ({
+                ...prev,
+                documentos: prev.documentos.filter((doc: any) => doc.id !== docId)
+            }));
+
+        } catch (error) {
+            console.error('Error al eliminar', error);
+            alert('Hubo un error al intentar eliminar el documento.');
+        }
+    };
+
+    // Función para subir nuevos documentos
+    const handleSubirDocumentos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        setSubiendo(true);
+        try {
+            const formData = new FormData();
+            formData.append('nombre', persona.nombre);
+            formData.append('apellidos', persona.apellidos);
+
+            // Agregamos todos los PDFs seleccionados al FormData
+            files.forEach(file => {
+                formData.append('documentos', file);
+            });
+
+            // Reutilizamos tu endpoint PATCH que ya está configurado para recibir documentos
+            await api.patch(`/personas/${id}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            alert('Documentos agregados exitosamente.');
+
+            // Recargamos la información de la persona para que la tabla se actualice al instante
+            const response = await api.get(`/personas/${id}`);
+            setPersona(response.data);
+
+        } catch (error) {
+            console.error('Error al subir documentos', error);
+            alert('Hubo un error al intentar subir los documentos.');
+        } finally {
+            setSubiendo(false);
+            // Limpiamos el input por si el usuario quiere subir el mismo archivo de nuevo
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+    // Forzar descarga automática usando Blobs (Salto de seguridad Cross-Origin)
     const handleDescargar = async (fileUrl: string, nombreArchivo: string) => {
         try {
             // Descargamos el archivo en la memoria del navegador
             const response = await fetch(fileUrl);
             const blob = await response.blob();
-            
+
             // Creamos un link invisible para forzar la descarga en la PC
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -38,7 +98,7 @@ export const DocumentosPersonaPage = () => {
             link.setAttribute('download', nombreArchivo);
             document.body.appendChild(link);
             link.click();
-            
+
             // Limpiamos la memoria
             link.remove();
             window.URL.revokeObjectURL(blobUrl);
@@ -70,7 +130,7 @@ export const DocumentosPersonaPage = () => {
                         iframe.contentWindow.focus();
                         iframe.contentWindow.print();
                     }
-                    
+
                     // 4. Limpiamos la memoria después de unos segundos para no dejar iframes fantasma
                     setTimeout(() => {
                         document.body.removeChild(iframe);
@@ -101,7 +161,24 @@ export const DocumentosPersonaPage = () => {
 
             {/* Botonera */}
             <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-gray-300 bg-gray-50">
-                <Button onClick={() => navigate(`/rrhh/personas/${id}`)} variant="cancelar">Atrás a la Ficha</Button>
+                <Button onClick={() => navigate(`/rrhh/personas/${id}`)} variant="clasico">Atrás a la Ficha</Button>
+                <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    variant="clasico"
+                    disabled={subiendo}
+                >
+                    {subiendo ? 'Subiendo archivos...' : 'Agregar Documentos'}
+                </Button>
+
+                {/* 👇 INPUT OCULTO QUE HACE EL TRABAJO SUCIO */}
+                <input
+                    type="file"
+                    multiple
+                    accept=".pdf"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleSubirDocumentos}
+                />
             </div>
 
             {/* Tabla */}
@@ -110,7 +187,7 @@ export const DocumentosPersonaPage = () => {
                     <div className="bg-[#8eb8d5] text-white font-bold px-4 py-2 text-sm">
                         Listado de Documentos
                     </div>
-                    
+
                     <div className="p-4 bg-white">
                         {documentos.length === 0 ? (
                             <div className="text-gray-500 italic text-[12px] p-2">No hay documentos registrados para esta persona.</div>
@@ -126,27 +203,27 @@ export const DocumentosPersonaPage = () => {
                                     {documentos.map((doc: any) => {
                                         // Armamos la URL correcta hacia tu backend
                                         const fileUrl = `${import.meta.env.VITE_BACKEND_URL}${doc.ruta}`;
-                                        
+
                                         return (
                                             <tr key={doc.id} className="border-b border-gray-200 hover:bg-gray-50">
                                                 <td className="py-2.5 px-3 font-medium text-blue-800">
                                                     {doc.nombre_archivo}
                                                 </td>
                                                 <td className="py-2.5 px-3 flex justify-center gap-3">
-                                                    
+
                                                     {/* ACCIÓN: VER */}
-                                                    <a 
-                                                        href={fileUrl} 
-                                                        target="_blank" 
+                                                    <a
+                                                        href={fileUrl}
+                                                        target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="text-blue-600 hover:text-blue-800 transition-colors"
                                                         title="Ver en nueva pestaña"
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </a>
-                                                    
+
                                                     {/* ACCIÓN: DESCARGAR (Fuerza la descarga automática) */}
-                                                    <button 
+                                                    <button
                                                         onClick={() => handleDescargar(fileUrl, doc.nombre_archivo)}
                                                         className="text-green-600 hover:text-green-800 transition-colors"
                                                         title="Descargar archivo"
@@ -155,14 +232,22 @@ export const DocumentosPersonaPage = () => {
                                                     </button>
 
                                                     {/* ACCIÓN: IMPRIMIR (Lleva a la pestaña del documento) */}
-                                                    <button 
+                                                    <button
                                                         onClick={() => handleImprimir(fileUrl)}
                                                         className="text-gray-600 hover:text-gray-800 transition-colors"
                                                         title="Abrir para imprimir"
                                                     >
                                                         <Printer className="w-4 h-4" />
                                                     </button>
-                                                    
+
+                                                    <button
+                                                        onClick={() => handleEliminar(doc.id, doc.nombre_archivo)}
+                                                        className="text-red-600 hover:text-red-800 transition-colors ml-2"
+                                                        title="Eliminar documento"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+
                                                 </td>
                                             </tr>
                                         );
