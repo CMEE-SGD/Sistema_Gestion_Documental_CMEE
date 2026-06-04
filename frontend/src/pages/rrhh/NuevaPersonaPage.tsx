@@ -132,19 +132,15 @@ export const NuevaPersonaPage = () => {
                 formDataToSend.append('documentos', file);
             });
             // 5. Enviamos todo configurando el encabezado para multipart/form-data
-            await api.post('/personas', formDataToSend, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            await api.post('/personas', formDataToSend);
 
 
             navigate('/rrhh/personas');
         } catch (error: any) {
-            console.log("Error detallado:", error); // Esto es vital
-            if (error.response) {
-                console.log("Datos del error:", error.response.data);
-            }
-            alert("Revisa la consola para ver el error.");
-            alert(`Error al crear: ${JSON.stringify(error.response?.data?.message || 'Error del servidor')}`);
+            const msg = error.response?.data?.message;
+            const detail = Array.isArray(msg) ? msg.join('\n') : (msg || 'Error desconocido del servidor');
+            alert(`Error al crear persona:\n${detail}`);
+            console.error('Error detallado:', error.response?.data);
         } finally {
             setLoading(false);
         }

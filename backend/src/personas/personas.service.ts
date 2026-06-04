@@ -3,45 +3,59 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePersonaDto } from './dto/create-persona.dto';
 import { UpdatePersonaDto } from './dto/update-persona.dto';
 
+function emptyToNull(value: string | null | undefined): string | null {
+  if (value === undefined || value === null) return null;
+  return value.trim() === '' ? null : value.trim();
+}
 @Injectable()
+// ── Función utilitaria (agregar al tope del archivo, fuera de la clase) ──
+
 export class PersonasService {
   constructor(private readonly prisma: PrismaService) { }
 
   async create(createPersonaDto: CreatePersonaDto) {
+
+
     const { roles, puestos_asignados, ...personaData } = createPersonaDto;
 
+    // ── NUEVO: normalizar campos únicos opcionales ──
+    personaData.cedula_identidad = emptyToNull(personaData.cedula_identidad);
+    personaData.codigo = emptyToNull(personaData.codigo);
+
     if (personaData.cedula_identidad) {
-      const existeCedula = await this.prisma.persona.findUnique({ where: { cedula_identidad: personaData.cedula_identidad } });
+      const existeCedula = await this.prisma.persona.findUnique({
+        where: { cedula_identidad: personaData.cedula_identidad }
+      });
       if (existeCedula) throw new ConflictException('La cédula de identidad ya está registrada');
     }
 
     if (personaData.codigo) {
-      const existeCodigo = await this.prisma.persona.findUnique({ where: { codigo: personaData.codigo } });
+      const existeCodigo = await this.prisma.persona.findUnique({
+        where: { codigo: personaData.codigo }
+      });
       if (existeCodigo) throw new ConflictException('El código de persona ya existe');
     }
 
     return this.prisma.persona.create({
       data: {
         ...personaData,
-        fecha_nacimiento: personaData.fecha_nacimiento ? new Date(personaData.fecha_nacimiento) : null,
-
-        roles: roles?.length > 0 ? {
-          connect: roles.map(id => ({ id }))
-        } : undefined,
-
-        // CORRECCIÓN: Usamos connect para las llaves foráneas y agregamos orden_puesto
-        puestos: puestos_asignados?.length > 0 ? {
-          create: puestos_asignados.map((puesto, index) => ({
-            orden_puesto: index + 1,
-            departamento: { connect: { id: puesto.departamento_id } },
-            puesto: { connect: { id: puesto.puesto_id } }
-          }))
-        } : undefined
+        fecha_nacimiento: personaData.fecha_nacimiento
+          ? new Date(personaData.fecha_nacimiento)
+          : null,
+        roles: roles?.length > 0
+          ? { connect: roles.map(id => ({ id })) }
+          : undefined,
+        puestos: puestos_asignados?.length > 0
+          ? {
+            create: puestos_asignados.map((puesto, index) => ({
+              orden_puesto: index + 1,
+              departamento: { connect: { id: puesto.departamento_id } },
+              puesto: { connect: { id: puesto.puesto_id } }
+            }))
+          }
+          : undefined
       },
-      include: {
-        roles: true,
-        puestos: true
-      },
+      include: { roles: true, puestos: true },
     });
   }
 
@@ -62,7 +76,8 @@ export class PersonasService {
       include: {
         roles: { select: { id: true, nombre: true } },
         puestos: { include: { puesto: true, departamento: true } },
-        usuario: { select: { nombre_usuario: true, estado_cuenta: true } }
+        usuario: { select: { nombre_usuario: true, estado_cuenta: true } },
+        documentos: true // <--- ¡AÑADE ESTA LÍNEA!
       },
     });
     if (!persona) throw new NotFoundException(`Persona con ID ${id} no encontrada`);
@@ -72,7 +87,8 @@ export class PersonasService {
   async update(id: number, updatePersonaDto: UpdatePersonaDto) {
     await this.findOne(id);
     const { roles, puestos_asignados, ...personaData } = updatePersonaDto;
-
+    personaData.cedula_identidad = emptyToNull(personaData.cedula_identidad);
+    personaData.codigo = emptyToNull(personaData.codigo);
     if (puestos_asignados) {
       await this.prisma.personaPuesto.deleteMany({ where: { persona_id: id } });
     }

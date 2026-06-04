@@ -11,8 +11,8 @@ import { Button } from '../../components/ui/button';
 // Interfaz para los documentos adjuntos
 interface DocumentoAdjunto {
     id: number;
-    nombre: string;
-    url: string;
+    nombre_archivo: string;
+    ruta: string;
 }
 
 export const DetallePersonaPage = () => {
@@ -27,12 +27,7 @@ export const DetallePersonaPage = () => {
     const [loadingLogs, setLoadingLogs] = useState(false);
 
     // Estado dinámico para los documentos
-    const [documentos, setDocumentos] = useState<DocumentoAdjunto[]>([
-        { id: 1, nombre: 'Curriculum Vitae Apolo_J_2025_signed.pdf', url: '#' },
-        { id: 2, nombre: 'Declaracion de Salvaguardia Conf Etica Apolo_J.PDF', url: '#' },
-        { id: 3, nombre: 'HOJA_DE_VIDA.pdf', url: '#' },
-        { id: 4, nombre: 'Memorando Nro. FT-CMEE-CME-DO-2024-0068-M.pdf', url: '#' },
-    ]);
+    const [documentos, setDocumentos] = useState<DocumentoAdjunto[]>([]);
 
     useEffect(() => {
         const fetchPersonaDetalle = async () => {
@@ -42,7 +37,7 @@ export const DetallePersonaPage = () => {
 
                 // NOTA: Si tu API devuelve los documentos en response.data.documentos, 
                 // puedes actualizar el estado aquí:
-                // if(response.data.documentos) setDocumentos(response.data.documentos);
+                 if(response.data.documentos) setDocumentos(response.data.documentos);
 
             } catch (error) {
                 console.error('Error cargando los detalles de la persona', error);
@@ -248,12 +243,18 @@ export const DetallePersonaPage = () => {
                                     {documentos.length > 0 ? (
                                         documentos.map((doc) => (
                                             <div key={doc.id} className="flex items-center justify-between bg-white border border-gray-300 px-3 py-1.5 rounded-sm">
-                                                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800 text-[11px]">
-                                                    {doc.nombre}
+                                                {/* 👇 Concatenamos la URL del backend y usamos doc.nombre_archivo */}
+                                                <a 
+                                                    href={`${import.meta.env.VITE_BACKEND_URL}${doc.ruta}`} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className="text-blue-600 underline hover:text-blue-800 text-[11px]"
+                                                >
+                                                    {doc.nombre_archivo}
                                                 </a>
                                                 <button
                                                     onClick={() => handleEliminarDocumento(doc.id)}
-                                                    className="text-blue-600 underline hover:text-blue-800 text-[11px] px-2 py-0.5 border border-gray-300 rounded hover:bg-gray-50"
+                                                    className="text-blue-600 underline hover:text-blue-800 text-[11px] px-2 py-0.5 border border-gray-300 rounded hover:bg-gray-50 print:hidden"
                                                 >
                                                     Eliminar
                                                 </button>

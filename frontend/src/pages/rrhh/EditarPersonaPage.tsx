@@ -33,6 +33,7 @@ export const EditarPersonaPage = () => {
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [fotoFile, setFotoFile] = useState<File | null>(null);
+    const [documentosFiles, setDocumentosFiles] = useState<File[]>([]); // <-- NUEVO ESTADO
 
     const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
     const [puestosLista, setPuestosLista] = useState<Puesto[]>([]);
@@ -164,6 +165,16 @@ export const EditarPersonaPage = () => {
             if (formData.fecha_nacimiento) {
                 formDataToSend.append('fecha_nacimiento', new Date(formData.fecha_nacimiento).toISOString());
             }
+            // C. Si el usuario seleccionó una NUEVA foto, la adjuntamos
+            if (fotoFile) {
+                formDataToSend.append('foto', fotoFile);
+            }
+
+            // D. Adjuntamos los nuevos PDFs
+            documentosFiles.forEach(file => {
+                formDataToSend.append('documentos', file);
+            });
+
 
             formDataToSend.append('roles', JSON.stringify(formData.roles));
 
@@ -310,9 +321,30 @@ export const EditarPersonaPage = () => {
                                 </div>
                             </div>
 
-                            <div className="border-t border-b border-gray-300 py-3 mb-6 flex items-center">
-                                <div className="w-40 font-bold">Hoja de Vida:</div>
-                                <input type="text" readOnly placeholder="Ver adjunto" className="border border-gray-300 px-2 py-1 w-96 bg-white outline-none cursor-default" />
+                            <div className="border-t border-b border-gray-300 py-3 mb-6 flex flex-col gap-2">
+                                <div className="flex items-start gap-2">
+                                    <div className="w-40 font-bold pt-1">Documentos adjuntos <br /><span className="font-normal text-gray-500 text-[9px]">(Los nuevos archivos se sumarán a los existentes)</span></div>
+                                    <div className="flex-1">
+                                        <input
+                                            type="file"
+                                            multiple
+                                            accept=".pdf"
+                                            onChange={(e) => setDocumentosFiles(Array.from(e.target.files || []))}
+                                            className="text-[11px] file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-[11px] file:bg-gray-200 hover:file:bg-gray-300 cursor-pointer"
+                                        />
+
+                                        {documentosFiles.length > 0 && (
+                                            <ul className="mt-2 text-[10px] text-gray-700 list-disc pl-4 bg-gray-50 p-2 border border-gray-200 rounded w-max">
+                                                {documentosFiles.map((file, idx) => (
+                                                    <li key={idx} className="mb-0.5">
+                                                        <span className="font-semibold text-blue-700">{file.name}</span>
+                                                        <span className="text-gray-500 ml-1">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* --- CONDICIONAL DE ESTADO (SOLO APARECE SI ESTÁ INACTIVO) --- */}

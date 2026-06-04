@@ -3,6 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { UploadedFiles } from '@nestjs/common';
+import { ConflictException, InternalServerErrorException } from '@nestjs/common';
 import * as fs from 'fs';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { PersonasService } from './personas.service';
@@ -17,13 +18,13 @@ import { RequireAccess } from '../auth/decorators/access.decorator';
 @ApiTags('Personas')
 @Controller('personas')
 @UseGuards(JwtAuthGuard, AccessGuard)
+
 export class PersonasController {
   constructor(private readonly personasService: PersonasService) { }
 
   @Post()
   @RequireAccess('Recursos Humanos', 5)
   @ApiOperation({ summary: 'Crear persona con foto y múltiples documentos' })
-  // CAMBIO AQUÍ: FileFieldsInterceptor permite recibir ambos campos
   @UseInterceptors(FileFieldsInterceptor([
     { name: 'foto', maxCount: 1 },
     { name: 'documentos', maxCount: 10 }
@@ -33,51 +34,78 @@ export class PersonasController {
         if (file.fieldname === 'foto') {
           cb(null, './uploads/fotosPersonas');
         } else {
-          // Lógica de carpeta dinámica para documentos
           const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
           const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
           const path = join('.', 'uploads', 'documentosPersona', `${nombre}_${apellidos}`);
-          if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
+          
+          // 👇 FIX 1: Protección para que múltiples archivos no choquen
+          try {
+            if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
+          } catch (e) {}
+          
           cb(null, path);
         }
       },
       filename: (req, file, cb) => {
         const ext = extname(file.originalname);
-        const fecha = Date.now();
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+
         if (file.fieldname === 'foto') {
-          cb(null, `Foto_de_${req.body.nombre}_${req.body.apellidos}_${fecha}${ext}`);
+          const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
+          const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
+          cb(null, `Foto_de_${nombre}_${apellidos}_${uniqueSuffix}${ext}`);
         } else {
-          cb(null, `${file.originalname.split('.')[0]}_${fecha}${ext}`);
+          const nombreOriginal = file.originalname.split('.')[0].replace(/\s+/g, '_');
+          cb(null, `${nombreOriginal}_${uniqueSuffix}${ext}`);
         }
       }
     })
   }))
   async create(
     @Body() createPersonaDto: any,
-    @UploadedFiles() files: { foto?: Express.Multer.File[], documentos?: Express.Multer.File[] } // CAMBIO AQUÍ
+    @UploadedFiles() files: { foto?: Express.Multer.File[], documentos?: Express.Multer.File[] }
   ) {
-    // Procesamiento de datos (igual que antes)
-    if (files.foto) createPersonaDto.foto_ruta = `/uploads/fotosPersonas/${files.foto[0].filename}`;
+    const archivos = files || {};
 
-    // Parseo de JSON
-    if (typeof createPersonaDto.roles === 'string') createPersonaDto.roles = JSON.parse(createPersonaDto.roles);
-    if (typeof createPersonaDto.puestos_asignados === 'string') createPersonaDto.puestos_asignados = JSON.parse(createPersonaDto.puestos_asignados);
-
-    const persona = await this.personasService.create(createPersonaDto);
-
-    // Guardar registros en la tabla DocumentoPersona
-    if (files.documentos) {
-      const docsToSave = files.documentos.map(doc => ({
-        persona_id: persona.id,
-        nombre_archivo: doc.originalname,
-        ruta: doc.path,
-        tipo_documento: 'Documento adjunto'
-      }));
-      // Asegúrate de tener un método en tu servicio para insertar estos documentos
-      await this.personasService.guardarDocumentos(docsToSave);
+    if (archivos.foto && archivos.foto.length > 0) {
+      createPersonaDto.foto_ruta = `/uploads/fotosPersonas/${archivos.foto[0].filename}`;
     }
 
-    return persona;
+    try { if (typeof createPersonaDto.roles === 'string') createPersonaDto.roles = JSON.parse(createPersonaDto.roles); } catch (e) { createPersonaDto.roles = []; }
+    try { if (typeof createPersonaDto.puestos_asignados === 'string') createPersonaDto.puestos_asignados = JSON.parse(createPersonaDto.puestos_asignados); } catch (e) { createPersonaDto.puestos_asignados = []; }
+
+    if (typeof createPersonaDto.activo === 'string') {
+      createPersonaDto.activo = createPersonaDto.activo === 'true';
+    }
+
+    try {
+      const persona = await this.personasService.create(createPersonaDto);
+
+      // Guardar Documentos
+      if (archivos.documentos && archivos.documentos.length > 0) {
+        const nombre = (createPersonaDto.nombre || 'Usuario').replace(/\s+/g, '_');
+        const apellidos = (createPersonaDto.apellidos || '').replace(/\s+/g, '_');
+        const nombreCarpeta = `${nombre}_${apellidos}`;
+
+        const docsToSave = archivos.documentos.map(doc => ({
+          persona_id: persona.id,
+          nombre_archivo: doc.originalname,
+          ruta: `/uploads/documentosPersona/${nombreCarpeta}/${doc.filename}`,
+          tipo_documento: 'Documento adjunto'
+          // 👇 FIX 2: Ya NO enviamos 'peso_bytes' porque no existe en tu base de datos
+        }));
+
+        await this.personasService.guardarDocumentos(docsToSave);
+      }
+
+      return persona;
+    } catch (error: any) {
+      // 👇 FIX 3: Quitamos el alert() que bloqueaba el servidor. 
+      // Ahora solo lo imprime en consola y lo pasa al frontend.
+      console.error("=== ERROR EN EL SERVIDOR ===");
+      console.error(error);
+      throw error;
+    }
   }
 
   @Get()
@@ -96,47 +124,78 @@ export class PersonasController {
 
   @Patch(':id')
   @RequireAccess('Recursos Humanos', 4)
-  @ApiOperation({ summary: 'Actualizar datos de una persona y sus roles' })
-  // 👇 1. AGREGAMOS EL INTERCEPTOR DE ARCHIVOS
-  @UseInterceptors(FileInterceptor('foto', {
+  @ApiOperation({ summary: 'Actualizar datos de una persona, foto y agregar documentos' })
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'foto', maxCount: 1 },
+    { name: 'documentos', maxCount: 10 }
+  ], {
     storage: diskStorage({
-      destination: './uploads/fotosPersonas',
+      destination: (req, file, cb) => {
+        if (file.fieldname === 'foto') {
+          cb(null, './uploads/fotosPersonas');
+        } else {
+          const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
+          const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
+          const path = join('.', 'uploads', 'documentosPersona', `${nombre}_${apellidos}`);
+          if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
+          cb(null, path);
+        }
+      },
       filename: (req, file, cb) => {
-        let nombre = req.body.nombre || 'Usuario';
-        let apellidos = req.body.apellidos || '';
-
-        nombre = nombre.trim().replace(/\s+/g, '_');
-        apellidos = apellidos.trim().replace(/\s+/g, '_');
-
-        const fechaCorta = Date.now();
         const ext = extname(file.originalname);
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
 
-        cb(null, `Foto_de_${nombre}_${apellidos}_${fechaCorta}${ext}`);
+        if (file.fieldname === 'foto') {
+          const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
+          const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
+          cb(null, `Foto_de_${nombre}_${apellidos}_${uniqueSuffix}${ext}`);
+        } else {
+          const nombreOriginal = file.originalname.split('.')[0].replace(/\s+/g, '_');
+          cb(null, `${nombreOriginal}_${uniqueSuffix}${ext}`);
+        }
       }
     })
   }))
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updatePersonaDto: any, // Cambiamos temporalmente a any
-    @UploadedFile() file: Express.Multer.File // Atrapamos el archivo
+    @Body() updatePersonaDto: any,
+    @UploadedFiles() files: { foto?: Express.Multer.File[], documentos?: Express.Multer.File[] }
   ) {
-    // 2. Si viene una nueva foto, sobrescribimos la ruta en el DTO
-    if (file) {
-      updatePersonaDto.foto_ruta = `/uploads/fotosPersonas/${file.filename}`;
+    const archivos = files || {};
+
+    // 1. Si viene una nueva foto, sobrescribimos la ruta en el DTO
+    if (archivos.foto && archivos.foto.length > 0) {
+      updatePersonaDto.foto_ruta = `/uploads/fotosPersonas/${archivos.foto[0].filename}`;
     }
 
-    // 3. Volvemos a parsear los arreglos y booleanos (porque llegaron como strings en el FormData)
-    if (typeof updatePersonaDto.roles === 'string') {
-      updatePersonaDto.roles = JSON.parse(updatePersonaDto.roles);
-    }
-    if (typeof updatePersonaDto.puestos_asignados === 'string') {
-      updatePersonaDto.puestos_asignados = JSON.parse(updatePersonaDto.puestos_asignados);
-    }
-    if (typeof updatePersonaDto.activo === 'string') {
-      updatePersonaDto.activo = updatePersonaDto.activo === 'true';
+    // 2. Parseo de arreglos (Protegido por Try/Catch)
+    try { if (typeof updatePersonaDto.roles === 'string') updatePersonaDto.roles = JSON.parse(updatePersonaDto.roles); } catch (e) { updatePersonaDto.roles = undefined; }
+    try { if (typeof updatePersonaDto.puestos_asignados === 'string') updatePersonaDto.puestos_asignados = JSON.parse(updatePersonaDto.puestos_asignados); } catch (e) { updatePersonaDto.puestos_asignados = undefined; }
+    
+    // Convertir Booleano
+    if (typeof updatePersonaDto.activo === 'string') updatePersonaDto.activo = updatePersonaDto.activo === 'true';
+
+    // 3. Actualizamos la persona
+    const personaActualizada = await this.personasService.update(id, updatePersonaDto);
+
+    // 4. Si se enviaron NUEVOS documentos, los guardamos en la carpeta y en la base de datos
+    if (archivos.documentos && archivos.documentos.length > 0) {
+      const nombre = (updatePersonaDto.nombre || personaActualizada.nombre).replace(/\s+/g, '_');
+      const apellidos = (updatePersonaDto.apellidos || personaActualizada.apellidos).replace(/\s+/g, '_');
+      const nombreCarpeta = `${nombre}_${apellidos}`;
+
+      const docsToSave = archivos.documentos.map(doc => ({
+        persona_id: id,
+        nombre_archivo: doc.originalname,
+        ruta: `/uploads/documentosPersona/${nombreCarpeta}/${doc.filename}`,
+        tipo_documento: 'Documento adjunto',
+        peso_bytes: doc.size
+      }));
+
+      await this.personasService.guardarDocumentos(docsToSave);
     }
 
-    return this.personasService.update(id, updatePersonaDto);
+    return personaActualizada;
   }
 
   @Delete(':id')
