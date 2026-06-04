@@ -37,12 +37,8 @@ export class PersonasController {
           const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
           const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
           const path = join('.', 'uploads', 'documentosPersona', `${nombre}_${apellidos}`);
-          
-          // 👇 FIX 1: Protección para que múltiples archivos no choquen
-          try {
-            if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
-          } catch (e) {}
-          
+
+          if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
           cb(null, path);
         }
       },
@@ -171,7 +167,7 @@ export class PersonasController {
     // 2. Parseo de arreglos (Protegido por Try/Catch)
     try { if (typeof updatePersonaDto.roles === 'string') updatePersonaDto.roles = JSON.parse(updatePersonaDto.roles); } catch (e) { updatePersonaDto.roles = undefined; }
     try { if (typeof updatePersonaDto.puestos_asignados === 'string') updatePersonaDto.puestos_asignados = JSON.parse(updatePersonaDto.puestos_asignados); } catch (e) { updatePersonaDto.puestos_asignados = undefined; }
-    
+
     // Convertir Booleano
     if (typeof updatePersonaDto.activo === 'string') updatePersonaDto.activo = updatePersonaDto.activo === 'true';
 

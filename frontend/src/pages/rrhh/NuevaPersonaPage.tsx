@@ -111,6 +111,10 @@ export const NuevaPersonaPage = () => {
             if (formData.fecha_nacimiento) {
                 formDataToSend.append('fecha_nacimiento', new Date(formData.fecha_nacimiento).toISOString());
             }
+            // 4. Si el usuario seleccionó una foto, la adjuntamos
+            if (fotoFile) {
+                formDataToSend.append('foto', fotoFile);
+            }
 
             // 3. Formateamos y agregamos los arreglos como JSON string
             formDataToSend.append('roles', JSON.stringify(formData.roles));
@@ -123,17 +127,15 @@ export const NuevaPersonaPage = () => {
                 }));
             formDataToSend.append('puestos_asignados', JSON.stringify(puestosValidos));
 
-            // 4. Si el usuario seleccionó una foto, la adjuntamos
-            if (fotoFile) {
-                formDataToSend.append('foto', fotoFile);
-            }
+
 
             documentosFiles.forEach(file => {
                 formDataToSend.append('documentos', file);
             });
             // 5. Enviamos todo configurando el encabezado para multipart/form-data
-            await api.post('/personas', formDataToSend);
-
+            await api.post('/personas', formDataToSend, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
 
             navigate('/rrhh/personas');
         } catch (error: any) {

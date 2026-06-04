@@ -186,11 +186,6 @@ export const EditarPersonaPage = () => {
                 }));
             formDataToSend.append('puestos_asignados', JSON.stringify(puestosValidos));
 
-            // C. Si el usuario seleccionó una NUEVA foto, la adjuntamos
-            if (fotoFile) {
-                formDataToSend.append('foto', fotoFile);
-            }
-
             // D. Enviamos como multipart/form-data usando PATCH
             await api.patch(`/personas/${id}`, formDataToSend, {
                 headers: { 'Content-Type': 'multipart/form-data' }
