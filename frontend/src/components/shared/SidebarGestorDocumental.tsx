@@ -6,7 +6,7 @@ import api from '../../lib/axios';
 export const SidebarGestorDocumental = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    
+
     const [carpetas, setCarpetas] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -70,7 +70,7 @@ export const SidebarGestorDocumental = () => {
     }, [carpetas]);
 
     const RenderTree = ({ parentId, depth = 0 }: { parentId: number | null, depth?: number }) => {
-        const children = parentId === null 
+        const children = parentId === null
             ? carpetas.filter(c => c.tipo === 'LIBRERIA')
             : carpetas.filter(c => c.carpeta_padre_id === parentId);
 
@@ -85,7 +85,7 @@ export const SidebarGestorDocumental = () => {
 
                     return (
                         <div key={carpeta.id} className="flex flex-col mt-1">
-                            <div 
+                            <div
                                 onClick={() => {
                                     navigate(`/gestordocumental/carpeta/${carpeta.id}`);
                                     if (hasChildren) {
@@ -103,18 +103,17 @@ export const SidebarGestorDocumental = () => {
                                         });
                                     }
                                 }}
-                                className={`flex items-center gap-1.5 font-medium py-1.5 px-2 rounded cursor-pointer transition-colors ${
-                                    isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
-                                }`}
+                                className={`flex items-center gap-1.5 font-medium py-1.5 px-2 rounded cursor-pointer transition-colors ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
                             >
                                 {hasChildren ? (
                                     <div className="p-0.5 rounded text-gray-400">
-                                        {isExpanded ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
+                                        {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                                     </div>
                                 ) : (
                                     <div className="w-4 h-4 shrink-0" />
                                 )}
-                                
+
                                 <Folder className={`w-4 h-4 shrink-0 fill-current ${isActive ? 'text-blue-600' : 'text-gray-800'}`} />
                                 <span className="truncate text-xs">{carpeta.nombre}</span>
                             </div>
@@ -128,31 +127,31 @@ export const SidebarGestorDocumental = () => {
     };
 
     return (
-        <aside 
-            className={`${
-                sidebarOpen ? 'w-72 border-r' : 'w-12 border-r'
-            } transition-all duration-300 ease-in-out bg-white shrink-0 overflow-hidden border-gray-200 relative shadow-sm z-10`}
+        <aside
+            className={`${sidebarOpen ? 'w-72 border-r' : 'w-12 border-r'
+                } transition-all duration-300 ease-in-out bg-white shrink-0 overflow-hidden border-gray-200 relative shadow-sm z-10`}
         >
             <div className="w-72 h-full absolute top-0 left-0 flex flex-col">
+                {/* Cabecera del Sidebar */}
                 <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50 h-12">
-                    <button 
-                        onClick={() => setSidebarOpen(!sidebarOpen)}
-                        className="p-1.5 hover:bg-gray-200 rounded text-gray-600 transition-colors"
-                        title={sidebarOpen ? "Ocultar panel" : "Mostrar panel"}
+                    <span
+                        onClick={() => navigate('/gestordocumental')}
+                        className="font-bold text-xs text-gray-500 uppercase tracking-wider mr-2 cursor-pointer hover:text-blue-600 transition-colors"
+                        title="Ir al inicio del Gestor Documental"
                     >
-                        <Menu className="w-5 h-5 shrink-0" />
-                    </button>
-                    {sidebarOpen && (
-                        <span className="font-bold text-xs text-gray-500 uppercase tracking-wider mr-2">
-                            Menú Documental
-                        </span>
-                    )}
+                        Menú Documental
+                    </span>
                 </div>
 
                 <div className={`p-3 flex flex-col gap-3 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     <div className="flex items-center gap-1">
-                        <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><Settings className="w-4 h-4 text-gray-600" /></button>
-                        <button onClick={() => navigate('/gestordocumental/nueva-carpeta')} className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><FolderPlus className="w-4 h-4 text-gray-600" /></button>
+                        <button
+                            onClick={() => navigate('/gestordocumental/configuracion')}
+                            className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"
+                            title="Administración"
+                        >
+                            <Settings className="w-4 h-4 text-gray-600" />
+                        </button>                        <button onClick={() => navigate('/gestordocumental/nueva-carpeta')} className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><FolderPlus className="w-4 h-4 text-gray-600" /></button>
                         <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><Search className="w-4 h-4 text-gray-600" /></button>
                         <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><LayoutGrid className="w-4 h-4 text-gray-600" /></button>
                     </div>
@@ -161,8 +160,8 @@ export const SidebarGestorDocumental = () => {
                         Relaciones de documentos
                     </button>
 
-                    <input 
-                        type="text" placeholder="Filtrar..." 
+                    <input
+                        type="text" placeholder="Filtrar..."
                         className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-500"
                     />
 

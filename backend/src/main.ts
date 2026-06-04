@@ -5,9 +5,12 @@ import { AppModule } from "./app.module"
 import { AuditoriaInterceptor } from './auditoria/auditoria.interceptor';
 import { AuditoriaService } from './auditoria/auditoria.service';
 import { PrismaService } from './prisma/prisma.service';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  // 👉 1. Especificamos explícitamente que es una aplicación Express
+  const app = await NestFactory.create<NestExpressApplication>(AppModule)
 
   // Prefijo global de API
   app.setGlobalPrefix("api")
@@ -27,6 +30,11 @@ async function bootstrap() {
       transform: true,
     })
   )
+
+  // 👉 2. Exponemos la carpeta "uploads" para que el navegador pueda acceder a los PDFs
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // Swagger
   const config = new DocumentBuilder()

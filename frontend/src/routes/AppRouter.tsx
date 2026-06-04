@@ -35,6 +35,10 @@ import { NuevaCarpetaPage } from '../pages/gestorDocumental/NuevaCarpetaPage';
 import { GestorDocumentalLayout } from '../pages/gestorDocumental/GDLayout';
 import {NuevoFicheroPage} from '../pages/gestorDocumental/NuevoFicheroPage';
 import { MoverDocumentosPage } from '../pages/gestorDocumental/MoverDocumentoPage';
+import { DetalleDocumentoPage } from '../pages/gestorDocumental/DetalleDocumentoPage';
+import { ConfiguracionGestorPage } from '../pages/gestorDocumental/configuracion/ConfiguracionGestorPage';
+import { LayoutConfiguracion } from '../pages/gestorDocumental/configuracion/LayoutConfiguracion';
+import { LibreriasConfigPage } from '../pages/gestorDocumental/configuracion/LibreriaConfigPage';
 
 import { AuditoriaPage } from '../pages/configuracion/AuditoriaPage';
 
@@ -83,6 +87,7 @@ const AppRouter = () => {
           <Route path="personas/:id" element={<DetallePersonaPage />} />
           <Route path="personas/editar/:id" element={<EditarPersonaPage />} />
           <Route path="personas/:id/documentos" element={<DocumentosPersonaPage />} />
+          
           <Route path="personalizacion" element={<div>Configuración de RRHH</div>} />
         </Route>
 
@@ -100,7 +105,23 @@ const AppRouter = () => {
           <Route path="nuevo-fichero" element={<NuevoFicheroPage />} />
           {/* Ruta para mover documentos */}
           <Route path="mover-documentos" element={<MoverDocumentosPage />} />
+          {/* Ruta para ver detalles de un documento */}
+          <Route path="documento/:id" element={<DetalleDocumentoPage />} />
+          
         </Route>
+        {/* RUTA MAESTRA DE CONFIGURACIÓN */}
+    <Route path="/gestordocumental/configuracion" element={<LayoutConfiguracion />}>
+        
+        {/* Redirección automática: si entra a /configuracion, lo manda a /librerias */}
+        <Route index element={<LibreriasConfigPage />} />
+        
+        {/* Las vistas que se inyectarán en el <Outlet /> */}
+        {/* <Route path="librerias" element={<LibreriasConfigPage />} />
+        <Route path="areas" element={<AreasConfigPage />} />
+        <Route path="carpetas" element={<CarpetasConfigPage />} />
+        <Route path="circuitos" element={<CircuitosConfigPage />} /> */}
+        
+    </Route>
 
         {/* ---------------------------------------------------- */}
         {/* MÓDULO DE CONFIGURACIÓN / AUDITORÍA                  */}

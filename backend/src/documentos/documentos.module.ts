@@ -1,22 +1,28 @@
 import { Module } from '@nestjs/common';
 import { DocumentosController } from './documentos.controller';
 import { DocumentosService } from './documentos.service';
-import { PrismaModule } from '../prisma/prisma.module'; // Ajusta la ruta si tu módulo de Prisma está en otra parte
+import { PrismaModule } from '../prisma/prisma.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import * as fs from 'fs';
+
+// Asegurarnos de que la carpeta temp exista al arrancar el módulo
+const tempFolder = './uploads/Gestor_Documental/temp';
+if (!fs.existsSync(tempFolder)) {
+  fs.mkdirSync(tempFolder, { recursive: true });
+}
 
 @Module({
   imports: [
     PrismaModule,
-    // Configuración de Multer para guardar archivos localmente
     MulterModule.register({
       storage: diskStorage({
-        destination: './uploads/documentos',
+        destination: tempFolder,
         filename: (req, file, cb) => {
-          // Generamos un nombre único: timestamp + número aleatorio + extensión original
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+          // 👉 CAMBIO: Eliminamos el sufijo numérico y conservamos el nombre original
+          // Opcional: Reemplazamos los espacios por guiones bajos para evitar problemas en URLs
+          const nombreLimpio = file.originalname.replace(/\s+/g, '_');
+          cb(null, nombreLimpio);
         }
       })
     })

@@ -1,21 +1,45 @@
 import { Injectable } from '@nestjs/common';
-import { CreateCarpetaDto } from './dto/create-carpeta.dto';
-import { UpdateCarpetaDto } from './dto/update-carpeta.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class CarpetasService {
   constructor(private prisma: PrismaService) {}
 
-  create(createCarpetaDto: CreateCarpetaDto) {
-    // Guarda la carpeta en la base de datos
-    return this.prisma.carpeta.create({
-      data: createCarpetaDto,
+  async obtenerRutaFisica(carpetaId: number): Promise<string> {
+    const partes = [];
+    let actualId: number | null = carpetaId;
+
+    while (actualId) {
+      const carpeta = await this.prisma.carpeta.findUnique({ where: { id: actualId } });
+      if (!carpeta) break;
+      
+      const nombreSeguro = carpeta.nombre.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ -_]/g, '').trim();
+      partes.unshift(nombreSeguro);
+      
+      actualId = carpeta.carpeta_padre_id;
+    }
+
+    // 👉 CAMBIO AQUÍ: Añadimos 'uploads' a la ruta principal
+    return path.join(process.cwd(), 'uploads', 'Gestor_Documental', ...partes);
+  }
+
+  async create(data: any) { 
+    const nuevaCarpeta = await this.prisma.carpeta.create({
+      data: data,
     });
+
+    const rutaFisica = await this.obtenerRutaFisica(nuevaCarpeta.id);
+    
+    if (!fs.existsSync(rutaFisica)) {
+      fs.mkdirSync(rutaFisica, { recursive: true }); 
+    }
+
+    return nuevaCarpeta;
   }
 
   findAll() {
-    // Devuelve todas las carpetas
     return this.prisma.carpeta.findMany();
   }
 
@@ -25,14 +49,14 @@ export class CarpetasService {
     });
   }
 
-  update(id: number, updateCarpetaDto: UpdateCarpetaDto) {
+  async update(id: number, data: any) {
     return this.prisma.carpeta.update({
       where: { id },
-      data: updateCarpetaDto,
+      data: data,
     });
   }
 
-  remove(id: number) {
+  async remove(id: number) {
     return this.prisma.carpeta.delete({
       where: { id },
     });

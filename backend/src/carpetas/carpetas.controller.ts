@@ -1,15 +1,13 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { CarpetasService } from './carpetas.service';
-import { CreateCarpetaDto } from './dto/create-carpeta.dto';
-import { UpdateCarpetaDto } from './dto/update-carpeta.dto';
 
 @Controller('carpetas')
 export class CarpetasController {
   constructor(private readonly carpetasService: CarpetasService) {}
 
   @Post()
-  create(@Body() createCarpetaDto: CreateCarpetaDto) {
-    return this.carpetasService.create(createCarpetaDto);
+  async create(@Body() data: any) {
+    return this.carpetasService.create(data);
   }
 
   @Get()
@@ -23,12 +21,12 @@ export class CarpetasController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCarpetaDto: UpdateCarpetaDto) {
-    return this.carpetasService.update(+id, updateCarpetaDto);
+  async update(@Param('id') id: string, @Body() data: any) {
+    return this.carpetasService.update(+id, data);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string) {
     return this.carpetasService.remove(+id);
   }
 }

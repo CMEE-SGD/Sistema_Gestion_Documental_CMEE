@@ -335,7 +335,8 @@ export const GestorDocumentalPage = () => {
                                                             PDF
                                                         </div>
                                                     </td>
-                                                    <td className="px-3 py-1.5 uppercase">
+                                                    <td className="px-3 py-1.5 uppercase cursor-pointer text-blue-600 hover:underline font-semibold"
+                                                        onClick={() => navigate(`/gestordocumental/documento/${doc.id}`)}>
                                                         {doc.nombre}
                                                     </td>
                                                     <td className="px-3 py-1.5">

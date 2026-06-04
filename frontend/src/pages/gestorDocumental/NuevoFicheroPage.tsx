@@ -73,17 +73,29 @@ export const NuevoFicheroPage = () => {
         }));
     };
 
+    // 👉 ACTUALIZADO: Absorbe el nombre del archivo y lo pone en el título
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
+            
             if (file.type !== 'application/pdf') {
                 setError('Por favor, seleccione únicamente un archivo PDF.');
                 setArchivoPdf(null);
                 e.target.value = ''; 
                 return;
             }
+            
             setError('');
             setArchivoPdf(file);
+
+            // Extraemos el nombre del archivo eliminando la extensión .pdf (sin importar si está en mayúsculas o minúsculas)
+            const nombreSinExtension = file.name.replace(/\.pdf$/i, '');
+            
+            // Actualizamos el estado del formulario para que el título se llene solo
+            setFormData(prev => ({
+                ...prev,
+                titulo: nombreSinExtension
+            }));
         }
     };
 
