@@ -73,6 +73,8 @@ export const NuevoFicheroPage = () => {
         }));
     };
 
+    //comentario
+
     // 👉 ACTUALIZADO: Absorbe el nombre del archivo y lo pone en el título
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
