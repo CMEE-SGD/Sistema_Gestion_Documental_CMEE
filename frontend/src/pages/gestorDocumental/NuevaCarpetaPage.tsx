@@ -12,7 +12,8 @@ export const NuevaCarpetaPage = () => {
     const carpetaPadreNombre = location.state?.carpetaPadreNombre;
 
     // 👉 ATRAPAMOS EL MODO FORZADO PARA LA CONFIGURACIÓN DE LIBRERÍAS
-    const forzarTipo = location.state?.forzarTipo; 
+    const forzarTipo = location.state?.forzarTipo;
+    const libreriaPreseleccionada = location.state?.libreriaPreseleccionada; 
 
     // Estados para almacenar los datos de la base de datos
     const [carpetas, setCarpetas] = useState<any[]>([]);
@@ -22,7 +23,7 @@ export const NuevaCarpetaPage = () => {
     const [formData, setFormData] = useState({
         // Si viene forzado, arrancamos con LIBRERIA, si no, con SUBCARPETA
         tipo_nivel: forzarTipo || 'SUBCARPETA', 
-        libreria_id: '',
+        libreria_id: libreriaPreseleccionada || '',
         area_id: '',
         carpeta_padre_id: '', 
         
@@ -156,13 +157,13 @@ export const NuevaCarpetaPage = () => {
                         
                         <label className="text-gray-700 font-medium">Nivel a crear:</label>
 
-                        {/* 👉 SI ESTÁ FORZADO, MOSTRAMOS UN TEXTO ESTÁTICO */}
-                        {forzarTipo === 'LIBRERIA' ? (
+                        {/* 👉 ADAPTAMOS EL LETRERO AL MODO FORZADO */}
+                        {forzarTipo ? (
                             <div className="font-bold text-blue-800 bg-blue-50 px-3 py-1.5 rounded border border-blue-200 w-max text-xs uppercase">
-                                Creando nueva Librería Raíz
+                                {forzarTipo === 'LIBRERIA' ? 'Creando nueva Librería Raíz' : `Creando nueva ${forzarTipo}`}
                             </div>
                         ) : (
-                            // 👉 SI NO ESTÁ FORZADO, MOSTRAMOS LOS RADIO BUTTONS ORIGINALES
+                            // Los radio buttons originales
                             <div className="flex gap-6">
                                 <label className="flex items-center gap-1.5 cursor-pointer">
                                     <input type="radio" name="tipo_nivel" value="LIBRERIA" checked={formData.tipo_nivel === 'LIBRERIA'} onChange={handleChange} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />

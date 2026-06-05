@@ -39,6 +39,13 @@ import { DetalleDocumentoPage } from '../pages/gestorDocumental/DetalleDocumento
 import { ConfiguracionGestorPage } from '../pages/gestorDocumental/configuracion/ConfiguracionGestorPage';
 import { LayoutConfiguracion } from '../pages/gestorDocumental/configuracion/LayoutConfiguracion';
 import { LibreriasConfigPage } from '../pages/gestorDocumental/configuracion/LibreriaConfigPage';
+import { AreasConfigPage } from '@/pages/gestorDocumental/configuracion/AreasConfigPage';
+import { CarpetasConfigPage } from '@/pages/gestorDocumental/configuracion/CarpetasConfigPage';
+import { CircuitosConfigPage } from '@/pages/gestorDocumental/configuracion/CircuitosConfigPage';
+import { FasesConfigPage } from '@/pages/gestorDocumental/configuracion/FasesConfigPage';
+import { NuevoCircuitoPage } from '@/pages/gestorDocumental/configuracion/NuevoCircuitoPage';
+import { NuevaFasePage } from '@/pages/gestorDocumental/configuracion/NuevaFasePage';
+import { EditarFasePage } from '@/pages/gestorDocumental/configuracion/EditarFasePage';
 
 import { AuditoriaPage } from '../pages/configuracion/AuditoriaPage';
 
@@ -114,6 +121,13 @@ const AppRouter = () => {
         
         {/* Redirección automática: si entra a /configuracion, lo manda a /librerias */}
         <Route index element={<LibreriasConfigPage />} />
+        <Route path="areas" element={<AreasConfigPage />} />
+        <Route path="carpetas" element={<CarpetasConfigPage />} />
+        <Route path="circuitos" element={<CircuitosConfigPage />} />
+        <Route path="circuitos/:circuitoId/fases" element={<FasesConfigPage />} />
+        <Route path="circuitos/nuevo" element={<NuevoCircuitoPage />} />
+        <Route path="circuitos/:circuitoId/fases/nueva" element={<NuevaFasePage />} /> 
+        <Route path="circuitos/:circuitoId/fases/:faseId/editar" element={<EditarFasePage />} />
         
         {/* Las vistas que se inyectarán en el <Outlet /> */}
         {/* <Route path="librerias" element={<LibreriasConfigPage />} />
