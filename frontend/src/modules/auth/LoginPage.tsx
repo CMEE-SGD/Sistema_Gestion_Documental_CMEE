@@ -28,11 +28,31 @@ export default function LoginPage() {
         });
 
         const resData = response.data;
-        // Asumimos que el backend devuelve el objeto persona anidado
-        const personaRaw = resData.persona || resData;
+        console.log("🔍 resData completo:", JSON.stringify(resData, null, 2));
 
-        // 2. Lógica para obtener el nombre del puesto desde la relación de Prisma
+        // persona siempre viene en resData.persona según tu backend
+        const personaRaw = resData.persona ?? {};
+
+        // Extraer puesto del array anidado de Prisma
         let puestoExtraido = 'Puesto no asignado';
+        if (Array.isArray(personaRaw.puestos) && personaRaw.puestos.length > 0) {
+          const rel = personaRaw.puestos.find((r: any) => r.activo === true) ?? personaRaw.puestos[0];
+          puestoExtraido = rel?.puesto?.nombre ?? puestoExtraido;
+        }
+
+        const userData = {
+          id: resData.id,
+          nombre_usuario: resData.nombre_usuario,
+          rol: resData.rol || 'usuario',
+          persona: {
+            nombre: personaRaw.nombre ?? '',
+            apellidos: personaRaw.apellidos ?? '',
+            foto_ruta: personaRaw.foto_ruta ?? '',   // ← directo, sin fallback a avatar
+            puesto: puestoExtraido
+          }
+        };
+
+        console.log("✅ Usuario formateado:", userData); // verifica que foto_ruta tenga valor
 
         // Evaluamos cómo el backend nos está enviando el dato:
         if (typeof personaRaw.puesto === 'string') {
@@ -54,21 +74,6 @@ export default function LoginPage() {
             puestoExtraido = relacionActiva.puesto.nombre;
           }
         }
-
-        // 3. Construir el objeto final compatible con useAuth y Navbar
-        const userData = {
-          id: resData.id,
-          nombre_usuario: resData.nombre_usuario,
-          rol: resData.rol || 'usuario', // Aseguramos que haya un rol para el badge
-          persona: {
-            nombre: personaRaw.nombre,
-            apellidos: personaRaw.apellidos,
-            // Mapeamos foto_ruta o avatar
-            avatar: personaRaw.foto_ruta || personaRaw.avatar || '',
-            // Asignamos la variable exacta
-            puesto: puestoExtraido 
-          }
-        };
 
         // 4. Guardar y navegar
         localStorage.setItem('token', resData.token);

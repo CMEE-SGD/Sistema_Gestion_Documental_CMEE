@@ -9,5 +9,6 @@ export interface UserInfo {
     avatar?: string;
     cargo?: string;
     puesto?: string;
+    foto_ruta?: string;
   };
 }

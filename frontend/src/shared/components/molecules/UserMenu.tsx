@@ -2,12 +2,64 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { logoCentro } from '../../../assets';
+import { User } from 'lucide-react';
+import api from '../../../core/api/axios';
+
+const BACKEND = (import.meta as any).env.VITE_BACKEND_URL || '';
+
+/** Devuelve la URL completa de la foto o null */
+function fotoUrl(ruta?: string | null): string | null {
+  if (!ruta) return null;
+  if (ruta.startsWith('http')) return ruta;
+  
+  // Limpiamos los slashes para asegurar que se unan correctamente
+  const baseUrl = BACKEND.endsWith('/') ? BACKEND.slice(0, -1) : BACKEND;
+  const path = ruta.startsWith('/') ? ruta : `/${ruta}`;
+  
+  return `${baseUrl}${path}`;
+}
 
 const UserMenu = () => {
   const { user, cerrarSesion } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // ── Fetch de datos de persona si el auth no los trae completos ──
+  const [personaExtra, setPersonaExtra] = useState<{
+    foto_ruta?: string; nombre?: string; apellidos?: string; puesto?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    // Si ya viene con foto y nombre desde el token/auth, no hace falta fetch
+    if (user.persona?.foto_ruta || user.persona?.nombre) return;
+
+    // Busca el persona_id en los campos que tu backend devuelva en el JWT
+    const personaId = (user as any).persona_id ?? (user as any).personaId;
+    if (!personaId) return;
+
+    api.get(`/personas/${personaId}`)
+      .then(res => {
+        const p = res.data;
+        const primerPuesto = p.puestos?.[0]?.puesto?.nombre;
+        setPersonaExtra({
+          foto_ruta: p.foto_ruta,
+          nombre: p.nombre,
+          apellidos: p.apellidos,
+          puesto: primerPuesto,
+        });
+      })
+      .catch(() => { /* silencioso */ });
+  }, [user]);
+
+  // Datos fusionados: prioriza lo que vino del auth, complementa con personaExtra
+  const persona = {
+    nombre: user?.persona?.nombre ?? personaExtra?.nombre,
+    apellidos: user?.persona?.apellidos ?? personaExtra?.apellidos,
+    puesto: user?.persona?.puesto ?? personaExtra?.puesto,
+    foto_ruta: user?.persona?.foto_ruta ?? personaExtra?.foto_ruta,
+  };
 
   // ── Cerrar user menu al click fuera 
   useEffect(() => {
@@ -25,17 +77,30 @@ const UserMenu = () => {
     cerrarSesion();
   };
 
+  const avatarUrl = fotoUrl(persona.foto_ruta);
+
+  console.log('BACKEND_URL:', BACKEND); // Verificar que no esté vacío
+  console.log('foto_ruta:', persona.foto_ruta); // Verificar la ruta
+  console.log('avatarUrl:', avatarUrl);
+
   return (
     <div className="relative" ref={userMenuRef}>
       {/* Boton avatar */}
       <button
         onClick={() => setShowUserMenu((prev) => !prev)}
-        className="w-8 h-8 rounded-full bg-white bg-opacity-20 border border-white border-opacity-40 flex items-center justify-center text-white hover:bg-opacity-30 transition-colors"
+        className="w-8 h-8 rounded-full bg-white bg-opacity-20 border border-white border-opacity-40 flex items-center justify-center text-white hover:bg-opacity-30 transition-colors overflow-hidden"
         aria-label="Menu de usuario"
       >
-        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
-        </svg>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt="Avatar"
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : (
+          <User className="w-5 h-5" />
+        )}
       </button>
 
       {/* Panel desplegable */}
@@ -50,31 +115,27 @@ const UserMenu = () => {
             style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}
           >
             <div className="shrink-0 w-14 h-14 rounded-full border border-gray-200 overflow-hidden bg-white flex items-center justify-center shadow-sm">
-              {/* Nota: Usé user.persona.avatar como en tu código original, aunque en tu interfaz decía foto_ruta */}
-              {user?.persona?.avatar ? (
+              {avatarUrl ? (
                 <img
-                  src={user.persona.avatar}
-                  alt="Avatar"
+                  src={avatarUrl}
+                  alt="Perfil"
                   className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).src = logoCentro; }}
                 />
               ) : (
-                <img
-                  src={logoCentro}
-                  alt="Logo CMEE"
-                  className="w-12 h-12 object-contain"
-                />
+                <img src={logoCentro} alt="Logo" className="w-12 h-12 object-contain" />
               )}
             </div>
 
             <div className="flex flex-col gap-1 min-w-0">
               <span className="text-sm font-bold text-gray-800 leading-tight truncate">
-                {user?.persona?.nombre}
+                {persona.nombre}
               </span>
               <span className="text-sm font-bold text-gray-800 leading-tight truncate">
-                {user?.persona?.apellidos}
+                {persona.apellidos}
               </span>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full w-fit uppercase tracking-wide bg-blue-100 text-blue-700 border border-blue-200 shadow-sm mt-0.5">
-                {user?.persona?.puesto || 'Puesto no asignado'}
+                {persona.puesto || 'Puesto no asignado'}
               </span>
             </div>
           </div>
