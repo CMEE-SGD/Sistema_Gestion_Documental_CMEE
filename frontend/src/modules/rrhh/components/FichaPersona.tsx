@@ -1,0 +1,182 @@
+import React from 'react';
+import { User, Contact, ShieldAlert, BookOpen, UserCog } from 'lucide-react';
+import DataRow from './DataRow';
+import { TablaHistorial } from '../../../shared/components/organisms/TablaHistorial';
+
+interface DocumentoAdjunto {
+    id: number;
+    nombre_archivo: string;
+    ruta: string;
+}
+
+interface FichaPersonaProps {
+    persona: any;
+    documentos: DocumentoAdjunto[];
+    mostrarLogs: boolean;
+    logsPersona: any[];
+    loadingLogs: boolean;
+}
+
+const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLogs }: FichaPersonaProps) => {
+
+    // Función de formateo de fecha encapsulada
+    const formatFecha = (fecha?: string) => {
+        if (!fecha) return '-';
+        if (fecha.includes('T')) {
+            const [year, month, day] = fecha.split('T')[0].split('-');
+            return `${day}/${month}/${year}`;
+        }
+        return fecha;
+    };
+
+    return (
+        <div className="border border-gray-300 bg-white shadow-sm print:shadow-none print:border print:border-gray-400 rounded-sm">
+            <div className="bg-[#006400] text-white font-bold px-4 py-2 text-xs print:bg-gray-200 print:text-black print:border-b print:border-gray-400">
+                Usuario del sistema
+            </div>
+
+            <div className="bg-[#f2f2f2] border-l-[6px] border-[#006400] text-[11px] p-8 print:bg-white print:border-none print:px-6 print:py-8">
+                
+                {/* 1. FOTO Y DATOS PRINCIPALES */}
+                <div className="flex flex-col md:flex-row print:flex-row gap-8 mb-8">
+                    <div className="w-[130px] h-[160px] shrink-0 border border-gray-300 print:border-gray-400 bg-[#e2e6ea] print:bg-transparent flex items-center justify-center overflow-hidden">
+                        {persona.foto_ruta ? (
+                            <img
+                                src={`${(import.meta as any).env.VITE_BACKEND_URL}${persona.foto_ruta}`} alt="Foto perfil"
+                                className="w-full h-full object-cover"
+                            />) : (
+                            <User className="w-16 h-16 text-gray-400 stroke-[1.5]" />
+                        )}
+                    </div>
+
+                    <div className="flex-1 flex flex-col justify-start pt-1">
+                        <DataRow label="Código" value={persona.codigo} />
+                        <DataRow label="Saludo" value={persona.saludo} />
+                        <DataRow label="Nombre" value={persona.nombre} />
+                        <DataRow label="Apellidos" value={persona.apellidos} />
+
+                        <DataRow label="Puesto">
+                            {persona.puestos && persona.puestos.length > 0 ? (
+                                <div className="flex flex-col gap-1.5">
+                                    {persona.puestos.map((p: any, idx: number) => (
+                                        <div key={idx} className="text-[11px] leading-tight">
+                                            {p.puesto?.nombre && (
+                                                <span className="text-blue-600 underline cursor-pointer font-medium mr-1 hover:text-blue-800">
+                                                    {p.puesto.nombre}
+                                                </span>
+                                            )}
+                                            {p.puesto?.nombre && p.departamento?.nombre && <span className="text-gray-600"> en </span>}
+                                            {p.departamento?.nombre && (
+                                                <span className="text-blue-600 underline cursor-pointer hover:text-blue-800">
+                                                    el departamento {p.departamento.nombre}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : '-'}
+                        </DataRow>
+
+                        <DataRow label="Roles">
+                            {persona.roles && persona.roles.length > 0 ? persona.roles.map((r: any) => r.nombre).join(', ') : '-'}
+                        </DataRow>
+                    </div>
+                </div>
+
+                {/* 2. DATOS DEL SISTEMA */}
+                <div className="mb-10">
+                    <DataRow label="Fecha de alta" value={formatFecha(persona.fecha_alta)} />
+                    <DataRow label="Tipo de recurso" value={persona.tipo_recurso || 'Usuario del sistema'} />
+                    <DataRow label="Estado" value={persona.activo ? 'Activo' : 'Inactivo'} />
+                </div>
+
+                {/* 3. INFORMACIÓN PERSONAL */}
+                <div className="mb-8">
+                    <div className="flex items-center gap-2 mb-6">
+                        <Contact className="w-4 h-4 text-gray-700" />
+                        <h3 className="font-bold text-[12px] text-gray-900">Información Personal</h3>
+                    </div>
+
+                    <DataRow label="C.I." value={persona.cedula_identidad} />
+                    <DataRow label="Fecha de nacimiento" value={formatFecha(persona.fecha_nacimiento)} />
+                    <DataRow label="Domicilio" value={persona.domicilio} />
+                    <DataRow label="Ciudad" value={persona.ciudad} />
+                    <DataRow label="Código postal" value={persona.codigo_postal} />
+
+                    <div className="h-4"></div>
+
+                    <DataRow label="Teléfono" value={persona.telefono} />
+                    <DataRow label="Fax" value={persona.fax} />
+                    <DataRow label="Celular" value={persona.celular} />
+
+                    <div className="h-4"></div>
+
+                    <DataRow label="E-mail 1">
+                        {persona.email_1 ? <a href={`mailto:${persona.email_1}`} >{persona.email_1}</a> : '-'}
+                    </DataRow>
+                    {persona.email_2 && (
+                        <DataRow label="E-mail 2">
+                            <a href={`mailto:${persona.email_2}`} className="text-blue-600 underline">{persona.email_2}</a>
+                        </DataRow>
+                    )}
+                </div>
+
+                {/* 4. DOCUMENTOS ADJUNTOS */}
+                <div className="mb-8 mt-10">
+                    <div className="flex items-center gap-2 mb-4">
+                        <BookOpen className="w-4 h-4 text-[#d9a05b]" fill="#f7e1b5" />
+                        <h3 className="font-bold text-[12px] text-gray-900">Curriculum Vitae</h3>
+                    </div>
+
+                    <DataRow label="Documentos">
+                        <div className="flex flex-col gap-2.5 max-w-4xl">
+                            {documentos.length > 0 ? (
+                                documentos.map((doc) => (
+                                    <div key={doc.id} className="flex items-center justify-between bg-white border border-gray-300 px-3 py-1.5 rounded-sm">
+                                        <a
+                                            href={`${(import.meta as any).env.VITE_BACKEND_URL}${doc.ruta}`} target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 underline hover:text-blue-800 text-[11px]"
+                                        >
+                                            {doc.nombre_archivo}
+                                        </a>
+                                    </div>
+                                ))
+                            ) : (
+                                <span className="text-gray-500 italic">No hay documentos adjuntos.</span>
+                            )}
+                        </div>
+                    </DataRow>
+                </div>
+
+                {/* 5. DATOS DE USUARIO */}
+                <div className="mb-8 mt-10">
+                    <div className="flex items-center gap-2 mb-4">
+                        <UserCog className="w-4 h-4 text-blue-700" />
+                        <h3 className="font-bold text-[12px] text-gray-900">Datos de usuario</h3>
+                    </div>
+
+                    <DataRow label="Nombre de usuario" value={persona.usuario?.nombre_usuario || '-'} />
+                    <DataRow label="Perfil">
+                        {persona.roles && persona.roles.length > 0 ? persona.roles.map((r: any) => r.nombre).join(', ') : 'Responsable de proceso'}
+                    </DataRow>
+                    <DataRow label="Interfaz" value="SGD-CMEE" />
+                </div>
+
+                {/* 6. LOGS DE AUDITORÍA */}
+                {mostrarLogs && (
+                    <div className="mt-10 border-t border-gray-300 pt-6 animate-fade-in print:hidden">
+                        <div className="flex items-center gap-2 mb-4">
+                            <ShieldAlert className="w-4 h-4 text-[#006400]" />
+                            <h3 className="font-bold text-[12px] text-gray-900">Log de actividades del recurso</h3>
+                        </div>
+                        <TablaHistorial logs={logsPersona} loading={loadingLogs} esGlobal={false} />
+                    </div>
+                )}
+
+            </div>
+        </div>
+    );
+};
+
+export default FichaPersona;

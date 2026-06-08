@@ -16,11 +16,8 @@ export class PersonasService {
   constructor(private readonly prisma: PrismaService) { }
 
   async create(createPersonaDto: CreatePersonaDto) {
-
-
     const { roles, puestos_asignados, ...personaData } = createPersonaDto;
 
-    // ── NUEVO: normalizar campos únicos opcionales ──
     personaData.cedula_identidad = emptyToNull(personaData.cedula_identidad);
     personaData.codigo = emptyToNull(personaData.codigo);
 
@@ -47,13 +44,17 @@ export class PersonasService {
         roles: roles?.length > 0
           ? { connect: roles.map(id => ({ id })) }
           : undefined,
-        puestos: puestos_asignados?.length > 0
+
+        // ✅ FILTRAR puestos con IDs válidos
+        puestos: puestos_asignados?.filter(p => p.departamento_id && p.puesto_id).length > 0
           ? {
-            create: puestos_asignados.map((puesto, index) => ({
-              orden_puesto: index + 1,
-              departamento: { connect: { id: puesto.departamento_id } },
-              puesto: { connect: { id: puesto.puesto_id } }
-            }))
+            create: puestos_asignados
+              .filter(p => p.departamento_id && p.puesto_id)
+              .map((puesto, index) => ({
+                orden_puesto: index + 1,
+                departamento: { connect: { id: Number(puesto.departamento_id) } },
+                puesto: { connect: { id: Number(puesto.puesto_id) } }
+              }))
           }
           : undefined
       },
@@ -89,20 +90,20 @@ export class PersonasService {
   // 👇 VERSIÓN MEJORADA: Borra de la BD y del disco duro
   async eliminarDocumento(id: number) {
     const documento = await this.prisma.documentoPersona.findUnique({ where: { id } });
-    
+
     if (!documento) {
       throw new NotFoundException(`Documento con ID ${id} no encontrado`);
     }
-    
+
     // 1. Borrar el archivo físico del disco duro
     try {
       // Como guardamos la ruta en Prisma empezando con "/" (ej. /uploads/documentosPersona/...), 
       // le quitamos ese primer slash para que Node.js no se confunda buscando en la raíz del disco C:
       const rutaRelativa = documento.ruta.startsWith('/') ? documento.ruta.substring(1) : documento.ruta;
-      
+
       // join(process.cwd(), ...) nos da la ruta exacta de la carpeta de tu proyecto backend
       const rutaFisica = join(process.cwd(), rutaRelativa);
-      
+
       // Verificamos si el archivo realmente existe antes de intentar borrarlo
       if (fs.existsSync(rutaFisica)) {
         fs.unlinkSync(rutaFisica); // ¡Esta es la línea mágica que borra el PDF de la carpeta uploads!
@@ -127,7 +128,6 @@ export class PersonasService {
     if (puestos_asignados) {
       await this.prisma.personaPuesto.deleteMany({ where: { persona_id: id } });
     }
-
     return this.prisma.persona.update({
       where: { id },
       data: {
@@ -136,13 +136,15 @@ export class PersonasService {
 
         roles: roles ? { set: roles.map(id => ({ id })) } : undefined,
 
-        // CORRECCIÓN: Aplicamos la misma estructura de connect y orden_puesto
-        puestos: puestos_asignados ? {
-          create: puestos_asignados.map((puesto, index) => ({
-            orden_puesto: index + 1,
-            departamento: { connect: { id: puesto.departamento_id } },
-            puesto: { connect: { id: puesto.puesto_id } }
-          }))
+        // ✅ FILTRAR puestos válidos (que tengan departamento_id y puesto_id)
+        puestos: puestos_asignados?.filter(p => p.departamento_id && p.puesto_id).length > 0 ? {
+          create: puestos_asignados
+            .filter(p => p.departamento_id && p.puesto_id)
+            .map((puesto, index) => ({
+              orden_puesto: index + 1,
+              departamento: { connect: { id: Number(puesto.departamento_id) } },
+              puesto: { connect: { id: Number(puesto.puesto_id) } }
+            }))
         } : undefined
       },
       include: {
