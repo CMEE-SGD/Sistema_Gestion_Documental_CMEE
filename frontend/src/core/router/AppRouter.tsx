@@ -30,6 +30,8 @@ import { NuevoLaboratorioPage } from '../../modules/laboratorios/pages/NuevoLabo
 import { LaboratoriosLayout } from '../../modules/laboratorios/LaboratoriosLayout';
 import { EquiposPage } from '../../modules/laboratorios/pages/equipos/EquiposPages';
 import { NuevoEquipoPage } from '../../modules/laboratorios/pages/equipos/NuevoEquipoPage';
+import { ServiciosPage } from '../../modules/laboratorios/pages/servicios/ServiciosPage';
+import { NuevoServicioPage } from '../../modules/laboratorios/pages/servicios/NuevoServicioPage';
 
 // --- IMPORTACIONES DE USUARIOS CORREGIDAS ---
 import { UsuarioFormPage } from '../../modules/usuarios/UsuarioFormPage';
@@ -111,6 +113,8 @@ const AppRouter = () => {
           <Route path="nuevo" element={<NuevoLaboratorioPage />} />
           <Route path="equipos" element={<EquiposPage />} />
           <Route path="equipos/nuevo" element={<NuevoEquipoPage />} />
+          <Route path="servicios" element={<ServiciosPage />} />
+          <Route path="servicios/nuevo" element={<NuevoServicioPage />} />
         </Route>
         
 

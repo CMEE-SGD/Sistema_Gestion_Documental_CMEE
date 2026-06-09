@@ -39,7 +39,12 @@ export const LaboratoriosPage = () => {
                 <div className="flex gap-3 items-center">
                     <Button variant="clasico" onClick={() => navigate('/welcome')}>Volver al Inicio</Button>
                     
-                    {/* 👇 NUEVO BOTÓN: Acceso global al inventario de Equipos */}
+                    <button 
+                        onClick={() => navigate('/laboratorios/servicios')}
+                        className="px-4 py-2 bg-purple-600 text-white font-medium rounded-md hover:bg-purple-800 transition-colors shadow-sm flex items-center gap-2"
+                    >
+                        Catálogo de Servicios
+                    </button>
                     <button 
                         onClick={() => navigate('/laboratorios/equipos')}
                         className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-800 transition-colors shadow-sm flex items-center gap-2"

@@ -18,6 +18,7 @@ import { join } from 'path'; // <- NUEVO
 import { LaboratoriosModule } from './laboratorios/laboratorios.module';
 import { CircuitosModule } from './circuitos/circuitos.module';
 import { EquiposModule } from './equipos/equipos.module';
+import { ServiciosModule } from './servicios/servicios.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { EquiposModule } from './equipos/equipos.module';
     LaboratoriosModule,
     CircuitosModule,
     EquiposModule,
+    ServiciosModule,
   ],
   controllers: [],
   providers: [],
