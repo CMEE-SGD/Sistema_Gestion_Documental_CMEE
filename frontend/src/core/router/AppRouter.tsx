@@ -25,9 +25,11 @@ import AccesoDenegadoPage from '../../modules/auth/AccesoDenegadoPage';
 import { DocumentosPersonaPage } from '../../modules/rrhh/pages/persona/DocumentosPersonaPage';
 
 // --- IMPORTACIONES DE LABORATORIOS ---
-import { LaboratoriosPage } from '../../modules/laboratorios/LaboratoriosPage';
-import { NuevoLaboratorioPage } from '../../modules/laboratorios/NuevoLaboratorioPage';
+import { LaboratoriosPage } from '../../modules/laboratorios/pages/LaboratoriosPage';
+import { NuevoLaboratorioPage } from '../../modules/laboratorios/pages/NuevoLaboratorioPage';
 import { LaboratoriosLayout } from '../../modules/laboratorios/LaboratoriosLayout';
+import { EquiposPage } from '../../modules/laboratorios/pages/equipos/EquiposPages';
+import { NuevoEquipoPage } from '../../modules/laboratorios/pages/equipos/NuevoEquipoPage';
 
 // --- IMPORTACIONES DE USUARIOS CORREGIDAS ---
 import { UsuarioFormPage } from '../../modules/usuarios/UsuarioFormPage';
@@ -107,7 +109,10 @@ const AppRouter = () => {
         <Route path="/laboratorios" element={<LaboratoriosLayout />}>
           <Route index element={<LaboratoriosPage />} />
           <Route path="nuevo" element={<NuevoLaboratorioPage />} />
+          <Route path="equipos" element={<EquiposPage />} />
+          <Route path="equipos/nuevo" element={<NuevoEquipoPage />} />
         </Route>
+        
 
         {/* ---------------------------------------------------- */}
         {/* MÓDULO DE GESTOR DOCUMENTAL                          */}

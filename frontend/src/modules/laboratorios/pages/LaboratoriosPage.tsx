@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../core/api/axios';
-import { Button } from '../../shared/components/atoms/button';
+import api from '../../../core/api/axios';
+import { Button } from '../../../shared/components/atoms/button';
 
 export const LaboratoriosPage = () => {
     const navigate = useNavigate();
@@ -36,13 +36,24 @@ export const LaboratoriosPage = () => {
                     <h1 className="text-2xl font-bold text-gray-800">Laboratorios</h1>
                     <p className="text-sm text-gray-500">Gestión de laboratorios acreditados del Centro de Metrología</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button variant="clasico" onClick={() => navigate('/welcome')}>
-                        Volver al Inicio
-                    </Button>
-                    <Button variant="submit" onClick={() => navigate('/laboratorios/nuevo')}>
+                <div className="flex gap-3 items-center">
+                    <Button variant="clasico" onClick={() => navigate('/welcome')}>Volver al Inicio</Button>
+                    
+                    {/* 👇 NUEVO BOTÓN: Acceso global al inventario de Equipos */}
+                    <button 
+                        onClick={() => navigate('/laboratorios/equipos')}
+                        className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-800 transition-colors shadow-sm flex items-center gap-2"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
+                        Inventario de Equipos
+                    </button>
+
+                    <button 
+                        onClick={() => navigate('/laboratorios/nuevo')}
+                        className="px-4 py-2 bg-[#006400] text-white font-medium rounded-md hover:bg-green-800 transition-colors shadow-sm"
+                    >
                         + Nuevo Laboratorio
-                    </Button>
+                    </button>
                 </div>
             </div>
 
@@ -69,7 +80,7 @@ export const LaboratoriosPage = () => {
                             <th className="px-6 py-4 font-semibold">Laboratorio</th>
                             <th className="px-6 py-4 font-semibold">Responsable Técnico</th>
                             <th className="px-6 py-4 font-semibold text-center">Estado</th>
-                            <th className="px-6 py-4 font-semibold text-center">Acciones</th>
+                            <th className="px-6 py-4 font-semibold text-center">Acciones Rápidas</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -91,12 +102,24 @@ export const LaboratoriosPage = () => {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                        <button 
-                                            onClick={() => navigate(`/laboratorios/${lab.id}`)}
-                                            className="text-blue-600 hover:text-blue-800 font-medium"
-                                        >
-                                            Administrar
-                                        </button>
+                                        <div className="flex justify-center gap-3">
+                                            {/* 👇 BOTÓN AÑADIDO: Atajo para ver equipos de este laboratorio */}
+                                            <button 
+                                                onClick={() => navigate(`/laboratorios/equipos?laboratorio_id=${lab.id}`)}
+                                                className="text-blue-600 hover:text-blue-800 font-medium text-xs flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-100"
+                                                title="Ver equipos de este laboratorio"
+                                            >
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
+                                                Ver {lab.equipos ? lab.equipos.length : 0} equipos
+                                            </button>
+
+                                            <button 
+                                                onClick={() => navigate(`/laboratorios/${lab.id}`)}
+                                                className="text-gray-600 hover:text-gray-900 font-medium text-xs border border-gray-300 px-2 py-1 rounded"
+                                            >
+                                                Editar Lab.
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))

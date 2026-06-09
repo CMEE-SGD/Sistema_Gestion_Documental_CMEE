@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../core/api/axios';
+import api from '../../../core/api/axios';
 
 export const NuevoLaboratorioPage = () => {
     const navigate = useNavigate();

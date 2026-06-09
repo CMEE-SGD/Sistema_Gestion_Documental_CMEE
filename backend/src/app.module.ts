@@ -17,6 +17,7 @@ import { ServeStaticModule } from '@nestjs/serve-static'; // <- NUEVO
 import { join } from 'path'; // <- NUEVO
 import { LaboratoriosModule } from './laboratorios/laboratorios.module';
 import { CircuitosModule } from './circuitos/circuitos.module';
+import { EquiposModule } from './equipos/equipos.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { CircuitosModule } from './circuitos/circuitos.module';
     AuditoriaModule,
     LaboratoriosModule,
     CircuitosModule,
+    EquiposModule,
   ],
   controllers: [],
   providers: [],
