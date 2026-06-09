@@ -15,6 +15,7 @@ import { AuthModule } from './auth/auth.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { ServeStaticModule } from '@nestjs/serve-static'; // <- NUEVO
 import { join } from 'path'; // <- NUEVO
+import { LaboratoriosModule } from './laboratorios/laboratorios.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { join } from 'path'; // <- NUEVO
     AplicacionesModule,
     AuthModule,
     AuditoriaModule,
+    LaboratoriosModule,
   ],
   controllers: [],
   providers: [],

@@ -1,4 +1,3 @@
-// Definimos la interfaz para los módulos
 export interface Module {
   id: number;
   name: string;
@@ -6,7 +5,6 @@ export interface Module {
   path: string;
 }
 
-// Exportamos el array de módulos
 export const modules: Module[] = [
   { id: 1, name: "Dashboard", category: "General", path: "/dashboard" },
   { id: 2, name: "Gestion de Usuarios", category: "Administracion", path: "/usuarios" },
@@ -25,7 +23,8 @@ export const modules: Module[] = [
   { id: 15, name: "Proyectos", category: "Operaciones", path: "/proyectos" },
   { id: 16, name: "Soporte Tecnico", category: "IT", path: "/soporte" },
   { id: 17, name: "Configuracion", category: "General", path: "/configuracion" },
-  { id: 18, name: "Auditoria", category: "Administracion", path: "/auditoria" },
+  { id: 18, name: "Auditoria Global", category: "Administracion", path: "/auditoria" }, // <- Ajustado
   { id: 19, name: "Notificaciones", category: "General", path: "/notificaciones" },
   { id: 20, name: "Integraciones", category: "IT", path: "/integraciones" },
+  { id: 21, name: "Laboratorios", category: "Operaciones", path: "/laboratorios" }, // <- Nuevo
 ];

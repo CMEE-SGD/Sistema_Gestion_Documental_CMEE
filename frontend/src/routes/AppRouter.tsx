@@ -21,6 +21,9 @@ import { DetallePersonaPage } from '../pages/rrhh/DetallePersonaPage';
 import { EditarPersonaPage } from '../pages/rrhh/EditarPersonaPage';
 import AccesoDenegadoPage from '../pages/AccesoDenegadoPage';
 import { DocumentosPersonaPage } from '../pages/rrhh/DocumentosPersonaPage';
+import { LaboratoriosPage } from '../pages/laboratorios/LaboratoriosPage';
+import { NuevoLaboratorioPage } from '../pages/laboratorios/NuevoLaboratorioPage';
+import { LaboratoriosLayout } from '../pages/laboratorios/LaboratoriosLayout';
 
 // --- IMPORTACIONES DE USUARIOS CORREGIDAS ---
 import { UsuarioFormPage } from '../pages/usuarios/UsuarioFormPage';
@@ -90,6 +93,14 @@ const AppRouter = () => {
           
           <Route path="personalizacion" element={<div>Configuración de RRHH</div>} />
         </Route>
+        
+        {/* ---------------------------------------------------- */}
+        {/* MÓDULO DE LABORATORIOS                               */}
+        {/* ---------------------------------------------------- */}
+        <Route path="/laboratorios" element={<LaboratoriosLayout />}>
+          <Route index element={<LaboratoriosPage />} />
+          <Route path="nuevo" element={<NuevoLaboratorioPage />} />
+        </Route>
 
        {/* ---------------------------------------------------- */}
         {/* MÓDULO DE GESTOR DOCUMENTAL                          */}
@@ -107,6 +118,7 @@ const AppRouter = () => {
           <Route path="mover-documentos" element={<MoverDocumentosPage />} />
           {/* Ruta para ver detalles de un documento */}
           <Route path="documento/:id" element={<DetalleDocumentoPage />} />
+
           
         </Route>
         {/* RUTA MAESTRA DE CONFIGURACIÓN */}

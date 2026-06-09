@@ -147,6 +147,7 @@ model Persona {
   deptos_responsable Departamento[]     @relation("DeptoResponsable")
   roles            Rol[]              @relation("PersonaRoles") // N:M con Rol
   carpetas_permisos CarpetaPermiso[]
+  laboratorios_responsable Laboratorio[]
 
   logs_recibidos Auditoria[] @relation("LogPersonaAfectada")
 
@@ -474,4 +475,80 @@ model Auditoria {
   @@index([documento_id])
   @@index([modulo])
   @@map("auditoria")
+}
+
+// ==========================================
+// 12. LABORATORIO
+// ==========================================
+model Laboratorio {
+  id             Int       @id @default(autoincrement())
+  codigo         String?   @unique @db.VarChar(20)
+  nombre         String    @unique @db.VarChar(100) // Ej: Laboratorio de Masa, Laboratorio de Temperatura
+  descripcion    String?   @db.Text
+  activo         Boolean   @default(true)
+
+  // FK a Persona (Responsable técnico del laboratorio)
+  responsable_id Int?
+  responsable    Persona?  @relation(fields: [responsable_id], references: [id], onDelete: Restrict)
+
+  equipos        Equipo[]
+  servicios      Servicio[]
+
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([responsable_id])
+  @@map("laboratorio")
+}
+
+// ==========================================
+// 13. EQUIPO (Inventario de instrumentos)
+// ==========================================
+model Equipo {
+  id             Int          @id @default(autoincrement())
+  codigo         String       @unique @db.VarChar(50) // Código de inventario CMEE
+  nombre         String       @db.VarChar(150)
+  marca          String?      @db.VarChar(100)
+  modelo         String?      @db.VarChar(100)
+  numero_serie   String?      @db.VarChar(100)
+  estado         EstadoEquipo @default(OPERATIVO)
+
+  // Relación con el Laboratorio
+  laboratorio_id Int
+  laboratorio    Laboratorio  @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
+
+  activo         Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([laboratorio_id])
+  @@map("equipo")
+}
+
+// ==========================================
+// 14. SERVICIO (Magnitudes ofertadas)
+// ==========================================
+model Servicio {
+  id             Int       @id @default(autoincrement())
+  nombre         String    @db.VarChar(200) // Ej: Calibración de balanzas analíticas
+  magnitud       String?   @db.VarChar(100) // Ej: Masa, Volumen, Presión
+  descripcion    String?   @db.Text
+
+  // Relación con el Laboratorio
+  laboratorio_id Int
+  laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
+
+  activo         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([laboratorio_id])
+  @@map("servicio")
+}
+
+// Enum para el control de los equipos
+enum EstadoEquipo {
+  OPERATIVO
+  EN_CALIBRACION
+  FUERA_DE_SERVICIO
 }

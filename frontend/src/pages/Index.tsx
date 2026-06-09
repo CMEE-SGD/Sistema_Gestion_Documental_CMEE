@@ -32,7 +32,13 @@ const ModuleIcon = ({ name }: { name: string }) => {
       <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8">
         <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
       </svg>
-    )
+    ),
+
+    'Laboratorios': (
+      <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8">
+        <path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2h12c1.51 0 3.08-.78 4-2-.84 0-2-.69-2-2 0-1.66-1.34-3-3-3H7zm14-5.32c-.11-.31-.38-.54-.71-.61l-3.53-.71 1.74-3.48c.19-.38.03-.84-.36-1.04l-2.68-1.34c-.38-.19-.84-.03-1.04.36L12.5 5.5l-1.92-3.84c-.19-.38-.66-.55-1.04-.36L6.86 2.64c-.38.19-.55.66-.36 1.04l1.74 3.48-3.53.71c-.33.07-.6.3-.71.61L2.06 14h19.88l-1.94-5.32zM8.36 5.27l1.34-.67 1.13 2.25-1.34.67-1.13-2.25zm5.95-.67l1.34.67-1.13 2.25-1.34-.67 1.13-2.25z"/>
+      </svg>
+    ),
   };
 
   const defaultIcon = (
@@ -49,7 +55,8 @@ const favorites = [
   'Gestion de Usuarios', 
   'Gestor Documental',
   'Recursos Humanos',
-  'Auditoria Global' // 👇 AÑADIDO
+  'Auditoria Global',
+  'Laboratorios'
 
 ];
 
@@ -59,7 +66,8 @@ const getBgColor = (name: string) => {
   if (name === 'Recursos Humanos') return '#C9A800';
   if (name === 'Dashboard') return '#9E9E9E';
   if (name === 'Gestor Documental') return '#16a085';
-  if (name === 'Auditoria Global') return '#b91c1c'; // 👇 AÑADIDO: Rojo oscuro para denotar seguridad
+  if (name === 'Auditoria Global') return '#b91c1c';
+  if (name === 'Laboratorios') return '#6B21A8';
   return '#4a5568';
 };
 
@@ -70,14 +78,15 @@ const Index = () => {
   // ⚠️ IMPORTANTE: Añadimos temporalmente el objeto al arreglo si no existe en data/modulos.ts
   const modulosExtendidos = [
     ...modules,
-    { id: 99, name: 'Auditoria Global', path: '/auditoria' }
+    { id: 99, name: 'Auditoria Global', path: '/auditoria' },
+    { id: 100, name: 'Laboratorios', path: '/laboratorios' } // 👇 AÑADIDO
   ];
 
   // Filtramos sobre el arreglo extendido
-  const favModules = modulosExtendidos.filter((m) => favorites.includes(m.name));
+  const favModules = modules.filter((m) => favorites.includes(m.name));
   const allModules = modulosExtendidos;
 
-  const displayModules = activeTab === 'favoritos' ? favModules : allModules;
+  const displayModules = activeTab === 'favoritos' ? favModules : modules;
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
