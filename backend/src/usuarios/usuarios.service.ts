@@ -69,8 +69,18 @@ export class UsuariosService {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
       include: {
-        persona: true,
-        grupos: true
+        persona: {
+          select: {
+            nombre: true,
+            apellidos: true,
+            foto_ruta: true,
+            puestos: {
+              take: 1,
+              orderBy: { orden_puesto: 'asc' },
+              include: { puesto: { select: { nombre: true } } }
+            }
+          }
+        }
       }
     });
 
@@ -119,12 +129,16 @@ export class UsuariosService {
   }
 
   // Validar credenciales y retornar token (simple)
+  // En el método login()
   async login(nombre_usuario: string, clave: string) {
     const usuario = await this.prisma.usuario.findUnique({
       where: { nombre_usuario },
       include: {
         persona: {
-          include: {
+          select: {  // ✅ CAMBIAR include por select
+            nombre: true,
+            apellidos: true,
+            foto_ruta: true,  // ✅ AGREGAR ESTO
             puestos: {
               where: { activo: true },
               orderBy: { orden_puesto: 'asc' },
@@ -142,18 +156,15 @@ export class UsuariosService {
     });
 
     if (!usuario) throw new NotFoundException('Usuario no encontrado');
-
     if (usuario.bloqueado) throw new NotFoundException('El usuario está bloqueado');
-
     if (!usuario.estado_cuenta) throw new NotFoundException('La cuenta está inactiva');
 
-    // Verificar contraseña
     const passwordValida = await bcrypt.compare(clave, usuario.password_hash);
     if (!passwordValida) throw new NotFoundException('Usuario o contraseña incorrectos');
 
-    // Retornar usuario sin password_hash
     const { password_hash, ...result } = usuario;
     const payload = { sub: usuario.id };
+
     return {
       ...result,
       token: this.jwtService.sign(payload)

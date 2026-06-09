@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import AppRouter from './routes/AppRouter';
+import AppRouter from './core/router/AppRouter';
 import './index.css'; // O cualquier archivo CSS que uses
 
 

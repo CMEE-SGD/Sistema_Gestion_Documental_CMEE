@@ -150,6 +150,9 @@ model Persona {
   laboratorios_responsable Laboratorio[]
 
   logs_recibidos Auditoria[] @relation("LogPersonaAfectada")
+  
+  // 👉 Relación agregada para enlazar con las fases en las que participa
+  fases_participadas FaseParticipante[]
 
   @@map("persona")
 }
@@ -182,7 +185,6 @@ model Usuario {
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
 
   @@index([nombre_usuario])
   @@map("usuario")
@@ -307,7 +309,6 @@ enum TipoNivelCarpeta {
   SUBCARPETA   
 }
 
-// 1. Añadimos el Enum con todas las opciones de tu imagen
 enum CircuitoDocumento {
   SIN_CLASIFICAR
   ALTA_FRECUENCIA
@@ -326,7 +327,6 @@ enum CircuitoDocumento {
   TIEMPO
 }
 
-// 2. Modificamos el modelo Documento para que empate con tu formulario
 model Documento {
   id                 Int               @id @default(autoincrement())
   
@@ -336,6 +336,7 @@ model Documento {
   circuito           CircuitoDocumento @default(SIN_CLASIFICAR)
   activo             Boolean           @default(true) // El checkbox de "Estado"
   propietario        String?           @db.VarChar(150)
+  
   // Fichero
   archivo_url        String            // Aquí va la ruta donde se guardó el PDF (/uploads/...)
   nombre             String            // Es el "Título" del formulario
@@ -379,9 +380,8 @@ model DocumentoRelacion {
 model RolCarpeta {
   id          Int      @id @default(autoincrement())
   nombre      String   // Ej: "Solo Lector", "Editor de Área", "Administrador Documental"
-  descripcion String?
+  descripcion String?  // Nivel de Privilegios asignado (1 al 5):
   
-  // Nivel de Privilegios asignado (1 al 5):
   // 1: Ver | 2: Ver y Descargar | 3: Ver, Descargar y Editar 
   // 4: Ver, Descargar, Editar y Mover | 5: Todos los privilegios (+Eliminar)
   nivel       Int      @default(1) 
@@ -396,10 +396,10 @@ model RolCarpeta {
 model Carpeta {
   id               Int              @id @default(autoincrement())
   nombre           String           
-  descripcion      String?          @db.Text           // NUEVO
-  codigo           String?          @db.VarChar(50)    // NUEVO
-  version_inicial  String?          @default("1")      // NUEVO
-  etiquetas        String?          @db.Text           // NUEVO
+  descripcion      String?          @db.Text
+  codigo           String?          @db.VarChar(50)
+  version_inicial  String?          @default("1")
+  etiquetas        String?          @db.Text
   
   tipo             TipoNivelCarpeta @default(SUBCARPETA)
   orden            Int              @default(0)
@@ -421,7 +421,7 @@ model CarpetaPermiso {
   id               Int        @id @default(autoincrement())
   carpeta_id       Int
   
-  // Ahora el permiso se asigna a un Departamento O a una Persona, justo como en tu imagen
+  // Ahora el permiso se asigna a un Departamento O a una Persona
   departamento_id  Int?
   persona_id       Int?
 
@@ -551,4 +551,50 @@ enum EstadoEquipo {
   OPERATIVO
   EN_CALIBRACION
   FUERA_DE_SERVICIO
+}
+// 12. CONFIGURACIÓN DE CIRCUITOS Y FASES
+// ==========================================
+model Circuito {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @unique @db.VarChar(100) // Ej: CALIDAD, PRESIÓN
+  activo      Boolean  @default(true)
+
+  fases       Fase[]
+
+  @@map("circuitos")
+}
+
+model Fase {
+  id                     Int      @id @default(autoincrement())
+  circuito_id            Int
+  circuito               Circuito @relation(fields: [circuito_id], references: [id], onDelete: Cascade)
+
+  nombre                 String   @db.VarChar(100) // Ej: ELABORACIÓN, APROBACIÓN
+  orden                  Int      @default(10)
+
+  etiqueta_singular      String?  @db.VarChar(100) // Ej: ELABORACIÓN
+  etiqueta_plural        String?  @db.VarChar(100) // Ej: ELABORACIONES
+
+  individual_paralelo    Boolean  @default(false)
+  mostrar_hora           Boolean  @default(true)
+  ocultar_enviar_correo  Boolean  @default(false)
+  activo                 Boolean  @default(true)
+  en_vigor               Boolean  @default(false)
+  obligatorio_todos      Boolean  @default(false)
+
+  participantes          FaseParticipante[]
+
+  @@map("fases")
+}
+
+model FaseParticipante {
+  id          Int      @id @default(autoincrement())
+  fase_id     Int
+  fase        Fase     @relation(fields: [fase_id], references: [id], onDelete: Cascade)
+  
+  persona_id  Int
+  persona     Persona  @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+
+  @@unique([fase_id, persona_id])
+  @@map("fases_participantes")
 }

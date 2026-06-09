@@ -16,6 +16,7 @@ import { AuditoriaModule } from './auditoria/auditoria.module';
 import { ServeStaticModule } from '@nestjs/serve-static'; // <- NUEVO
 import { join } from 'path'; // <- NUEVO
 import { LaboratoriosModule } from './laboratorios/laboratorios.module';
+import { CircuitosModule } from './circuitos/circuitos.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { LaboratoriosModule } from './laboratorios/laboratorios.module';
     AuthModule,
     AuditoriaModule,
     LaboratoriosModule,
+    CircuitosModule,
   ],
   controllers: [],
   providers: [],

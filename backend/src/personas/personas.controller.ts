@@ -31,26 +31,31 @@ export class PersonasController {
   ], {
     storage: diskStorage({
       destination: (req, file, cb) => {
-        if (file.fieldname === 'foto') {
-          cb(null, './uploads/fotosPersonas');
-        } else {
-          const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
-          const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
-          const path = join('.', 'uploads', 'documentosPersona', `${nombre}_${apellidos}`);
+        // ✅ CREAR CARPETA ÚNICA: uploads/personas/{nombre}_{apellidos}_{cedula}
+        const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
+        const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
+        const cedula = (req.body.cedula_identidad || '0000000000').replace(/\s+/g, '');
+        const path = join('.', 'uploads', 'personas', `${nombre}_${apellidos}_${cedula}`);
 
+        try {
           if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
-          cb(null, path);
+        } catch (e) {
+          console.error('Error creando carpeta de persona:', e);
         }
+
+        cb(null, path);
       },
       filename: (req, file, cb) => {
         const ext = extname(file.originalname);
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
 
         if (file.fieldname === 'foto') {
+          // Foto: Foto_de_{nombre}_{apellidos}_{timestamp}.ext
           const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
           const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
           cb(null, `Foto_de_${nombre}_${apellidos}_${uniqueSuffix}${ext}`);
         } else {
+          // Documento: {nombreOriginal}_{timestamp}.ext
           const nombreOriginal = file.originalname.split('.')[0].replace(/\s+/g, '_');
           cb(null, `${nombreOriginal}_${uniqueSuffix}${ext}`);
         }
@@ -63,8 +68,12 @@ export class PersonasController {
   ) {
     const archivos = files || {};
 
+    // ✅ ACTUALIZAR RUTAS CON LA NUEVA ESTRUCTURA
     if (archivos.foto && archivos.foto.length > 0) {
-      createPersonaDto.foto_ruta = `/uploads/fotosPersonas/${archivos.foto[0].filename}`;
+      const nombre = (createPersonaDto.nombre || 'Usuario').replace(/\s+/g, '_');
+      const apellidos = (createPersonaDto.apellidos || '').replace(/\s+/g, '_');
+      const cedula = (createPersonaDto.cedula_identidad || '0000000000').replace(/\s+/g, '');
+      createPersonaDto.foto_ruta = `/uploads/personas/${nombre}_${apellidos}_${cedula}/${archivos.foto[0].filename}`;
     }
 
     try { if (typeof createPersonaDto.roles === 'string') createPersonaDto.roles = JSON.parse(createPersonaDto.roles); } catch (e) { createPersonaDto.roles = []; }
@@ -81,14 +90,14 @@ export class PersonasController {
       if (archivos.documentos && archivos.documentos.length > 0) {
         const nombre = (createPersonaDto.nombre || 'Usuario').replace(/\s+/g, '_');
         const apellidos = (createPersonaDto.apellidos || '').replace(/\s+/g, '_');
-        const nombreCarpeta = `${nombre}_${apellidos}`;
+        const cedula = (createPersonaDto.cedula_identidad || '0000000000').replace(/\s+/g, '');
+        const nombreCarpeta = `${nombre}_${apellidos}_${cedula}`;
 
         const docsToSave = archivos.documentos.map(doc => ({
           persona_id: persona.id,
           nombre_archivo: doc.originalname,
-          ruta: `/uploads/documentosPersona/${nombreCarpeta}/${doc.filename}`,
+          ruta: `/uploads/personas/${nombreCarpeta}/${doc.filename}`,
           tipo_documento: 'Documento adjunto'
-          // 👇 FIX 2: Ya NO enviamos 'peso_bytes' porque no existe en tu base de datos
         }));
 
         await this.personasService.guardarDocumentos(docsToSave);
@@ -96,8 +105,6 @@ export class PersonasController {
 
       return persona;
     } catch (error: any) {
-      // 👇 FIX 3: Quitamos el alert() que bloqueaba el servidor. 
-      // Ahora solo lo imprime en consola y lo pasa al frontend.
       console.error("=== ERROR EN EL SERVIDOR ===");
       console.error(error);
       throw error;
@@ -119,82 +126,102 @@ export class PersonasController {
   }
 
   @Patch(':id')
-  @RequireAccess('Recursos Humanos', 4)
-  @ApiOperation({ summary: 'Actualizar datos de una persona, foto y agregar documentos' })
-  // 👇 Nos aseguramos de que acepte ambos campos
-  @UseInterceptors(FileFieldsInterceptor([
+@RequireAccess('Recursos Humanos', 4)
+@ApiOperation({ summary: 'Actualizar datos de una persona, foto y agregar documentos' })
+@UseInterceptors(FileFieldsInterceptor([
     { name: 'foto', maxCount: 1 },
     { name: 'documentos', maxCount: 10 }
-  ], {
+], {
     storage: diskStorage({
-      destination: (req, file, cb) => {
-        if (file.fieldname === 'foto') {
-          cb(null, './uploads/fotosPersonas');
-        } else {
-          // Gracias al frontend, ahora esto siempre tendrá los datos correctos
-          const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
-          const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
-          const path = join('.', 'uploads', 'documentosPersona', `${nombre}_${apellidos}`);
-          
-          try {
-            if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
-          } catch(e) {}
-          
-          cb(null, path);
-        }
-      },
-      filename: (req, file, cb) => {
-        const ext = extname(file.originalname);
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        destination: (req, file, cb) => {
+            // ✅ Usa req.body igual que el POST — req.app.get('PrismaService') no funciona en callbacks de multer
+            const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
+            const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
+            const cedula = (req.body.cedula_identidad || '0000000000').replace(/\s+/g, '');
+            const path = join('.', 'uploads', 'personas', `${nombre}_${apellidos}_${cedula}`);
 
-        if (file.fieldname === 'foto') {
-          const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
-          const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
-          cb(null, `Foto_de_${nombre}_${apellidos}_${uniqueSuffix}${ext}`);
-        } else {
-          const nombreOriginal = file.originalname.split('.')[0].replace(/\s+/g, '_');
-          cb(null, `${nombreOriginal}_${uniqueSuffix}${ext}`);
+            try {
+                if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
+            } catch (e) {
+                console.error('Error creando carpeta de persona:', e);
+            }
+
+            cb(null, path);
+        },
+        filename: (req, file, cb) => {
+            const ext = extname(file.originalname);
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+
+            if (file.fieldname === 'foto') {
+                const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
+                const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
+                cb(null, `Foto_de_${nombre}_${apellidos}_${uniqueSuffix}${ext}`);
+            } else {
+                const nombreOriginal = file.originalname.split('.')[0].replace(/\s+/g, '_');
+                cb(null, `${nombreOriginal}_${uniqueSuffix}${ext}`);
+            }
         }
-      }
     })
-  }))
-  async update(
+}))
+async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePersonaDto: any,
     @UploadedFiles() files: { foto?: Express.Multer.File[], documentos?: Express.Multer.File[] }
-  ) {
+) {
     const archivos = files || {};
-
+    
+    // ✅ ACTUALIZAR RUTA DE FOTO CON NUEVA ESTRUCTURA
     if (archivos.foto && archivos.foto.length > 0) {
-      updatePersonaDto.foto_ruta = `/uploads/fotosPersonas/${archivos.foto[0].filename}`;
+        // Obtener la persona actual para construir la ruta correcta
+        const personaActual = await this.personasService.findOne(id);
+        const nombre = (updatePersonaDto.nombre || personaActual.nombre).replace(/\s+/g, '_');
+        const apellidos = (updatePersonaDto.apellidos || personaActual.apellidos).replace(/\s+/g, '_');
+        const cedula = (updatePersonaDto.cedula_identidad || personaActual.cedula_identidad || '0000000000').replace(/\s+/g, '');
+        
+        // ✅ ELIMINAR FOTO ANTERIOR SI EXISTE
+        if (personaActual.foto_ruta) {
+            const rutaAnterior = join(process.cwd(), personaActual.foto_ruta.startsWith('/') 
+                ? personaActual.foto_ruta.substring(1) 
+                : personaActual.foto_ruta);
+            
+            if (fs.existsSync(rutaAnterior)) {
+                try {
+                    fs.unlinkSync(rutaAnterior);
+                } catch (error) {
+                    console.error(`Aviso: No se pudo eliminar la foto anterior: ${rutaAnterior}`, error);
+                }
+            }
+        }
+        
+        updatePersonaDto.foto_ruta = `/uploads/personas/${nombre}_${apellidos}_${cedula}/${archivos.foto[0].filename}`;
     }
 
     try { if (typeof updatePersonaDto.roles === 'string') updatePersonaDto.roles = JSON.parse(updatePersonaDto.roles); } catch (e) { updatePersonaDto.roles = undefined; }
     try { if (typeof updatePersonaDto.puestos_asignados === 'string') updatePersonaDto.puestos_asignados = JSON.parse(updatePersonaDto.puestos_asignados); } catch (e) { updatePersonaDto.puestos_asignados = undefined; }
-    
+
     if (typeof updatePersonaDto.activo === 'string') updatePersonaDto.activo = updatePersonaDto.activo === 'true';
 
-    // Actualiza la persona en la base de datos
     const personaActualizada = await this.personasService.update(id, updatePersonaDto);
 
-    // Registra los documentos en la base de datos
+    // Guardar Documentos
     if (archivos.documentos && archivos.documentos.length > 0) {
-      const nombre = (updatePersonaDto.nombre || personaActualizada.nombre).replace(/\s+/g, '_');
-      const apellidos = (updatePersonaDto.apellidos || personaActualizada.apellidos).replace(/\s+/g, '_');
-      const nombreCarpeta = `${nombre}_${apellidos}`;
+        const nombre = (updatePersonaDto.nombre || personaActualizada.nombre).replace(/\s+/g, '_');
+        const apellidos = (updatePersonaDto.apellidos || personaActualizada.apellidos).replace(/\s+/g, '_');
+        const cedula = (updatePersonaDto.cedula_identidad || personaActualizada.cedula_identidad || '0000000000').replace(/\s+/g, '');
+        const nombreCarpeta = `${nombre}_${apellidos}_${cedula}`;
 
-      const docsToSave = archivos.documentos.map(doc => ({
-        persona_id: id,
-        nombre_archivo: doc.originalname,
-        ruta: `/uploads/documentosPersona/${nombreCarpeta}/${doc.filename}`,
-        tipo_documento: 'Documento adjunto'
-      }));
+        const docsToSave = archivos.documentos.map(doc => ({
+            persona_id: id,
+            nombre_archivo: doc.originalname,
+            ruta: `/uploads/personas/${nombreCarpeta}/${doc.filename}`,
+            tipo_documento: 'Documento adjunto'
+        }));
 
-      await this.personasService.guardarDocumentos(docsToSave);
+        await this.personasService.guardarDocumentos(docsToSave);
     }
 
     return personaActualizada;
-  }
+}
 
   @Delete(':id')
   @RequireAccess('Recursos Humanos', 5)
