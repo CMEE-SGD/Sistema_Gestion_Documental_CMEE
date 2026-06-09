@@ -8,19 +8,16 @@ const favorites = [
   'Gestion de Usuarios', 
   'Gestor Documental',
   'Recursos Humanos',
-  'Auditoria Global'
+  'Auditoria Global',
+  'Laboratorios'
 ];
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<'favoritos' | 'aplicaciones'>('favoritos');
 
-  const modulosExtendidos = [
-    ...modules,
-    { id: 99, name: 'Auditoria Global', path: '/auditoria' }
-  ];
-
-  const favModules = modulosExtendidos.filter((m) => favorites.includes(m.name));
-  const displayModules = activeTab === 'favoritos' ? favModules : modulosExtendidos;
+  // Filtramos directamente sobre el arreglo 'modules'
+  const favModules = modules.filter((m) => favorites.includes(m.name));
+  const displayModules = activeTab === 'favoritos' ? favModules : modules;
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
