@@ -15,7 +15,7 @@ export class LaboratoriosService {
 
   async findAll() {
     return this.prisma.laboratorio.findMany({
-      where: { activo: true },
+      //where: { activo: true },
       // Traemos los datos relacionados principales
       include: { 
         responsable: { select: { nombre: true, apellidos: true } }, 

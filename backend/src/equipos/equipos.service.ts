@@ -13,7 +13,7 @@ export class EquiposService {
 
   async findAll() {
     return this.prisma.equipo.findMany({
-      where: { activo: true },
+      //where: { activo: true },
       // Traemos el nombre y código del laboratorio asociado
       include: { 
         laboratorio: { select: { nombre: true, codigo: true } } 

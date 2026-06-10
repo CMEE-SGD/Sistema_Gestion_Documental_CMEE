@@ -8,29 +8,56 @@ export const LaboratoriosPage = () => {
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
+    const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo');
+
+    const fetchLaboratorios = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get('/laboratorios');
+            setLaboratorios(response.data);
+        } catch (error) {
+            console.error('Error cargando laboratorios', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchLaboratorios = async () => {
-            try {
-                const response = await api.get('/laboratorios');
-                setLaboratorios(response.data);
-            } catch (error) {
-                console.error('Error cargando laboratorios', error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchLaboratorios();
     }, []);
 
-    const filtrados = laboratorios.filter(lab => 
-        (lab.nombre || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-        (lab.codigo || '').toLowerCase().includes(busqueda.toLowerCase())
-    );
+    const filtrados = laboratorios.filter(lab => {
+    if (filtroEstado === 'activo' && !lab.activo) return false;
+    if (filtroEstado === 'inactivo' && lab.activo) return false;
+    
+    return (lab.nombre || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+           (lab.codigo || '').toLowerCase().includes(busqueda.toLowerCase());
+});
+
+    // 👇 NUEVA FUNCIÓN: Soft Delete para Laboratorios
+    const handleEliminar = async (id: number) => {
+        if (!window.confirm('¿Está seguro de desactivar este laboratorio? Esto no eliminará sus equipos, pero lo marcará como inactivo.')) return;
+        try {
+            await api.delete(`/laboratorios/${id}`);
+            fetchLaboratorios();
+        } catch (error) {
+            console.error('Error eliminando', error);
+            alert('Error al desactivar el laboratorio');
+        }
+    };
+
+    const handleReactivar = async (id: number) => {
+    if (!window.confirm('¿Desea volver a activar este laboratorio?')) return;
+    try {
+        await api.patch(`/laboratorios/${id}`, { activo: true });
+        fetchLaboratorios();
+    } catch (error) {
+        console.error('Error al reactivar', error);
+    }
+};
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
-            {/* Cabecera */}
             <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">Laboratorios</h1>
@@ -45,12 +72,13 @@ export const LaboratoriosPage = () => {
                     >
                         Catálogo de Servicios
                     </button>
+
                     <button 
                         onClick={() => navigate('/laboratorios/equipos')}
                         className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-800 transition-colors shadow-sm flex items-center gap-2"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
-                        Inventario de Equipos
+                        Inventario Equipos
                     </button>
 
                     <button 
@@ -62,7 +90,6 @@ export const LaboratoriosPage = () => {
                 </div>
             </div>
 
-            {/* Barra de Búsqueda */}
             <div className="mb-4 flex items-center bg-white p-3 rounded-lg shadow-sm border border-gray-200 w-full max-w-md">
                 <svg className="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -74,9 +101,17 @@ export const LaboratoriosPage = () => {
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
                 />
+                <select
+                    value={filtroEstado}
+                    onChange={(e) => setFiltroEstado(e.target.value as any)}
+                    className="border border-gray-300 rounded px-3 py-1.5 text-sm mr-4 outline-none"
+                >
+                    <option value="activo">Solo Activos</option>
+                    <option value="inactivo">Solo Inactivos</option>
+                    <option value="todos">Mostrar Todos</option>
+                </select>
             </div>
 
-            {/* Tabla Limpia */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <table className="w-full text-left text-sm text-gray-600">
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
@@ -107,23 +142,38 @@ export const LaboratoriosPage = () => {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                        <div className="flex justify-center gap-3">
-                                            {/* 👇 BOTÓN AÑADIDO: Atajo para ver equipos de este laboratorio */}
+                                        <div className="flex justify-center gap-2 items-center">
                                             <button 
                                                 onClick={() => navigate(`/laboratorios/equipos?laboratorio_id=${lab.id}`)}
-                                                className="text-blue-600 hover:text-blue-800 font-medium text-xs flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-100"
-                                                title="Ver equipos de este laboratorio"
+                                                className="text-blue-600 hover:text-blue-800 font-medium text-xs flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-100 mr-2"
+                                                title="Ver equipos"
                                             >
                                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
-                                                Ver {lab.equipos ? lab.equipos.length : 0} equipos
+                                                Equipos
                                             </button>
 
+                                            {/* 👇 BOTONES DE EDICIÓN Y DESACTIVACIÓN */}
                                             <button 
-                                                onClick={() => navigate(`/laboratorios/${lab.id}`)}
-                                                className="text-gray-600 hover:text-gray-900 font-medium text-xs border border-gray-300 px-2 py-1 rounded"
+                                                onClick={() => navigate(`/laboratorios/editar/${lab.id}`)}
+                                                className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1"
                                             >
-                                                Editar Lab.
+                                                Editar
                                             </button>
+                                            {lab.activo ? (
+                                                <button 
+                                                    onClick={() => handleEliminar(lab.id)}
+                                                    className="text-red-600 hover:text-red-800 font-medium text-xs px-2 py-1"
+                                                >
+                                                    Desactivar
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => handleReactivar(lab.id)}
+                                                    className="text-green-600 hover:text-green-800 font-medium text-xs px-2 py-1"
+                                                >
+                                                    Reactivar
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

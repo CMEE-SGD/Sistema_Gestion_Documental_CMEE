@@ -13,7 +13,7 @@ export class ServiciosService {
 
   async findAll() {
     return this.prisma.servicio.findMany({
-      where: { activo: true },
+      //where: { activo: true },
       include: { 
         laboratorio: { select: { nombre: true, codigo: true } } 
       },
