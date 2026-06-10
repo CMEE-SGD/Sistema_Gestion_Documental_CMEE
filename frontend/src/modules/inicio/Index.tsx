@@ -39,7 +39,7 @@ const Index = () => {
                     : 'border-transparent text-gray-400 hover:text-gray-600'
                 }`}
               >
-                Favoritos
+                Modulos
               </button>
             </div>
 

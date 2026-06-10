@@ -27,6 +27,12 @@ const ModuleIcon = ({ name }: { name: string }) => {
       <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8">
         <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
       </svg>
+    ),
+    // 👇 Ícono de matraz añadido para Laboratorios
+    'Laboratorios': (
+      <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8">
+        <path d="M21.3 19.88l-7.3-9.74V4h1V2H9v2h1v6.14l-7.3 9.74c-.53.71-.02 1.74.86 1.74h16.88c.88 0 1.39-1.03.86-1.74zM12 5.33l5 6.67h-10l5-6.67z" />
+      </svg>
     )
   };
 
@@ -43,6 +49,7 @@ const getBgColor = (name: string) => {
   if (name === 'Dashboard') return '#9E9E9E';
   if (name === 'Gestor Documental') return '#16a085';
   if (name === 'Auditoria Global') return '#b91c1c';
+  if (name === 'Laboratorios') return '#6B21A8'; // 👇 Color morado añadido
   return '#4a5568';
 };
 
