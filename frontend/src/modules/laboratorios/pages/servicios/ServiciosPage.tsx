@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../../../core/api/axios'; 
+import api from '../../../../core/api/axios';
 import { Button } from '../../../../shared/components/atoms/button';
-import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos
+import { tienePermiso } from '../../../../shared/utils/auth';
+import { Modal } from '../../../../shared/components/molecules/Modal';
+import { ServicioForm } from '../../components/ServicioForm';
 
 export const ServiciosPage = () => {
     const navigate = useNavigate();
     const [servicios, setServicios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
-    const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo'); 
+    const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo');
+
+    // 👇 Estados para el Modal
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedId, setSelectedId] = useState<number | null>(null);
 
     const fetchServicios = async () => {
         try {
@@ -55,6 +61,11 @@ export const ServiciosPage = () => {
         }
     };
 
+    const openModal = (id: number | null) => {
+        setSelectedId(id);
+        setIsModalOpen(true);
+    };
+
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
             <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -63,13 +74,12 @@ export const ServiciosPage = () => {
                     <p className="text-sm text-gray-500">Magnitudes y servicios de calibración ofertados</p>
                 </div>
                 <div className="flex gap-3">
-                    <Button variant="clasico" onClick={() => navigate('/laboratorios')}>Ver Laboratorios</Button>
+                    <Button variant="outline" onClick={() => navigate('/laboratorios')}>Ver Laboratorios</Button>
                     
-                    {/* 👇 Ocultar Crear Servicio */}
                     {tienePermiso('Laboratorios', 5) && (
-                        <button onClick={() => navigate('/laboratorios/servicios/nuevo')} className="px-4 py-2 bg-[#006400] text-white font-medium rounded-md hover:bg-green-800 shadow-sm">
+                        <Button variant="default" onClick={() => openModal(null)}>
                             + Nuevo Servicio
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>
@@ -126,15 +136,12 @@ export const ServiciosPage = () => {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex justify-center gap-2">
-                                            {/* 👇 Ocultar acciones en la tabla */}
                                             {tienePermiso('Laboratorios', 4) && (
-                                                <button onClick={() => navigate(`/laboratorios/servicios/editar/${srv.id}`)} className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1">Editar</button>
+                                                <button onClick={() => openModal(srv.id)} className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1">Editar</button>
                                             )}
-                                            
                                             {srv.activo && tienePermiso('Laboratorios', 5) && (
                                                 <button onClick={() => handleEliminar(srv.id)} className="text-red-600 hover:text-red-800 font-medium text-xs px-2 py-1">Desactivar</button>
                                             )}
-
                                             {!srv.activo && tienePermiso('Laboratorios', 4) && (
                                                 <button onClick={() => handleReactivar(srv.id)} className="text-green-600 hover:text-green-800 font-medium text-xs px-2 py-1">Reactivar</button>
                                             )}
@@ -146,6 +153,10 @@ export const ServiciosPage = () => {
                     </tbody>
                 </table>
             </div>
+
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={selectedId ? "Editar Servicio" : "Registrar Servicio"}>
+                <ServicioForm servicioId={selectedId} onClose={() => setIsModalOpen(false)} onSuccess={fetchServicios} />
+            </Modal>
         </div>
     );
 };

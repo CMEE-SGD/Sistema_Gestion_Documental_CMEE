@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
-import { tienePermiso } from '../../../shared/utils/auth'; // 👇 1. Importamos la función
+import { tienePermiso } from '../../../shared/utils/auth';
+import { Modal } from '../../../shared/components/molecules/Modal'; // 👇 Importamos el Modal
+import { LaboratorioForm } from '../components/LaboratorioForm'; // 👇 Importamos el Formulario
 
 export const LaboratoriosPage = () => {
     const navigate = useNavigate();
@@ -10,6 +12,10 @@ export const LaboratoriosPage = () => {
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo');
+
+    // 👇 Estados para controlar el Modal
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedLabId, setSelectedLabId] = useState<number | null>(null);
 
     const fetchLaboratorios = async () => {
         try {
@@ -56,6 +62,17 @@ export const LaboratoriosPage = () => {
         }
     };
 
+    // 👇 Funciones para abrir el modal de Crear / Editar
+    const openCreateModal = () => {
+        setSelectedLabId(null);
+        setIsModalOpen(true);
+    };
+
+    const openEditModal = (id: number) => {
+        setSelectedLabId(id);
+        setIsModalOpen(true);
+    };
+
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
             <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -63,32 +80,32 @@ export const LaboratoriosPage = () => {
                     <h1 className="text-2xl font-bold text-gray-800">Laboratorios</h1>
                     <p className="text-sm text-gray-500">Gestión de laboratorios acreditados del Centro de Metrología</p>
                 </div>
+                
+                {/* 👇 Aplicamos los nuevos estilos de botones unificados */}
                 <div className="flex gap-3 items-center">
-                    <Button variant="clasico" onClick={() => navigate('/welcome')}>Volver al Inicio</Button>
+                    <Button variant="outline" onClick={() => navigate('/welcome')}>Volver al Inicio</Button>
                     
-                    <button 
+                    <Button 
+                        variant="outline" 
                         onClick={() => navigate('/laboratorios/servicios')}
-                        className="px-4 py-2 bg-purple-600 text-white font-medium rounded-md hover:bg-purple-800 transition-colors shadow-sm flex items-center gap-2"
+                        className="text-purple-700 border-purple-200 hover:bg-purple-50 hover:text-purple-800"
                     >
                         Catálogo de Servicios
-                    </button>
+                    </Button>
 
-                    <button 
+                    <Button 
+                        variant="outline" 
                         onClick={() => navigate('/laboratorios/equipos')}
-                        className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-800 transition-colors shadow-sm flex items-center gap-2"
+                        className="text-blue-700 border-blue-200 hover:bg-blue-50 hover:text-blue-800"
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
                         Inventario Equipos
-                    </button>
+                    </Button>
 
-                    {/* 👇 2. Ocultamos el botón de crear si no tiene nivel 5 */}
                     {tienePermiso('Laboratorios', 5) && (
-                        <button 
-                            onClick={() => navigate('/laboratorios/nuevo')}
-                            className="px-4 py-2 bg-[#006400] text-white font-medium rounded-md hover:bg-green-800 transition-colors shadow-sm"
-                        >
+                        <Button variant="default" onClick={openCreateModal}>
                             + Nuevo Laboratorio
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>
@@ -155,10 +172,9 @@ export const LaboratoriosPage = () => {
                                                 Equipos
                                             </button>
 
-                                            {/* 👇 3. Ocultamos botones en la tabla según nivel */}
                                             {tienePermiso('Laboratorios', 4) && (
                                                 <button 
-                                                    onClick={() => navigate(`/laboratorios/editar/${lab.id}`)}
+                                                    onClick={() => openEditModal(lab.id)} // 👇 Abre Modal
                                                     className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1"
                                                 >
                                                     Editar
@@ -190,6 +206,20 @@ export const LaboratoriosPage = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* 👇 Inyección del Modal para Crear/Editar */}
+            <Modal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                title={selectedLabId ? "Editar Laboratorio" : "Registrar Nuevo Laboratorio"}
+            >
+                <LaboratorioForm 
+                    laboratorioId={selectedLabId} 
+                    onClose={() => setIsModalOpen(false)} 
+                    onSuccess={fetchLaboratorios} // Recarga la tabla si fue un éxito
+                />
+            </Modal>
+
         </div>
     );
 };

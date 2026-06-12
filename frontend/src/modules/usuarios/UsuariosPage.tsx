@@ -2,12 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, Edit, Trash2 } from 'lucide-react';
 import api from '../../core/api/axios';
+import { tienePermiso } from '../../shared/utils/auth'; // 👇 Importamos la función
 
 export const UsuariosPage = () => {
     const navigate = useNavigate();
     const [usuarios, setUsuarios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
+
+    // 👇 Evaluamos permisos una vez para usarlos en la vista
+    const puedeCrear = tienePermiso('Gestion de Usuarios', 5);
+    const puedeEditar = tienePermiso('Gestion de Usuarios', 4);
+    const puedeEliminar = tienePermiso('Gestion de Usuarios', 5);
+    const mostrarAcciones = puedeEditar || puedeEliminar;
 
     useEffect(() => {
         const fetchUsuarios = async () => {
@@ -47,13 +54,17 @@ export const UsuariosPage = () => {
         <div className="p-6">
             <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
                 <h1 className="text-xl font-semibold text-gray-800">Usuarios del sistema</h1>
-                <button
-                    onClick={() => navigate('/usuarios/nuevo')}
-                    className="bg-[#2185d0] text-white px-4 py-2 rounded text-sm hover:bg-blue-600 flex items-center gap-2"
-                >
-                    <UserPlus className="w-4 h-4" />
-                    Nuevo usuario
-                </button>
+                
+                {/* 👇 Ocultamos botón de nuevo usuario */}
+                {puedeCrear && (
+                    <button
+                        onClick={() => navigate('/usuarios/nuevo')}
+                        className="bg-[#2185d0] text-white px-4 py-2 rounded text-sm hover:bg-blue-600 flex items-center gap-2"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        Nuevo usuario
+                    </button>
+                )}
             </div>
 
             {/* Campo de búsqueda */}
@@ -86,7 +97,10 @@ export const UsuariosPage = () => {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Nombre completo</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Grupos</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Estado</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Acciones</th>
+                                {/* 👇 Ocultamos cabecera de acciones si no tiene permisos */}
+                                {mostrarAcciones && (
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Acciones</th>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -117,24 +131,32 @@ export const UsuariosPage = () => {
                                             {usuario.bloqueado ? 'Bloqueado' : usuario.estado_cuenta ? 'Activo' : 'Inactivo'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <div className="flex justify-center gap-2">
-                                            <button
-                                                onClick={() => navigate(`/usuarios/editar/${usuario.id}`)}
-                                                className="text-blue-600 hover:text-blue-900 p-1"
-                                                title="Editar usuario"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(usuario.id)}
-                                                className="text-red-600 hover:text-red-900 p-1"
-                                                title="Eliminar usuario"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
+
+                                    {/* 👇 Ocultamos columna de acciones si no hay permisos */}
+                                    {mostrarAcciones && (
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex justify-center gap-2">
+                                                {puedeEditar && (
+                                                    <button
+                                                        onClick={() => navigate(`/usuarios/editar/${usuario.id}`)}
+                                                        className="text-blue-600 hover:text-blue-900 p-1"
+                                                        title="Editar usuario"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                {puedeEliminar && (
+                                                    <button
+                                                        onClick={() => handleDelete(usuario.id)}
+                                                        className="text-red-600 hover:text-red-900 p-1"
+                                                        title="Eliminar usuario"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>

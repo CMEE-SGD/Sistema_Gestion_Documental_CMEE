@@ -26,12 +26,8 @@ import { DocumentosPersonaPage } from '../../modules/rrhh/pages/persona/Document
 
 // --- IMPORTACIONES DE LABORATORIOS ---
 import { LaboratoriosPage } from '../../modules/laboratorios/pages/LaboratoriosPage';
-import { NuevoLaboratorioPage } from '../../modules/laboratorios/pages/NuevoLaboratorioPage';
-import { EditarLaboratorioPage } from '../../modules/laboratorios/pages/EditarLaboratorioPage';
 import { LaboratoriosLayout } from '../../modules/laboratorios/LaboratoriosLayout';
 import { EquiposPage } from '../../modules/laboratorios/pages/equipos/EquiposPages';
-import { NuevoEquipoPage } from '../../modules/laboratorios/pages/equipos/NuevoEquipoPage';
-import { EditarEquipoPage } from '../../modules/laboratorios/pages/equipos/EditarEquipoPage';
 import { ServiciosPage } from '../../modules/laboratorios/pages/servicios/ServiciosPage';
 import { NuevoServicioPage } from '../../modules/laboratorios/pages/servicios/NuevoServicioPage';
 import { EditarServicioPage } from '../../modules/laboratorios/pages/servicios/EditarServicioPage';
@@ -113,11 +109,7 @@ const AppRouter = () => {
         {/* ---------------------------------------------------- */}
         <Route path="/laboratorios" element={<LaboratoriosLayout />}>
           <Route index element={<LaboratoriosPage />} />
-          <Route path="nuevo" element={<NuevoLaboratorioPage />} />
-          <Route path="editar/:id" element={<EditarLaboratorioPage />} />
           <Route path="equipos" element={<EquiposPage />} />
-          <Route path="equipos/nuevo" element={<NuevoEquipoPage />} />
-          <Route path="equipos/editar/:id" element={<EditarEquipoPage />} />
           <Route path="servicios" element={<ServiciosPage />} />
           <Route path="servicios/nuevo" element={<NuevoServicioPage />} />
           <Route path="servicios/editar/:id" element={<EditarServicioPage />} />
