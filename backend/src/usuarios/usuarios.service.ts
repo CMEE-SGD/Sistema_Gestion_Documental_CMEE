@@ -135,23 +135,26 @@ export class UsuariosService {
       where: { nombre_usuario },
       include: {
         persona: {
-          select: {  // ✅ CAMBIAR include por select
+          select: {
             nombre: true,
             apellidos: true,
-            foto_ruta: true,  // ✅ AGREGAR ESTO
+            foto_ruta: true,
             puestos: {
               where: { activo: true },
               orderBy: { orden_puesto: 'asc' },
               take: 1,
-              include: {
-                puesto: {
-                  select: { nombre: true }
-                }
-              }
+              include: { puesto: { select: { nombre: true } } }
             }
           }
         },
-        grupos: { select: { id: true, nombre: true } }
+        // 👇 ESTO ES LO QUE FALTA: Incluir los permisos del grupo
+        grupos: {
+          include: {
+            aplicaciones: {
+              include: { aplicacion: true } 
+            }
+          }
+        }
       }
     });
 
@@ -178,5 +181,37 @@ export class UsuariosService {
       where: { id },
       data: { estado_cuenta: false }
     });
+  }
+
+  // Añadir dentro de UsuariosService
+  async getPerfilActual(id: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id },
+      include: {
+        persona: {
+          select: {
+            nombre: true,
+            apellidos: true,
+            foto_ruta: true,
+            puestos: {
+              where: { activo: true },
+              orderBy: { orden_puesto: 'asc' },
+              take: 1,
+              include: { puesto: { select: { nombre: true } } }
+            }
+          }
+        },
+        grupos: {
+          include: {
+            aplicaciones: { include: { aplicacion: true } }
+          }
+        }
+      }
+    });
+
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+    
+    const { password_hash, ...result } = usuario;
+    return result;
   }
 }

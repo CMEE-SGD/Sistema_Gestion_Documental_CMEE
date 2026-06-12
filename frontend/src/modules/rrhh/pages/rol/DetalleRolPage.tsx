@@ -4,6 +4,7 @@ import { Button } from '../../../../shared/components/atoms/button';
 import PrintHeader  from '../../../../shared/components/organisms/PrintHeader';
 import api from '../../../../core/api/axios';
 import FichaRol from '../../components/FichaRol';
+import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos auth
 
 export const DetalleRolPage = () => {
     const { id } = useParams();
@@ -66,13 +67,22 @@ export const DetalleRolPage = () => {
             <div className="flex flex-wrap items-center justify-between gap-4 p-3 border-b border-gray-300 bg-gray-50 print:hidden">
                 <div className="flex flex-wrap gap-2 mb-2">
                     <Button variant="cancelar">Atrás</Button>
-                    <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
+                    
+                    {/* 👇 Ocultamos Eliminar (Nivel 5) */}
+                    {tienePermiso('Recursos Humanos', 5) && (
+                        <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
+                    )}
+                    
                     <Button variant="clasico">Competencias</Button>
                     <Button variant="imprimir" />
                     <Button onClick={handleToggleLogs} variant="clasico">Log</Button>
                     <Button variant="clasico">Documentos</Button>
                     <Button variant="clasico">Procesos</Button>
-                    <Button onClick={() => navigate(`/rrhh/roles/editar/${id}`)} variant="clasico">Editar</Button>
+                    
+                    {/* 👇 Ocultamos Editar (Nivel 4) */}
+                    {tienePermiso('Recursos Humanos', 4) && (
+                        <Button onClick={() => navigate(`/rrhh/roles/editar/${id}`)} variant="clasico">Editar</Button>
+                    )}
                 </div>
             </div>
             <FichaRol rol={rol} mostrarLogs={mostrarLogs} logsRol={logsRol} loadingLogs={loadingLogs} />

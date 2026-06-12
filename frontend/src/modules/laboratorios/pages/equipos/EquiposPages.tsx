@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import { Button } from '../../../../shared/components/atoms/button';
+import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos
 
 export const EquiposPage = () => {
     const navigate = useNavigate();
@@ -11,7 +12,7 @@ export const EquiposPage = () => {
     const [equipos, setEquipos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
-    const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo'); // 👇 Estado añadido
+    const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo'); 
 
     const fetchEquipos = async () => {
         try {
@@ -29,7 +30,6 @@ export const EquiposPage = () => {
         fetchEquipos();
     }, []);
 
-    // 👇 Lógica combinada (Texto + URL + Estado)
     const filtrados = equipos.filter(eq => {
         if (filtroEstado === 'activo' && !eq.activo) return false;
         if (filtroEstado === 'inactivo' && eq.activo) return false;
@@ -60,7 +60,6 @@ export const EquiposPage = () => {
         }
     };
 
-    // 👇 NUEVA FUNCIÓN: Reactivación
     const handleReactivar = async (id: number) => {
         if (!window.confirm('¿Desea volver a activar este equipo?')) return;
         try {
@@ -85,14 +84,16 @@ export const EquiposPage = () => {
                             Ver Todos
                         </button>
                     )}
-                    <button onClick={() => navigate('/laboratorios/equipos/nuevo')} className="px-4 py-2 bg-[#006400] text-white font-medium rounded-md hover:bg-green-800 shadow-sm">
-                        + Nuevo Equipo
-                    </button>
+                    {/* 👇 Ocultar Crear Equipo */}
+                    {tienePermiso('Laboratorios', 5) && (
+                        <button onClick={() => navigate('/laboratorios/equipos/nuevo')} className="px-4 py-2 bg-[#006400] text-white font-medium rounded-md hover:bg-green-800 shadow-sm">
+                            + Nuevo Equipo
+                        </button>
+                    )}
                 </div>
             </div>
 
             <div className="mb-4 flex items-center bg-white p-3 rounded-lg shadow-sm border border-gray-200 w-full max-w-2xl">
-                {/* 👇 SELECTOR DE ESTADO AÑADIDO */}
                 <select
                     value={filtroEstado}
                     onChange={(e) => setFiltroEstado(e.target.value as any)}
@@ -147,11 +148,16 @@ export const EquiposPage = () => {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex justify-center gap-2">
-                                            <button onClick={() => navigate(`/laboratorios/equipos/editar/${eq.id}`)} className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1">Editar</button>
-                                            {/* 👇 RENDERIZADO CONDICIONAL DE BOTONES */}
-                                            {eq.activo ? (
+                                            {/* 👇 Ocultar Editar/Desactivar/Reactivar en la tabla */}
+                                            {tienePermiso('Laboratorios', 4) && (
+                                                <button onClick={() => navigate(`/laboratorios/equipos/editar/${eq.id}`)} className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1">Editar</button>
+                                            )}
+                                            
+                                            {eq.activo && tienePermiso('Laboratorios', 5) && (
                                                 <button onClick={() => handleEliminar(eq.id)} className="text-red-600 hover:text-red-800 font-medium text-xs px-2 py-1">Desactivar</button>
-                                            ) : (
+                                            )}
+                                            
+                                            {!eq.activo && tienePermiso('Laboratorios', 4) && (
                                                 <button onClick={() => handleReactivar(eq.id)} className="text-green-600 hover:text-green-800 font-medium text-xs px-2 py-1">Reactivar</button>
                                             )}
                                         </div>

@@ -44,10 +44,11 @@ export default function LoginPage() {
           id: resData.id,
           nombre_usuario: resData.nombre_usuario,
           rol: resData.rol || 'usuario',
+          grupos: resData.grupos ?? [],
           persona: {
             nombre: personaRaw.nombre ?? '',
             apellidos: personaRaw.apellidos ?? '',
-            foto_ruta: personaRaw.foto_ruta ?? '',   // ← directo, sin fallback a avatar
+            foto_ruta: personaRaw.foto_ruta ?? '',
             puesto: puestoExtraido
           }
         };

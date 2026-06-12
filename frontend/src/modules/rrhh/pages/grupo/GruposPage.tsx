@@ -5,6 +5,7 @@ import { Button } from '../../../../shared/components/atoms/button';
 import api from '../../../../core/api/axios';
 import PrintHeader from '../../../../shared/components/organisms/PrintHeader';
 import VistaGrupos from '../../components/VistaGrupos';
+import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos auth
 
 export const GruposPage = () => {
     const navigate = useNavigate();
@@ -49,7 +50,14 @@ export const GruposPage = () => {
             <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 p-3 rounded border border-gray-200 print:hidden">
                 <div className="flex gap-2">
                     <Button onClick={() => navigate('/rrhh')} variant="clasico">Atrás</Button>
-                    <Button onClick={() => navigate('/rrhh/grupos/nuevo')} variant="clasico"><Plus className="w-4 h-4" /> Nuevo</Button>
+                    
+                    {/* 👇 Ocultamos creación de nuevo grupo/departamento (Nivel 5) */}
+                    {tienePermiso('Recursos Humanos', 5) && (
+                        <Button onClick={() => navigate('/rrhh/grupos/nuevo')} variant="clasico">
+                            <Plus className="w-4 h-4" /> Nuevo
+                        </Button>
+                    )}
+                    
                     <Button onClick={() => setVistaActual(v => v === 'tabla' ? 'organigrama' : 'tabla')} variant="clasico">
                         {vistaActual === 'tabla' ? 'Organigrama' : 'Tabla'}
                     </Button>

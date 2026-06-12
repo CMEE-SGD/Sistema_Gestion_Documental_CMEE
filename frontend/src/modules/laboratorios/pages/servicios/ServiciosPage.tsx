@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../../core/api/axios'; 
 import { Button } from '../../../../shared/components/atoms/button';
+import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos
 
 export const ServiciosPage = () => {
     const navigate = useNavigate();
     const [servicios, setServicios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
-    const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo'); // 👇 Estado añadido
+    const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo'); 
 
     const fetchServicios = async () => {
         try {
@@ -26,7 +27,6 @@ export const ServiciosPage = () => {
         fetchServicios();
     }, []);
 
-    // 👇 Lógica combinada (Texto + Estado)
     const filtrados = servicios.filter(srv => {
         if (filtroEstado === 'activo' && !srv.activo) return false;
         if (filtroEstado === 'inactivo' && srv.activo) return false;
@@ -45,7 +45,6 @@ export const ServiciosPage = () => {
         }
     };
 
-    // 👇 NUEVA FUNCIÓN: Reactivación
     const handleReactivar = async (id: number) => {
         if (!window.confirm('¿Desea volver a activar este servicio?')) return;
         try {
@@ -65,14 +64,17 @@ export const ServiciosPage = () => {
                 </div>
                 <div className="flex gap-3">
                     <Button variant="clasico" onClick={() => navigate('/laboratorios')}>Ver Laboratorios</Button>
-                    <button onClick={() => navigate('/laboratorios/servicios/nuevo')} className="px-4 py-2 bg-[#006400] text-white font-medium rounded-md hover:bg-green-800 shadow-sm">
-                        + Nuevo Servicio
-                    </button>
+                    
+                    {/* 👇 Ocultar Crear Servicio */}
+                    {tienePermiso('Laboratorios', 5) && (
+                        <button onClick={() => navigate('/laboratorios/servicios/nuevo')} className="px-4 py-2 bg-[#006400] text-white font-medium rounded-md hover:bg-green-800 shadow-sm">
+                            + Nuevo Servicio
+                        </button>
+                    )}
                 </div>
             </div>
 
             <div className="mb-4 flex items-center bg-white p-3 rounded-lg shadow-sm border border-gray-200 w-full max-w-2xl">
-                {/* 👇 SELECTOR DE ESTADO AÑADIDO */}
                 <select
                     value={filtroEstado}
                     onChange={(e) => setFiltroEstado(e.target.value as any)}
@@ -124,11 +126,16 @@ export const ServiciosPage = () => {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex justify-center gap-2">
-                                            <button onClick={() => navigate(`/laboratorios/servicios/editar/${srv.id}`)} className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1">Editar</button>
-                                            {/* 👇 RENDERIZADO CONDICIONAL DE BOTONES */}
-                                            {srv.activo ? (
+                                            {/* 👇 Ocultar acciones en la tabla */}
+                                            {tienePermiso('Laboratorios', 4) && (
+                                                <button onClick={() => navigate(`/laboratorios/servicios/editar/${srv.id}`)} className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1">Editar</button>
+                                            )}
+                                            
+                                            {srv.activo && tienePermiso('Laboratorios', 5) && (
                                                 <button onClick={() => handleEliminar(srv.id)} className="text-red-600 hover:text-red-800 font-medium text-xs px-2 py-1">Desactivar</button>
-                                            ) : (
+                                            )}
+
+                                            {!srv.activo && tienePermiso('Laboratorios', 4) && (
                                                 <button onClick={() => handleReactivar(srv.id)} className="text-green-600 hover:text-green-800 font-medium text-xs px-2 py-1">Reactivar</button>
                                             )}
                                         </div>

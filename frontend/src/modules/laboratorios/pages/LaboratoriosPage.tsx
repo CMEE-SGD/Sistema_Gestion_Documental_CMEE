@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
+import { tienePermiso } from '../../../shared/utils/auth'; // 👇 1. Importamos la función
 
 export const LaboratoriosPage = () => {
     const navigate = useNavigate();
@@ -27,14 +28,13 @@ export const LaboratoriosPage = () => {
     }, []);
 
     const filtrados = laboratorios.filter(lab => {
-    if (filtroEstado === 'activo' && !lab.activo) return false;
-    if (filtroEstado === 'inactivo' && lab.activo) return false;
-    
-    return (lab.nombre || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-           (lab.codigo || '').toLowerCase().includes(busqueda.toLowerCase());
-});
+        if (filtroEstado === 'activo' && !lab.activo) return false;
+        if (filtroEstado === 'inactivo' && lab.activo) return false;
+        
+        return (lab.nombre || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+               (lab.codigo || '').toLowerCase().includes(busqueda.toLowerCase());
+    });
 
-    // 👇 NUEVA FUNCIÓN: Soft Delete para Laboratorios
     const handleEliminar = async (id: number) => {
         if (!window.confirm('¿Está seguro de desactivar este laboratorio? Esto no eliminará sus equipos, pero lo marcará como inactivo.')) return;
         try {
@@ -47,14 +47,14 @@ export const LaboratoriosPage = () => {
     };
 
     const handleReactivar = async (id: number) => {
-    if (!window.confirm('¿Desea volver a activar este laboratorio?')) return;
-    try {
-        await api.patch(`/laboratorios/${id}`, { activo: true });
-        fetchLaboratorios();
-    } catch (error) {
-        console.error('Error al reactivar', error);
-    }
-};
+        if (!window.confirm('¿Desea volver a activar este laboratorio?')) return;
+        try {
+            await api.patch(`/laboratorios/${id}`, { activo: true });
+            fetchLaboratorios();
+        } catch (error) {
+            console.error('Error al reactivar', error);
+        }
+    };
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
@@ -81,12 +81,15 @@ export const LaboratoriosPage = () => {
                         Inventario Equipos
                     </button>
 
-                    <button 
-                        onClick={() => navigate('/laboratorios/nuevo')}
-                        className="px-4 py-2 bg-[#006400] text-white font-medium rounded-md hover:bg-green-800 transition-colors shadow-sm"
-                    >
-                        + Nuevo Laboratorio
-                    </button>
+                    {/* 👇 2. Ocultamos el botón de crear si no tiene nivel 5 */}
+                    {tienePermiso('Laboratorios', 5) && (
+                        <button 
+                            onClick={() => navigate('/laboratorios/nuevo')}
+                            className="px-4 py-2 bg-[#006400] text-white font-medium rounded-md hover:bg-green-800 transition-colors shadow-sm"
+                        >
+                            + Nuevo Laboratorio
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -152,21 +155,26 @@ export const LaboratoriosPage = () => {
                                                 Equipos
                                             </button>
 
-                                            {/* 👇 BOTONES DE EDICIÓN Y DESACTIVACIÓN */}
-                                            <button 
-                                                onClick={() => navigate(`/laboratorios/editar/${lab.id}`)}
-                                                className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1"
-                                            >
-                                                Editar
-                                            </button>
-                                            {lab.activo ? (
+                                            {/* 👇 3. Ocultamos botones en la tabla según nivel */}
+                                            {tienePermiso('Laboratorios', 4) && (
+                                                <button 
+                                                    onClick={() => navigate(`/laboratorios/editar/${lab.id}`)}
+                                                    className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1"
+                                                >
+                                                    Editar
+                                                </button>
+                                            )}
+
+                                            {lab.activo && tienePermiso('Laboratorios', 5) && (
                                                 <button 
                                                     onClick={() => handleEliminar(lab.id)}
                                                     className="text-red-600 hover:text-red-800 font-medium text-xs px-2 py-1"
                                                 >
                                                     Desactivar
                                                 </button>
-                                            ) : (
+                                            )}
+                                            
+                                            {!lab.activo && tienePermiso('Laboratorios', 4) && (
                                                 <button 
                                                     onClick={() => handleReactivar(lab.id)}
                                                     className="text-green-600 hover:text-green-800 font-medium text-xs px-2 py-1"

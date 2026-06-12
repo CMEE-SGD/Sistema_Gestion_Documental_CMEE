@@ -4,6 +4,7 @@ import PrintHeader from '../../../../shared/components/organisms/PrintHeader';
 import { Button } from '../../../../shared/components/atoms/button';
 import api from '../../../../core/api/axios';
 import { FichaGrupo } from '../../components/FichaGrupo';
+import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos auth
 
 export const DetalleGrupoPage = () => {
     const { id } = useParams();
@@ -50,8 +51,17 @@ export const DetalleGrupoPage = () => {
 
             <div className="flex gap-2 mb-2 print:hidden">
                 <Button variant="cancelar" onClick={() => navigate('/rrhh/grupos')}>Atrás</Button>
-                <Button onClick={() => navigate(`/rrhh/grupos/editar/${departamento.id}`)} variant="clasico">Editar</Button>
-                <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
+                
+                {/* 👇 Ocultamos Editar (Nivel 4) */}
+                {tienePermiso('Recursos Humanos', 4) && (
+                    <Button onClick={() => navigate(`/rrhh/grupos/editar/${departamento.id}`)} variant="clasico">Editar</Button>
+                )}
+                
+                {/* 👇 Ocultamos Eliminar (Nivel 5) */}
+                {tienePermiso('Recursos Humanos', 5) && (
+                    <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
+                )}
+                
                 <Button variant="imprimir" />
             </div>
 

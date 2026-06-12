@@ -5,6 +5,7 @@ import { Persona } from '../../interfaces/persona.interface';
 import { Button } from '../../../../shared/components/atoms/button';
 import PrintHeader from '../../../../shared/components/organisms/PrintHeader';
 import TablaPersonas from '../../components/TablaPersonas';
+import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos la función
 
 export const PersonasPage = () => {
     const navigate = useNavigate();
@@ -93,9 +94,19 @@ export const PersonasPage = () => {
             <div className="flex flex-wrap items-center justify-between gap-4 p-3 border-b border-gray-300 bg-gray-50 print:hidden">
                 <div className="flex flex-wrap items-center gap-1.5">
                     <Button variant="clasico" onClick={() => navigate('/rrhh')}>Atrás</Button>
-                    <Button variant="clasico" onClick={() => navigate('/rrhh/personas/nuevo')}>Nuevo recurso</Button>
+                    
+                    {/* 👇 Ocultamos creación */}
+                    {tienePermiso('Recursos Humanos', 5) && (
+                        <Button variant="clasico" onClick={() => navigate('/rrhh/personas/nuevo')}>Nuevo recurso</Button>
+                    )}
+                    
                     <Button variant="imprimir" />
-                    <Button variant="clasico" onClick={handleEliminarSeleccionados} disabled={seleccionados.length === 0}>Eliminar</Button>
+                    
+                    {/* 👇 Ocultamos eliminación en masa */}
+                    {tienePermiso('Recursos Humanos', 5) && (
+                        <Button variant="clasico" onClick={handleEliminarSeleccionados} disabled={seleccionados.length === 0}>Eliminar</Button>
+                    )}
+                    
                     <Button variant="clasico" onClick={() => window.location.reload()}>Actualizar Listado</Button>
                 </div>
 

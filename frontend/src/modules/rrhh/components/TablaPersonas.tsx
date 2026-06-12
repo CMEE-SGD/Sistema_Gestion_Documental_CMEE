@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import { Persona } from '../interfaces/persona.interface';
+import { tienePermiso } from '../../../shared/utils/auth'; // 👇 1. Importamos la función
 
 interface TablaPersonasProps {
     personas: Persona[];
@@ -20,6 +21,10 @@ const TablaPersonas = ({
     onCheckTodos
 }: TablaPersonasProps) => {
     const navigate = useNavigate();
+    
+    // 👇 2. Verificamos si tiene nivel 5 para mostrar los checkboxes
+    const puedeEliminar = tienePermiso('Recursos Humanos', 5);
+    const colSpanDinamico = puedeEliminar ? 6 : 5; // Ajustamos el tamaño de la tabla
 
     return (
         <div className="px-4 print:px-0">
@@ -27,14 +32,17 @@ const TablaPersonas = ({
                 <table className="w-full text-left whitespace-nowrap text-[11px] print:text-black print:text-[10px]">
                     <thead className="bg-[#006400] text-white font-bold print:bg-gray-200 print:text-black print:border-b print:border-gray-400">
                         <tr>
-                            <th className="px-4 py-2 w-10 text-center border-r border-[#004d00] print:hidden">
-                                <input 
-                                    type="checkbox" 
-                                    className="rounded" 
-                                    checked={seleccionados.length > 0 && seleccionados.length === personas.length} 
-                                    onChange={onCheckTodos} 
-                                />
-                            </th>
+                            {/* 👇 3. Ocultamos el TH del checkbox general si no tiene permisos */}
+                            {puedeEliminar && (
+                                <th className="px-4 py-2 w-10 text-center border-r border-[#004d00] print:hidden">
+                                    <input 
+                                        type="checkbox" 
+                                        className="rounded" 
+                                        checked={seleccionados.length > 0 && seleccionados.length === personas.length} 
+                                        onChange={onCheckTodos} 
+                                    />
+                                </th>
+                            )}
                             <th className="px-4 py-2 border-r border-[#004d00] print:border-gray-400 cursor-pointer hover:bg-[#004d00] print:hover:bg-transparent">
                                 Apellidos
                             </th>
@@ -46,23 +54,26 @@ const TablaPersonas = ({
                     </thead>
                     <tbody className="divide-y divide-gray-200 print:divide-gray-400">
                         {loading ? (
-                            <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">Cargando datos...</td></tr>
+                            <tr><td colSpan={colSpanDinamico} className="px-4 py-8 text-center text-gray-500">Cargando datos...</td></tr>
                         ) : personasFiltradas.length === 0 ? (
-                            <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No hay registros que coincidan con los filtros.</td></tr>
+                            <tr><td colSpan={colSpanDinamico} className="px-4 py-8 text-center text-gray-500">No hay registros que coincidan con los filtros.</td></tr>
                         ) : (
                             personasFiltradas.map((persona) => (
                                 <tr
                                     key={persona.id}
                                     className={`hover:bg-gray-100 transition-colors print:break-inside-avoid ${!persona.activo ? 'opacity-60 bg-gray-50 print:opacity-100' : ''}`}
                                 >
-                                    <td className="px-4 py-2 text-center align-middle border-r border-gray-200 print:hidden">
-                                        <input 
-                                            type="checkbox" 
-                                            className="rounded" 
-                                            checked={seleccionados.includes(persona.id)} 
-                                            onChange={() => onCheckIndividual(persona.id)} 
-                                        />
-                                    </td>
+                                    {/* 👇 4. Ocultamos el TD del checkbox individual si no tiene permisos */}
+                                    {puedeEliminar && (
+                                        <td className="px-4 py-2 text-center align-middle border-r border-gray-200 print:hidden">
+                                            <input 
+                                                type="checkbox" 
+                                                className="rounded" 
+                                                checked={seleccionados.includes(persona.id)} 
+                                                onChange={() => onCheckIndividual(persona.id)} 
+                                            />
+                                        </td>
+                                    )}
 
                                     <td className="px-4 py-2 border-r border-gray-200 print:border-gray-400 cursor-pointer" onClick={() => navigate(`/rrhh/personas/${persona.id}`)}>
                                         <div className="flex items-center gap-3">
