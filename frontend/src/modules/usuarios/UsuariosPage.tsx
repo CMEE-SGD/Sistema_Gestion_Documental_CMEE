@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Edit, Trash2 } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, Search, Users } from 'lucide-react';
 import api from '../../core/api/axios';
-import { tienePermiso } from '../../shared/utils/auth'; // 👇 Importamos la función
+import { tienePermiso } from '../../shared/utils/auth';
 
 export const UsuariosPage = () => {
     const navigate = useNavigate();
@@ -10,7 +10,6 @@ export const UsuariosPage = () => {
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
 
-    // 👇 Evaluamos permisos una vez para usarlos en la vista
     const puedeCrear = tienePermiso('Gestion de Usuarios', 5);
     const puedeEditar = tienePermiso('Gestion de Usuarios', 4);
     const puedeEliminar = tienePermiso('Gestion de Usuarios', 5);
@@ -31,7 +30,6 @@ export const UsuariosPage = () => {
         fetchUsuarios();
     }, []);
 
-    // Filtrar usuarios por nombre o usuario
     const usuariosFiltrados = usuarios.filter(u =>
         u.nombre_usuario.toLowerCase().includes(busqueda.toLowerCase()) ||
         u.persona?.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -43,114 +41,116 @@ export const UsuariosPage = () => {
         try {
             await api.delete(`/usuarios/${id}`);
             setUsuarios(usuarios.filter(u => u.id !== id));
-            alert("Usuario eliminado correctamente");
         } catch (error) {
-            console.error("Error al eliminar usuario", error);
             alert("Error al eliminar el usuario");
         }
     };
 
     return (
-        <div className="p-6">
-            <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
-                <h1 className="text-xl font-semibold text-gray-800">Usuarios del sistema</h1>
+        <div className="p-8 max-w-7xl mx-auto">
+            {/* Cabecera */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">Usuarios del Sistema</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Gestiona los accesos y credenciales del personal.</p>
+                </div>
                 
-                {/* 👇 Ocultamos botón de nuevo usuario */}
                 {puedeCrear && (
                     <button
                         onClick={() => navigate('/usuarios/nuevo')}
-                        className="bg-[#2185d0] text-white px-4 py-2 rounded text-sm hover:bg-blue-600 flex items-center gap-2"
+                        className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm"
                     >
                         <UserPlus className="w-4 h-4" />
-                        Nuevo usuario
+                        Nuevo Usuario
                     </button>
                 )}
             </div>
 
-            {/* Campo de búsqueda */}
-            <div className="mb-6">
+            {/* Buscador Moderno */}
+            <div className="mb-6 relative max-w-md">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                </div>
                 <input
                     type="text"
                     placeholder="Buscar por usuario, nombre o apellido..."
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
-                    className="w-full max-w-md border border-gray-300 rounded px-3 py-2 outline-none focus:border-blue-500"
+                    className="w-full pl-10 pr-4 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
                 />
             </div>
 
-            {/* Tabla de usuarios */}
-            {loading ? (
-                <div className="text-center py-8 text-gray-500">Cargando usuarios...</div>
-            ) : usuariosFiltrados.length === 0 ? (
-                <div className="bg-white border border-gray-200 rounded shadow-sm p-8 text-center text-gray-500">
-                    {usuarios.length === 0
-                        ? "No hay usuarios registrados. Haz clic en 'Nuevo usuario' para crear uno."
-                        : "No se encontraron usuarios con esos criterios de búsqueda."
-                    }
-                </div>
-            ) : (
-                <div className="bg-white border border-gray-200 rounded shadow-sm overflow-hidden">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
+            {/* Tabla */}
+            <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-muted/50 border-b border-border">
+                        <tr>
+                            <th className="px-6 py-3 font-semibold text-muted-foreground">Usuario</th>
+                            <th className="px-6 py-3 font-semibold text-muted-foreground">Nombre completo</th>
+                            <th className="px-6 py-3 font-semibold text-muted-foreground">Grupos</th>
+                            <th className="px-6 py-3 font-semibold text-muted-foreground text-center">Estado</th>
+                            {mostrarAcciones && (
+                                <th className="px-6 py-3 font-semibold text-muted-foreground text-center">Acciones</th>
+                            )}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                        {loading ? (
+                            <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Cargando usuarios...</td></tr>
+                        ) : usuariosFiltrados.length === 0 ? (
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Usuario</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Nombre completo</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Grupos</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Estado</th>
-                                {/* 👇 Ocultamos cabecera de acciones si no tiene permisos */}
-                                {mostrarAcciones && (
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Acciones</th>
-                                )}
+                                <td colSpan={5} className="py-12">
+                                    <div className="flex flex-col items-center justify-center text-center">
+                                        <div className="bg-muted p-3 rounded-full mb-3">
+                                            <Users className="w-6 h-6 text-muted-foreground" />
+                                        </div>
+                                        <p className="text-sm font-medium text-foreground">No se encontraron usuarios</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Ajusta tu búsqueda o crea un nuevo registro.</p>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {usuariosFiltrados.map(usuario => (
-                                <tr key={usuario.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{usuario.nombre_usuario}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">
+                        ) : (
+                            usuariosFiltrados.map(usuario => (
+                                <tr key={usuario.id} className="hover:bg-muted/30 transition-colors">
+                                    <td className="px-6 py-4 font-medium text-foreground">{usuario.nombre_usuario}</td>
+                                    <td className="px-6 py-4 text-muted-foreground">
                                         {usuario.persona?.apellidos}, {usuario.persona?.nombre}
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">
+                                    <td className="px-6 py-4">
                                         {usuario.grupos?.length > 0 ? (
-                                            <div className="flex flex-wrap gap-1">
+                                            <div className="flex flex-wrap gap-1.5">
                                                 {usuario.grupos.map((g: any) => (
-                                                    <span key={g.id} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                                    <span key={g.id} className="bg-secondary text-secondary-foreground text-[11px] font-medium px-2 py-0.5 rounded-md border border-border">
                                                         {g.nombre}
                                                     </span>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <span className="text-gray-400">Sin grupos</span>
+                                            <span className="text-muted-foreground text-xs italic">Sin grupos</span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 text-sm">
-                                        <span className={`px-2 py-1 rounded text-xs font-medium ${usuario.estado_cuenta && !usuario.bloqueado
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-red-100 text-red-800'
-                                            }`}>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase ${
+                                            usuario.bloqueado 
+                                                ? 'bg-rose-100 text-rose-700' 
+                                                : usuario.estado_cuenta 
+                                                    ? 'bg-emerald-100 text-emerald-700' 
+                                                    : 'bg-slate-100 text-slate-700'
+                                        }`}>
                                             {usuario.bloqueado ? 'Bloqueado' : usuario.estado_cuenta ? 'Activo' : 'Inactivo'}
                                         </span>
                                     </td>
 
-                                    {/* 👇 Ocultamos columna de acciones si no hay permisos */}
                                     {mostrarAcciones && (
-                                        <td className="px-6 py-4 text-center">
-                                            <div className="flex justify-center gap-2">
+                                        <td className="px-6 py-4">
+                                            <div className="flex justify-center gap-1">
                                                 {puedeEditar && (
-                                                    <button
-                                                        onClick={() => navigate(`/usuarios/editar/${usuario.id}`)}
-                                                        className="text-blue-600 hover:text-blue-900 p-1"
-                                                        title="Editar usuario"
-                                                    >
-                                                        <Edit className="w-4 h-4" />
+                                                    <button onClick={() => navigate(`/usuarios/editar/${usuario.id}`)} className="text-muted-foreground hover:text-primary hover:bg-primary/10 p-1.5 rounded-md transition-colors" title="Editar">
+                                                        <Edit2 className="w-4 h-4" />
                                                     </button>
                                                 )}
                                                 {puedeEliminar && (
-                                                    <button
-                                                        onClick={() => handleDelete(usuario.id)}
-                                                        className="text-red-600 hover:text-red-900 p-1"
-                                                        title="Eliminar usuario"
-                                                    >
+                                                    <button onClick={() => handleDelete(usuario.id)} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-md transition-colors" title="Eliminar">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 )}
@@ -158,11 +158,11 @@ export const UsuariosPage = () => {
                                         </td>
                                     )}
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };

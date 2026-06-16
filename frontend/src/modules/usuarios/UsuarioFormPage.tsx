@@ -1,44 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Trash2, Lock, Calendar, X } from 'lucide-react';
+import { Trash2, Lock, Calendar, X, ArrowLeft } from 'lucide-react';
 import api from '../../core/api/axios';
 
-// Componente auxiliar para los Toggles (Interruptores)
+// Toggle rediseñado: Estilo Switch moderno
 const Toggle = ({ label, checked, onChange, icon }: any) => (
-    <label className="flex items-center cursor-pointer w-max my-3">
-        <div className="relative">
+    <label className="flex items-center cursor-pointer w-max my-2 group">
+        <div className="relative flex items-center">
             <input type="checkbox" className="sr-only" checked={checked} onChange={onChange} />
-            <div className={`block w-11 h-6 rounded-full transition-colors ${checked ? 'bg-[#2185d0]' : 'bg-gray-300'}`}></div>
-            <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${checked ? 'translate-x-5' : ''}`}></div>
+            <div className={`w-10 h-5 rounded-full transition-colors duration-200 ease-in-out ${checked ? 'bg-primary' : 'bg-slate-300'}`}></div>
+            <div className={`absolute left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`}></div>
         </div>
-        <div className="ml-3 text-sm text-gray-700 flex items-center gap-2">
+        <div className="ml-3 text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors flex items-center gap-2">
             {icon} {label}
         </div>
     </label>
 );
 
 export const UsuarioFormPage = () => {
-    const { id } = useParams(); // Si hay ID es edición, si no, es nuevo
+    const { id } = useParams(); 
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'general' | 'clave' | 'config'>('general');
     const [loading, setLoading] = useState(false);
     
-    // Catálogos
     const [personas, setPersonas] = useState<any[]>([]);
-    const [grupos, setGrupos] = useState<any[]>([]); // Para el select de grupos
+    const [grupos, setGrupos] = useState<any[]>([]); 
 
     const [formData, setFormData] = useState({
-        nombre_usuario: '',
-        persona_id: '',
-        grupoIds: [] as number[],
-        fecha_caducidad: '',
-        estado_cuenta: true,
-        bloqueado: false,
-        clave: '', // Nueva clave
-        cambiar_clave_proxima_sesion: false,
-        idioma: 'Español (Ecuador)',
-        acceso_preferencias: false,
-        acceso_chat: false
+        nombre_usuario: '', persona_id: '', grupoIds: [] as number[],
+        fecha_caducidad: '', estado_cuenta: true, bloqueado: false,
+        clave: '', cambiar_clave_proxima_sesion: false,
+        idioma: 'Español (Ecuador)', acceso_preferencias: false, acceso_chat: false
     });
 
     useEffect(() => {
@@ -181,109 +173,91 @@ export const UsuarioFormPage = () => {
     };
 
     return (
-        <div className="bg-white min-h-screen font-sans p-6">
-            <div className="max-w-4xl mx-auto">
-                
-                {/* TABS */}
-                <div className="flex border-b border-gray-300 mb-8">
-                    <button 
-                        type="button"
-                        onClick={() => setActiveTab('general')} 
-                        className={`px-6 py-2.5 text-sm transition-colors ${activeTab === 'general' ? 'border-b-2 border-gray-800 text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        {id ? 'Editar usuario' : 'Nuevo usuario'}
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={() => setActiveTab('clave')} 
-                        className={`px-6 py-2.5 text-sm transition-colors ${activeTab === 'clave' ? 'border-b-2 border-gray-800 text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        Clave
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={() => setActiveTab('config')} 
-                        className={`px-6 py-2.5 text-sm transition-colors ${activeTab === 'config' ? 'border-b-2 border-gray-800 text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        Configuración
-                    </button>
+        <div className="p-8 max-w-3xl mx-auto">
+            {/* Cabecera con botón de retroceso */}
+            <div className="flex items-center gap-4 mb-6">
+                <button onClick={() => navigate(-1)} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
+                    <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">{id ? 'Editar Usuario' : 'Nuevo Usuario'}</h1>
+                    <p className="text-sm text-muted-foreground">Configura las credenciales y permisos de acceso.</p>
+                </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                {/* Tabs estilo Segmented Control */}
+                <div className="p-4 border-b border-border bg-muted/20">
+                    <div className="flex bg-muted p-1 rounded-lg w-fit">
+                        {[
+                            { id: 'general', label: 'Datos Generales' },
+                            { id: 'clave', label: 'Seguridad y Clave' },
+                            { id: 'config', label: 'Configuración' }
+                        ].map(tab => (
+                            <button 
+                                key={tab.id} type="button" onClick={() => setActiveTab(tab.id as any)}
+                                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                                    activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="p-6 md:p-8">
                     
-                    {/* CONTENIDO TAB 1: GENERAL */}
+                    {/* TAB 1: GENERAL */}
                     <div className={activeTab === 'general' ? 'block' : 'hidden'}>
-                        <div className="max-w-2xl mx-auto flex flex-col gap-5">
-                            
-                            <div className="flex flex-col gap-1">
-                                <label className="text-sm text-gray-700">Usuario*</label>
-                                <input type="text" name="nombre_usuario" required value={formData.nombre_usuario} onChange={handleChange} className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500" />
+                        <div className="flex flex-col gap-5 max-w-lg">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-semibold text-foreground">Usuario <span className="text-destructive">*</span></label>
+                                <input type="text" name="nombre_usuario" required value={formData.nombre_usuario} onChange={handleChange} className="border border-input rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm" placeholder="Ej: jdoe" />
                             </div>
 
-                            <div className="flex flex-col gap-1">
-                                <label className="text-sm text-gray-700">Grupo de aplicaciones*</label>
-                                {/* Selector de grupos */}
-                                <div className="flex flex-col gap-2">
-                                    <select 
-                                        onChange={(e) => handleAddGrupo(Number(e.target.value))}
-                                        className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 bg-white text-sm"
-                                    >
-                                        <option value="">Selecciona un grupo</option>
-                                        {grupos
-                                            .filter(g => !formData.grupoIds.includes(g.id))
-                                            .map(g => (
-                                                <option key={g.id} value={g.id}>{g.nombre}</option>
-                                            ))
-                                        }
-                                    </select>
-
-                                    {/* Mostrar grupos seleccionados como tags */}
-                                    <div className="border border-gray-300 rounded p-1.5 flex flex-wrap gap-2 items-center min-h-[40px] bg-white">
-                                        {formData.grupoIds.length === 0 ? (
-                                            <span className="text-gray-400 text-xs">Sin grupos asignados</span>
-                                        ) : (
-                                            formData.grupoIds.map(grupoId => {
-                                                const grupo = grupos.find(g => g.id === grupoId);
-                                                return (
-                                                    <span 
-                                                        key={grupoId}
-                                                        className="bg-[#e0f0ff] text-[#2185d0] text-xs px-2 py-1 rounded flex items-center gap-1"
-                                                    >
-                                                        {grupo?.nombre}
-                                                        <X 
-                                                            className="w-3 h-3 cursor-pointer hover:text-blue-700" 
-                                                            onClick={() => handleRemoveGrupo(grupoId)}
-                                                        />
-                                                    </span>
-                                                );
-                                            })
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                                <label className="text-sm text-gray-700">Recurso*</label>
-                                <select name="persona_id" required value={formData.persona_id} onChange={handleChange} className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 bg-white">
-                                    <option value="">Seleccione un recurso (Persona)</option>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-semibold text-foreground">Recurso Vinculado <span className="text-destructive">*</span></label>
+                                <select name="persona_id" required value={formData.persona_id} onChange={handleChange} className="border border-input rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-transparent">
+                                    <option value="">Seleccione a quién pertenece esta cuenta</option>
                                     {personas.map(p => (
                                         <option key={p.id} value={p.id}>{p.apellidos}, {p.nombre}</option>
                                     ))}
                                 </select>
                             </div>
 
-                            <div className="flex flex-col gap-1">
-                                <label className="text-sm text-gray-700">Fecha de caducidad</label>
-                                <div className="flex border border-gray-300 rounded overflow-hidden w-full max-w-sm">
-                                    <div className="bg-gray-100 px-3 flex items-center border-r border-gray-300"><X className="w-4 h-4 text-gray-500" /></div>
-                                    <input type="date" name="fecha_caducidad" value={formData.fecha_caducidad} onChange={handleChange} className="flex-1 px-3 py-1.5 outline-none text-sm" />
-                                    <div className="bg-gray-100 px-3 flex items-center border-l border-gray-300"><Calendar className="w-4 h-4 text-gray-500" /></div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-semibold text-foreground">Grupos de acceso</label>
+                                <select onChange={(e) => handleAddGrupo(Number(e.target.value))} className="border border-input rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-transparent">
+                                    <option value="">Añadir a un grupo...</option>
+                                    {grupos.filter(g => !formData.grupoIds.includes(g.id)).map(g => (
+                                        <option key={g.id} value={g.id}>{g.nombre}</option>
+                                    ))}
+                                </select>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {formData.grupoIds.map(grupoId => {
+                                        const grupo = grupos.find(g => g.id === grupoId);
+                                        return (
+                                            <span key={grupoId} className="bg-secondary text-secondary-foreground text-xs font-medium px-2.5 py-1 rounded-md border border-border flex items-center gap-1.5">
+                                                {grupo?.nombre}
+                                                <X className="w-3 h-3 cursor-pointer hover:text-destructive transition-colors" onClick={() => handleRemoveGrupo(grupoId)} />
+                                            </span>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            <div className="mt-2">
-                                <Toggle label="Estado" checked={formData.estado_cuenta} onChange={() => handleToggle('estado_cuenta')} />
-                                <Toggle label="Bloquear" checked={formData.bloqueado} onChange={() => handleToggle('bloqueado')} />
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-semibold text-foreground">Fecha de caducidad</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <input type="date" name="fecha_caducidad" value={formData.fecha_caducidad} onChange={handleChange} className="w-full pl-9 pr-3 py-2 border border-input rounded-md outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm" />
+                                </div>
+                            </div>
+
+                            <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border">
+                                <Toggle label="Cuenta Activa" checked={formData.estado_cuenta} onChange={() => handleToggle('estado_cuenta')} />
+                                <Toggle label="Bloquear acceso" checked={formData.bloqueado} onChange={() => handleToggle('bloqueado')} />
                             </div>
                         </div>
                     </div>
@@ -331,20 +305,14 @@ export const UsuarioFormPage = () => {
                         </div>
                     </div>
 
-                    {/* BOTONERA INFERIOR */}
-                    <div className="mt-12 pt-4 border-t border-gray-200 flex items-center justify-between">
-                        {id ? (
-                            <button type="button" className="bg-[#c23934] text-white px-4 py-1.5 rounded text-sm hover:bg-red-800 flex items-center gap-1">
-                                Eliminar <Trash2 className="w-4 h-4" />
-                            </button>
-                        ) : <div></div>}
-
-                        <div className="flex gap-2">
-                            <button type="button" onClick={() => navigate(-1)} className="bg-white border border-gray-300 text-gray-700 px-4 py-1.5 rounded text-sm hover:bg-gray-50">
+                    {/* BOTONERA */}
+                    <div className="mt-10 pt-5 border-t border-border flex items-center justify-between">
+                        <div className="flex gap-3">
+                            <button type="button" onClick={() => navigate(-1)} className="px-4 py-2 border border-input bg-transparent hover:bg-muted text-foreground text-sm font-medium rounded-md transition-colors">
                                 Cancelar
                             </button>
-                            <button type="submit" disabled={loading} className="bg-[#2185d0] text-white px-5 py-1.5 rounded text-sm hover:bg-blue-600 disabled:opacity-50">
-                                {loading ? 'Guardando...' : 'Aceptar'}
+                            <button type="submit" disabled={loading} className="px-5 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-md shadow-sm transition-colors disabled:opacity-50">
+                                {loading ? 'Guardando...' : 'Guardar Cambios'}
                             </button>
                         </div>
                     </div>

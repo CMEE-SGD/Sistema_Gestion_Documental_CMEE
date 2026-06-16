@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Module } from '../../interfaces/modulo.interface'; 
 import { modules } from '../../data/modulos';
+import { Search } from 'lucide-react'; // 👇 Usamos Lucide
 
 const SearchDropdown = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -13,7 +14,6 @@ const SearchDropdown = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // ── Cerrar search dropdown al click fuera 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -25,7 +25,6 @@ const SearchDropdown = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ── Busqueda 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setSearchTerm(term);
@@ -45,7 +44,6 @@ const SearchDropdown = () => {
     setShowDropdown(true);
   };
 
-  // ── Navegacion por teclado 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!showDropdown) return;
     if (e.key === 'ArrowDown') {
@@ -61,7 +59,6 @@ const SearchDropdown = () => {
     }
   };
 
-  // ── Resaltar coincidencia 
   const highlightMatch = (text: string, query: string) => {
     if (!query) return text;
     const index = text.toLowerCase().indexOf(query.toLowerCase());
@@ -69,7 +66,7 @@ const SearchDropdown = () => {
     return (
       <>
         {text.slice(0, index)}
-        <span className="font-bold text-white">
+        <span className="font-bold text-primary">
           {text.slice(index, index + query.length)}
         </span>
         {text.slice(index + query.length)}
@@ -78,8 +75,9 @@ const SearchDropdown = () => {
   };
 
   return (
-    <div className="relative flex-1 max-w-md" ref={dropdownRef}>
-      <div className="flex items-center bg-white bg-opacity-15 border border-white border-opacity-30 rounded px-3 h-8">
+    <div className="relative flex-1 max-w-md ml-4" ref={dropdownRef}>
+      <div className="flex items-center bg-white/10 hover:bg-white/20 focus-within:bg-white/20 border border-white/20 rounded-md px-3 h-9 transition-colors">
+        <Search className="w-4 h-4 text-primary-foreground/70 shrink-0 mr-2" />
         <input
           ref={inputRef}
           type="text"
@@ -90,32 +88,19 @@ const SearchDropdown = () => {
             setFiltered(searchTerm ? filtered : modules);
             setShowDropdown(true);
           }}
-          placeholder="Buscar aplicacion"
-          className="bg-transparent text-black placeholder-blue-200 text-sm outline-none flex-1 w-full"
+          placeholder="Buscar aplicación..."
+          className="bg-transparent text-primary-foreground placeholder:text-primary-foreground/60 text-sm outline-none flex-1 w-full"
         />
-        <svg
-          className="w-4 h-4 text-blue-200 shrink-0"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          viewBox="0 0 24 24"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
       </div>
 
       {showDropdown && (
-        <div
-          className="absolute top-10 left-0 w-full rounded shadow-2xl overflow-hidden z-50"
-          style={{ backgroundColor: '#004A8F', border: '1px solid rgba(255,255,255,0.15)' }}
-        >
+        <div className="absolute top-12 left-0 w-full bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50 py-2">
           {filtered.length === 0 ? (
-            <div className="px-4 py-3 text-blue-200 text-sm">
-              No se encontraron modulos
+            <div className="px-4 py-3 text-muted-foreground text-sm text-center">
+              No se encontraron módulos
             </div>
           ) : (
-            <ul>
+            <ul className="max-h-64 overflow-y-auto">
               {filtered.map((mod, i) => (
                 <li
                   key={mod.id}
@@ -124,15 +109,14 @@ const SearchDropdown = () => {
                     setShowDropdown(false);
                     setSearchTerm('');
                   }}
-                  className={`flex items-center justify-between px-4 py-2 cursor-pointer text-sm transition-colors ${i === activeIndex
-                    ? 'bg-white bg-opacity-20'
-                    : 'hover:bg-white hover:bg-opacity-10'
-                    }`}
+                  className={`flex items-center justify-between px-4 py-2.5 cursor-pointer text-sm transition-colors ${
+                    i === activeIndex
+                      ? 'bg-muted text-foreground'
+                      : 'hover:bg-muted/50 text-foreground/80'
+                  }`}
                 >
-                  <span className="text-blue-100">
-                    {highlightMatch(mod.name, searchTerm)}
-                  </span>
-                  <span className="text-xs text-blue-300 ml-4 shrink-0">
+                  <span>{highlightMatch(mod.name, searchTerm)}</span>
+                  <span className="text-xs text-muted-foreground font-medium px-2 py-1 bg-secondary rounded-md ml-4 shrink-0">
                     {mod.category}
                   </span>
                 </li>
