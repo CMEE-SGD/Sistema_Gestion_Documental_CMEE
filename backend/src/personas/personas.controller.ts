@@ -35,7 +35,7 @@ export class PersonasController {
         const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
         const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
         const cedula = (req.body.cedula_identidad || '0000000000').replace(/\s+/g, '');
-        const path = join('.', 'uploads', 'personas', `${nombre}_${apellidos}_${cedula}`);
+        const path = join('.', 'uploads', 'Personas', `${nombre}_${apellidos}_${cedula}`);
 
         try {
           if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
@@ -73,7 +73,7 @@ export class PersonasController {
       const nombre = (createPersonaDto.nombre || 'Usuario').replace(/\s+/g, '_');
       const apellidos = (createPersonaDto.apellidos || '').replace(/\s+/g, '_');
       const cedula = (createPersonaDto.cedula_identidad || '0000000000').replace(/\s+/g, '');
-      createPersonaDto.foto_ruta = `/uploads/personas/${nombre}_${apellidos}_${cedula}/${archivos.foto[0].filename}`;
+      createPersonaDto.foto_ruta = `/uploads/Personas/${nombre}_${apellidos}_${cedula}/${archivos.foto[0].filename}`;
     }
 
     try { if (typeof createPersonaDto.roles === 'string') createPersonaDto.roles = JSON.parse(createPersonaDto.roles); } catch (e) { createPersonaDto.roles = []; }
@@ -96,7 +96,7 @@ export class PersonasController {
         const docsToSave = archivos.documentos.map(doc => ({
           persona_id: persona.id,
           nombre_archivo: doc.originalname,
-          ruta: `/uploads/personas/${nombreCarpeta}/${doc.filename}`,
+          ruta: `/uploads/Personas/${nombreCarpeta}/${doc.filename}`,
           tipo_documento: 'Documento adjunto'
         }));
 
@@ -138,7 +138,7 @@ export class PersonasController {
             const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
             const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
             const cedula = (req.body.cedula_identidad || '0000000000').replace(/\s+/g, '');
-            const path = join('.', 'uploads', 'personas', `${nombre}_${apellidos}_${cedula}`);
+            const path = join('.', 'uploads', 'Personas', `${nombre}_${apellidos}_${cedula}`);
 
             try {
                 if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
@@ -193,7 +193,7 @@ async update(
             }
         }
         
-        updatePersonaDto.foto_ruta = `/uploads/personas/${nombre}_${apellidos}_${cedula}/${archivos.foto[0].filename}`;
+        updatePersonaDto.foto_ruta = `/uploads/Personas/${nombre}_${apellidos}_${cedula}/${archivos.foto[0].filename}`;
     }
 
     try { if (typeof updatePersonaDto.roles === 'string') updatePersonaDto.roles = JSON.parse(updatePersonaDto.roles); } catch (e) { updatePersonaDto.roles = undefined; }
@@ -213,7 +213,7 @@ async update(
         const docsToSave = archivos.documentos.map(doc => ({
             persona_id: id,
             nombre_archivo: doc.originalname,
-            ruta: `/uploads/personas/${nombreCarpeta}/${doc.filename}`,
+            ruta: `/uploads/Personas/${nombreCarpeta}/${doc.filename}`,
             tipo_documento: 'Documento adjunto'
         }));
 
