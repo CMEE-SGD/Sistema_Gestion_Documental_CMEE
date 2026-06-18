@@ -23,7 +23,8 @@ export const EditarPersonaPage = () => {
         tipo_recurso: 'Usuario externo', orden: 0, activo: true,
         roles: [] as number[],
         mostrar_ampliacion: false,
-        puestos_asignados: [{ departamento_id: '', puesto_id: '' }]
+        puestos_asignados: [{ departamento_id: '', puesto_id: '' }],
+        eliminar_foto: false // ✅ Nuevo flag agregado
     });
 
     useEffect(() => {
@@ -62,7 +63,8 @@ export const EditarPersonaPage = () => {
                     ...dataLimpia,
                     roles: rolesIds,
                     puestos_asignados: puestosMapeados,
-                    mostrar_ampliacion: !!persona.mostrar_ampliacion
+                    mostrar_ampliacion: !!persona.mostrar_ampliacion,
+                    eliminar_foto: false // Por defecto al cargar no se elimina
                 }));
 
             } catch (error) {
@@ -74,7 +76,6 @@ export const EditarPersonaPage = () => {
         if (id) cargarDatos();
     }, [id]);
 
-    // Función requerida por FormPersona
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
@@ -83,44 +84,45 @@ export const EditarPersonaPage = () => {
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-        const payload = new FormData();
-        
-        // ✅ CAMPOS VÁLIDOS SEGÚN TU SCHEMA DE PRISMA
-        const camposValidos = [
-            'codigo', 'saludo', 'nombre', 'apellidos', 'cedula_identidad',
-            'fecha_nacimiento', 'sexo', 'domicilio', 'ciudad', 'provincia',
-            'codigo_postal', 'telefono', 'fax', 'celular', 'email_1', 'email_2',
-            'activo', 'tipo_recurso', 'idioma', 'roles', 'puestos_asignados'
-        ];
-
-        Object.entries(formData).forEach(([key, value]) => {
-            if (!camposValidos.includes(key)) return; // ️ Ignora campos inválidos
+        e.preventDefault();
+        try {
+            const payload = new FormData();
             
-            if (key === 'roles' || key === 'puestos_asignados') {
-                payload.append(key, JSON.stringify(value));
-            } else if (key === 'activo') {
-                payload.append(key, String(value));
-            } else {
-                payload.append(key, String(value));
-            }
-        });
+            // ✅ Agregamos 'eliminar_foto' a los campos válidos
+            const camposValidos = [
+                'codigo', 'saludo', 'nombre', 'apellidos', 'cedula_identidad',
+                'fecha_nacimiento', 'sexo', 'domicilio', 'ciudad', 'provincia',
+                'codigo_postal', 'telefono', 'fax', 'celular', 'email_1', 'email_2',
+                'activo', 'tipo_recurso', 'idioma', 'roles', 'puestos_asignados',
+                'eliminar_foto' // <-- AQUÍ
+            ];
 
-        if (fotoFile) payload.append('foto', fotoFile);
-        documentosFiles.forEach(file => payload.append('documentos', file));
+            Object.entries(formData).forEach(([key, value]) => {
+                if (!camposValidos.includes(key)) return;
+                
+                if (key === 'roles' || key === 'puestos_asignados') {
+                    payload.append(key, JSON.stringify(value));
+                } else if (key === 'activo' || key === 'eliminar_foto') {
+                    payload.append(key, String(value));
+                } else {
+                    payload.append(key, String(value));
+                }
+            });
 
-        await api.patch(`/personas/${id}`, payload, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+            if (fotoFile) payload.append('foto', fotoFile);
+            documentosFiles.forEach(file => payload.append('documentos', file));
 
-        alert('Recurso actualizado exitosamente.');
-        navigate(`/rrhh/personas/${id}`);
-    } catch (error) {
-        console.error('Error al actualizar', error);
-        alert('Error al actualizar el recurso.');
-    }
-};
+            await api.patch(`/personas/${id}`, payload, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            alert('Recurso actualizado exitosamente.');
+            navigate(`/rrhh/personas/${id}`);
+        } catch (error) {
+            console.error('Error al actualizar', error);
+            alert('Error al actualizar el recurso.');
+        }
+    };
 
     if (loading) return <div className="p-8 text-center text-[11px] text-gray-500 font-sans">Cargando formulario y datos del recurso...</div>;
 

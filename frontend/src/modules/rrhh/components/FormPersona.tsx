@@ -16,23 +16,18 @@ const FormPersona = ({
   onSubmit,
   isEdit = false
 }: FormPersonaProps) => {
-  // ✅ Hook correctamente ubicado en el nivel superior
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
 
-  // ✅ Si estamos editando y ya hay una foto, mostrarla como preview inicial
   useEffect(() => {
     if (isEdit && formData.foto_ruta && !fotoPreview) {
       setFotoPreview(`http://localhost:3001${formData.foto_ruta}`);
     }
   }, [isEdit, formData.foto_ruta]);
 
-  // ==========================================
-  // MANEJADORES DE EVENTOS ENCAPSULADOS
-  // ==========================================
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
-    if (name === 'tipo_recurso') return; // Bloqueado
+    if (name === 'tipo_recurso') return;
     setFormData((prev: any) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
@@ -49,8 +44,6 @@ const FormPersona = ({
     setFormData((prev: any) => {
       const nuevosPuestos = [...prev.puestos_asignados];
       nuevosPuestos[index] = { ...nuevosPuestos[index], [field]: value };
-
-      // Límite de 3 puestos
       if (field === 'puesto_id' && value && index === nuevosPuestos.length - 1 && nuevosPuestos.length < 3) {
         nuevosPuestos.push({ departamento_id: '', puesto_id: '' });
       }
@@ -66,9 +59,10 @@ const FormPersona = ({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setFotoFile(file);
-      // Crear URL temporal para la vista previa
       const previewUrl = URL.createObjectURL(file);
       setFotoPreview(previewUrl);
+      // ✅ Si sube foto nueva, cancelamos el flag de eliminación
+      setFormData((prev: any) => ({ ...prev, eliminar_foto: false }));
     }
   };
 
@@ -78,22 +72,19 @@ const FormPersona = ({
     }
   };
 
-  // NUEVA FUNCIÓN: Eliminar documento
   const handleRemoveDocumento = (index: number) => {
     setDocumentosFiles((prev: File[]) => prev.filter((_, i) => i !== index));
   };
 
-  // ✅ NUEVA FUNCIÓN: Eliminar foto seleccionada
   const handleEliminarFoto = () => {
     setFotoPreview(null);
     setFotoFile(null);
+    // ✅ Activamos el flag para avisar al backend
+    setFormData((prev: any) => ({ ...prev, eliminar_foto: true }));
     const input = document.getElementById('foto_upload') as HTMLInputElement;
     if (input) input.value = '';
   };
 
-  // ==========================================
-  // RENDERIZADO DEL FORMULARIO
-  // ==========================================
   return (
     <form onSubmit={onSubmit} className="bg-[#f2f2f2] border-l-[6px] border-[#006400] text-[11px]">
       <div className="p-8 bg-white">
@@ -101,20 +92,11 @@ const FormPersona = ({
           Datos personales
         </h3>
 
-        {/* ========================================================
-                BLOQUE 1: FOTO (Izquierda) + NOMBRES (Derecha)
-            ======================================================== */}
         <div className="flex flex-col md:flex-row gap-10 mb-2">
-          {/* Contenedor de Foto */}
           <div className="flex flex-col items-center gap-3 text-center w-40 shrink-0">
-            {/* ✅ Mostrar preview o ícono */}
             <div className="w-32 h-40 border border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden rounded-sm shadow-inner relative">
               {fotoPreview ? (
-                <img
-                  src={fotoPreview}
-                  alt="Vista previa"
-                  className="w-full h-full object-cover"
-                />
+                <img src={fotoPreview} alt="Vista previa" className="w-full h-full object-cover" />
               ) : (
                 <User className="w-16 h-16 text-gray-300 stroke-[1.5]" />
               )}
@@ -122,46 +104,25 @@ const FormPersona = ({
 
             <div className="w-full text-left flex flex-col items-center mt-1">
               <label className="flex items-center justify-center gap-1.5 cursor-pointer text-[10px] text-gray-700 mb-3 hover:text-blue-600 transition-colors">
-                <input
-                  type="checkbox"
-                  name="mostrar_ampliacion"
-                  checked={formData.mostrar_ampliacion}
-                  onChange={handleChange}
-                  className="w-3.5 h-3.5 rounded border-gray-300 cursor-pointer"
-                />
+                <input type="checkbox" name="mostrar_ampliacion" checked={formData.mostrar_ampliacion} onChange={handleChange} className="w-3.5 h-3.5 rounded border-gray-300 cursor-pointer" />
                 Mostrar ampliación
               </label>
 
-              <input
-                type="file"
-                id="foto_upload"
-                accept="image/*"
-                onChange={handleFotoChange}
-                className="hidden"
-              />
+              <input type="file" id="foto_upload" accept="image/*" onChange={handleFotoChange} className="hidden" />
 
-              <label
-                htmlFor="foto_upload"
-                className="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-800 text-[10px] font-bold uppercase px-4 py-2 rounded transition-colors shadow-sm flex items-center justify-center gap-1.5 w-full border border-gray-300"
-              >
+              <label htmlFor="foto_upload" className="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-800 text-[10px] font-bold uppercase px-4 py-2 rounded transition-colors shadow-sm flex items-center justify-center gap-1.5 w-full border border-gray-300">
                 <ImageIcon className="w-3.5 h-3.5" />
                 {fotoPreview ? 'Cambiar Foto' : 'Fichero de Foto'}
               </label>
 
-              {/* ✅ Botón para eliminar la foto seleccionada */}
               {fotoPreview && (
-                <button
-                  type="button"
-                  onClick={handleEliminarFoto}
-                  className="mt-2 text-[9px] text-red-600 hover:text-red-800 font-bold px-3 py-1 border border-red-200 rounded hover:bg-red-50 transition-colors"
-                >
+                <button type="button" onClick={handleEliminarFoto} className="mt-2 text-[9px] text-red-600 hover:text-red-800 font-bold px-3 py-1 border border-red-200 rounded hover:bg-red-50 transition-colors">
                   Eliminar Foto
                 </button>
               )}
             </div>
           </div>
 
-          {/* Contenedor de Nombres */}
           <div className="flex-1 flex flex-col justify-start pt-2">
             <LabelRow label="Código: " requerido mb="mb-4">
               <input type="text" name="codigo" required value={formData.codigo} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-48 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm transition-all" />
@@ -186,11 +147,7 @@ const FormPersona = ({
           </div>
         </div>
 
-        {/* ========================================================
-            BLOQUE 2: DETALLES DE CONTACTO (100% del ancho)
-        ======================================================== */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 pt-6 border-t border-gray-200 mt-4">
-          {/* Columna Izquierda */}
           <div>
             <LabelRow label="C.I. / Pasaporte: " mb="mb-4">
               <input type="text" required name="cedula_identidad" value={formData.cedula_identidad} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-48 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
@@ -216,7 +173,6 @@ const FormPersona = ({
             </LabelRow>
           </div>
 
-          {/* Columna Derecha */}
           <div>
             <LabelRow label="Provincia: " mb="mb-4">
               <input type="text" name="provincia" value={formData.provincia} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-[250px] bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
@@ -224,7 +180,6 @@ const FormPersona = ({
             <LabelRow label="Código Postal: " mb="mb-4">
               <input type="text" name="codigo_postal" value={formData.codigo_postal} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-32 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
             </LabelRow>
-
             <LabelRow label="Teléfonos: " mb="mb-4">
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-2">
@@ -251,7 +206,6 @@ const FormPersona = ({
           </div>
         </div>
 
-        {/* --- DOCUMENTOS ADJUNTOS --- */}
         <div className="border-t border-b border-gray-300 py-5 mb-8 mt-4 flex flex-col gap-2 bg-gray-50 px-6 -mx-8">
           <div className="flex items-start gap-4">
             <div className="w-40 font-bold pt-1 text-gray-800">
@@ -270,12 +224,7 @@ const FormPersona = ({
                         <span className="font-semibold text-gray-800">{file.name}</span>
                         <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDocumento(idx)}
-                        className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors opacity-0 group-hover:opacity-100"
-                        title="Eliminar documento"
-                      >
+                      <button type="button" onClick={() => handleRemoveDocumento(idx)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors opacity-0 group-hover:opacity-100" title="Eliminar documento">
                         <X className="w-4 h-4" />
                       </button>
                     </li>
@@ -286,7 +235,6 @@ const FormPersona = ({
           </div>
         </div>
 
-        {/* --- PUESTOS --- */}
         <div className="flex items-center justify-between mb-5 mt-2">
           <h3 className="font-bold text-[12px] text-gray-900 underline uppercase tracking-wide flex items-center gap-2"> <Briefcase className="w-4 h-4 text-gray-700" /> Puestos </h3>
           <button type="button" onClick={handleLimpiarPuestos} className="text-[10px] text-red-600 hover:text-red-800 font-bold px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded flex items-center gap-1.5 transition-colors"> <Trash2 className="w-3 h-3" /> Limpiar Puestos </button>
@@ -307,11 +255,10 @@ const FormPersona = ({
           ))}
         </div>
 
-        {/* --- ROLES --- */}
         <div className="border-t border-gray-300 pt-6 mb-10">
           <h3 className="font-bold text-[12px] mb-5 text-gray-900 underline uppercase tracking-wide">Roles</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {rolesLista.map((rol) => (
+            {rolesLista.map((rol: any) => (
               <label key={rol.id} className="flex items-center gap-2.5 cursor-pointer hover:bg-gray-100 p-2.5 w-full rounded border border-transparent hover:border-gray-200 transition-colors">
                 <input type="checkbox" checked={formData.roles.includes(rol.id)} onChange={() => handleRoleToggle(rol.id)} className="w-3.5 h-3.5 text-blue-600 rounded-sm cursor-pointer" />
                 <div className="w-4 h-4 flex items-center justify-center shrink-0">
@@ -323,7 +270,6 @@ const FormPersona = ({
           </div>
         </div>
 
-        {/* --- DATOS DEL SISTEMA --- */}
         <div className="border-t border-gray-300 pt-6 grid grid-cols-1 md:grid-cols-3 gap-6 items-center bg-gray-50 p-4 -mx-8">
           <LabelRow label="Orden: " mb="mb-0"> <input type="number" name="orden" value={formData.orden} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-20 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" /> </LabelRow>
           <LabelRow label="Estado Activo: " mb="mb-0"> <input type="checkbox" name="activo" checked={formData.activo} onChange={handleChange} className="w-4 h-4 text-[#006400] rounded mt-1 cursor-pointer" /> </LabelRow>

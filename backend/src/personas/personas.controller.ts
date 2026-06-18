@@ -14,11 +14,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
 
-
 @ApiTags('Personas')
 @Controller('personas')
 @UseGuards(JwtAuthGuard, AccessGuard)
-
 export class PersonasController {
   constructor(private readonly personasService: PersonasService) { }
 
@@ -31,7 +29,6 @@ export class PersonasController {
   ], {
     storage: diskStorage({
       destination: (req, file, cb) => {
-        // ✅ CREAR CARPETA ÚNICA: uploads/personas/{nombre}_{apellidos}_{cedula}
         const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
         const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
         const cedula = (req.body.cedula_identidad || '0000000000').replace(/\s+/g, '');
@@ -42,7 +39,6 @@ export class PersonasController {
         } catch (e) {
           console.error('Error creando carpeta de persona:', e);
         }
-
         cb(null, path);
       },
       filename: (req, file, cb) => {
@@ -50,12 +46,10 @@ export class PersonasController {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
 
         if (file.fieldname === 'foto') {
-          // Foto: Foto_de_{nombre}_{apellidos}_{timestamp}.ext
           const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
           const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
           cb(null, `Foto_de_${nombre}_${apellidos}_${uniqueSuffix}${ext}`);
         } else {
-          // Documento: {nombreOriginal}_{timestamp}.ext
           const nombreOriginal = file.originalname.split('.')[0].replace(/\s+/g, '_');
           cb(null, `${nombreOriginal}_${uniqueSuffix}${ext}`);
         }
@@ -68,7 +62,9 @@ export class PersonasController {
   ) {
     const archivos = files || {};
 
-    // ✅ ACTUALIZAR RUTAS CON LA NUEVA ESTRUCTURA
+    // ✅ Limpiamos errores de código anteriores en create
+    delete createPersonaDto.eliminar_foto;
+
     if (archivos.foto && archivos.foto.length > 0) {
       const nombre = (createPersonaDto.nombre || 'Usuario').replace(/\s+/g, '_');
       const apellidos = (createPersonaDto.apellidos || '').replace(/\s+/g, '_');
@@ -86,7 +82,6 @@ export class PersonasController {
     try {
       const persona = await this.personasService.create(createPersonaDto);
 
-      // Guardar Documentos
       if (archivos.documentos && archivos.documentos.length > 0) {
         const nombre = (createPersonaDto.nombre || 'Usuario').replace(/\s+/g, '_');
         const apellidos = (createPersonaDto.apellidos || '').replace(/\s+/g, '_');
@@ -102,7 +97,6 @@ export class PersonasController {
 
         await this.personasService.guardarDocumentos(docsToSave);
       }
-
       return persona;
     } catch (error: any) {
       console.error("=== ERROR EN EL SERVIDOR ===");
@@ -112,7 +106,7 @@ export class PersonasController {
   }
 
   @Get()
-  @RequireAccess('Recursos Humanos', 2) // PDF: Nivel 2 mínimo para ver operativas
+  @RequireAccess('Recursos Humanos', 2)
   @ApiOperation({ summary: 'Listar todas las personas activas' })
   findAll() {
     return this.personasService.findAll();
@@ -126,75 +120,83 @@ export class PersonasController {
   }
 
   @Patch(':id')
-@RequireAccess('Recursos Humanos', 4)
-@ApiOperation({ summary: 'Actualizar datos de una persona, foto y agregar documentos' })
-@UseInterceptors(FileFieldsInterceptor([
+  @RequireAccess('Recursos Humanos', 4)
+  @ApiOperation({ summary: 'Actualizar datos de una persona, foto y agregar documentos' })
+  @UseInterceptors(FileFieldsInterceptor([
     { name: 'foto', maxCount: 1 },
     { name: 'documentos', maxCount: 10 }
-], {
+  ], {
     storage: diskStorage({
-        destination: (req, file, cb) => {
-            // ✅ Usa req.body igual que el POST — req.app.get('PrismaService') no funciona en callbacks de multer
-            const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
-            const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
-            const cedula = (req.body.cedula_identidad || '0000000000').replace(/\s+/g, '');
-            const path = join('.', 'uploads', 'Personas', `${nombre}_${apellidos}_${cedula}`);
+      destination: (req, file, cb) => {
+        const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
+        const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
+        const cedula = (req.body.cedula_identidad || '0000000000').replace(/\s+/g, '');
+        const path = join('.', 'uploads', 'Personas', `${nombre}_${apellidos}_${cedula}`);
 
-            try {
-                if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
-            } catch (e) {
-                console.error('Error creando carpeta de persona:', e);
-            }
-
-            cb(null, path);
-        },
-        filename: (req, file, cb) => {
-            const ext = extname(file.originalname);
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-
-            if (file.fieldname === 'foto') {
-                const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
-                const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
-                cb(null, `Foto_de_${nombre}_${apellidos}_${uniqueSuffix}${ext}`);
-            } else {
-                const nombreOriginal = file.originalname.split('.')[0].replace(/\s+/g, '_');
-                cb(null, `${nombreOriginal}_${uniqueSuffix}${ext}`);
-            }
+        try {
+          if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
+        } catch (e) {
+          console.error('Error creando carpeta de persona:', e);
         }
+        cb(null, path);
+      },
+      filename: (req, file, cb) => {
+        const ext = extname(file.originalname);
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+
+        if (file.fieldname === 'foto') {
+          const nombre = (req.body.nombre || 'Usuario').replace(/\s+/g, '_');
+          const apellidos = (req.body.apellidos || '').replace(/\s+/g, '_');
+          cb(null, `Foto_de_${nombre}_${apellidos}_${uniqueSuffix}${ext}`);
+        } else {
+          const nombreOriginal = file.originalname.split('.')[0].replace(/\s+/g, '_');
+          cb(null, `${nombreOriginal}_${uniqueSuffix}${ext}`);
+        }
+      }
     })
-}))
-async update(
+  }))
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePersonaDto: any,
     @UploadedFiles() files: { foto?: Express.Multer.File[], documentos?: Express.Multer.File[] }
-) {
+  ) {
     const archivos = files || {};
     
-    // ✅ ACTUALIZAR RUTA DE FOTO CON NUEVA ESTRUCTURA
-    if (archivos.foto && archivos.foto.length > 0) {
-        // Obtener la persona actual para construir la ruta correcta
-        const personaActual = await this.personasService.findOne(id);
+    // ✅ Capturamos la bandera de eliminación enviada por el front
+    const eliminarFoto = updatePersonaDto.eliminar_foto === 'true' || updatePersonaDto.eliminar_foto === true;
+
+    if ((archivos.foto && archivos.foto.length > 0) || eliminarFoto) {
+      const personaActual = await this.personasService.findOne(id);
+      
+      // ✅ Si hay foto vieja, la borramos del disco
+      if (personaActual.foto_ruta) {
+        const rutaAnterior = join(process.cwd(), personaActual.foto_ruta.startsWith('/') 
+          ? personaActual.foto_ruta.substring(1) 
+          : personaActual.foto_ruta);
+        
+        if (fs.existsSync(rutaAnterior)) {
+          try {
+            fs.unlinkSync(rutaAnterior);
+          } catch (error) {
+            console.error(`Aviso: No se pudo eliminar la foto anterior: ${rutaAnterior}`, error);
+          }
+        }
+      }
+      
+      if (eliminarFoto && (!archivos.foto || archivos.foto.length === 0)) {
+        // ✅ Forzar que Prisma guarde un valor nulo en la tabla si pidió borrar
+        updatePersonaDto.foto_ruta = null; 
+      } else if (archivos.foto && archivos.foto.length > 0) {
+        // Guardar nueva foto si envió una nueva
         const nombre = (updatePersonaDto.nombre || personaActual.nombre).replace(/\s+/g, '_');
         const apellidos = (updatePersonaDto.apellidos || personaActual.apellidos).replace(/\s+/g, '_');
         const cedula = (updatePersonaDto.cedula_identidad || personaActual.cedula_identidad || '0000000000').replace(/\s+/g, '');
-        
-        // ✅ ELIMINAR FOTO ANTERIOR SI EXISTE
-        if (personaActual.foto_ruta) {
-            const rutaAnterior = join(process.cwd(), personaActual.foto_ruta.startsWith('/') 
-                ? personaActual.foto_ruta.substring(1) 
-                : personaActual.foto_ruta);
-            
-            if (fs.existsSync(rutaAnterior)) {
-                try {
-                    fs.unlinkSync(rutaAnterior);
-                } catch (error) {
-                    console.error(`Aviso: No se pudo eliminar la foto anterior: ${rutaAnterior}`, error);
-                }
-            }
-        }
-        
         updatePersonaDto.foto_ruta = `/uploads/Personas/${nombre}_${apellidos}_${cedula}/${archivos.foto[0].filename}`;
+      }
     }
+
+    // ✅ Limpiamos el flag para que no choque con Prisma al intentar hacer la actualización
+    delete updatePersonaDto.eliminar_foto;
 
     try { if (typeof updatePersonaDto.roles === 'string') updatePersonaDto.roles = JSON.parse(updatePersonaDto.roles); } catch (e) { updatePersonaDto.roles = undefined; }
     try { if (typeof updatePersonaDto.puestos_asignados === 'string') updatePersonaDto.puestos_asignados = JSON.parse(updatePersonaDto.puestos_asignados); } catch (e) { updatePersonaDto.puestos_asignados = undefined; }
@@ -203,25 +205,24 @@ async update(
 
     const personaActualizada = await this.personasService.update(id, updatePersonaDto);
 
-    // Guardar Documentos
     if (archivos.documentos && archivos.documentos.length > 0) {
-        const nombre = (updatePersonaDto.nombre || personaActualizada.nombre).replace(/\s+/g, '_');
-        const apellidos = (updatePersonaDto.apellidos || personaActualizada.apellidos).replace(/\s+/g, '_');
-        const cedula = (updatePersonaDto.cedula_identidad || personaActualizada.cedula_identidad || '0000000000').replace(/\s+/g, '');
-        const nombreCarpeta = `${nombre}_${apellidos}_${cedula}`;
+      const nombre = (updatePersonaDto.nombre || personaActualizada.nombre).replace(/\s+/g, '_');
+      const apellidos = (updatePersonaDto.apellidos || personaActualizada.apellidos).replace(/\s+/g, '_');
+      const cedula = (updatePersonaDto.cedula_identidad || personaActualizada.cedula_identidad || '0000000000').replace(/\s+/g, '');
+      const nombreCarpeta = `${nombre}_${apellidos}_${cedula}`;
 
-        const docsToSave = archivos.documentos.map(doc => ({
-            persona_id: id,
-            nombre_archivo: doc.originalname,
-            ruta: `/uploads/Personas/${nombreCarpeta}/${doc.filename}`,
-            tipo_documento: 'Documento adjunto'
-        }));
+      const docsToSave = archivos.documentos.map(doc => ({
+        persona_id: id,
+        nombre_archivo: doc.originalname,
+        ruta: `/uploads/Personas/${nombreCarpeta}/${doc.filename}`,
+        tipo_documento: 'Documento adjunto'
+      }));
 
-        await this.personasService.guardarDocumentos(docsToSave);
+      await this.personasService.guardarDocumentos(docsToSave);
     }
 
     return personaActualizada;
-}
+  }
 
   @Delete(':id')
   @RequireAccess('Recursos Humanos', 5)
@@ -231,10 +232,9 @@ async update(
   }
 
   @Delete('documento/:id')
-  @RequireAccess('Recursos Humanos', 4) // Nivel de permiso requerido
+  @RequireAccess('Recursos Humanos', 4)
   @ApiOperation({ summary: 'Eliminar un documento adjunto de una persona' })
   removeDocumento(@Param('id', ParseIntPipe) id: number) {
     return this.personasService.eliminarDocumento(id);
   }
-
 }

@@ -24,14 +24,17 @@ export class CreatePersonaDto {
     @ApiPropertyOptional({ default: 'Idioma por defecto del centro' }) @IsOptional() @IsString() @MaxLength(50) idioma?: string;
     @ApiPropertyOptional({ default: true }) @IsOptional() @IsBoolean() activo?: boolean;
 
-    // Coincide con la clave "roles" que envía el Frontend
+    // ✅ Nuevo campo opcional para manejar la eliminación de fotos desde FormData
+    @ApiPropertyOptional({ description: 'Flag para eliminar foto' })
+    @IsOptional()
+    eliminar_foto?: string | boolean;
+
     @ApiPropertyOptional({ example: [1, 2], description: 'Arreglo de IDs de roles a asignar' })
     @IsOptional()
     @IsArray()
     @IsInt({ each: true })
     roles?: number[];
 
-    // Coincide con la clave "puestos_asignados" que envía el Frontend
     @ApiPropertyOptional({ description: 'Arreglo de objetos con departamento_id y puesto_id' })
     @IsOptional()
     @IsArray()
