@@ -28,6 +28,10 @@ import { ServiciosModule } from './servicios/servicios.module';
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
       serveRoot: '/uploads',
+      serveStaticOptions: {
+        index: false,
+        redirect: false,
+      },
     }),
     PrismaModule,
     RolesModule,

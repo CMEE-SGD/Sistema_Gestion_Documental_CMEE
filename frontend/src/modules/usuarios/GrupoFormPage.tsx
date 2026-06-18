@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, ArrowLeft, UsersRound } from 'lucide-react';
 import api from '../../core/api/axios';
 
-// Componente Toggle reutilizable
+// Componente Toggle reutilizable modernizado
 const Toggle = ({ label, checked, onChange }: any) => (
-    <label className="flex items-center cursor-pointer w-max my-3">
-        <div className="relative">
+    <label className="flex items-center cursor-pointer w-max my-2 group">
+        <div className="relative flex items-center">
             <input type="checkbox" className="sr-only" checked={checked} onChange={onChange} />
-            <div className={`block w-11 h-6 rounded-full transition-colors ${checked ? 'bg-[#2185d0]' : 'bg-gray-300'}`}></div>
-            <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${checked ? 'translate-x-5' : ''}`}></div>
+            <div className={`w-10 h-5 rounded-full transition-colors duration-200 ease-in-out ${checked ? 'bg-primary' : 'bg-slate-300'}`}></div>
+            <div className={`absolute left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`}></div>
         </div>
-        <span className="ml-3 text-sm text-gray-700">{label}</span>
+        <span className="ml-3 text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">{label}</span>
     </label>
 );
 
@@ -21,7 +21,6 @@ export const GrupoFormPage = () => {
     const [activeTab, setActiveTab] = useState<'datos' | 'usuarios' | 'aplicaciones'>('datos');
     const [loading, setLoading] = useState(false);
     
-    // Catálogos
     const [catalogoApps, setCatalogoApps] = useState<any[]>([]);
     const [usuariosDelGrupo, setUsuariosDelGrupo] = useState<any[]>([]);
 
@@ -29,18 +28,15 @@ export const GrupoFormPage = () => {
         nombre: '',
         descripcion: '',
         activo: true,
-        aplicaciones: [] as any[] // Aquí guardaremos { aplicacion_id, nivel, orden, nombre }
+        aplicaciones: [] as any[]
     });
 
     useEffect(() => {
         const fetchDatos = async () => {
             try {
-                // 1. Cargar el catálogo de aplicaciones disponibles
                 const resApps = await api.get('/aplicaciones');
-                console.log("Apps recibidas del backend:", resApps.data); // <-- MIRA LA CONSOLA
                 setCatalogoApps(resApps.data);
 
-                // 2. Si es edición, cargar los datos del grupo
                 if (id) {
                     const resGrupo = await api.get(`/grupos/${id}`);
                     const grupo = resGrupo.data;
@@ -48,15 +44,13 @@ export const GrupoFormPage = () => {
                         nombre: grupo.nombre,
                         descripcion: grupo.descripcion || '',
                         activo: grupo.activo,
-                        // Mapeamos para que coincida con nuestro estado del frontend
                         aplicaciones: grupo.aplicaciones.map((a: any) => ({
                             aplicacion_id: a.aplicacion_id,
                             nivel: a.nivel,
                             orden: a.orden,
-                            nombre: a.aplicacion.nombre // Necesario para mostrar el nombre en la tabla
+                            nombre: a.aplicacion.nombre 
                         }))
                     });
-                    // Cargar usuarios del grupo
                     setUsuariosDelGrupo(grupo.usuarios || []);
                 }
             } catch (error) {
@@ -71,12 +65,10 @@ export const GrupoFormPage = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // --- LÓGICA DE APLICACIONES ---
     const handleAddApp = (e: any) => {
         const appId = Number(e.target.value);
         if (!appId) return;
 
-        // Evitar duplicados
         if (formData.aplicaciones.some(app => app.aplicacion_id === appId)) return;
 
         const appSeleccionada = catalogoApps.find(a => a.id === appId);
@@ -88,7 +80,7 @@ export const GrupoFormPage = () => {
                 { aplicacion_id: appId, nivel: 5, orden: 0, nombre: appSeleccionada.nombre }
             ]
         }));
-        e.target.value = ""; // Resetear select
+        e.target.value = ""; 
     };
 
     const handleAppChange = (appId: number, field: string, value: number) => {
@@ -107,12 +99,10 @@ export const GrupoFormPage = () => {
         }));
     };
 
-    // --- GUARDAR ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            // Preparamos el payload quitando el 'nombre' de las apps (el backend no lo necesita)
             const payload = {
                 ...formData,
                 aplicaciones: formData.aplicaciones.map(app => ({
@@ -136,122 +126,155 @@ export const GrupoFormPage = () => {
         }
     };
 
+    const handleDelete = async () => {
+        if (!window.confirm("¿Estás seguro de que deseas eliminar este grupo permanentemente?")) return;
+        try {
+            setLoading(true);
+            await api.delete(`/grupos/${id}`);
+            navigate('/usuarios/grupos');
+        } catch (error) {
+            console.error("Error al eliminar grupo", error);
+            alert("No se pudo eliminar el grupo. Verifica que no tenga usuarios activos asignados.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
-        <div className="bg-white min-h-screen p-6 font-sans">
-            <div className="max-w-5xl mx-auto">
-                {/* TABS */}
-                <div className="flex border-b border-gray-300 mb-6">
-                    <button type="button" onClick={() => setActiveTab('datos')} className={`px-6 py-2.5 text-sm ${activeTab === 'datos' ? 'border-b-2 border-[#2185d0] text-[#2185d0] font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
-                        Datos
-                    </button>
-                    <button type="button" onClick={() => setActiveTab('usuarios')} className={`px-6 py-2.5 text-sm ${activeTab === 'usuarios' ? 'border-b-2 border-[#2185d0] text-[#2185d0] font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
-                        Usuarios
-                    </button>
-                    <button type="button" onClick={() => setActiveTab('aplicaciones')} className={`px-6 py-2.5 text-sm ${activeTab === 'aplicaciones' ? 'border-b-2 border-[#2185d0] text-[#2185d0] font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
-                        Aplicaciones
-                    </button>
+        <div className="p-8 max-w-4xl mx-auto">
+            {/* Cabecera */}
+            <div className="flex items-center gap-4 mb-6">
+                <button onClick={() => navigate(-1)} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
+                    <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">{id ? 'Editar Grupo' : 'Nuevo Grupo'}</h1>
+                    <p className="text-sm text-muted-foreground">Define las reglas y permisos para este conjunto de usuarios.</p>
+                </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                {/* Tabs estilo Segmented Control */}
+                <div className="p-4 border-b border-border bg-muted/20">
+                    <div className="flex bg-muted p-1 rounded-lg w-fit">
+                        {[
+                            { id: 'datos', label: 'Datos del Grupo' },
+                            { id: 'usuarios', label: 'Usuarios Asignados' },
+                            { id: 'aplicaciones', label: 'Aplicaciones y Permisos' }
+                        ].map(tab => (
+                            <button 
+                                key={tab.id} type="button" onClick={() => setActiveTab(tab.id as any)}
+                                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                                    activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="p-6 md:p-8">
                     
                     {/* TAB 1: DATOS */}
                     <div className={activeTab === 'datos' ? 'block' : 'hidden'}>
-                        <div className="max-w-2xl mx-auto flex flex-col gap-4">
-                            <div className="flex flex-col gap-1">
-                                <label className="text-sm text-gray-700">Nombre*</label>
-                                <input type="text" name="nombre" required value={formData.nombre} onChange={handleChange} className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500" placeholder="Nombre" />
+                        <div className="max-w-xl flex flex-col gap-5">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-semibold text-foreground">Nombre del Grupo <span className="text-destructive">*</span></label>
+                                <input type="text" name="nombre" required value={formData.nombre} onChange={handleChange} className="border border-input rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-transparent" placeholder="Ej: Administradores de Laboratorio" />
                             </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-sm text-gray-700">Descripción*</label>
-                                <input type="text" name="descripcion" value={formData.descripcion} onChange={handleChange} className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500" placeholder="Descripción" />
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-semibold text-foreground">Descripción</label>
+                                <input type="text" name="descripcion" value={formData.descripcion} onChange={handleChange} className="border border-input rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-transparent" placeholder="Propósito del grupo" />
                             </div>
-                            <Toggle label="Estado" checked={formData.activo} onChange={() => setFormData(prev => ({ ...prev, activo: !prev.activo }))} />
+                            <div className="mt-2 p-4 bg-muted/30 rounded-lg border border-border w-fit">
+                                <Toggle label="Grupo Activo" checked={formData.activo} onChange={() => setFormData(prev => ({ ...prev, activo: !prev.activo }))} />
+                            </div>
                         </div>
                     </div>
 
                     {/* TAB 2: USUARIOS */}
                     <div className={activeTab === 'usuarios' ? 'block' : 'hidden'}>
-                        <div className="max-w-4xl mx-auto">
-                            {usuariosDelGrupo.length === 0 ? (
-                                <div className="text-center text-gray-500 py-10 border border-dashed border-gray-300 rounded">
-                                    <p className="text-sm">No hay usuarios asignados a este grupo aún.</p>
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full border-collapse">
-                                        <thead>
-                                            <tr className="border-b border-gray-300">
-                                                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Usuario</th>
-                                                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Nombre completo</th>
+                        {usuariosDelGrupo.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center text-center py-10 border border-dashed border-border rounded-xl bg-muted/10">
+                                <UsersRound className="w-8 h-8 text-muted-foreground mb-3" />
+                                <p className="text-sm font-medium text-foreground">No hay usuarios asignados</p>
+                                <p className="text-xs text-muted-foreground mt-1">Los usuarios se asignan desde el perfil de cada uno.</p>
+                            </div>
+                        ) : (
+                            <div className="border border-border rounded-lg overflow-hidden">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-muted/50 border-b border-border">
+                                        <tr>
+                                            <th className="px-4 py-3 font-semibold text-muted-foreground">Usuario</th>
+                                            <th className="px-4 py-3 font-semibold text-muted-foreground">Nombre completo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {usuariosDelGrupo.map((usuario: any) => (
+                                            <tr key={usuario.id} className="hover:bg-muted/30 transition-colors">
+                                                <td className="px-4 py-3 font-medium text-foreground">{usuario.nombre_usuario}</td>
+                                                <td className="px-4 py-3 text-muted-foreground">
+                                                    {usuario.persona?.apellidos}, {usuario.persona?.nombre}
+                                                </td>
                                             </tr>
-                                        </thead>
-                                        <tbody>
-                                            {usuariosDelGrupo.map((usuario: any) => (
-                                                <tr key={usuario.id} className="border-b border-gray-200 hover:bg-gray-50">
-                                                    <td className="py-3 px-4 text-sm text-gray-800 font-medium">{usuario.nombre_usuario}</td>
-                                                    <td className="py-3 px-4 text-sm text-gray-700">
-                                                        {usuario.persona?.apellidos}, {usuario.persona?.nombre}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
 
                     {/* TAB 3: APLICACIONES */}
                     <div className={activeTab === 'aplicaciones' ? 'block' : 'hidden'}>
-                        <div className="max-w-4xl mx-auto flex flex-col gap-6">
-                            
-                            {/* Selector para añadir */}
-                            <div className="flex flex-col gap-1 max-w-md">
-                                <label className="text-sm text-gray-700">Añadir</label>
-                                <select onChange={handleAddApp} className="border border-gray-300 rounded px-3 py-2 outline-none focus:border-blue-500 text-sm bg-white">
-                                    <option value="">Seleccione Añadir</option>
+                        <div className="flex flex-col gap-6">
+                            <div className="flex flex-col gap-1.5 max-w-sm">
+                                <label className="text-sm font-semibold text-foreground">Vincular Aplicación</label>
+                                <select onChange={handleAddApp} className="border border-input rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-transparent">
+                                    <option value="">Seleccione una aplicación para añadir...</option>
                                     {catalogoApps.map(app => (
                                         <option key={app.id} value={app.id}>{app.nombre}</option>
                                     ))}
                                 </select>
                             </div>
 
-                            {/* Tabla de aplicaciones seleccionadas */}
                             {formData.aplicaciones.length > 0 && (
-                                <div className="mt-4">
-                                    <div className="grid grid-cols-12 gap-4 pb-2 border-b border-gray-200 text-xs font-bold text-gray-600">
-                                        <div className="col-span-6">Aplicación</div>
-                                        <div className="col-span-2 text-center">Nivel</div>
-                                        <div className="col-span-3 text-center">Orden</div>
-                                        <div className="col-span-1 text-center">Eliminar</div>
+                                <div className="border border-border rounded-xl overflow-hidden mt-2">
+                                    <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                        <div className="col-span-5">Aplicación</div>
+                                        <div className="col-span-3 text-center">Nivel de Acceso</div>
+                                        <div className="col-span-3 text-center">Orden Visual</div>
+                                        <div className="col-span-1 text-center">X</div>
                                     </div>
 
-                                    <div className="flex flex-col gap-2 mt-3">
+                                    <div className="divide-y divide-border">
                                         {formData.aplicaciones.map(app => (
-                                            <div key={app.aplicacion_id} className="grid grid-cols-12 gap-4 items-center bg-gray-50 p-2 rounded border border-gray-100">
-                                                <div className="col-span-6 text-sm text-gray-700 bg-gray-200 px-3 py-1.5 rounded">
-                                                    {app.nombre}
+                                            <div key={app.aplicacion_id} className="grid grid-cols-12 gap-4 items-center px-4 py-3 hover:bg-muted/10 transition-colors">
+                                                <div className="col-span-5 text-sm font-medium text-foreground flex items-center">
+                                                    <div className="px-2.5 py-1 bg-secondary text-secondary-foreground rounded-md border border-border">
+                                                        {app.nombre}
+                                                    </div>
                                                 </div>
-                                                <div className="col-span-2">
+                                                <div className="col-span-3 px-2">
                                                     <select 
                                                         value={app.nivel} 
                                                         onChange={(e) => handleAppChange(app.aplicacion_id, 'nivel', Number(e.target.value))}
-                                                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
+                                                        className="w-full border border-input rounded-md px-2 py-1.5 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
                                                     >
-                                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>Nivel {n}</option>)}
                                                     </select>
                                                 </div>
-                                                <div className="col-span-3">
+                                                <div className="col-span-3 px-2">
                                                     <input 
                                                         type="number" 
                                                         value={app.orden} 
                                                         onChange={(e) => handleAppChange(app.aplicacion_id, 'orden', Number(e.target.value))}
-                                                        className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm outline-none"
+                                                        className="w-full border border-input rounded-md px-3 py-1.5 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
                                                     />
                                                 </div>
                                                 <div className="col-span-1 flex justify-center">
-                                                    <button type="button" onClick={() => handleRemoveApp(app.aplicacion_id)} className="text-gray-500 hover:text-red-600">
-                                                        <X className="w-5 h-5" />
+                                                    <button type="button" onClick={() => handleRemoveApp(app.aplicacion_id)} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-md transition-colors">
+                                                        <X className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </div>
@@ -263,19 +286,19 @@ export const GrupoFormPage = () => {
                     </div>
 
                     {/* BOTONERA */}
-                    <div className="mt-12 pt-4 border-t border-gray-200 flex items-center justify-between">
+                    <div className="mt-10 pt-5 border-t border-border flex items-center justify-between">
                         {id ? (
-                            <button type="button" className="bg-[#c23934] text-white px-4 py-1.5 rounded text-sm hover:bg-red-800 flex items-center gap-1">
-                                Eliminar <Trash2 className="w-4 h-4" />
+                            <button type="button"  onClick={handleDelete} className="text-destructive hover:bg-destructive/10 px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
+                                <Trash2 className="w-4 h-4" /> Eliminar Grupo
                             </button>
                         ) : <div></div>}
 
-                        <div className="flex gap-2">
-                            <button type="button" onClick={() => navigate(-1)} className="bg-white border border-gray-300 text-gray-700 px-4 py-1.5 rounded text-sm hover:bg-gray-50">
+                        <div className="flex gap-3">
+                            <button type="button" onClick={() => navigate(-1)} className="px-4 py-2 border border-input bg-transparent hover:bg-muted text-foreground text-sm font-medium rounded-md transition-colors">
                                 Cancelar
                             </button>
-                            <button type="submit" disabled={loading} className="bg-[#005ea2] text-white px-5 py-1.5 rounded text-sm hover:bg-blue-800 disabled:opacity-50">
-                                {loading ? 'Guardando...' : 'Aceptar'}
+                            <button type="submit" disabled={loading} className="px-5 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-md shadow-sm transition-colors disabled:opacity-50">
+                                {loading ? 'Guardando...' : 'Guardar Grupo'}
                             </button>
                         </div>
                     </div>

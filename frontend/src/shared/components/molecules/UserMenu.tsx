@@ -2,20 +2,16 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { logoCentro } from '../../../assets';
-import { User } from 'lucide-react';
+import { User, LogOut, Settings } from 'lucide-react'; // 👇 Lucide Icons
 import api from '../../../core/api/axios';
 
 const BACKEND = (import.meta as any).env.VITE_BACKEND_URL || '';
 
-/** Devuelve la URL completa de la foto o null */
 function fotoUrl(ruta?: string | null): string | null {
   if (!ruta) return null;
   if (ruta.startsWith('http')) return ruta;
-  
-  // Limpiamos los slashes para asegurar que se unan correctamente
   const baseUrl = BACKEND.endsWith('/') ? BACKEND.slice(0, -1) : BACKEND;
   const path = ruta.startsWith('/') ? ruta : `/${ruta}`;
-  
   return `${baseUrl}${path}`;
 }
 
@@ -25,17 +21,14 @@ const UserMenu = () => {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // ── Fetch de datos de persona si el auth no los trae completos ──
   const [personaExtra, setPersonaExtra] = useState<{
     foto_ruta?: string; nombre?: string; apellidos?: string; puesto?: string;
   } | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    // Si ya viene con foto y nombre desde el token/auth, no hace falta fetch
     if (user.persona?.foto_ruta || user.persona?.nombre) return;
 
-    // Busca el persona_id en los campos que tu backend devuelva en el JWT
     const personaId = (user as any).persona_id ?? (user as any).personaId;
     if (!personaId) return;
 
@@ -50,10 +43,9 @@ const UserMenu = () => {
           puesto: primerPuesto,
         });
       })
-      .catch(() => { /* silencioso */ });
+      .catch(() => {});
   }, [user]);
 
-  // Datos fusionados: prioriza lo que vino del auth, complementa con personaExtra
   const persona = {
     nombre: user?.persona?.nombre ?? personaExtra?.nombre,
     apellidos: user?.persona?.apellidos ?? personaExtra?.apellidos,
@@ -61,7 +53,6 @@ const UserMenu = () => {
     foto_ruta: user?.persona?.foto_ruta ?? personaExtra?.foto_ruta,
   };
 
-  // ── Cerrar user menu al click fuera 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
@@ -79,17 +70,13 @@ const UserMenu = () => {
 
   const avatarUrl = fotoUrl(persona.foto_ruta);
 
-  console.log('BACKEND_URL:', BACKEND); // Verificar que no esté vacío
-  console.log('foto_ruta:', persona.foto_ruta); // Verificar la ruta
-  console.log('avatarUrl:', avatarUrl);
-
   return (
     <div className="relative" ref={userMenuRef}>
-      {/* Boton avatar */}
+      {/* Botón avatar principal */}
       <button
         onClick={() => setShowUserMenu((prev) => !prev)}
-        className="w-8 h-8 rounded-full bg-white bg-opacity-20 border border-white border-opacity-40 flex items-center justify-center text-white hover:bg-opacity-30 transition-colors overflow-hidden"
-        aria-label="Menu de usuario"
+        className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-primary-foreground transition-colors overflow-hidden ring-2 ring-transparent focus:ring-white/50 outline-none"
+        aria-label="Menú de usuario"
       >
         {avatarUrl ? (
           <img
@@ -99,22 +86,17 @@ const UserMenu = () => {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         ) : (
-          <User className="w-5 h-5" />
+          <User className="w-5 h-5 text-primary-foreground/80" />
         )}
       </button>
 
-      {/* Panel desplegable */}
+      {/* Menú desplegable */}
       {showUserMenu && (
-        <div
-          className="absolute right-0 top-10 w-72 rounded shadow-2xl z-50 overflow-hidden"
-          style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}
-        >
-          {/* ── Seccion info usuario ── */}
-          <div
-            className="flex items-center gap-4 px-4 py-4"
-            style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}
-          >
-            <div className="shrink-0 w-14 h-14 rounded-full border border-gray-200 overflow-hidden bg-white flex items-center justify-center shadow-sm">
+        <div className="absolute right-0 top-12 w-72 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+          
+          {/* Cabecera del usuario */}
+          <div className="flex items-center gap-4 px-5 py-4 border-b border-border bg-muted/30">
+            <div className="shrink-0 w-12 h-12 rounded-full border border-border bg-white flex items-center justify-center shadow-sm overflow-hidden">
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
@@ -123,36 +105,38 @@ const UserMenu = () => {
                   onError={(e) => { (e.target as HTMLImageElement).src = logoCentro; }}
                 />
               ) : (
-                <img src={logoCentro} alt="Logo" className="w-12 h-12 object-contain" />
+                <User className="w-6 h-6 text-muted-foreground" />
               )}
             </div>
 
-            <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-sm font-bold text-gray-800 leading-tight truncate">
-                {persona.nombre}
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold text-foreground truncate">
+                {persona.nombre} {persona.apellidos}
               </span>
-              <span className="text-sm font-bold text-gray-800 leading-tight truncate">
-                {persona.apellidos}
-              </span>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full w-fit uppercase tracking-wide bg-blue-100 text-blue-700 border border-blue-200 shadow-sm mt-0.5">
+              <span className="text-xs font-medium text-muted-foreground truncate mt-0.5">
                 {persona.puesto || 'Puesto no asignado'}
               </span>
             </div>
           </div>
 
-          {/* ── Botones ── */}
-          <div className="flex items-center gap-2 px-4 py-3">
+          {/* Opciones del menú */}
+          <div className="p-2 flex flex-col gap-1">
             <button
               onClick={() => { setShowUserMenu(false); navigate('/preferencias'); }}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 rounded transition-colors"
+              className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted rounded-md transition-colors w-full text-left"
             >
+              <Settings className="w-4 h-4 text-muted-foreground" />
               Preferencias
             </button>
+            
+            <div className="h-px bg-border my-1 mx-2" />
+            
             <button
               onClick={handleCerrarSesion}
-              className="flex-1 border border-red-300 hover:border-red-400 bg-white hover:bg-red-50 text-red-600 text-sm font-medium py-1.5 rounded transition-colors"
+              className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-md transition-colors w-full text-left"
             >
-              Cerrar Sesion
+              <LogOut className="w-4 h-4" />
+              Cerrar Sesión
             </button>
           </div>
         </div>

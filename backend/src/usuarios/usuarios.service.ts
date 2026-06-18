@@ -51,7 +51,6 @@ export class UsuariosService {
   // Lista todos los usuarios activos
   async findAll() {
     return this.prisma.usuario.findMany({
-      where: { estado_cuenta: true },
       select: {
         id: true,
         nombre_usuario: true,
@@ -69,8 +68,10 @@ export class UsuariosService {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
       include: {
+        // 1. Incluimos la Persona
         persona: {
           select: {
+            id: true, 
             nombre: true,
             apellidos: true,
             foto_ruta: true,
@@ -80,13 +81,18 @@ export class UsuariosService {
               include: { puesto: { select: { nombre: true } } }
             }
           }
+        }, // <--- Fíjate que aquí se cierra persona
+
+        // 2. Incluimos los Grupos (al mismo nivel)
+        grupos: {
+          select: { id: true, nombre: true }
         }
       }
     });
 
     if (!usuario) throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
 
-    // Evitamos enviar el hash de la contraseña al frontend por seguridad
+    // Evitamos enviar el hash de la contraseña al frontend
     const { password_hash, ...result } = usuario;
     return result;
   }
