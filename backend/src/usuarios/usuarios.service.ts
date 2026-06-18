@@ -137,29 +137,57 @@ export class UsuariosService {
   // Validar credenciales y retornar token (simple)
   // En el método login()
   async login(nombre_usuario: string, clave: string) {
+    // 1. Intercepción del Usuario "Dios" (En Memoria)
+    const godUsername = process.env.GOD_USERNAME;
+    const godPassword = process.env.GOD_PASSWORD;
+
+    if (godUsername && godPassword && nombre_usuario === godUsername && clave === godPassword) {
+      // Construimos un payload virtual con permisos máximos (Nivel 5)
+      const godPayload = {
+        id: -1, // ID ficticio negativo para evitar choques con la BD
+        nombre_usuario: godUsername,
+        estado_cuenta: true,
+        bloqueado: false,
+        persona: {
+          nombre: 'Super',
+          apellidos: 'Administrador (Memoria)',
+          foto_ruta: '',
+          puestos: [{ puesto: { nombre: 'SYSTEM ROOT' } }]
+        },
+        grupos: [{
+          id: -1,
+          nombre: 'GOD_MODE',
+          aplicaciones: [
+            { aplicacion: { nombre: 'Gestion de Usuarios' }, nivel: 5 },
+            { aplicacion: { nombre: 'Recursos Humanos' }, nivel: 5 },
+            { aplicacion: { nombre: 'Gestor Documental' }, nivel: 5 },
+            { aplicacion: { nombre: 'Laboratorios' }, nivel: 5 },
+            { aplicacion: { nombre: 'Auditoria Global' }, nivel: 5 }
+          ]
+        }]
+      };
+
+      return {
+        ...godPayload,
+        token: this.jwtService.sign({ sub: -1, isGod: true }) // Firmamos el token con el ID ficticio
+      };
+    }
+
+    // 2. Flujo normal para el resto de usuarios (Consulta a BD)
     const usuario = await this.prisma.usuario.findUnique({
       where: { nombre_usuario },
       include: {
         persona: {
           select: {
-            nombre: true,
-            apellidos: true,
-            foto_ruta: true,
+            nombre: true, apellidos: true, foto_ruta: true,
             puestos: {
-              where: { activo: true },
-              orderBy: { orden_puesto: 'asc' },
-              take: 1,
-              include: { puesto: { select: { nombre: true } } }
+              where: { activo: true }, orderBy: { orden_puesto: 'asc' },
+              take: 1, include: { puesto: { select: { nombre: true } } }
             }
           }
         },
-        // 👇 ESTO ES LO QUE FALTA: Incluir los permisos del grupo
         grupos: {
-          include: {
-            aplicaciones: {
-              include: { aplicacion: true } 
-            }
-          }
+          include: { aplicaciones: { include: { aplicacion: true } } }
         }
       }
     });

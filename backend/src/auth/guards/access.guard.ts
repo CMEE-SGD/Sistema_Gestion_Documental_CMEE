@@ -10,46 +10,52 @@ export class AccessGuard implements CanActivate {
     ) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
-        // 1. Leemos qué exige la ruta (Ej: { app: 'Gestor de Usuarios', level: 5 })
+        // 1. Leemos qué exige la ruta
         const requiredAccess = this.reflector.get<{ app: string; level: number }>('access', context.getHandler());
-        if (!requiredAccess) return true; // Si la ruta no exige nada, pasa directo
+        if (!requiredAccess) return true;
 
-        // 2. Extraemos el ID del usuario inyectado por el token en la Fase 1
+        // 2. Extraemos el usuario inyectado por el JwtStrategy
         const request = context.switchToHttp().getRequest();
-        const userId = request.user?.id;
+        const userPayload = request.user; // Esto viene del validate() del jwt.strategy.ts
 
-        if (!userId) {
-        throw new ForbiddenException('No hay un token de autenticación válido');
+        if (!userPayload || !userPayload.id) {
+            throw new ForbiddenException('No hay un token de autenticación válido');
         }
 
-        // 3. Consultamos a la base de datos los niveles reales en este preciso momento
+        // 👇 3. LA EXCEPCIÓN DEL USUARIO EN MEMORIA (GOD MODE)
+        if (userPayload.isGod === true && userPayload.id === -1) {
+            // Si es el usuario "Dios", le damos acceso libre a absolutamente todo
+            return true; 
+        }
+
+        // 4. Lógica normal para los usuarios de la Base de Datos
         const usuario = await this.prisma.usuario.findUnique({
-        where: { id: userId },
-        include: {
-            grupos: {
+            where: { id: userPayload.id },
             include: {
-                aplicaciones: {
-                include: { aplicacion: true } // Traemos el nombre de la app y el nivel
+                grupos: {
+                    include: {
+                        aplicaciones: {
+                            include: { aplicacion: true } 
+                        }
+                    }
                 }
             }
-            }
-        }
         });
 
         if (!usuario || !usuario.estado_cuenta || usuario.bloqueado) {
-        throw new ForbiddenException('El usuario no existe o está inactivo');
+            throw new ForbiddenException('El usuario no existe o está inactivo');
         }
 
-        // 4. Verificamos si en alguno de sus grupos cumple con el nivel exigido para esa app
+        // 5. Verificamos los niveles
         const tienePermiso = usuario.grupos.some(grupo => 
-        grupo.aplicaciones.some(appConfig => 
-            appConfig.aplicacion.nombre === requiredAccess.app && 
-            appConfig.nivel >= requiredAccess.level
-        )
+            grupo.aplicaciones.some(appConfig => 
+                appConfig.aplicacion.nombre === requiredAccess.app && 
+                appConfig.nivel >= requiredAccess.level
+            )
         );
 
         if (!tienePermiso) {
-        throw new ForbiddenException(`Acceso denegado: Requiere nivel ${requiredAccess.level} en ${requiredAccess.app}`);
+            throw new ForbiddenException(`Acceso denegado: Requiere nivel ${requiredAccess.level} en ${requiredAccess.app}`);
         }
 
         return true;
