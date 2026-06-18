@@ -14,8 +14,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: any) {
-        // Al usar la Opción 2, el token solo tiene la identidad.
-        // Lo que retornemos aquí se inyectará automáticamente en request.user
-        return { id: payload.sub }; 
+        // Retornamos el ID y la bandera isGod (si existe en el payload del token)
+        return { 
+            id: payload.sub,
+            isGod: payload.isGod || false // Pasamos la bandera al request.user
+        }; 
     }
 }
