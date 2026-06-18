@@ -193,7 +193,7 @@ async update(
             }
         }
         
-        updatePersonaDto.foto_ruta = `/uploads/personas/${nombre}_${apellidos}_${cedula}/${archivos.foto[0].filename}`;
+        updatePersonaDto.foto_ruta = `/uploads/Personas/${nombre}_${apellidos}_${cedula}/${archivos.foto[0].filename}`;
     }
 
     try { if (typeof updatePersonaDto.roles === 'string') updatePersonaDto.roles = JSON.parse(updatePersonaDto.roles); } catch (e) { updatePersonaDto.roles = undefined; }
