@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import { Persona } from '../interfaces/persona.interface';
-import { tienePermiso } from '../../../shared/utils/auth'; // 👇 1. Importamos la función
+import { tienePermiso } from '../../../shared/utils/auth';
 
 interface TablaPersonasProps {
     personas: Persona[];
@@ -21,10 +21,8 @@ const TablaPersonas = ({
     onCheckTodos
 }: TablaPersonasProps) => {
     const navigate = useNavigate();
-    
-    // 👇 2. Verificamos si tiene nivel 5 para mostrar los checkboxes
     const puedeEliminar = tienePermiso('Recursos Humanos', 5);
-    const colSpanDinamico = puedeEliminar ? 6 : 5; // Ajustamos el tamaño de la tabla
+    const colSpanDinamico = puedeEliminar ? 6 : 5; 
 
     return (
         <div className="px-4 print:px-0">
@@ -32,7 +30,6 @@ const TablaPersonas = ({
                 <table className="w-full text-left whitespace-nowrap text-[11px] print:text-black print:text-[10px]">
                     <thead className="bg-[#006400] text-white font-bold print:bg-gray-200 print:text-black print:border-b print:border-gray-400">
                         <tr>
-                            {/* 👇 3. Ocultamos el TH del checkbox general si no tiene permisos */}
                             {puedeEliminar && (
                                 <th className="px-4 py-2 w-10 text-center border-r border-[#004d00] print:hidden">
                                     <input 
@@ -58,12 +55,12 @@ const TablaPersonas = ({
                         ) : personasFiltradas.length === 0 ? (
                             <tr><td colSpan={colSpanDinamico} className="px-4 py-8 text-center text-gray-500">No hay registros que coincidan con los filtros.</td></tr>
                         ) : (
-                            personasFiltradas.map((persona) => (
+                            personasFiltradas.map((persona: any) => (
+                                // 👇 Opacidad condicional
                                 <tr
                                     key={persona.id}
-                                    className={`hover:bg-gray-100 transition-colors print:break-inside-avoid ${!persona.activo ? 'opacity-60 bg-gray-50 print:opacity-100' : ''}`}
+                                    className={`hover:bg-gray-100 transition-colors print:break-inside-avoid ${persona.estado === 'INACTIVO' ? 'opacity-60 bg-gray-50 print:opacity-100' : ''}`}
                                 >
-                                    {/* 👇 4. Ocultamos el TD del checkbox individual si no tiene permisos */}
                                     {puedeEliminar && (
                                         <td className="px-4 py-2 text-center align-middle border-r border-gray-200 print:hidden">
                                             <input 
@@ -99,7 +96,7 @@ const TablaPersonas = ({
                                     <td className="px-4 py-2 text-gray-700 print:text-black align-middle border-r border-gray-200 print:border-gray-400 whitespace-normal min-w-[200px]">
                                         {persona.puestos && persona.puestos.length > 0 ? (
                                             <div className="flex flex-col gap-0.5">
-                                                {persona.puestos.map((p, i) => (
+                                                {persona.puestos.map((p: any, i: number) => (
                                                     <span key={i}>• {p.puesto?.nombre} <span className="text-gray-500 print:text-gray-700">({p.departamento?.nombre})</span></span>
                                                 ))}
                                             </div>
@@ -112,9 +109,14 @@ const TablaPersonas = ({
                                         </span>
                                     </td>
 
+                                    {/* 👇 Insignias con 3 estados dinámicos */}
                                     <td className="px-4 py-2 align-middle text-center">
-                                        <span className={`px-2 py-0.5 rounded font-bold border ${persona.activo ? 'text-[#006400] border-transparent print:border-black print:text-black' : 'text-red-600 border-transparent print:border-black print:text-black'}`}>
-                                            {persona.activo ? 'Activo' : 'Inactivo'}
+                                        <span className={`px-2 py-0.5 rounded font-bold border border-transparent print:border-black print:text-black ${
+                                            persona.estado === 'ACTIVO' ? 'text-[#006400]' : 
+                                            persona.estado === 'SUSPENDIDO' ? 'text-amber-600' : 
+                                            'text-red-600'
+                                        }`}>
+                                            {persona.estado}
                                         </span>
                                     </td>
                                 </tr>

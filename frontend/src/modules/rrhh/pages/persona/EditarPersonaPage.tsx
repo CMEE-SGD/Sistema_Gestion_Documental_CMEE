@@ -12,19 +12,19 @@ export const EditarPersonaPage = () => {
     const [rolesLista, setRolesLista] = useState([]);
     const [departamentos, setDepartamentos] = useState([]);
     const [puestosLista, setPuestosLista] = useState([]);
-
     const [fotoFile, setFotoFile] = useState<File | null>(null);
     const [documentosFiles, setDocumentosFiles] = useState<File[]>([]);
 
+    // 👇 Estado inicial actualizado
     const [formData, setFormData] = useState({
-        codigo: '', saludo: '', nombre: '', apellidos: '', cedula_identidad: '',
+        grado: '', nombre: '', apellidos: '', cedula_identidad: '',
         fecha_nacimiento: '', sexo: '', domicilio: '', ciudad: '', provincia: '',
-        codigo_postal: '', telefono: '', fax: '', celular: '', email_1: '', email_2: '',
-        tipo_recurso: 'Usuario externo', orden: 0, activo: true,
+        celular_1: '', celular_2: '', email_1: '', email_2: '',
+        tipo_recurso: 'Usuario externo', orden: 0, estado: 'ACTIVO',
         roles: [] as number[],
         mostrar_ampliacion: false,
         puestos_asignados: [{ departamento_id: '', puesto_id: '' }],
-        eliminar_foto: false // ✅ Nuevo flag agregado
+        eliminar_foto: false 
     });
 
     useEffect(() => {
@@ -39,7 +39,6 @@ export const EditarPersonaPage = () => {
                 setPuestosLista(puestosRes.data);
 
                 const persona = personaRes.data;
-
                 const rolesIds = persona.roles ? persona.roles.map((r: any) => r.id) : [];
 
                 let puestosMapeados = [{ departamento_id: '', puesto_id: '' }];
@@ -58,13 +57,17 @@ export const EditarPersonaPage = () => {
                     if (dataLimpia[key] === null) dataLimpia[key] = '';
                 });
 
+                if (dataLimpia.fecha_nacimiento && dataLimpia.fecha_nacimiento.includes('T')) {
+                    dataLimpia.fecha_nacimiento = dataLimpia.fecha_nacimiento.split('T')[0];
+                }
+
                 setFormData(prev => ({
                     ...prev,
                     ...dataLimpia,
                     roles: rolesIds,
                     puestos_asignados: puestosMapeados,
                     mostrar_ampliacion: !!persona.mostrar_ampliacion,
-                    eliminar_foto: false // Por defecto al cargar no se elimina
+                    eliminar_foto: false
                 }));
 
             } catch (error) {
@@ -76,25 +79,23 @@ export const EditarPersonaPage = () => {
         if (id) cargarDatos();
     }, [id]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
-        const checked = (e.target as HTMLInputElement).checked;
-        if (name === 'tipo_recurso') return;
-        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // 👇 VENTANA DE CONFIRMACIÓN EN EDICIÓN
+        const confirmar = window.confirm('¿Está seguro de que desea guardar los cambios realizados en este recurso?');
+        if (!confirmar) return;
+
         try {
             const payload = new FormData();
             
-            // ✅ Agregamos 'eliminar_foto' a los campos válidos
+            // 👇 Campos actualizados
             const camposValidos = [
-                'codigo', 'saludo', 'nombre', 'apellidos', 'cedula_identidad',
+                'grado', 'nombre', 'apellidos', 'cedula_identidad',
                 'fecha_nacimiento', 'sexo', 'domicilio', 'ciudad', 'provincia',
-                'codigo_postal', 'telefono', 'fax', 'celular', 'email_1', 'email_2',
-                'activo', 'tipo_recurso', 'idioma', 'roles', 'puestos_asignados',
-                'eliminar_foto' // <-- AQUÍ
+                'celular_1', 'celular_2', 'email_1', 'email_2',
+                'estado', 'tipo_recurso', 'idioma', 'roles', 'puestos_asignados',
+                'eliminar_foto' 
             ];
 
             Object.entries(formData).forEach(([key, value]) => {
@@ -102,8 +103,6 @@ export const EditarPersonaPage = () => {
                 
                 if (key === 'roles' || key === 'puestos_asignados') {
                     payload.append(key, JSON.stringify(value));
-                } else if (key === 'activo' || key === 'eliminar_foto') {
-                    payload.append(key, String(value));
                 } else {
                     payload.append(key, String(value));
                 }
@@ -132,10 +131,8 @@ export const EditarPersonaPage = () => {
                 <UserCheck className="w-4 h-4 text-blue-600" />
                 <h2 className="text-gray-800 font-bold text-xs uppercase tracking-wider">Editar Recurso Humano</h2>
             </div>
-
             <FormPersona
                 formData={formData}
-                onChange={handleChange}
                 setFormData={setFormData}
                 setFotoFile={setFotoFile}
                 documentosFiles={documentosFiles}
