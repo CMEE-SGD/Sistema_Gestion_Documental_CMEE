@@ -2,9 +2,6 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, Upl
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentosService } from './documentos.service';
 import { UpdateDocumentoDto } from './dto/update-documento.dto';
-import { CircuitoDocumento } from '@prisma/client';
-
-// 👇 Importaciones de Seguridad
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
@@ -34,10 +31,61 @@ export class DocumentosController {
   }
 
   @Get('circuitos')
-  @RequireAccess('Gestor Documental', 2) // Nivel 2: Obtener listado de catálogos
+  @RequireAccess('Gestor Documental', 2)
   getCircuitos() {
-    // Devuelve un arreglo con todos los valores del Enum: ['SIN_CLASIFICAR', 'ALTA_FRECUENCIA', ...]
-    return Object.values(CircuitoDocumento);
+    return this.documentosService.getCircuitos();
+  }
+
+  @Post(':id/versiones')
+  @RequireAccess('Gestor Documental', 5)
+  @UseInterceptors(FileInterceptor('archivo'))
+  async createVersion(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('El archivo PDF es obligatorio.');
+    }
+    return this.documentosService.createVersion(file, { ...body, documento_id: id });
+  }
+
+  @Get(':id/versiones')
+  @RequireAccess('Gestor Documental', 2)
+  getVersiones(@Param('id') id: string) {
+    return this.documentosService.getVersiones(+id);
+  }
+
+  @Post(':id/versiones/:versionId/restaurar')
+  @RequireAccess('Gestor Documental', 4)
+  restaurarVersion(@Param('id') id: string, @Param('versionId') versionId: string) {
+    return this.documentosService.restaurarVersion(+id, +versionId);
+  }
+
+  @Get(':id/workflow')
+  @RequireAccess('Gestor Documental', 2)
+  getWorkflow(@Param('id') id: string) {
+    return this.documentosService.getWorkflow(+id);
+  }
+
+  @Post(':id/workflow/avanzar')
+  @RequireAccess('Gestor Documental', 4)
+  @UseInterceptors(FileInterceptor('archivo'))
+  async avanzarFase(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Debe subir el PDF firmado.');
+    }
+    return this.documentosService.avanzarFase(file, { ...body, documento_id: id });
+  }
+
+  @Post(':id/workflow/rechazar')
+  @RequireAccess('Gestor Documental', 4)
+  rechazarFase(@Param('id') id: string, @Body() body: any) {
+    return this.documentosService.rechazarFase(+id, body);
   }
 
   @Get(':id')

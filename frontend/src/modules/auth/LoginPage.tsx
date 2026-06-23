@@ -41,6 +41,7 @@ export default function LoginPage() {
 
         const userData = {
           id: resData.id,
+          persona_id: resData.persona_id,
           nombre_usuario: resData.nombre_usuario,
           rol: resData.rol || 'usuario',
           grupos: resData.grupos ?? [],

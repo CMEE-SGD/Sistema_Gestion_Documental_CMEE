@@ -309,22 +309,17 @@ enum TipoNivelCarpeta {
   SUBCARPETA   
 }
 
-enum CircuitoDocumento {
-  SIN_CLASIFICAR
-  ALTA_FRECUENCIA
-  ATENCION_AL_CLIENTE
-  BAJA_FRECUENCIA
-  CALIDAD
-  CAPACITACION
-  CUALIFICACION
-  FORMATOS
-  GESTION_DE_PATRONES
-  GESTION_LOGISTICA
-  LEGALIZACION
-  PRESION
-  PROCEDIMIENTOS_GESTION_DOCUMENTAL
-  TERMOMETRIA
-  TIEMPO
+enum EstadoWorkflow {
+  EN_CURSO
+  COMPLETADO
+  RECHAZADO
+}
+
+enum EstadoFaseWorkflow {
+  PENDIENTE
+  EN_CURSO
+  COMPLETADO
+  RECHAZADO
 }
 
 model Documento {
@@ -333,7 +328,8 @@ model Documento {
   // -- Campos del Formulario "Nuevo Fichero" --
   empresa            String?           @default("Centro de Metrología del Ejército Ecuatoriano") @db.VarChar(200)
   fecha_documento    DateTime?         @db.Date // La fecha que sale a la derecha (01/06/2026)
-  circuito           CircuitoDocumento @default(SIN_CLASIFICAR)
+  circuito_id        Int?
+  circuito           Circuito?         @relation(fields: [circuito_id], references: [id])
   activo             Boolean           @default(true) // El checkbox de "Estado"
   propietario        String?           @db.VarChar(150)
   
@@ -357,8 +353,54 @@ model Documento {
   documentos_destino DocumentoRelacion[] @relation("DocDestino")
 
   logs_auditoria Auditoria[]
+  versiones      DocumentoVersion[]
+  workflow       DocumentoWorkflow?
 
   @@map("documentos")
+}
+
+model DocumentoVersion {
+  id            Int       @id @default(autoincrement())
+  documento_id  Int
+  documento     Documento @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+  version       String    @db.VarChar(20)
+  archivo_url   String
+  subido_por    String?   @db.VarChar(150)
+  comentario    String?   @db.Text
+  created_at    DateTime  @default(now())
+
+  @@map("documentos_versiones")
+}
+
+model DocumentoWorkflow {
+  id            Int                  @id @default(autoincrement())
+  documento_id  Int                  @unique
+  documento     Documento            @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+  circuito_id   Int
+  circuito      Circuito             @relation(fields: [circuito_id], references: [id])
+  estado        EstadoWorkflow       @default(EN_CURSO)
+  created_at    DateTime             @default(now())
+  updated_at    DateTime             @updatedAt
+
+  fases         DocumentoWorkflowFase[]
+
+  @@map("documentos_workflow")
+}
+
+model DocumentoWorkflowFase {
+  id              Int                 @id @default(autoincrement())
+  workflow_id     Int
+  workflow        DocumentoWorkflow   @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  fase_id         Int
+  fase            Fase                @relation(fields: [fase_id], references: [id])
+  estado          EstadoFaseWorkflow  @default(PENDIENTE)
+  archivo_url     String?
+  procesado_por   String?             @db.VarChar(150)
+  comentario      String?             @db.Text
+  created_at      DateTime            @default(now())
+  updated_at      DateTime            @updatedAt
+
+  @@map("documentos_workflow_fases")
 }
 
 model DocumentoRelacion {
@@ -555,11 +597,13 @@ enum EstadoEquipo {
 // 12. CONFIGURACIÓN DE CIRCUITOS Y FASES
 // ==========================================
 model Circuito {
-  id          Int      @id @default(autoincrement())
-  nombre      String   @unique @db.VarChar(100) // Ej: CALIDAD, PRESIÓN
-  activo      Boolean  @default(true)
+  id          Int         @id @default(autoincrement())
+  nombre      String      @unique @db.VarChar(100) // Ej: CALIDAD, PRESIÓN
+  activo      Boolean     @default(true)
 
   fases       Fase[]
+  documentos  Documento[]
+  workflows   DocumentoWorkflow[]
 
   @@map("circuitos")
 }
@@ -583,6 +627,7 @@ model Fase {
   obligatorio_todos      Boolean  @default(false)
 
   participantes          FaseParticipante[]
+  workflow_fases         DocumentoWorkflowFase[]
 
   @@map("fases")
 }
