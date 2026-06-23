@@ -19,7 +19,6 @@ interface FichaPersonaProps {
 
 const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLogs }: FichaPersonaProps) => {
 
-    // Función de formateo de fecha encapsulada
     const formatFecha = (fecha?: string) => {
         if (!fecha) return '-';
         if (fecha.includes('T')) {
@@ -50,8 +49,8 @@ const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLo
                     </div>
 
                     <div className="flex-1 flex flex-col justify-start pt-1">
-                        <DataRow label="Código" value={persona.codigo} />
-                        <DataRow label="Saludo" value={persona.saludo} />
+                        {/* 👇 Limpiado Código y Saludo, Agregado Grado */}
+                        <DataRow label="Grado" value={persona.grado} />
                         <DataRow label="Nombre" value={persona.nombre} />
                         <DataRow label="Apellidos" value={persona.apellidos} />
 
@@ -87,7 +86,8 @@ const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLo
                 <div className="mb-10">
                     <DataRow label="Fecha de alta" value={formatFecha(persona.fecha_alta)} />
                     <DataRow label="Tipo de recurso" value={persona.tipo_recurso || 'Usuario del sistema'} />
-                    <DataRow label="Estado" value={persona.activo ? 'Activo' : 'Inactivo'} />
+                    {/* 👇 Cambiado a persona.estado */}
+                    <DataRow label="Estado" value={persona.estado} />
                 </div>
 
                 {/* 3. INFORMACIÓN PERSONAL */}
@@ -99,20 +99,21 @@ const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLo
 
                     <DataRow label="C.I." value={persona.cedula_identidad} />
                     <DataRow label="Fecha de nacimiento" value={formatFecha(persona.fecha_nacimiento)} />
+                    <DataRow label="Sexo" value={persona.sexo === 'M' ? 'Masculino' : persona.sexo === 'F' ? 'Femenino' : persona.sexo === 'O' ? 'Otros' : '-'} />
                     <DataRow label="Domicilio" value={persona.domicilio} />
                     <DataRow label="Ciudad" value={persona.ciudad} />
-                    <DataRow label="Código postal" value={persona.codigo_postal} />
+                    <DataRow label="Provincia" value={persona.provincia} />
 
                     <div className="h-4"></div>
 
-                    <DataRow label="Teléfono" value={persona.telefono} />
-                    <DataRow label="Fax" value={persona.fax} />
-                    <DataRow label="Celular" value={persona.celular} />
+                    {/* 👇 Teléfonos actualizados */}
+                    <DataRow label="Celular 1" value={persona.celular_1} />
+                    <DataRow label="Celular 2" value={persona.celular_2} />
 
                     <div className="h-4"></div>
 
                     <DataRow label="E-mail 1">
-                        {persona.email_1 ? <a href={`mailto:${persona.email_1}`} >{persona.email_1}</a> : '-'}
+                        {persona.email_1 ? <a href={`mailto:${persona.email_1}`} className="text-blue-600 underline">{persona.email_1}</a> : '-'}
                     </DataRow>
                     {persona.email_2 && (
                         <DataRow label="E-mail 2">
@@ -173,7 +174,6 @@ const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLo
                         <TablaHistorial logs={logsPersona} loading={loadingLogs} esGlobal={false} />
                     </div>
                 )}
-
             </div>
         </div>
     );

@@ -7,21 +7,19 @@ import FormPersona from '../../components/FormPersona';
 export const NuevaPersonaPage = () => {
     const navigate = useNavigate();
 
-    // Listas para los selects
     const [rolesLista, setRolesLista] = useState([]);
     const [departamentos, setDepartamentos] = useState([]);
     const [puestosLista, setPuestosLista] = useState([]);
-
-    // Archivos
     const [fotoFile, setFotoFile] = useState<File | null>(null);
     const [documentosFiles, setDocumentosFiles] = useState<File[]>([]);
 
-    // Estado principal
+    // 👇 Estado inicial actualizado
     const [formData, setFormData] = useState({
-        codigo: '', saludo: '', nombre: '', apellidos: '', cedula_identidad: '',
+        grado: '', nombre: '', apellidos: '', cedula_identidad: '',
         fecha_nacimiento: '', sexo: '', domicilio: '', ciudad: '', provincia: '',
-        codigo_postal: '', telefono: '', fax: '', celular: '', email_1: '', email_2: '',
-        tipo_recurso: 'Usuario externo', orden: 0, activo: true,
+        celular_1: '', celular_2: '', email_1: '', email_2: '',
+        tipo_recurso: 'Usuario externo', orden: 0, 
+        estado: 'ACTIVO', // Enum de Prisma
         roles: [] as number[],
         mostrar_ampliacion: false,
         puestos_asignados: [{ departamento_id: '', puesto_id: '' }]
@@ -43,34 +41,23 @@ export const NuevaPersonaPage = () => {
         cargarListas();
     }, []);
 
-    // Función requerida por FormPersona
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
-        const checked = (e.target as HTMLInputElement).checked;
-        if (name === 'tipo_recurso') return;
-        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             const payload = new FormData();
 
-            // ✅ CAMPOS VÁLIDOS SEGÚN PRISMA
+            // 👇 Campos actualizados
             const camposValidos = [
-                'codigo', 'saludo', 'nombre', 'apellidos', 'cedula_identidad',
+                'grado', 'nombre', 'apellidos', 'cedula_identidad',
                 'fecha_nacimiento', 'sexo', 'domicilio', 'ciudad', 'provincia',
-                'codigo_postal', 'telefono', 'fax', 'celular', 'email_1', 'email_2',
-                'activo', 'tipo_recurso', 'idioma', 'roles', 'puestos_asignados'
+                'celular_1', 'celular_2', 'email_1', 'email_2',
+                'estado', 'tipo_recurso', 'idioma', 'roles', 'puestos_asignados'
             ];
 
             Object.entries(formData).forEach(([key, value]) => {
-                if (!camposValidos.includes(key)) return; // Ignora campos inválidos
-
+                if (!camposValidos.includes(key)) return; 
                 if (key === 'roles' || key === 'puestos_asignados') {
                     payload.append(key, JSON.stringify(value));
-                } else if (key === 'activo') {
-                    payload.append(key, String(value));
                 } else {
                     payload.append(key, String(value));
                 }
@@ -97,10 +84,8 @@ export const NuevaPersonaPage = () => {
                 <UserPlus className="w-4 h-4 text-blue-600" />
                 <h2 className="text-gray-800 font-bold text-xs uppercase tracking-wider">Nuevo Recurso Humano</h2>
             </div>
-
             <FormPersona
                 formData={formData}
-                onChange={handleChange}
                 setFormData={setFormData}
                 setFotoFile={setFotoFile}
                 documentosFiles={documentosFiles}

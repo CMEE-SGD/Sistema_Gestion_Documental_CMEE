@@ -112,47 +112,50 @@ model Puesto {
 // ==========================================
 // 4. PERSONA
 // ==========================================
-model Persona {
-  id               Int       @id @default(autoincrement())
-  codigo           String?   @unique @db.VarChar(30)
-  saludo           String?   @db.VarChar(10)
-  nombre           String    @db.VarChar(100)
-  apellidos        String    @db.VarChar(100)
-  cedula_identidad String?   @unique @db.VarChar(20)
-  fecha_nacimiento DateTime? @db.Date
-  sexo             String?   @db.Char(1)
-  domicilio        String?   @db.VarChar(250)
-  ciudad           String?   @db.VarChar(100)
-  codigo_postal    String?   @db.VarChar(15)
-  provincia        String?   @db.VarChar(100)
-  telefono         String?   @db.VarChar(20)
-  fax              String?   @db.VarChar(20)
-  celular          String?   @db.VarChar(20)
-  email_1          String?   @db.VarChar(150)
-  email_2          String?   @db.VarChar(150)
-  foto_ruta        String?   @db.VarChar(500)
-  hoja_vida_ruta   String?   @db.VarChar(500)
-  tipo_recurso     String?   @default("Usuario del sistema") @db.VarChar(50)
-  fecha_alta       DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
-  idioma           String?   @default("Idioma por defecto del centro") @db.VarChar(50)
+// Definición de los tres estados requeridos para el personal
+enum EstadoPersona {
+  ACTIVO
+  INACTIVO
+  SUSPENDIDO
+}
 
-  activo    Boolean  @default(true)
+model Persona {
+  id               Int            @id @default(autoincrement())
+  grado            String?        @db.VarChar(30)  // Reemplaza a 'saludo' para registrar grados militares/profesionales abreviados
+  nombre           String         @db.VarChar(100)
+  apellidos        String         @db.VarChar(100)
+  cedula_identidad String?        @unique @db.VarChar(20)
+  fecha_nacimiento DateTime?      @db.Date
+  sexo             String?        @db.Char(1)      // Soporta 'M', 'F', 'O' (Otros)
+  domicilio        String?        @db.VarChar(250)
+  ciudad           String?        @db.VarChar(100)
+  provincia        String?        @db.VarChar(100) // Se manejará como texto, el desplegable se valida en Frontend
+  celular_1        String?        @db.VarChar(20)  // Reemplaza a 'telefono' fijo
+  celular_2        String?        @db.VarChar(20)  // Reemplaza a 'fax'
+  email_1          String?        @db.VarChar(150)
+  email_2          String?        @db.VarChar(150)
+  foto_ruta        String?        @db.VarChar(500)
+  hoja_vida_ruta   String?        @db.VarChar(500)
+  tipo_recurso     String?        @default("Usuario del sistema") @db.VarChar(50)
+  fecha_alta       DateTime       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  idioma           String?        @default("Idioma por defecto del centro") @db.VarChar(50)
+  
+  // Cambio de booleano a Enum de 3 estados
+  estado           EstadoPersona  @default(ACTIVO)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  // Relaciones inversas
-  usuario          Usuario?
-  puestos          PersonaPuesto[]
-  documentos       DocumentoPersona[]
-  deptos_responsable Departamento[]     @relation("DeptoResponsable")
-  roles            Rol[]              @relation("PersonaRoles") // N:M con Rol
-  carpetas_permisos CarpetaPermiso[]
+  // Relaciones inversas (Se mantienen intactas)
+  usuario                  Usuario?
+  puestos                  PersonaPuesto[]
+  documentos               DocumentoPersona[]
+  deptos_responsable       Departamento[]     @relation("DeptoResponsable")
+  roles                    Rol[]              @relation("PersonaRoles")
+  carpetas_permisos        CarpetaPermiso[]
   laboratorios_responsable Laboratorio[]
-
-  logs_recibidos Auditoria[] @relation("LogPersonaAfectada")
-  
-  // 👉 Relación agregada para enlazar con las fases en las que participa
-  fases_participadas FaseParticipante[]
+  logs_recibidos           Auditoria[]        @relation("LogPersonaAfectada")
+  fases_participadas       FaseParticipante[]
 
   @@map("persona")
 }

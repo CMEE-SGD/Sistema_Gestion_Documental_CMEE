@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRolDto } from './dto/create-rol.dto';
 import { UpdateRolDto } from './dto/update-rol.dto';
+
 @Injectable()
 export class RolesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -15,19 +16,19 @@ export class RolesService {
   }
 
   findAll() {
-  return this.prisma.rol.findMany({
-    orderBy: { orden: 'asc' },
-    include: {
-      personas: {
-        select: {
-          nombre: true,
-          apellidos: true,
-          codigo: true, // Importante para el código entre paréntesis
+    return this.prisma.rol.findMany({
+      orderBy: { orden: 'asc' },
+      include: {
+        personas: {
+          select: {
+            nombre: true,
+            apellidos: true,
+            // El campo codigo fue removido de la BD
+          },
         },
       },
-    },
-  });
-}
+    });
+  }
 
   async findOne(id: number) {
     const rol = await this.prisma.rol.findUnique({ where: { id } });
