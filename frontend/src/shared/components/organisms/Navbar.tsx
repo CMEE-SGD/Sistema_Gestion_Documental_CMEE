@@ -4,20 +4,10 @@ import UserMenu from '../molecules/UserMenu';
 
 const Navbar = () => {
   return (
-    <nav
-      className="w-full h-12 flex items-center px-3 gap-3"
-      style={{ backgroundColor: '#0057A8' }}
-    >
-      {/* ── Logo + nombre (Molécula) ── */}
+    <nav className="w-full h-14 flex items-center px-6 gap-6 bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
       <BrandLogo />
-
-      {/* ── Barra de busqueda (Molécula) ── */}
       <SearchDropdown />
-
-      {/* ── Spacer ── */}
       <div className="flex-1" />
-
-      {/* ── Menu de usuario (Molécula) ── */}
       <UserMenu />
     </nav>
   );

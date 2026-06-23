@@ -6,11 +6,13 @@ const BrandLogo = () => {
 
   return (
     <div
-      className="flex items-center gap-2 shrink-0 mr-2 cursor-pointer"
+      className="flex items-center gap-3 shrink-0 cursor-pointer group"
       onClick={() => navigate('/welcome')}
     >
-      <img src={logoCentro} alt="Logo CMEE" className="h-12 w-auto" />
-      <span className="text-white font-black text-sm tracking-widest uppercase">
+      <div className="bg-white/10 p-1.5 rounded-lg group-hover:bg-white/20 transition-colors">
+        <img src={logoCentro} alt="Logo CMEE" className="h-7 w-auto drop-shadow-sm" />
+      </div>
+      <span className="text-primary-foreground font-bold text-sm tracking-[0.15em] uppercase">
         SGD-CMEE
       </span>
     </div>

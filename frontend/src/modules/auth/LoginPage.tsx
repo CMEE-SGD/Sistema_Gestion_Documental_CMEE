@@ -1,22 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { Button } from "../../shared/components/atoms/button";
-import { users } from "../../shared/data/users"; // Fallback a usuarios quemados
+import { users } from "../../shared/data/users"; 
 import { logoCentro } from "../../assets";
 import { laboratorio } from "../../assets";
 import api from "../../core/api/axios";
+import { AlertCircle } from 'lucide-react'; // 👇 1. Importamos el ícono de alerta
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  
+  // 👇 2. Cambiamos error (string) por errores (arreglo de strings)
+  const [errores, setErrores] = useState<string[]>([]); 
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setErrores([]); // Limpiamos errores previos
     setLoading(true);
 
     try {
@@ -28,12 +31,8 @@ export default function LoginPage() {
         });
 
         const resData = response.data;
-        console.log("🔍 resData completo:", JSON.stringify(resData, null, 2));
-
-        // persona siempre viene en resData.persona según tu backend
         const personaRaw = resData.persona ?? {};
 
-        // Extraer puesto del array anidado de Prisma
         let puestoExtraido = 'Puesto no asignado';
         if (Array.isArray(personaRaw.puestos) && personaRaw.puestos.length > 0) {
           const rel = personaRaw.puestos.find((r: any) => r.activo === true) ?? personaRaw.puestos[0];
@@ -42,33 +41,28 @@ export default function LoginPage() {
 
         const userData = {
           id: resData.id,
+          persona_id: resData.persona_id,
           nombre_usuario: resData.nombre_usuario,
           rol: resData.rol || 'usuario',
+          grupos: resData.grupos ?? [],
           persona: {
             nombre: personaRaw.nombre ?? '',
             apellidos: personaRaw.apellidos ?? '',
-            foto_ruta: personaRaw.foto_ruta ?? '',   // ← directo, sin fallback a avatar
+            foto_ruta: personaRaw.foto_ruta ?? '',
             puesto: puestoExtraido
           }
         };
 
-        console.log("✅ Usuario formateado:", userData); // verifica que foto_ruta tenga valor
-
-        // Evaluamos cómo el backend nos está enviando el dato:
         if (typeof personaRaw.puesto === 'string') {
-          // Caso A: El backend ya hizo el mapeo directo
           puestoExtraido = personaRaw.puesto;
         } else if (typeof personaRaw.cargo === 'string') {
-          // Caso B: El backend usó la variable cargo
           puestoExtraido = personaRaw.cargo;
         } else if (personaRaw.puestos && Array.isArray(personaRaw.puestos) && personaRaw.puestos.length > 0) {
-          // Caso C (El de Prisma): Busca en el arreglo 'puestos' la relación activa
           const relacionActiva = personaRaw.puestos.find((rel: any) => rel.activo === true) || personaRaw.puestos[0];
           if (relacionActiva?.puesto?.nombre) {
             puestoExtraido = relacionActiva.puesto.nombre;
           }
         } else if (personaRaw.persona_puesto && Array.isArray(personaRaw.persona_puesto)) {
-          // Caso D: Fallback por si la relación se llamó 'persona_puesto'
           const relacionActiva = personaRaw.persona_puesto.find((rel: any) => rel.activo === true);
           if (relacionActiva?.puesto?.nombre) {
             puestoExtraido = relacionActiva.puesto.nombre;
@@ -78,22 +72,27 @@ export default function LoginPage() {
         // 4. Guardar y navegar
         localStorage.setItem('token', resData.token);
         localStorage.setItem('usuario', JSON.stringify(userData));
-
-        console.log("✅ Usuario formateado:", userData);
         navigate('/welcome');
         return;
 
       } catch (backendError: any) {
         console.warn("⚠️ Error backend:", backendError);
-        // Si es error de red o 404, pasamos al fallback
         if (backendError.message !== 'Network Error' && backendError.response?.status !== 404) {
-          setError(backendError.response?.data?.message || "Error de conexión");
+          
+          // 👇 3. Procesamos el error del backend para ver si es arreglo o string
+          const mensajeBackend = backendError.response?.data?.message;
+          if (Array.isArray(mensajeBackend)) {
+            setErrores(mensajeBackend);
+          } else {
+            setErrores([mensajeBackend || "Error de conexión"]);
+          }
+          
           setLoading(false);
           return;
         }
       }
 
-      // 5. Fallback: Usuarios quemados (si el backend falla)
+      // 5. Fallback: Usuarios quemados
       const localUser = users.find(
         (u) => u.username === username && u.password === password
       );
@@ -117,11 +116,11 @@ export default function LoginPage() {
         localStorage.setItem('usuario', JSON.stringify(userData));
         navigate('/welcome');
       } else {
-        setError("Usuario o contraseña incorrectos");
+        setErrores(["Usuario o contraseña incorrectos"]); // 👇 Fallback error
       }
 
     } catch (err) {
-      setError("Error inesperado");
+      setErrores(["Error inesperado"]); // 👇 Error general
       console.error(err);
     } finally {
       setLoading(false);
@@ -129,58 +128,69 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen w-full bg-blue-50">
-      <div className="flex w-full h-full overflow-hidden">
+    <div className="h-screen w-full bg-slate-100">
+      <div className="flex h-full">
 
-        {/* Panel Izquierdo - Imagen reducida con borde azul */}
-        <div className="hidden md:flex flex-col items-center justify-center w-1/2 bg-blue-900 p-10 relative">
-          {/* Patrón de puntos (se mantiene de fondo) */}
-          <div className="absolute inset-0 opacity-20 z-0 mix-blend-overlay"
+        {/* PANEL IZQUIERDO */}
+        <div className="hidden md:flex w-[55%] relative overflow-hidden bg-slate-800">
+          <img
+            src={laboratorio}
+            alt="Laboratorio"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-slate-900/45" />
+          <div className="absolute inset-0 opacity-10"
             style={{
-              backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)",
+              backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
               backgroundSize: "24px 24px",
             }}
           />
-
-          {/* Contenedor de la imagen que permite el borde */}
-          <div className="w-full h-full flex items-center justify-center z-10">
-            <img
-              src={laboratorio}
-              alt="Imagen de Laboratorio"
-              className="w-full max-h-full object-cover rounded-3xl shadow-2xl"
-            />
+          <div className="relative z-10 flex flex-col justify-end p-12 text-white">
+            <h2 className="text-4xl font-bold mb-4">
+              Sistema de Gestión Documental
+            </h2>
+            <p className="text-slate-200 text-lg max-w-lg">
+              Centro de Metrología del Ejército Ecuatoriano
+            </p>
           </div>
         </div>
 
-        {/* Panel Derecho - Formulario */}
-        <div className="w-full md:w-1/2 bg-white flex flex-col justify-center items-center px-6 py-12">
+        {/* PANEL DERECHO */}
+        <div className="flex-1 bg-slate-50 flex items-center justify-center px-8">
+          <div className="w-full max-w-md">
 
-          <div className="w-full max-w-sm">
-
-            {/* Logo */}
+            {/* LOGO */}
             <div className="flex justify-center mb-6">
               <img
                 src={logoCentro}
                 alt="Logo CMEE"
-                className="h-28 w-auto"
+                className="h-20 w-auto"
               />
             </div>
 
-            <h1 className="text-3xl font-extrabold text-blue-900 mb-1 text-center">Iniciar Sesion</h1>
-            <p className="text-gray-400 text-sm mb-8 text-center">Ingresa tus credenciales para continuar</p>
+            {/* TITULO */}
+            <div className="text-center mb-10">
+              <h1 className="text-4xl font-bold text-slate-800 mb-2">
+                Iniciar Sesión
+              </h1>
+              <p className="text-slate-500">
+                Ingrese sus credenciales para continuar
+              </p>
+              <div className="w-20 h-1 bg-[#1e3a5f] rounded-full mx-auto mt-4" />
+            </div>
 
-            <form onSubmit={handleLogin} className="flex flex-col gap-5">
+            {/* FORMULARIO */}
+            <form onSubmit={handleLogin} className="space-y-5">
 
-              {/* Campo Usuario */}
+              {/* USUARIO */}
               <div>
-                <label className="text-sm font-semibold text-blue-900 mb-1 block">
+                <label className="block mb-2 text-sm font-medium text-slate-700">
                   Usuario
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </span>
                   <input
@@ -188,21 +198,20 @@ export default function LoginPage() {
                     placeholder="Nombre de usuario"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border-2 border-blue-100 rounded-xl text-sm text-gray-700 placeholder-gray-300 focus:outline-none focus:border-blue-500 transition-colors bg-blue-50"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20 focus:border-[#1e3a5f] transition-all"
                   />
                 </div>
               </div>
 
-              {/* Campo Contraseña */}
+              {/* CONTRASEÑA */}
               <div>
-                <label className="text-sm font-semibold text-blue-900 mb-1 block">
+                <label className="block mb-2 text-sm font-medium text-slate-700">
                   Contraseña
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </span>
                   <input
@@ -210,46 +219,45 @@ export default function LoginPage() {
                     placeholder="Contraseña"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 border-2 border-blue-100 rounded-xl text-sm text-gray-700 placeholder-gray-300 focus:outline-none focus:border-blue-500 transition-colors bg-blue-50"
+                    className="w-full pl-10 pr-12 py-3 bg-white border border-slate-300 rounded-xl text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20 focus:border-[#1e3a5f] transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-300 hover:text-blue-600 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                   >
-                    {showPassword ? (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7z" />
-                      </svg>
-                    )}
+                    👁
                   </button>
                 </div>
               </div>
 
-              {/* Error */}
-              {error && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">
-                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {error}
+              {/* 👇 4. NUEVO DISEÑO DE ERRORES */}
+              {errores.length > 0 && (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start gap-3 w-full animate-in fade-in zoom-in duration-300">
+                  <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-bold text-rose-800 mb-1">
+                      No se pudo iniciar sesión
+                    </h3>
+                    <ul className="text-sm text-rose-600 font-medium space-y-1">
+                      {errores.map((err, index) => (
+                        <li key={index} className="flex items-start gap-1.5">
+                          <span className="text-rose-400 mt-0.5">•</span>
+                          {err}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               )}
+
+              {/* BOTON */}
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 text-sm tracking-widest uppercase mt-2 disabled:opacity-50"
+                className="w-full h-12 bg-[#1e3a5f] hover:bg-[#16324d] text-white rounded-xl font-medium disabled:opacity-50"
               >
-                {loading ? 'Validando...' : 'Acceder'}
+                {loading ? "Validando..." : "Acceder"}
               </Button>
 
             </form>

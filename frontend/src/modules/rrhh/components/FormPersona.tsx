@@ -4,6 +4,19 @@ import { Button } from '../../../shared/components/atoms/button';
 import LabelRow from './LabelRow';
 import { FormPersonaProps } from '../interfaces/FormPersonaProps';
 
+const PROVINCIAS_ECUADOR = [
+    "Azuay", "Bolívar", "Cañar", "Carchi", "Chimborazo", "Cotopaxi", "El Oro", 
+    "Esmeraldas", "Galápagos", "Guayas", "Imbabura", "Loja", "Los Ríos", "Manabí", 
+    "Morona Santiago", "Napo", "Orellana", "Pastaza", "Pichincha", "Santa Elena", 
+    "Santo Domingo de los Tsáchilas", "Sucumbíos", "Tungurahua", "Zamora Chinchipe"
+];
+
+const GRADOS = [
+    "Sr.", "Sra.", "Srta.", "Dr.", "Dra.", "Ing.", "Lic.", "Msc.", "PhD.",
+    "Crnl.", "Tcrn.", "Mayo.", "Capt.", "Tnte.", "Subt.",
+    "Subof. M.", "Subof. 1", "Subof. 2", "Sgop.", "Sgos.", "Cbop.", "Cbos.", "Sold."
+];
+
 const FormPersona = ({
   formData,
   setFormData,
@@ -16,24 +29,32 @@ const FormPersona = ({
   onSubmit,
   isEdit = false
 }: FormPersonaProps) => {
-  // ✅ Hook correctamente ubicado en el nivel superior
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
 
-  // ✅ Si estamos editando y ya hay una foto, mostrarla como preview inicial
   useEffect(() => {
     if (isEdit && formData.foto_ruta && !fotoPreview) {
       setFotoPreview(`http://localhost:3001${formData.foto_ruta}`);
     }
   }, [isEdit, formData.foto_ruta]);
 
-  // ==========================================
-  // MANEJADORES DE EVENTOS ENCAPSULADOS
-  // ==========================================
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    const checked = (e.target as HTMLInputElement).checked;
-    if (name === 'tipo_recurso') return; // Bloqueado
-    setFormData((prev: any) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    if (name === 'tipo_recurso') return;
+    setFormData((prev: any) => ({ ...prev, [name]: value }));
+  };
+
+  // 👇 Lógica de enmascarado para celulares (099-999-9999)
+  const handleCelularChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    let formatted = value.replace(/\D/g, ''); // Solo permite números
+    if (formatted.length > 10) formatted = formatted.slice(0, 10);
+    
+    if (formatted.length > 3 && formatted.length <= 6) {
+        formatted = `${formatted.slice(0, 3)}-${formatted.slice(3)}`;
+    } else if (formatted.length > 6) {
+        formatted = `${formatted.slice(0, 3)}-${formatted.slice(3, 6)}-${formatted.slice(6)}`;
+    }
+    setFormData((prev: any) => ({ ...prev, [name]: formatted }));
   };
 
   const handleRoleToggle = (rolId: number) => {
@@ -49,8 +70,6 @@ const FormPersona = ({
     setFormData((prev: any) => {
       const nuevosPuestos = [...prev.puestos_asignados];
       nuevosPuestos[index] = { ...nuevosPuestos[index], [field]: value };
-
-      // Límite de 3 puestos
       if (field === 'puesto_id' && value && index === nuevosPuestos.length - 1 && nuevosPuestos.length < 3) {
         nuevosPuestos.push({ departamento_id: '', puesto_id: '' });
       }
@@ -66,9 +85,8 @@ const FormPersona = ({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setFotoFile(file);
-      // Crear URL temporal para la vista previa
-      const previewUrl = URL.createObjectURL(file);
-      setFotoPreview(previewUrl);
+      setFotoPreview(URL.createObjectURL(file));
+      setFormData((prev: any) => ({ ...prev, eliminar_foto: false }));
     }
   };
 
@@ -78,22 +96,18 @@ const FormPersona = ({
     }
   };
 
-  // NUEVA FUNCIÓN: Eliminar documento
   const handleRemoveDocumento = (index: number) => {
     setDocumentosFiles((prev: File[]) => prev.filter((_, i) => i !== index));
   };
 
-  // ✅ NUEVA FUNCIÓN: Eliminar foto seleccionada
   const handleEliminarFoto = () => {
     setFotoPreview(null);
     setFotoFile(null);
+    setFormData((prev: any) => ({ ...prev, eliminar_foto: true }));
     const input = document.getElementById('foto_upload') as HTMLInputElement;
     if (input) input.value = '';
   };
 
-  // ==========================================
-  // RENDERIZADO DEL FORMULARIO
-  // ==========================================
   return (
     <form onSubmit={onSubmit} className="bg-[#f2f2f2] border-l-[6px] border-[#006400] text-[11px]">
       <div className="p-8 bg-white">
@@ -101,78 +115,36 @@ const FormPersona = ({
           Datos personales
         </h3>
 
-        {/* ========================================================
-                BLOQUE 1: FOTO (Izquierda) + NOMBRES (Derecha)
-            ======================================================== */}
         <div className="flex flex-col md:flex-row gap-10 mb-2">
-          {/* Contenedor de Foto */}
+          {/* FOTO */}
           <div className="flex flex-col items-center gap-3 text-center w-40 shrink-0">
-            {/* ✅ Mostrar preview o ícono */}
             <div className="w-32 h-40 border border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden rounded-sm shadow-inner relative">
               {fotoPreview ? (
-                <img
-                  src={fotoPreview}
-                  alt="Vista previa"
-                  className="w-full h-full object-cover"
-                />
+                <img src={fotoPreview} alt="Vista previa" className="w-full h-full object-cover" />
               ) : (
                 <User className="w-16 h-16 text-gray-300 stroke-[1.5]" />
               )}
             </div>
-
             <div className="w-full text-left flex flex-col items-center mt-1">
-              <label className="flex items-center justify-center gap-1.5 cursor-pointer text-[10px] text-gray-700 mb-3 hover:text-blue-600 transition-colors">
-                <input
-                  type="checkbox"
-                  name="mostrar_ampliacion"
-                  checked={formData.mostrar_ampliacion}
-                  onChange={handleChange}
-                  className="w-3.5 h-3.5 rounded border-gray-300 cursor-pointer"
-                />
-                Mostrar ampliación
-              </label>
-
-              <input
-                type="file"
-                id="foto_upload"
-                accept="image/*"
-                onChange={handleFotoChange}
-                className="hidden"
-              />
-
-              <label
-                htmlFor="foto_upload"
-                className="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-800 text-[10px] font-bold uppercase px-4 py-2 rounded transition-colors shadow-sm flex items-center justify-center gap-1.5 w-full border border-gray-300"
-              >
+              <input type="file" id="foto_upload" accept="image/*" onChange={handleFotoChange} className="hidden" />
+              <label htmlFor="foto_upload" className="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-800 text-[10px] font-bold uppercase px-4 py-2 rounded transition-colors shadow-sm flex items-center justify-center gap-1.5 w-full border border-gray-300">
                 <ImageIcon className="w-3.5 h-3.5" />
                 {fotoPreview ? 'Cambiar Foto' : 'Fichero de Foto'}
               </label>
-
-              {/* ✅ Botón para eliminar la foto seleccionada */}
               {fotoPreview && (
-                <button
-                  type="button"
-                  onClick={handleEliminarFoto}
-                  className="mt-2 text-[9px] text-red-600 hover:text-red-800 font-bold px-3 py-1 border border-red-200 rounded hover:bg-red-50 transition-colors"
-                >
+                <button type="button" onClick={handleEliminarFoto} className="mt-2 text-[9px] text-red-600 hover:text-red-800 font-bold px-3 py-1 border border-red-200 rounded hover:bg-red-50 transition-colors">
                   Eliminar Foto
                 </button>
               )}
             </div>
           </div>
 
-          {/* Contenedor de Nombres */}
+          {/* DATOS BÁSICOS */}
           <div className="flex-1 flex flex-col justify-start pt-2">
-            <LabelRow label="Código: " requerido mb="mb-4">
-              <input type="text" name="codigo" required value={formData.codigo} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-48 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm transition-all" />
-            </LabelRow>
-
-            <LabelRow label="Saludo: " mb="mb-4">
-              <select name="saludo" value={formData.saludo} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-48 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm transition-all">
+            <LabelRow label="Grado: " mb="mb-4">
+              <select name="grado" value={formData.grado} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-48 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm transition-all">
                 <option value="">Seleccione...</option>
-                <option value="Sr.">Sr.</option> <option value="Sra.">Sra.</option> <option value="Srta.">Srta.</option>
-                <option value="Dr.">Dr.</option> <option value="Dra.">Dra.</option> <option value="Ing.">Ing.</option>
-                <option value="Lic.">Lic.</option> <option value="Msc.">Msc.</option>
+                {GRADOS.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
             </LabelRow>
 
@@ -183,59 +155,58 @@ const FormPersona = ({
             <LabelRow label="Apellidos: " requerido mb="mb-4">
               <input type="text" name="apellidos" required value={formData.apellidos} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-lg bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm transition-all" />
             </LabelRow>
-          </div>
-        </div>
 
-        {/* ========================================================
-            BLOQUE 2: DETALLES DE CONTACTO (100% del ancho)
-        ======================================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 pt-6 border-t border-gray-200 mt-4">
-          {/* Columna Izquierda */}
-          <div>
             <LabelRow label="C.I. / Pasaporte: " mb="mb-4">
               <input type="text" required name="cedula_identidad" value={formData.cedula_identidad} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-48 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
             </LabelRow>
-            <LabelRow label="Fecha Nacimiento: " mb="mb-4">
-              <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-40 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
+          </div>
+        </div>
+
+        {/* GRID DE DATOS (Orden Lógico Aplicado) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 pt-6 border-t border-gray-200 mt-4">
+          
+          {/* COLUMNA 1: Ubicación */}
+          <div>
+            <LabelRow label="Provincia: " mb="mb-4">
+                <select name="provincia" value={formData.provincia} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-[250px] bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm">
+                    <option value="">Seleccione una provincia...</option>
+                    {PROVINCIAS_ECUADOR.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
             </LabelRow>
+            <LabelRow label="Ciudad: " mb="mb-4">
+              <input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-[250px] bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
+            </LabelRow>
+            <LabelRow label="Domicilio: " mb="mb-4">
+              <input type="text" name="domicilio" value={formData.domicilio} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
+            </LabelRow>
+          </div>
+
+          {/* COLUMNA 2: Contacto y Personal */}
+          <div>
             <LabelRow label="Sexo: " mb="mb-4">
-              <div className="flex items-center gap-6 mt-1.5">
+              <div className="flex items-center gap-5 mt-1.5">
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input type="radio" name="sexo" value="M" checked={formData.sexo === 'M'} onChange={handleChange} className="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500 cursor-pointer" /> Masculino
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input type="radio" name="sexo" value="F" checked={formData.sexo === 'F'} onChange={handleChange} className="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500 cursor-pointer" /> Femenino
                 </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="sexo" value="O" checked={formData.sexo === 'O'} onChange={handleChange} className="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500 cursor-pointer" /> Otros
+                </label>
               </div>
             </LabelRow>
-            <LabelRow label="Domicilio: " mb="mb-4">
-              <input type="text" name="domicilio" value={formData.domicilio} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
+            <LabelRow label="Fecha Nacimiento: " mb="mb-4">
+              <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-40 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
             </LabelRow>
-            <LabelRow label="Ciudad: " mb="mb-4">
-              <input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-[250px] bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
-            </LabelRow>
-          </div>
-
-          {/* Columna Derecha */}
-          <div>
-            <LabelRow label="Provincia: " mb="mb-4">
-              <input type="text" name="provincia" value={formData.provincia} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-[250px] bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
-            </LabelRow>
-            <LabelRow label="Código Postal: " mb="mb-4">
-              <input type="text" name="codigo_postal" value={formData.codigo_postal} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-32 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
-            </LabelRow>
-
             <LabelRow label="Teléfonos: " mb="mb-4">
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="w-10 text-gray-600 font-medium">Fijo: </span>
-                  <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-28 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
-                  <span className="w-8 text-gray-600 font-medium ml-3">Fax: </span>
-                  <input type="text" name="fax" value={formData.fax} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-28 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-10 text-gray-600 font-medium">Celular: </span>
-                  <input type="text" name="celular" value={formData.celular} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-32 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
+                  <span className="w-14 text-gray-600 font-medium">Celular 1: </span>
+                  <input type="text" name="celular_1" value={formData.celular_1} onChange={handleCelularChange} placeholder="099-999-9999" className="border border-gray-300 px-2 py-1 w-32 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm placeholder:text-gray-300" />
+                  
+                  <span className="w-14 text-gray-600 font-medium ml-3">Celular 2: </span>
+                  <input type="text" name="celular_2" value={formData.celular_2} onChange={handleCelularChange} placeholder="099-999-9999" className="border border-gray-300 px-2 py-1 w-32 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm placeholder:text-gray-300" />
                 </div>
               </div>
             </LabelRow>
@@ -251,11 +222,11 @@ const FormPersona = ({
           </div>
         </div>
 
-        {/* --- DOCUMENTOS ADJUNTOS --- */}
+        {/* RESTO DEL FORMULARIO (Documentos, Puestos, Roles) QUEDA IGUAL */}
         <div className="border-t border-b border-gray-300 py-5 mb-8 mt-4 flex flex-col gap-2 bg-gray-50 px-6 -mx-8">
           <div className="flex items-start gap-4">
             <div className="w-40 font-bold pt-1 text-gray-800">
-              Documentos adjuntos <br /> <span className="font-normal text-gray-500 text-[9px]">(CV, Certificados, etc)</span>
+              Documentos adjuntos <br /> <span className="font-normal text-gray-500 text-[9px]">(CV, Certificados)</span>
             </div>
             <div className="flex-1">
               <input type="file" multiple accept=".pdf" onChange={handleDocumentosChange} className="text-[11px] file:mr-4 file:py-1 file:px-3 file:rounded-sm file:border file:border-gray-300 file:bg-gray-200 hover:file:bg-gray-300 cursor-pointer" />
@@ -264,20 +235,11 @@ const FormPersona = ({
                   {documentosFiles.map((file, idx) => (
                     <li key={idx} className="mb-1.5 flex items-center justify-between group">
                       <div className="flex items-center gap-2">
-                        <span className="text-blue-700">
-                          <FileText className="w-3 h-3 inline mr-1" />
-                        </span>
+                        <span className="text-blue-700"><FileText className="w-3 h-3 inline mr-1" /></span>
                         <span className="font-semibold text-gray-800">{file.name}</span>
                         <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDocumento(idx)}
-                        className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors opacity-0 group-hover:opacity-100"
-                        title="Eliminar documento"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      <button type="button" onClick={() => handleRemoveDocumento(idx)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors opacity-0 group-hover:opacity-100"><X className="w-4 h-4" /></button>
                     </li>
                   ))}
                 </ul>
@@ -286,11 +248,11 @@ const FormPersona = ({
           </div>
         </div>
 
-        {/* --- PUESTOS --- */}
         <div className="flex items-center justify-between mb-5 mt-2">
           <h3 className="font-bold text-[12px] text-gray-900 underline uppercase tracking-wide flex items-center gap-2"> <Briefcase className="w-4 h-4 text-gray-700" /> Puestos </h3>
           <button type="button" onClick={handleLimpiarPuestos} className="text-[10px] text-red-600 hover:text-red-800 font-bold px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded flex items-center gap-1.5 transition-colors"> <Trash2 className="w-3 h-3" /> Limpiar Puestos </button>
         </div>
+        
         <div className="flex flex-col gap-4 mb-10">
           {formData.puestos_asignados?.map((asignacion: any, index: number) => (
             <div key={index} className="flex items-start bg-gray-50 p-4 rounded border border-gray-200 shadow-sm">
@@ -307,26 +269,31 @@ const FormPersona = ({
           ))}
         </div>
 
-        {/* --- ROLES --- */}
         <div className="border-t border-gray-300 pt-6 mb-10">
           <h3 className="font-bold text-[12px] mb-5 text-gray-900 underline uppercase tracking-wide">Roles</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {rolesLista.map((rol) => (
+            {rolesLista.map((rol: any) => (
               <label key={rol.id} className="flex items-center gap-2.5 cursor-pointer hover:bg-gray-100 p-2.5 w-full rounded border border-transparent hover:border-gray-200 transition-colors">
                 <input type="checkbox" checked={formData.roles.includes(rol.id)} onChange={() => handleRoleToggle(rol.id)} className="w-3.5 h-3.5 text-blue-600 rounded-sm cursor-pointer" />
-                <div className="w-4 h-4 flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4 fill-blue-800 text-blue-800" />
-                </div>
+                <div className="w-4 h-4 flex items-center justify-center shrink-0"><User className="w-4 h-4 fill-blue-800 text-blue-800" /></div>
                 <span className="font-medium text-gray-700">{rol.nombre}</span>
               </label>
             ))}
           </div>
         </div>
 
-        {/* --- DATOS DEL SISTEMA --- */}
+        {/* 👇 SELECT DE 3 ESTADOS */}
         <div className="border-t border-gray-300 pt-6 grid grid-cols-1 md:grid-cols-3 gap-6 items-center bg-gray-50 p-4 -mx-8">
-          <LabelRow label="Orden: " mb="mb-0"> <input type="number" name="orden" value={formData.orden} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-20 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" /> </LabelRow>
-          <LabelRow label="Estado Activo: " mb="mb-0"> <input type="checkbox" name="activo" checked={formData.activo} onChange={handleChange} className="w-4 h-4 text-[#006400] rounded mt-1 cursor-pointer" /> </LabelRow>
+          <LabelRow label="Orden: " mb="mb-0"> 
+            <input type="number" name="orden" value={formData.orden} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-20 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" /> 
+          </LabelRow>
+          <LabelRow label="Estado: " mb="mb-0"> 
+            <select name="estado" value={formData.estado} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-40 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm font-bold">
+                <option value="ACTIVO">ACTIVO</option>
+                <option value="INACTIVO">INACTIVO</option>
+                <option value="SUSPENDIDO">SUSPENDIDO</option>
+            </select>
+          </LabelRow>
         </div>
       </div>
 

@@ -14,7 +14,7 @@ export const NuevoFicheroPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [nombrePropietario, setNombrePropietario] = useState('Cargando...');
-    const [listaCircuitos, setListaCircuitos] = useState<string[]>([]);
+    const [listaCircuitos, setListaCircuitos] = useState<{id: number, nombre: string}[]>([]);
 
     // Estado para el archivo físico
     const [archivoPdf, setArchivoPdf] = useState<File | null>(null);
@@ -22,7 +22,7 @@ export const NuevoFicheroPage = () => {
     // Estados para los campos de texto
     const [formData, setFormData] = useState({
         empresa: 'Centro de Metrología del Ejército Ecuatoriano',
-        circuito: 'SIN_CLASIFICAR',
+        circuito_id: '',
         fecha: new Date().toISOString().split('T')[0],
         estado: true,
         titulo: '',
@@ -116,7 +116,7 @@ export const NuevoFicheroPage = () => {
             submitData.append('propietario', nombrePropietario);
             submitData.append('carpeta_id', carpetaPadreId.toString());
             submitData.append('empresa', formData.empresa);
-            submitData.append('circuito', formData.circuito);
+            if (formData.circuito_id) submitData.append('circuito_id', formData.circuito_id);
             submitData.append('fecha_documento', formData.fecha);
             submitData.append('activo', String(formData.estado));
             submitData.append('nombre', formData.titulo);
@@ -187,12 +187,13 @@ export const NuevoFicheroPage = () => {
                     <div className="flex items-center gap-4">
                         <label className="w-24 text-gray-700 font-medium">Circuito:</label>
                         <select 
-                            name="circuito" value={formData.circuito} onChange={handleChange}
+                            name="circuito_id" value={formData.circuito_id} onChange={handleChange}
                             className="flex-1 border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500"
                         >
-                            {listaCircuitos.map(circuito => (
-                                <option key={circuito} value={circuito}>
-                                    {circuito.replace(/_/g, ' ')}
+                            <option value="">Seleccione un circuito</option>
+                            {listaCircuitos.map(c => (
+                                <option key={c.id} value={c.id}>
+                                    {c.nombre}
                                 </option>
                             ))}
                         </select>

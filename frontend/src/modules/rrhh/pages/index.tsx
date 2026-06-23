@@ -25,7 +25,7 @@ export const IndexRRHHPage = () => {
         ]);
 
         setStats({
-          personas: Array.isArray(pRes.data) ? pRes.data.filter((i: any) => i.activo).length : 0,
+          personas: Array.isArray(pRes.data) ? pRes.data.filter((i: any) => i.estado === 'ACTIVO').length : 0,
           puestos: Array.isArray(puRes.data) ? puRes.data.filter((i: any) => i.activo).length : 0,
           roles: Array.isArray(rRes.data) ? rRes.data.filter((i: any) => i.activo).length : 0,
           grupos: Array.isArray(gRes.data) ? gRes.data.filter((i: any) => i.activo).length : 0

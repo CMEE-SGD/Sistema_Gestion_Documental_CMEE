@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
+// --- IMPORTACIONES BASE Y RRHH (De tu compañero) ---
 import LoginPage from '../../modules/auth/LoginPage';
 import WelcomePage from '../../modules/inicio/Index';
 import { IndexRRHHPage } from '../../modules/rrhh/pages/index';
@@ -22,6 +24,14 @@ import { EditarPersonaPage } from '../../modules/rrhh/pages/persona/EditarPerson
 import AccesoDenegadoPage from '../../modules/auth/AccesoDenegadoPage';
 import { DocumentosPersonaPage } from '../../modules/rrhh/pages/persona/DocumentosPersonaPage';
 
+// --- IMPORTACIONES DE LABORATORIOS ---
+import { LaboratoriosPage } from '../../modules/laboratorios/pages/LaboratoriosPage';
+import { LaboratoriosLayout } from '../../modules/laboratorios/LaboratoriosLayout';
+import { EquiposPage } from '../../modules/laboratorios/pages/equipos/EquiposPages';
+import { ServiciosPage } from '../../modules/laboratorios/pages/servicios/ServiciosPage';
+import { NuevoServicioPage } from '../../modules/laboratorios/pages/servicios/NuevoServicioPage';
+import { EditarServicioPage } from '../../modules/laboratorios/pages/servicios/EditarServicioPage';
+
 // --- IMPORTACIONES DE USUARIOS CORREGIDAS ---
 import { UsuarioFormPage } from '../../modules/usuarios/UsuarioFormPage';
 import { UsuariosLayout } from '../../modules/usuarios/UsuariosLayout';
@@ -33,11 +43,10 @@ import { GrupoFormPage } from '../../modules/usuarios/GrupoFormPage';
 import { GestorDocumentalPage } from '../../modules/gestor_documental/pages/index';
 import { NuevaCarpetaPage } from '../../modules/gestor_documental/pages/NuevaCarpetaPage';
 import { GestorDocumentalLayout } from '../../modules/gestor_documental/components/GDLayout';
-import {NuevoFicheroPage} from '../../modules/gestor_documental/pages/NuevoFicheroPage';
+import { NuevoFicheroPage } from '../../modules/gestor_documental/pages/NuevoFicheroPage';
 import { MoverDocumentosPage } from '../../modules/gestor_documental/pages/MoverDocumentoPage';
 import { DetalleDocumentoPage } from '../../modules/gestor_documental/pages/DetalleDocumentoPage';
-// import { ConfiguracionGestorPage } from '../../pages/gestorDocumental/configuracion/ConfiguracionGestorPage';
-import  LayoutConfiguracion  from '../../modules/gestor_documental/components/LayoutConfiguracion';
+import LayoutConfiguracion from '../../modules/gestor_documental/components/LayoutConfiguracion';
 import { LibreriasConfigPage } from '../../modules/gestor_documental/pages/configuracion/LibreriaConfigPage';
 import { AreasConfigPage } from '../../modules/gestor_documental/pages/configuracion/AreasConfigPage';
 import { CarpetasConfigPage } from '../../modules/gestor_documental/pages/configuracion/CarpetasConfigPage';
@@ -65,9 +74,7 @@ const AppRouter = () => {
           <Route index element={<UsuariosPage />} />
           <Route path="nuevo" element={<UsuarioFormPage />} />
           <Route path="editar/:id" element={<UsuarioFormPage />} />
-
           <Route path="grupos" element={<UsuariosGruposPage />} />
-
           <Route path="grupos/nuevo" element={<GrupoFormPage />} />
           <Route path="grupos/editar/:id" element={<GrupoFormPage />} />
         </Route>
@@ -94,48 +101,44 @@ const AppRouter = () => {
           <Route path="personas/:id" element={<DetallePersonaPage />} />
           <Route path="personas/editar/:id" element={<EditarPersonaPage />} />
           <Route path="personas/:id/documentos" element={<DocumentosPersonaPage />} />
-          
           <Route path="personalizacion" element={<div>Configuración de RRHH</div>} />
         </Route>
+        
+        {/* ---------------------------------------------------- */}
+        {/* MÓDULO DE LABORATORIOS                               */}
+        {/* ---------------------------------------------------- */}
+        <Route path="/laboratorios" element={<LaboratoriosLayout />}>
+          <Route index element={<LaboratoriosPage />} />
+          <Route path="equipos" element={<EquiposPage />} />
+          <Route path="servicios" element={<ServiciosPage />} />
+          <Route path="servicios/nuevo" element={<NuevoServicioPage />} />
+          <Route path="servicios/editar/:id" element={<EditarServicioPage />} />
+        </Route>
+        
 
-       {/* ---------------------------------------------------- */}
+        {/* ---------------------------------------------------- */}
         {/* MÓDULO DE GESTOR DOCUMENTAL                          */}
         {/* ---------------------------------------------------- */}
         <Route path="/gestordocumental" element={<GestorDocumentalLayout />}>
-          {/* Ruta raíz (Muestra las librerías principales) */}
           <Route index element={<GestorDocumentalPage />} />
-          {/* Ruta dinámica para navegar dentro de una carpeta específica */}
           <Route path="carpeta/:id" element={<GestorDocumentalPage />} />
-          {/* Ruta para crear nueva carpeta */}
           <Route path="nueva-carpeta" element={<NuevaCarpetaPage />} />
-          {/* Ruta para crear nuevo fichero */}
           <Route path="nuevo-fichero" element={<NuevoFicheroPage />} />
-          {/* Ruta para mover documentos */}
           <Route path="mover-documentos" element={<MoverDocumentosPage />} />
-          {/* Ruta para ver detalles de un documento */}
           <Route path="documento/:id" element={<DetalleDocumentoPage />} />
-          
         </Route>
+
         {/* RUTA MAESTRA DE CONFIGURACIÓN */}
-    <Route path="/gestordocumental/configuracion" element={<LayoutConfiguracion />}>
-        
-        {/* Redirección automática: si entra a /configuracion, lo manda a /librerias */}
-        <Route index element={<LibreriasConfigPage />} />
-        <Route path="areas" element={<AreasConfigPage />} />
-        <Route path="carpetas" element={<CarpetasConfigPage />} />
-        <Route path="circuitos" element={<CircuitosConfigPage />} />
-        <Route path="circuitos/:circuitoId/fases" element={<FasesConfigPage />} />
-        <Route path="circuitos/nuevo" element={<NuevoCircuitoPage />} />
-        <Route path="circuitos/:circuitoId/fases/nueva" element={<NuevaFasePage />} /> 
-        <Route path="circuitos/:circuitoId/fases/:faseId/editar" element={<EditarFasePage />} />
-        
-        {/* Las vistas que se inyectarán en el <Outlet /> */}
-        {/* <Route path="librerias" element={<LibreriasConfigPage />} />
-        <Route path="areas" element={<AreasConfigPage />} />
-        <Route path="carpetas" element={<CarpetasConfigPage />} />
-        <Route path="circuitos" element={<CircuitosConfigPage />} /> */}
-        
-    </Route>
+        <Route path="/gestordocumental/configuracion" element={<LayoutConfiguracion />}>
+          <Route index element={<LibreriasConfigPage />} />
+          <Route path="areas" element={<AreasConfigPage />} />
+          <Route path="carpetas" element={<CarpetasConfigPage />} />
+          <Route path="circuitos" element={<CircuitosConfigPage />} />
+          <Route path="circuitos/:circuitoId/fases" element={<FasesConfigPage />} />
+          <Route path="circuitos/nuevo" element={<NuevoCircuitoPage />} />
+          <Route path="circuitos/:circuitoId/fases/nueva" element={<NuevaFasePage />} /> 
+          <Route path="circuitos/:circuitoId/fases/:faseId/editar" element={<EditarFasePage />} />
+        </Route>
 
         {/* ---------------------------------------------------- */}
         {/* MÓDULO DE CONFIGURACIÓN / AUDITORÍA                  */}

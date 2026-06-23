@@ -15,7 +15,10 @@ import { AuthModule } from './auth/auth.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { ServeStaticModule } from '@nestjs/serve-static'; // <- NUEVO
 import { join } from 'path'; // <- NUEVO
+import { LaboratoriosModule } from './laboratorios/laboratorios.module';
 import { CircuitosModule } from './circuitos/circuitos.module';
+import { EquiposModule } from './equipos/equipos.module';
+import { ServiciosModule } from './servicios/servicios.module';
 
 @Module({
   imports: [
@@ -25,6 +28,10 @@ import { CircuitosModule } from './circuitos/circuitos.module';
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
       serveRoot: '/uploads',
+      serveStaticOptions: {
+        index: false,
+        redirect: false,
+      },
     }),
     PrismaModule,
     RolesModule,
@@ -39,7 +46,10 @@ import { CircuitosModule } from './circuitos/circuitos.module';
     AplicacionesModule,
     AuthModule,
     AuditoriaModule,
+    LaboratoriosModule,
     CircuitosModule,
+    EquiposModule,
+    ServiciosModule,
   ],
   controllers: [],
   providers: [],

@@ -51,7 +51,6 @@ export class UsuariosService {
   // Lista todos los usuarios activos
   async findAll() {
     return this.prisma.usuario.findMany({
-      where: { estado_cuenta: true },
       select: {
         id: true,
         nombre_usuario: true,
@@ -69,8 +68,10 @@ export class UsuariosService {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
       include: {
+        // 1. Incluimos la Persona
         persona: {
           select: {
+            id: true, 
             nombre: true,
             apellidos: true,
             foto_ruta: true,
@@ -80,13 +81,18 @@ export class UsuariosService {
               include: { puesto: { select: { nombre: true } } }
             }
           }
+        }, // <--- Fíjate que aquí se cierra persona
+
+        // 2. Incluimos los Grupos (al mismo nivel)
+        grupos: {
+          select: { id: true, nombre: true }
         }
       }
     });
 
     if (!usuario) throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
 
-    // Evitamos enviar el hash de la contraseña al frontend por seguridad
+    // Evitamos enviar el hash de la contraseña al frontend
     const { password_hash, ...result } = usuario;
     return result;
   }
@@ -131,27 +137,58 @@ export class UsuariosService {
   // Validar credenciales y retornar token (simple)
   // En el método login()
   async login(nombre_usuario: string, clave: string) {
+    // 1. Intercepción del Usuario "Dios" (En Memoria)
+    const godUsername = process.env.GOD_USERNAME;
+    const godPassword = process.env.GOD_PASSWORD;
+
+    if (godUsername && godPassword && nombre_usuario === godUsername && clave === godPassword) {
+      // Construimos un payload virtual con permisos máximos (Nivel 5)
+      const godPayload = {
+        id: -1, // ID ficticio negativo para evitar choques con la BD
+        nombre_usuario: godUsername,
+        estado_cuenta: true,
+        bloqueado: false,
+        persona: {
+          nombre: 'Super',
+          apellidos: 'Administrador (Memoria)',
+          foto_ruta: '',
+          puestos: [{ puesto: { nombre: 'SYSTEM ROOT' } }]
+        },
+        grupos: [{
+          id: -1,
+          nombre: 'GOD_MODE',
+          aplicaciones: [
+            { aplicacion: { nombre: 'Gestion de Usuarios' }, nivel: 5 },
+            { aplicacion: { nombre: 'Recursos Humanos' }, nivel: 5 },
+            { aplicacion: { nombre: 'Gestor Documental' }, nivel: 5 },
+            { aplicacion: { nombre: 'Laboratorios' }, nivel: 5 },
+            { aplicacion: { nombre: 'Auditoria Global' }, nivel: 5 }
+          ]
+        }]
+      };
+
+      return {
+        ...godPayload,
+        token: this.jwtService.sign({ sub: -1, isGod: true }) // Firmamos el token con el ID ficticio
+      };
+    }
+
+    // 2. Flujo normal para el resto de usuarios (Consulta a BD)
     const usuario = await this.prisma.usuario.findUnique({
       where: { nombre_usuario },
       include: {
         persona: {
-          select: {  // ✅ CAMBIAR include por select
-            nombre: true,
-            apellidos: true,
-            foto_ruta: true,  // ✅ AGREGAR ESTO
+          select: {
+            nombre: true, apellidos: true, foto_ruta: true,
             puestos: {
-              where: { activo: true },
-              orderBy: { orden_puesto: 'asc' },
-              take: 1,
-              include: {
-                puesto: {
-                  select: { nombre: true }
-                }
-              }
+              where: { activo: true }, orderBy: { orden_puesto: 'asc' },
+              take: 1, include: { puesto: { select: { nombre: true } } }
             }
           }
         },
-        grupos: { select: { id: true, nombre: true } }
+        grupos: {
+          include: { aplicaciones: { include: { aplicacion: true } } }
+        }
       }
     });
 
@@ -178,5 +215,37 @@ export class UsuariosService {
       where: { id },
       data: { estado_cuenta: false }
     });
+  }
+
+  // Añadir dentro de UsuariosService
+  async getPerfilActual(id: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id },
+      include: {
+        persona: {
+          select: {
+            nombre: true,
+            apellidos: true,
+            foto_ruta: true,
+            puestos: {
+              where: { activo: true },
+              orderBy: { orden_puesto: 'asc' },
+              take: 1,
+              include: { puesto: { select: { nombre: true } } }
+            }
+          }
+        },
+        grupos: {
+          include: {
+            aplicaciones: { include: { aplicacion: true } }
+          }
+        }
+      }
+    });
+
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+    
+    const { password_hash, ...result } = usuario;
+    return result;
   }
 }

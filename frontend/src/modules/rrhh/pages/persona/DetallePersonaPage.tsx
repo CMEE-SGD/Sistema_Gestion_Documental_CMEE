@@ -6,6 +6,7 @@ import { Persona } from '../../interfaces/persona.interface';
 import PrintHeader from '../../../../shared/components/organisms/PrintHeader';
 import { Button } from '../../../../shared/components/atoms/button';
 import FichaPersona from '../../components/FichaPersona';
+import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos auth
 
 interface DocumentoAdjunto {
     id: number;
@@ -19,7 +20,6 @@ export const DetallePersonaPage = () => {
     const [persona, setPersona] = useState<Persona | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Estados para el Log y Documentos
     const [mostrarLogs, setMostrarLogs] = useState(false);
     const [logsPersona, setLogsPersona] = useState([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
@@ -84,8 +84,17 @@ export const DetallePersonaPage = () => {
 
             <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-gray-300 bg-gray-50 print:hidden">
                 <Button variant="clasico" onClick={() => navigate('/rrhh/personas')}> Atrás</Button>
-                <Button onClick={() => navigate(`/rrhh/personas/editar/${id}`)} variant="clasico">Editar</Button>
-                <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
+                
+                {/* 👇 Ocultamos Editar (Nivel 4) */}
+                {tienePermiso('Recursos Humanos', 4) && (
+                    <Button onClick={() => navigate(`/rrhh/personas/editar/${id}`)} variant="clasico">Editar</Button>
+                )}
+                
+                {/* 👇 Ocultamos Eliminar (Nivel 5) */}
+                {tienePermiso('Recursos Humanos', 5) && (
+                    <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
+                )}
+                
                 <Button onClick={() => navigate(`/rrhh/personas/${id}/documentos`)} variant="clasico">Documentos</Button>
                 <Button variant="imprimir" />
                 <Button onClick={handleToggleLogs} variant="clasico">Log</Button>

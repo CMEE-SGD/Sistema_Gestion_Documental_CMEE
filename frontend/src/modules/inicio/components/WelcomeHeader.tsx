@@ -1,27 +1,37 @@
 import { logoCentro } from '../../../assets';
 
 const WelcomeHeader = () => {
-  return (
-    <div className="bg-white border border-gray-200 rounded shadow-sm flex items-center gap-6 px-8 py-8 mb-4">
-      <div className="shrink-0 border border-gray-300 rounded p-1 bg-white">
-        <img src={logoCentro} alt="Logo CMEE" className="h-36 w-36 object-contain" />
-      </div>
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold text-gray-800">
-          Centro de Metrologia del Ejercito Ecuatoriano
-        </h1>
-        <p className="text-sm font-bold text-gray-600 uppercase tracking-wide">
-          EL CENTRO DE METROLOGIA CONTRIBUYENDO A LA CULTURA DE CALIDAD DEL PAIS
-        </p>
-        <p className="text-sm text-gray-500 mt-1">
-          "Si tienes mucho, da mucho; si tienes poco, da poco; pero da siempre."
-        </p>
-        <p className="text-sm italic text-gray-400">
-          Biblia, Libro de Tobias
-        </p>
-      </div>
-    </div>
-  );
+    return (
+        <div className="bg-card border border-border rounded-2xl shadow-sm flex flex-col md:flex-row items-center md:items-start gap-8 px-10 py-10 mb-6">
+            <img 
+                src={logoCentro} 
+                alt="Logo CMEE" 
+                className="h-32 w-32 object-contain drop-shadow-md shrink-0" 
+            />
+            
+            <div className="flex flex-col gap-1 text-center md:text-left">
+                {/* Título usando tu variable primary (#1e3a5f) */}
+                <h1 className="text-3xl font-bold text-primary tracking-tight">
+                    Centro de Metrología del Ejército Ecuatoriano
+                </h1>
+                
+                {/* Subtítulo discreto pero legible */}
+                <p className="text-xs font-bold text-muted-foreground tracking-[0.15em] uppercase mt-1">
+                    El Centro de Metrología contribuyendo a la cultura de calidad del país
+                </p>
+                
+                {/* Cita con estilo blockquote moderno */}
+                <div className="mt-5 pl-4 border-l-2 border-primary/30">
+                    <p className="text-sm text-foreground/80 italic font-medium">
+                        "Si tienes mucho, da mucho; si tienes poco, da poco; pero da siempre."
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1.5 font-semibold">
+                        — Biblia, Libro de Tobías
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default WelcomeHeader;

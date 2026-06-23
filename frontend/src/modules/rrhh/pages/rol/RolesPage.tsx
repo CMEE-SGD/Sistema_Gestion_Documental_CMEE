@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../../shared/components/atoms/button';
 import { Plus } from 'lucide-react';
 import api from '../../../../core/api/axios';
-import PrintHeader  from '../../../../shared/components/organisms/PrintHeader';
+import PrintHeader from '../../../../shared/components/organisms/PrintHeader';
 import VistaRoles from '../../components/VistaRoles';
+import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos la función
 
 export const RolesPage = () => {
     const navigate = useNavigate();
@@ -51,9 +52,14 @@ export const RolesPage = () => {
             {vistaActual === 'tabla' ? (
                 <div className="flex flex-wrap items-center gap-2 bg-gray-50 p-3 rounded border border-gray-200 print:hidden">
                     <Button onClick={() => navigate('/rrhh')} variant="clasico"> Atrás</Button>
-                    <Button onClick={() => navigate('/rrhh/roles/nuevo')} variant="clasico">
-                        <Plus className="w-4 h-4" /> Nuevo rol
-                    </Button>
+                    
+                    {/* 👇 Ocultamos creación */}
+                    {tienePermiso('Recursos Humanos', 5) && (
+                        <Button onClick={() => navigate('/rrhh/roles/nuevo')} variant="clasico">
+                            <Plus className="w-4 h-4" /> Nuevo rol
+                        </Button>
+                    )}
+                    
                     <Button onClick={() => setVistaActual('esquema')} variant="clasico"> Ver esquema </Button>
                     <Button variant="imprimir"></Button>
 

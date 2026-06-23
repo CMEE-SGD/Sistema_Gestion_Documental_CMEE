@@ -18,7 +18,7 @@ export class AplicacionesController {
   }
 
   @Get()
-  @RequireAccess('Gestion de Usuarios', 5)
+  @RequireAccess('Gestion de Usuarios', 2) // 👇 Ajustado para permitir lectura en el formulario
   findAll() {
     return this.aplicacionesService.findAll();
   }

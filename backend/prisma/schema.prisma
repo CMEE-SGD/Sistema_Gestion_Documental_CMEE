@@ -112,46 +112,50 @@ model Puesto {
 // ==========================================
 // 4. PERSONA
 // ==========================================
-model Persona {
-  id               Int       @id @default(autoincrement())
-  codigo           String?   @unique @db.VarChar(30)
-  saludo           String?   @db.VarChar(10)
-  nombre           String    @db.VarChar(100)
-  apellidos        String    @db.VarChar(100)
-  cedula_identidad String?   @unique @db.VarChar(20)
-  fecha_nacimiento DateTime? @db.Date
-  sexo             String?   @db.Char(1)
-  domicilio        String?   @db.VarChar(250)
-  ciudad           String?   @db.VarChar(100)
-  codigo_postal    String?   @db.VarChar(15)
-  provincia        String?   @db.VarChar(100)
-  telefono         String?   @db.VarChar(20)
-  fax              String?   @db.VarChar(20)
-  celular          String?   @db.VarChar(20)
-  email_1          String?   @db.VarChar(150)
-  email_2          String?   @db.VarChar(150)
-  foto_ruta        String?   @db.VarChar(500)
-  hoja_vida_ruta   String?   @db.VarChar(500)
-  tipo_recurso     String?   @default("Usuario del sistema") @db.VarChar(50)
-  fecha_alta       DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
-  idioma           String?   @default("Idioma por defecto del centro") @db.VarChar(50)
+// Definición de los tres estados requeridos para el personal
+enum EstadoPersona {
+  ACTIVO
+  INACTIVO
+  SUSPENDIDO
+}
 
-  activo    Boolean  @default(true)
+model Persona {
+  id               Int            @id @default(autoincrement())
+  grado            String?        @db.VarChar(30)  // Reemplaza a 'saludo' para registrar grados militares/profesionales abreviados
+  nombre           String         @db.VarChar(100)
+  apellidos        String         @db.VarChar(100)
+  cedula_identidad String?        @unique @db.VarChar(20)
+  fecha_nacimiento DateTime?      @db.Date
+  sexo             String?        @db.Char(1)      // Soporta 'M', 'F', 'O' (Otros)
+  domicilio        String?        @db.VarChar(250)
+  ciudad           String?        @db.VarChar(100)
+  provincia        String?        @db.VarChar(100) // Se manejará como texto, el desplegable se valida en Frontend
+  celular_1        String?        @db.VarChar(20)  // Reemplaza a 'telefono' fijo
+  celular_2        String?        @db.VarChar(20)  // Reemplaza a 'fax'
+  email_1          String?        @db.VarChar(150)
+  email_2          String?        @db.VarChar(150)
+  foto_ruta        String?        @db.VarChar(500)
+  hoja_vida_ruta   String?        @db.VarChar(500)
+  tipo_recurso     String?        @default("Usuario del sistema") @db.VarChar(50)
+  fecha_alta       DateTime       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  idioma           String?        @default("Idioma por defecto del centro") @db.VarChar(50)
+  
+  // Cambio de booleano a Enum de 3 estados
+  estado           EstadoPersona  @default(ACTIVO)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  // Relaciones inversas
-  usuario          Usuario?
-  puestos          PersonaPuesto[]
-  documentos       DocumentoPersona[]
-  deptos_responsable Departamento[]     @relation("DeptoResponsable")
-  roles            Rol[]              @relation("PersonaRoles") // N:M con Rol
-  carpetas_permisos CarpetaPermiso[]
-
-  logs_recibidos Auditoria[] @relation("LogPersonaAfectada")
-  
-  // 👉 Relación agregada para enlazar con las fases en las que participa
-  fases_participadas FaseParticipante[]
+  // Relaciones inversas (Se mantienen intactas)
+  usuario                  Usuario?
+  puestos                  PersonaPuesto[]
+  documentos               DocumentoPersona[]
+  deptos_responsable       Departamento[]     @relation("DeptoResponsable")
+  roles                    Rol[]              @relation("PersonaRoles")
+  carpetas_permisos        CarpetaPermiso[]
+  laboratorios_responsable Laboratorio[]
+  logs_recibidos           Auditoria[]        @relation("LogPersonaAfectada")
+  fases_participadas       FaseParticipante[]
 
   @@map("persona")
 }
@@ -308,22 +312,17 @@ enum TipoNivelCarpeta {
   SUBCARPETA   
 }
 
-enum CircuitoDocumento {
-  SIN_CLASIFICAR
-  ALTA_FRECUENCIA
-  ATENCION_AL_CLIENTE
-  BAJA_FRECUENCIA
-  CALIDAD
-  CAPACITACION
-  CUALIFICACION
-  FORMATOS
-  GESTION_DE_PATRONES
-  GESTION_LOGISTICA
-  LEGALIZACION
-  PRESION
-  PROCEDIMIENTOS_GESTION_DOCUMENTAL
-  TERMOMETRIA
-  TIEMPO
+enum EstadoWorkflow {
+  EN_CURSO
+  COMPLETADO
+  RECHAZADO
+}
+
+enum EstadoFaseWorkflow {
+  PENDIENTE
+  EN_CURSO
+  COMPLETADO
+  RECHAZADO
 }
 
 model Documento {
@@ -332,7 +331,8 @@ model Documento {
   // -- Campos del Formulario "Nuevo Fichero" --
   empresa            String?           @default("Centro de Metrología del Ejército Ecuatoriano") @db.VarChar(200)
   fecha_documento    DateTime?         @db.Date // La fecha que sale a la derecha (01/06/2026)
-  circuito           CircuitoDocumento @default(SIN_CLASIFICAR)
+  circuito_id        Int?
+  circuito           Circuito?         @relation(fields: [circuito_id], references: [id])
   activo             Boolean           @default(true) // El checkbox de "Estado"
   propietario        String?           @db.VarChar(150)
   
@@ -356,8 +356,54 @@ model Documento {
   documentos_destino DocumentoRelacion[] @relation("DocDestino")
 
   logs_auditoria Auditoria[]
+  versiones      DocumentoVersion[]
+  workflow       DocumentoWorkflow?
 
   @@map("documentos")
+}
+
+model DocumentoVersion {
+  id            Int       @id @default(autoincrement())
+  documento_id  Int
+  documento     Documento @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+  version       String    @db.VarChar(20)
+  archivo_url   String
+  subido_por    String?   @db.VarChar(150)
+  comentario    String?   @db.Text
+  created_at    DateTime  @default(now())
+
+  @@map("documentos_versiones")
+}
+
+model DocumentoWorkflow {
+  id            Int                  @id @default(autoincrement())
+  documento_id  Int                  @unique
+  documento     Documento            @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+  circuito_id   Int
+  circuito      Circuito             @relation(fields: [circuito_id], references: [id])
+  estado        EstadoWorkflow       @default(EN_CURSO)
+  created_at    DateTime             @default(now())
+  updated_at    DateTime             @updatedAt
+
+  fases         DocumentoWorkflowFase[]
+
+  @@map("documentos_workflow")
+}
+
+model DocumentoWorkflowFase {
+  id              Int                 @id @default(autoincrement())
+  workflow_id     Int
+  workflow        DocumentoWorkflow   @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  fase_id         Int
+  fase            Fase                @relation(fields: [fase_id], references: [id])
+  estado          EstadoFaseWorkflow  @default(PENDIENTE)
+  archivo_url     String?
+  procesado_por   String?             @db.VarChar(150)
+  comentario      String?             @db.Text
+  created_at      DateTime            @default(now())
+  updated_at      DateTime            @updatedAt
+
+  @@map("documentos_workflow_fases")
 }
 
 model DocumentoRelacion {
@@ -477,14 +523,90 @@ model Auditoria {
 }
 
 // ==========================================
+// 12. LABORATORIO
+// ==========================================
+model Laboratorio {
+  id             Int       @id @default(autoincrement())
+  codigo         String?   @unique @db.VarChar(20)
+  nombre         String    @unique @db.VarChar(100) // Ej: Laboratorio de Masa, Laboratorio de Temperatura
+  descripcion    String?   @db.Text
+  activo         Boolean   @default(true)
+
+  // FK a Persona (Responsable técnico del laboratorio)
+  responsable_id Int?
+  responsable    Persona?  @relation(fields: [responsable_id], references: [id], onDelete: Restrict)
+
+  equipos        Equipo[]
+  servicios      Servicio[]
+
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([responsable_id])
+  @@map("laboratorio")
+}
+
+// ==========================================
+// 13. EQUIPO (Inventario de instrumentos)
+// ==========================================
+model Equipo {
+  id             Int          @id @default(autoincrement())
+  codigo         String       @unique @db.VarChar(50) // Código de inventario CMEE
+  nombre         String       @db.VarChar(150)
+  marca          String?      @db.VarChar(100)
+  modelo         String?      @db.VarChar(100)
+  numero_serie   String?      @db.VarChar(100)
+  estado         EstadoEquipo @default(OPERATIVO)
+
+  // Relación con el Laboratorio
+  laboratorio_id Int
+  laboratorio    Laboratorio  @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
+
+  activo         Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([laboratorio_id])
+  @@map("equipo")
+}
+
+// ==========================================
+// 14. SERVICIO (Magnitudes ofertadas)
+// ==========================================
+model Servicio {
+  id             Int       @id @default(autoincrement())
+  nombre         String    @db.VarChar(200) // Ej: Calibración de balanzas analíticas
+  magnitud       String?   @db.VarChar(100) // Ej: Masa, Volumen, Presión
+  descripcion    String?   @db.Text
+
+  // Relación con el Laboratorio
+  laboratorio_id Int
+  laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
+
+  activo         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([laboratorio_id])
+  @@map("servicio")
+}
+
+// Enum para el control de los equipos
+enum EstadoEquipo {
+  OPERATIVO
+  EN_CALIBRACION
+  FUERA_DE_SERVICIO
+}
 // 12. CONFIGURACIÓN DE CIRCUITOS Y FASES
 // ==========================================
 model Circuito {
-  id          Int      @id @default(autoincrement())
-  nombre      String   @unique @db.VarChar(100) // Ej: CALIDAD, PRESIÓN
-  activo      Boolean  @default(true)
+  id          Int         @id @default(autoincrement())
+  nombre      String      @unique @db.VarChar(100) // Ej: CALIDAD, PRESIÓN
+  activo      Boolean     @default(true)
 
   fases       Fase[]
+  documentos  Documento[]
+  workflows   DocumentoWorkflow[]
 
   @@map("circuitos")
 }
@@ -508,6 +630,7 @@ model Fase {
   obligatorio_todos      Boolean  @default(false)
 
   participantes          FaseParticipante[]
+  workflow_fases         DocumentoWorkflowFase[]
 
   @@map("fases")
 }

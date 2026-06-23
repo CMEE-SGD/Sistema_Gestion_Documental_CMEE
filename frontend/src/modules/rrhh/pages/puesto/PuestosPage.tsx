@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../../shared/components/atoms/button'; 
 import api from '../../../../core/api/axios';
 import PrintHeader from '../../../../shared/components/organisms/PrintHeader';
-import VistaPuestos from '../../components/VistaPuestos'; // Importamos el organismo
+import VistaPuestos from '../../components/VistaPuestos';
+import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos la función
 
 export const PuestosPage = () => {
     const navigate = useNavigate();
@@ -50,7 +51,12 @@ export const PuestosPage = () => {
             {vistaActual === 'tabla' ? (
                 <div className="flex flex-wrap items-center gap-2 bg-gray-50 p-3 rounded border border-gray-200 print:hidden">
                     <Button onClick={() => navigate('/rrhh')} variant="clasico">Atrás</Button>
-                    <Button onClick={() => navigate('/rrhh/puestos/nuevo')} variant="clasico">Nuevo puesto</Button>
+                    
+                    {/* 👇 Ocultamos creación */}
+                    {tienePermiso('Recursos Humanos', 5) && (
+                        <Button onClick={() => navigate('/rrhh/puestos/nuevo')} variant="clasico">Nuevo puesto</Button>
+                    )}
+                    
                     <Button onClick={() => setVistaActual('esquema')} variant="clasico"> Ver esquema </Button>
                     <Button variant="imprimir">Imprimir</Button>
                     
@@ -87,7 +93,6 @@ export const PuestosPage = () => {
                 </div>
             )}
 
-            {/* Invocamos al Organismo de la Tabla/Esquema */}
             <VistaPuestos 
                 vistaActual={vistaActual}
                 puestosFiltrados={puestosFiltrados}
