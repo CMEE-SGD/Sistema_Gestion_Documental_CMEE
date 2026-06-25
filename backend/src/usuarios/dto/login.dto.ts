@@ -1,6 +1,7 @@
 import { IsString, IsNotEmpty, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
+/** Módulo controlador o servicio para gestionar la entidad LoginDto. */
 export class LoginDto {
     @ApiProperty({ example: 'jdoe' })
     @IsNotEmpty({ message: 'El usuario no puede estar vacío.' })

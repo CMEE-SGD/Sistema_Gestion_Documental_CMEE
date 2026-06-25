@@ -1,6 +1,7 @@
 import { IsString, IsOptional, IsBoolean, IsInt, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/** Módulo controlador o servicio para gestionar la entidad CreateRolDto. */
 export class CreateRolDto {
     @ApiProperty({ example: 'R5S' })
     @IsString()

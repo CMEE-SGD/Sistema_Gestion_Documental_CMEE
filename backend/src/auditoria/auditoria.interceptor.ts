@@ -3,6 +3,7 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { AuditoriaService } from './auditoria.service';
 
+/** Módulo controlador o servicio para gestionar la entidad AuditoriaInterceptor. */
 @Injectable()
 export class AuditoriaInterceptor implements NestInterceptor {
     // 👇 1. Creamos un caché temporal en memoria
@@ -10,6 +11,12 @@ export class AuditoriaInterceptor implements NestInterceptor {
 
     constructor(private readonly auditoriaService: AuditoriaService) {}
 
+    /**
+     * Ejecuta la operación de negocio intercept.
+     * @param context - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @param next - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Entidad | PrismaResponse
+     */
     intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
         const req = context.switchToHttp().getRequest();
         const { method, url, user } = req;

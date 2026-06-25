@@ -20,6 +20,7 @@ import { CircuitosModule } from './circuitos/circuitos.module';
 import { EquiposModule } from './equipos/equipos.module';
 import { ServiciosModule } from './servicios/servicios.module';
 
+/** Módulo controlador o servicio para gestionar la entidad AppModule. */
 @Module({
   imports: [
     ConfigModule.forRoot({

@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 
+/** Módulo controlador o servicio para gestionar la entidad AccessGuard. */
 @Injectable()
 export class AccessGuard implements CanActivate {
     constructor(
@@ -9,6 +10,11 @@ export class AccessGuard implements CanActivate {
         private prisma: PrismaService
     ) {}
 
+    /**
+     * Ejecuta la operación de negocio canActivate.
+     * @param context - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Promise<boolean>
+     */
     async canActivate(context: ExecutionContext): Promise<boolean> {
         // 1. Leemos qué exige la ruta
         const requiredAccess = this.reflector.get<{ app: string; level: number }>('access', context.getHandler());

@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** Módulo controlador o servicio para gestionar la entidad Auditoria. */
 @Injectable()
 export class AuditoriaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async registrarLog(data: {
+  /**
+     * Ejecuta la operación de negocio registrarLog.
+     * @param data - Datos o identificador requerido (Objeto complejo / PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async registrarLog(data: {
     usuario_id: number;
     modulo: string;
     accion: string;
@@ -21,7 +27,11 @@ export class AuditoriaService {
   }
 
   // NUEVO: Método para enviar los logs al frontend
-  async findAll() {
+  /**
+     * Ejecuta la operación de negocio findAll.
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findAll() {
     return this.prisma.auditoria.findMany({
       orderBy: { fecha_hora: 'desc' }, // Los más recientes primero
       include: {
@@ -33,7 +43,12 @@ export class AuditoriaService {
     });
   }
 
-  async findByPersona(personaId: number) {
+  /**
+     * Ejecuta la operación de negocio findByPersona.
+     * @param personaId - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findByPersona(personaId: number) {
     return this.prisma.auditoria.findMany({
       where: { persona_afectada_id: personaId },
       orderBy: { fecha_hora: 'desc' },
@@ -41,7 +56,12 @@ export class AuditoriaService {
     });
   }
 
-  async findByDocumento(documentoId: number) {
+  /**
+     * Ejecuta la operación de negocio findByDocumento.
+     * @param documentoId - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findByDocumento(documentoId: number) {
     return this.prisma.auditoria.findMany({
       where: { documento_id: documentoId },
       orderBy: { fecha_hora: 'desc' },
@@ -49,7 +69,12 @@ export class AuditoriaService {
     });
   }
 
-  async findByRol(rolId: number) {
+  /**
+     * Ejecuta la operación de negocio findByRol.
+     * @param rolId - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findByRol(rolId: number) {
     return this.prisma.auditoria.findMany({
       where: { rol_afectado_id: rolId },
       orderBy: { fecha_hora: 'desc' },
@@ -57,7 +82,12 @@ export class AuditoriaService {
     });
   }
 
-  async findByPuesto(puestoId: number) {
+  /**
+     * Ejecuta la operación de negocio findByPuesto.
+     * @param puestoId - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findByPuesto(puestoId: number) {
     return this.prisma.auditoria.findMany({
       where: { puesto_afectado_id: puestoId },
       orderBy: { fecha_hora: 'desc' },

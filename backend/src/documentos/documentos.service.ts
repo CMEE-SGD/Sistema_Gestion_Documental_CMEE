@@ -3,11 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
+/** Módulo controlador o servicio para gestionar la entidad Documentos. */
 @Injectable()
 export class DocumentosService {
   constructor(private prisma: PrismaService) { }
 
-  async obtenerRutaFisica(carpetaId: number): Promise<string> {
+  /**
+     * Ejecuta la operación de negocio obtenerRutaFisica.
+     * @param carpetaId - Datos o identificador requerido (number)
+     * @returns Promise<string>
+     */
+    async obtenerRutaFisica(carpetaId: number): Promise<string> {
     const partes = [];
     let actualId: number | null = carpetaId;
 
@@ -23,7 +29,13 @@ export class DocumentosService {
     return path.join('uploads', 'Gestor_Documental', ...partes);
   }
 
-  async create(file: Express.Multer.File, data: any) {
+  /**
+     * Ejecuta la operación de negocio create.
+     * @param file - Datos o identificador requerido (Express.Multer.File)
+     * @param data - Datos o identificador requerido (any)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async create(file: Express.Multer.File, data: any) {
     const carpetaId = parseInt(data.carpeta_id, 10);
 
     const rutaDestinoRelativa = await this.obtenerRutaFisica(carpetaId);
@@ -93,7 +105,11 @@ export class DocumentosService {
     });
   }
 
-  getCircuitos() {
+  /**
+     * Ejecuta la operación de negocio getCircuitos.
+     * @returns Array<Entidad>
+     */
+    getCircuitos() {
     return this.prisma.circuito.findMany({
       where: { activo: true },
       orderBy: { nombre: 'asc' },
@@ -101,7 +117,13 @@ export class DocumentosService {
     });
   }
 
-  async createVersion(file: Express.Multer.File, data: any) {
+  /**
+     * Ejecuta la operación de negocio createVersion.
+     * @param file - Datos o identificador requerido (Express.Multer.File)
+     * @param data - Datos o identificador requerido (any)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async createVersion(file: Express.Multer.File, data: any) {
     const documentoId = parseInt(data.documento_id, 10);
     const doc = await this.prisma.documento.findUnique({ where: { id: documentoId } });
     if (!doc) throw new NotFoundException(`Documento con ID ${documentoId} no existe.`);
@@ -151,14 +173,25 @@ export class DocumentosService {
     });
   }
 
-  getVersiones(documentoId: number) {
+  /**
+     * Ejecuta la operación de negocio getVersiones.
+     * @param documentoId - Datos o identificador requerido (number)
+     * @returns Array<Entidad>
+     */
+    getVersiones(documentoId: number) {
     return this.prisma.documentoVersion.findMany({
       where: { documento_id: documentoId },
       orderBy: { created_at: 'desc' },
     });
   }
 
-  async restaurarVersion(documentoId: number, versionId: number) {
+  /**
+     * Ejecuta la operación de negocio restaurarVersion.
+     * @param documentoId - Datos o identificador requerido (number)
+     * @param versionId - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async restaurarVersion(documentoId: number, versionId: number) {
     const version = await this.prisma.documentoVersion.findFirst({
       where: { id: versionId, documento_id: documentoId },
     });
@@ -173,7 +206,12 @@ export class DocumentosService {
     });
   }
 
-  async getWorkflow(documentoId: number) {
+  /**
+     * Ejecuta la operación de negocio getWorkflow.
+     * @param documentoId - Datos o identificador requerido (number)
+     * @returns Array<Entidad>
+     */
+    async getWorkflow(documentoId: number) {
     const wf = await this.prisma.documentoWorkflow.findUnique({
       where: { documento_id: documentoId },
       include: {
@@ -188,7 +226,13 @@ export class DocumentosService {
     return wf;
   }
 
-  async avanzarFase(file: Express.Multer.File, data: any) {
+  /**
+     * Ejecuta la operación de negocio avanzarFase.
+     * @param file - Datos o identificador requerido (Express.Multer.File)
+     * @param data - Datos o identificador requerido (any)
+     * @returns Array<Entidad>
+     */
+    async avanzarFase(file: Express.Multer.File, data: any) {
     const documentoId = parseInt(data.documento_id, 10);
     const doc = await this.prisma.documento.findUnique({ where: { id: documentoId } });
     if (!doc) throw new NotFoundException('Documento no encontrado');
@@ -255,7 +299,13 @@ export class DocumentosService {
     });
   }
 
-  async rechazarFase(documentoId: number, data: any) {
+  /**
+     * Ejecuta la operación de negocio rechazarFase.
+     * @param documentoId - Datos o identificador requerido (number)
+     * @param data - Datos o identificador requerido (any)
+     * @returns Array<Entidad>
+     */
+    async rechazarFase(documentoId: number, data: any) {
     const workflow = await this.prisma.documentoWorkflow.findUnique({
       where: { documento_id: documentoId },
       include: { fases: { orderBy: { id: 'asc' } } },
@@ -298,7 +348,12 @@ export class DocumentosService {
     });
   }
 
-  findAll(carpetaId?: number) {
+  /**
+     * Ejecuta la operación de negocio findAll.
+     * @param carpetaId - Datos o identificador requerido (number)
+     * @returns Array<Entidad>
+     */
+    findAll(carpetaId?: number) {
     const whereClause = carpetaId ? { carpeta_id: carpetaId } : {};
     return this.prisma.documento.findMany({
       where: whereClause,
@@ -307,7 +362,12 @@ export class DocumentosService {
     });
   }
 
-  findOne(id: number) {
+  /**
+     * Ejecuta la operación de negocio findOne.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Array<Entidad>
+     */
+    findOne(id: number) {
     return this.prisma.documento.findUnique({
       where: { id },
       include: {
@@ -334,7 +394,13 @@ export class DocumentosService {
     });
   }
 
-  async update(id: number, data: any) {
+  /**
+     * Ejecuta la operación de negocio update.
+     * @param id - Datos o identificador requerido (number)
+     * @param data - Datos o identificador requerido (any)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async update(id: number, data: any) {
     const documentoAntiguo = await this.prisma.documento.findUnique({ where: { id } });
 
     if (data.carpeta_id && documentoAntiguo && documentoAntiguo.carpeta_id !== data.carpeta_id) {
@@ -363,7 +429,12 @@ export class DocumentosService {
     });
   }
 
-  async remove(id: number) {
+  /**
+     * Ejecuta la operación de negocio remove.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async remove(id: number) {
     const documento = await this.prisma.documento.findUnique({
       where: { id },
     });

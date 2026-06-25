@@ -1,12 +1,17 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** Módulo controlador o servicio para gestionar la entidad AplicacionesSeeder. */
 @Injectable()
 export class AplicacionesSeeder implements OnModuleInit {
     private readonly logger = new Logger(AplicacionesSeeder.name);
 
     constructor(private prisma: PrismaService) {}
 
+    /**
+     * Ejecuta la operación de negocio onModuleInit.
+     * @returns Promise<void>
+     */
     async onModuleInit() {
         this.logger.log('Sincronizando catálogo de Aplicaciones base...');
 

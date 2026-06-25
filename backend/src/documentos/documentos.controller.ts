@@ -6,12 +6,19 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
 
+/** Módulo controlador o servicio para gestionar la entidad Documentos. */
 @Controller('documentos')
 @UseGuards(JwtAuthGuard, AccessGuard) // Activa la seguridad global del controlador
 export class DocumentosController {
   constructor(private readonly documentosService: DocumentosService) {}
 
-  @Post()
+  /**
+     * Crea un nuevo registro o procesa una acción en el sistema.
+     * @param file - Datos o identificador requerido (Express.Multer.File)
+     * @param body - Datos o identificador requerido (any)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Post()
   @RequireAccess('Gestor Documental', 5) // Nivel 5: Subir un nuevo documento
   @UseInterceptors(FileInterceptor('archivo'))
   async create(
@@ -24,19 +31,35 @@ export class DocumentosController {
     return this.documentosService.create(file, body);
   }
 
-  @Get()
+  /**
+     * Obtiene información de múltiples registros.
+     * @param carpetaId - Datos o identificador requerido (string)
+     * @returns Array<Entidad>
+     */
+    @Get()
   @RequireAccess('Gestor Documental', 2) // Nivel 2: Ver documentos
   findAll(@Query('carpeta_id') carpetaId?: string) {
     return this.documentosService.findAll(carpetaId ? parseInt(carpetaId, 10) : undefined);
   }
 
-  @Get('circuitos')
+  /**
+     * Obtiene información de un registro específico.
+     * @returns Array<Entidad>
+     */
+    @Get('circuitos')
   @RequireAccess('Gestor Documental', 2)
   getCircuitos() {
     return this.documentosService.getCircuitos();
   }
 
-  @Post(':id/versiones')
+  /**
+     * Crea un nuevo registro o procesa una acción en el sistema.
+     * @param id - Datos o identificador requerido (string)
+     * @param file - Datos o identificador requerido (Express.Multer.File)
+     * @param body - Datos o identificador requerido (any)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Post(':id/versiones')
   @RequireAccess('Gestor Documental', 5)
   @UseInterceptors(FileInterceptor('archivo'))
   async createVersion(
@@ -50,25 +73,48 @@ export class DocumentosController {
     return this.documentosService.createVersion(file, { ...body, documento_id: id });
   }
 
-  @Get(':id/versiones')
+  /**
+     * Obtiene información de un registro específico.
+     * @param id - Datos o identificador requerido (string)
+     * @returns Array<Entidad>
+     */
+    @Get(':id/versiones')
   @RequireAccess('Gestor Documental', 2)
   getVersiones(@Param('id') id: string) {
     return this.documentosService.getVersiones(+id);
   }
 
-  @Post(':id/versiones/:versionId/restaurar')
+  /**
+     * Crea un nuevo registro o procesa una acción en el sistema.
+     * @param id - Datos o identificador requerido (string)
+     * @param versionId - Datos o identificador requerido (string)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Post(':id/versiones/:versionId/restaurar')
   @RequireAccess('Gestor Documental', 4)
   restaurarVersion(@Param('id') id: string, @Param('versionId') versionId: string) {
     return this.documentosService.restaurarVersion(+id, +versionId);
   }
 
-  @Get(':id/workflow')
+  /**
+     * Obtiene información de un registro específico.
+     * @param id - Datos o identificador requerido (string)
+     * @returns Array<Entidad>
+     */
+    @Get(':id/workflow')
   @RequireAccess('Gestor Documental', 2)
   getWorkflow(@Param('id') id: string) {
     return this.documentosService.getWorkflow(+id);
   }
 
-  @Post(':id/workflow/avanzar')
+  /**
+     * Crea un nuevo registro o procesa una acción en el sistema.
+     * @param id - Datos o identificador requerido (string)
+     * @param file - Datos o identificador requerido (Express.Multer.File)
+     * @param body - Datos o identificador requerido (any)
+     * @returns Array<Entidad>
+     */
+    @Post(':id/workflow/avanzar')
   @RequireAccess('Gestor Documental', 4)
   @UseInterceptors(FileInterceptor('archivo'))
   async avanzarFase(
@@ -82,25 +128,47 @@ export class DocumentosController {
     return this.documentosService.avanzarFase(file, { ...body, documento_id: id });
   }
 
-  @Post(':id/workflow/rechazar')
+  /**
+     * Crea un nuevo registro o procesa una acción en el sistema.
+     * @param id - Datos o identificador requerido (string)
+     * @param body - Datos o identificador requerido (any)
+     * @returns Array<Entidad>
+     */
+    @Post(':id/workflow/rechazar')
   @RequireAccess('Gestor Documental', 4)
   rechazarFase(@Param('id') id: string, @Body() body: any) {
     return this.documentosService.rechazarFase(+id, body);
   }
 
-  @Get(':id')
+  /**
+     * Obtiene información de un registro específico.
+     * @param id - Datos o identificador requerido (string)
+     * @returns Array<Entidad>
+     */
+    @Get(':id')
   @RequireAccess('Gestor Documental', 2) // Nivel 2: Ver detalle del documento
   findOne(@Param('id') id: string) {
     return this.documentosService.findOne(+id);
   }
 
-  @Patch(':id')
+  /**
+     * Actualiza parcialmente la información de un registro existente.
+     * @param id - Datos o identificador requerido (string)
+     * @param data - Datos o identificador requerido (any)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Patch(':id')
   @RequireAccess('Gestor Documental', 4) // Nivel 4: Modificar metadatos del documento
   update(@Param('id') id: string, @Body() data: any) {
     return this.documentosService.update(+id, data);
   }
 
-  @Delete(':id')
+  /**
+     * Elimina lógicamente o inactiva un registro en el sistema.
+     * @param id - Datos o identificador requerido (string)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Delete(':id')
   @RequireAccess('Gestor Documental', 5) // Nivel 5: Eliminar documento
   remove(@Param('id') id: string) {
     return this.documentosService.remove(+id);

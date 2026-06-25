@@ -3,6 +3,7 @@ import { Module, Global } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
 
+/** Módulo controlador o servicio para gestionar la entidad AuthModule. */
 @Global() // Lo hacemos global para poder usar el JwtGuard en cualquier módulo sin importarlo siempre
 @Module({
     imports: [

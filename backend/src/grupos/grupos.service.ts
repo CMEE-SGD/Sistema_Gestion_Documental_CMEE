@@ -3,11 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateGrupoDto } from './dto/create-grupo.dto';
 import { UpdateGrupoDto } from './dto/update-grupo.dto';
 
+/** Módulo controlador o servicio para gestionar la entidad Grupos. */
 @Injectable()
 export class GruposService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createGrupoDto: CreateGrupoDto) {
+  /**
+     * Ejecuta la operación de negocio create.
+     * @param createGrupoDto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async create(createGrupoDto: CreateGrupoDto) {
     const { aplicaciones, ...grupoData } = createGrupoDto;
 
     const existe = await this.prisma.grupo.findUnique({ where: { nombre: grupoData.nombre } });
@@ -31,13 +37,22 @@ export class GruposService {
     });
   }
 
-  findAll() {
+  /**
+     * Ejecuta la operación de negocio findAll.
+     * @returns Array<Entidad>
+     */
+    findAll() {
     return this.prisma.grupo.findMany({
       include: { aplicaciones: { include: { aplicacion: true }, orderBy: { orden: 'asc' } } }
     });
   }
 
-  async findOne(id: number) {
+  /**
+     * Ejecuta la operación de negocio findOne.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findOne(id: number) {
     const grupo = await this.prisma.grupo.findUnique({
       where: { id },
       include: { 
@@ -49,7 +64,13 @@ export class GruposService {
     return grupo;
   }
 
-  async update(id: number, updateGrupoDto: UpdateGrupoDto) {
+  /**
+     * Ejecuta la operación de negocio update.
+     * @param id - Datos o identificador requerido (number)
+     * @param updateGrupoDto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async update(id: number, updateGrupoDto: UpdateGrupoDto) {
     await this.findOne(id); // Validar que existe
 
     const { aplicaciones, ...grupoData } = updateGrupoDto as any;
@@ -85,7 +106,12 @@ export class GruposService {
     });
   }
 
-  async remove(id: number) {
+  /**
+     * Ejecuta la operación de negocio remove.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async remove(id: number) {
     await this.findOne(id);
     return this.prisma.grupo.update({
       where: { id },

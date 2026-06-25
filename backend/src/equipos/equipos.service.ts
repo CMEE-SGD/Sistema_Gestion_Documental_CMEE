@@ -3,15 +3,25 @@ import { PrismaService } from '../prisma/prisma.service'; // Ajusta la ruta si e
 import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
 
+/** Módulo controlador o servicio para gestionar la entidad Equipos. */
 @Injectable()
 export class EquiposService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: CreateEquipoDto) {
+  /**
+     * Ejecuta la operación de negocio create.
+     * @param data - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Entidad | PrismaResponse
+     */
+    async create(data: CreateEquipoDto) {
     return this.prisma.equipo.create({ data });
   }
 
-  async findAll() {
+  /**
+     * Ejecuta la operación de negocio findAll.
+     * @returns Array<Entidad>
+     */
+    async findAll() {
     return this.prisma.equipo.findMany({
       //where: { activo: true },
       // Traemos el nombre y código del laboratorio asociado
@@ -21,7 +31,12 @@ export class EquiposService {
     });
   }
 
-  async findOne(id: number) {
+  /**
+     * Ejecuta la operación de negocio findOne.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Entidad | PrismaResponse
+     */
+    async findOne(id: number) {
     const equipo = await this.prisma.equipo.findUnique({
       where: { id },
       include: { laboratorio: true },
@@ -30,7 +45,13 @@ export class EquiposService {
     return equipo;
   }
 
-  async update(id: number, data: UpdateEquipoDto) {
+  /**
+     * Ejecuta la operación de negocio update.
+     * @param id - Datos o identificador requerido (number)
+     * @param data - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Entidad | PrismaResponse
+     */
+    async update(id: number, data: UpdateEquipoDto) {
     await this.findOne(id); // Valida existencia
     return this.prisma.equipo.update({
       where: { id },
@@ -38,7 +59,12 @@ export class EquiposService {
     });
   }
 
-  async remove(id: number) {
+  /**
+     * Ejecuta la operación de negocio remove.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Entidad | PrismaResponse
+     */
+    async remove(id: number) {
     await this.findOne(id);
     // Soft delete para mantener la trazabilidad de los certificados calibrados con este equipo
     return this.prisma.equipo.update({

@@ -4,6 +4,7 @@ import { AuditoriaService } from './auditoria.service';
 import { AuditoriaController } from './auditoria.controller';
 import { AuditoriaInterceptor } from './auditoria.interceptor'; // 👇 2. Importamos tu interceptor
 
+/** Módulo controlador o servicio para gestionar la entidad AuditoriaModule. */
 @Module({
   // Tus imports y controllers se quedan igual
   controllers: [AuditoriaController],

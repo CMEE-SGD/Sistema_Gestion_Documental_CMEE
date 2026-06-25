@@ -3,11 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePuestoDto } from './dto/create-puesto.dto';
 import { UpdatePuestoDto } from './dto/update-puesto.dto';
 
+/** Módulo controlador o servicio para gestionar la entidad Puestos. */
 @Injectable()
 export class PuestosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createPuestoDto: CreatePuestoDto) {
+  /**
+     * Ejecuta la operación de negocio create.
+     * @param createPuestoDto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async create(createPuestoDto: CreatePuestoDto) {
     const existe = await this.prisma.puesto.findUnique({
       where: { codigo: createPuestoDto.codigo },
     });
@@ -16,7 +22,11 @@ export class PuestosService {
     return this.prisma.puesto.create({ data: createPuestoDto });
   }
 
-  findAll() {
+  /**
+     * Ejecuta la operación de negocio findAll.
+     * @returns Array<Entidad>
+     */
+    findAll() {
     return this.prisma.puesto.findMany({
       orderBy: { orden: 'asc' },
       include: {
@@ -32,7 +42,12 @@ export class PuestosService {
     });
   }
 
-  async findOne(id: number) {
+  /**
+     * Ejecuta la operación de negocio findOne.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findOne(id: number) {
     const puesto = await this.prisma.puesto.findUnique({
       where: { id },
       include: {
@@ -44,7 +59,13 @@ export class PuestosService {
     return puesto;
   }
 
-  async update(id: number, updatePuestoDto: UpdatePuestoDto) {
+  /**
+     * Ejecuta la operación de negocio update.
+     * @param id - Datos o identificador requerido (number)
+     * @param updatePuestoDto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async update(id: number, updatePuestoDto: UpdatePuestoDto) {
     await this.findOne(id);
     
     // Evitar dependencia circular (un puesto no puede depender de sí mismo)
@@ -58,7 +79,12 @@ export class PuestosService {
     });
   }
 
-  async remove(id: number) {
+  /**
+     * Ejecuta la operación de negocio remove.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async remove(id: number) {
     await this.findOne(id);
     return this.prisma.puesto.update({
       where: { id },

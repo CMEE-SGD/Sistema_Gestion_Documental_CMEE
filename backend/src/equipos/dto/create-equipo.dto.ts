@@ -1,6 +1,7 @@
 import { IsString, IsNotEmpty, IsOptional, IsInt, IsEnum, IsBoolean } from 'class-validator';
 import { EstadoEquipo } from '@prisma/client';
 
+/** Módulo controlador o servicio para gestionar la entidad CreateEquipoDto. */
 export class CreateEquipoDto {
     @IsString()
     @IsNotEmpty()

@@ -3,11 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
+/** Módulo controlador o servicio para gestionar la entidad Carpetas. */
 @Injectable()
 export class CarpetasService {
   constructor(private prisma: PrismaService) {}
 
-  async obtenerRutaFisica(carpetaId: number): Promise<string> {
+  /**
+     * Ejecuta la operación de negocio obtenerRutaFisica.
+     * @param carpetaId - Datos o identificador requerido (number)
+     * @returns Promise<string>
+     */
+    async obtenerRutaFisica(carpetaId: number): Promise<string> {
     const partes = [];
     let actualId: number | null = carpetaId;
 
@@ -25,7 +31,12 @@ export class CarpetasService {
     return path.join(process.cwd(), 'uploads', 'Gestor_Documental', ...partes);
   }
 
-  async create(data: any) { 
+  /**
+     * Ejecuta la operación de negocio create.
+     * @param data - Datos o identificador requerido (any)
+     * @returns Entidad | PrismaResponse
+     */
+    async create(data: any) { 
     const nuevaCarpeta = await this.prisma.carpeta.create({
       data: data,
     });
@@ -39,24 +50,44 @@ export class CarpetasService {
     return nuevaCarpeta;
   }
 
-  findAll() {
+  /**
+     * Ejecuta la operación de negocio findAll.
+     * @returns Array<Entidad>
+     */
+    findAll() {
     return this.prisma.carpeta.findMany();
   }
 
-  findOne(id: number) {
+  /**
+     * Ejecuta la operación de negocio findOne.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Entidad | PrismaResponse
+     */
+    findOne(id: number) {
     return this.prisma.carpeta.findUnique({
       where: { id },
     });
   }
 
-  async update(id: number, data: any) {
+  /**
+     * Ejecuta la operación de negocio update.
+     * @param id - Datos o identificador requerido (number)
+     * @param data - Datos o identificador requerido (any)
+     * @returns Entidad | PrismaResponse
+     */
+    async update(id: number, data: any) {
     return this.prisma.carpeta.update({
       where: { id },
       data: data,
     });
   }
 
-  async remove(id: number) {
+  /**
+     * Ejecuta la operación de negocio remove.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Entidad | PrismaResponse
+     */
+    async remove(id: number) {
     return this.prisma.carpeta.delete({
       where: { id },
     });

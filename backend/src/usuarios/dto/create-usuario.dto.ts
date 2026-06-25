@@ -1,6 +1,7 @@
 import { IsString, IsNotEmpty, IsInt, MinLength, IsOptional, IsBoolean, IsDateString, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/** Módulo controlador o servicio para gestionar la entidad CreateUsuarioDto. */
 export class CreateUsuarioDto {
     @ApiProperty({ example: 1 }) 
     @IsNotEmpty() 

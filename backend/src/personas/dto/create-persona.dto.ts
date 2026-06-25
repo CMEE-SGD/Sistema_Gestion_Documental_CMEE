@@ -2,6 +2,7 @@ import { IsString, IsOptional, IsDateString, IsBoolean, IsArray, IsInt, MaxLengt
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EstadoPersona } from '@prisma/client'; // Importamos el enum de Prisma
 
+/** Módulo controlador o servicio para gestionar la entidad CreatePersonaDto. */
 export class CreatePersonaDto {
     // ❌ Eliminados: codigo, saludo, codigo_postal, telefono, fax y activo.
 

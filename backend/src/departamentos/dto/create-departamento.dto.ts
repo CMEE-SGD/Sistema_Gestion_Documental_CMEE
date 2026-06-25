@@ -1,6 +1,7 @@
 import { IsString, IsOptional, IsInt, IsBoolean, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/** Módulo controlador o servicio para gestionar la entidad CreateDepartamentoDto. */
 export class CreateDepartamentoDto {
     @ApiProperty({ example: 'DEP-IT' })
     @IsString()

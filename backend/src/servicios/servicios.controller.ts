@@ -8,30 +8,51 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
 
+/** Módulo controlador o servicio para gestionar la entidad Servicios. */
 @Controller('servicios')
 @UseGuards(JwtAuthGuard, AccessGuard) // Activa la seguridad
 export class ServiciosController {
   constructor(private readonly serviciosService: ServiciosService) {}
 
-  @Post()
+  /**
+     * Crea un nuevo registro o procesa una acción en el sistema.
+     * @param createServicioDto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Post()
   @RequireAccess('Laboratorios', 5) // Nivel 5: Creación
   create(@Body() createServicioDto: CreateServicioDto) {
     return this.serviciosService.create(createServicioDto);
   }
 
-  @Get()
+  /**
+     * Obtiene información de múltiples registros.
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Get()
   @RequireAccess('Laboratorios', 2) // Nivel 2: Lectura
   findAll() {
     return this.serviciosService.findAll();
   }
 
-  @Get(':id')
+  /**
+     * Obtiene información de un registro específico.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Get(':id')
   @RequireAccess('Laboratorios', 2)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.serviciosService.findOne(id);
   }
 
-  @Patch(':id')
+  /**
+     * Actualiza parcialmente la información de un registro existente.
+     * @param id - Datos o identificador requerido (number)
+     * @param updateServicioDto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Patch(':id')
   @RequireAccess('Laboratorios', 4) // Nivel 4: Edición
   update(
     @Param('id', ParseIntPipe) id: number, 
@@ -40,7 +61,12 @@ export class ServiciosController {
     return this.serviciosService.update(id, updateServicioDto);
   }
 
-  @Delete(':id')
+  /**
+     * Elimina lógicamente o inactiva un registro en el sistema.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Delete(':id')
   @RequireAccess('Laboratorios', 5) // Nivel 5: Eliminación/Desactivación
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.serviciosService.remove(id);

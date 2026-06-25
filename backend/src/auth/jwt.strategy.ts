@@ -3,6 +3,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 
+/** Módulo controlador o servicio para gestionar la entidad JwtStrategy. */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
     constructor() {
@@ -13,6 +14,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         });
     }
 
+    /**
+     * Ejecuta la operación de negocio validate.
+     * @param payload - Datos o identificador requerido (any)
+     * @returns Promise<{ id: any; isGod: any; }>
+     */
     async validate(payload: any) {
         // Retornamos el ID y la bandera isGod (si existe en el payload del token)
         return { 

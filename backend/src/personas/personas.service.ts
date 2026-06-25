@@ -10,11 +10,17 @@ function emptyToNull(value: string | null | undefined): string | null {
   return value.trim() === '' ? null : value.trim();
 }
 
+/** Módulo controlador o servicio para gestionar la entidad Personas. */
 @Injectable()
 export class PersonasService {
   constructor(private readonly prisma: PrismaService) { }
 
-  async create(createPersonaDto: CreatePersonaDto) {
+  /**
+     * Ejecuta la operación de negocio create.
+     * @param createPersonaDto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Array<Entidad>
+     */
+    async create(createPersonaDto: CreatePersonaDto) {
     const { roles, puestos_asignados, ...personaData } = createPersonaDto;
 
     personaData.cedula_identidad = emptyToNull(personaData.cedula_identidad);
@@ -51,7 +57,11 @@ export class PersonasService {
     });
   }
 
-  findAll() {
+  /**
+     * Ejecuta la operación de negocio findAll.
+     * @returns Array<Entidad>
+     */
+    findAll() {
     return this.prisma.persona.findMany({
       include: {
         roles: { select: { id: true, nombre: true } },
@@ -61,7 +71,12 @@ export class PersonasService {
     });
   }
 
-  async findOne(id: number) {
+  /**
+     * Ejecuta la operación de negocio findOne.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Array<Entidad>
+     */
+    async findOne(id: number) {
     const persona = await this.prisma.persona.findUnique({
       where: { id },
       include: {
@@ -75,7 +90,12 @@ export class PersonasService {
     return persona;
   }
 
-  async eliminarDocumento(id: number) {
+  /**
+     * Ejecuta la operación de negocio eliminarDocumento.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async eliminarDocumento(id: number) {
     const documento = await this.prisma.documentoPersona.findUnique({ where: { id } });
 
     if (!documento) {
@@ -98,7 +118,13 @@ export class PersonasService {
     });
   }
 
-  async update(id: number, updatePersonaDto: UpdatePersonaDto) {
+  /**
+     * Ejecuta la operación de negocio update.
+     * @param id - Datos o identificador requerido (number)
+     * @param updatePersonaDto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Array<Entidad>
+     */
+    async update(id: number, updatePersonaDto: UpdatePersonaDto) {
     await this.findOne(id);
     const { roles, puestos_asignados, ...personaData } = updatePersonaDto;
     
@@ -131,13 +157,23 @@ export class PersonasService {
     });
   }
 
-  async guardarDocumentos(documentos: any[]) {
+  /**
+     * Ejecuta la operación de negocio guardarDocumentos.
+     * @param documentos - Datos o identificador requerido (any[])
+     * @returns Entidad | PrismaResponse
+     */
+    async guardarDocumentos(documentos: any[]) {
     return await this.prisma.documentoPersona.createMany({
       data: documentos,
     });
   }
 
-  async remove(id: number) {
+  /**
+     * Ejecuta la operación de negocio remove.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Entidad | PrismaResponse
+     */
+    async remove(id: number) {
     await this.findOne(id);
     return this.prisma.persona.update({
       where: { id },

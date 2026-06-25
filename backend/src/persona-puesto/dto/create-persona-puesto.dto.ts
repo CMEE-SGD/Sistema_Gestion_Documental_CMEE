@@ -1,6 +1,7 @@
 import { IsInt, IsOptional, IsBoolean, IsDateString, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/** Módulo controlador o servicio para gestionar la entidad CreatePersonaPuestoDto. */
 export class CreatePersonaPuestoDto {
     @ApiProperty({ description: 'ID de la persona' })
     @IsInt()

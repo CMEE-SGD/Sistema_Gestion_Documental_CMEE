@@ -12,6 +12,7 @@ if (!fs.existsSync(tempFolder)) {
   fs.mkdirSync(tempFolder, { recursive: true });
 }
 
+/** Módulo controlador o servicio para gestionar la entidad DocumentosModule. */
 @Module({
   imports: [
     PrismaModule,

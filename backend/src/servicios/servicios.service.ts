@@ -3,15 +3,25 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateServicioDto } from './dto/create-servicio.dto';
 import { UpdateServicioDto } from './dto/update-servicio.dto';
 
+/** Módulo controlador o servicio para gestionar la entidad Servicios. */
 @Injectable()
 export class ServiciosService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: CreateServicioDto) {
+  /**
+     * Ejecuta la operación de negocio create.
+     * @param data - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async create(data: CreateServicioDto) {
     return this.prisma.servicio.create({ data });
   }
 
-  async findAll() {
+  /**
+     * Ejecuta la operación de negocio findAll.
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findAll() {
     return this.prisma.servicio.findMany({
       //where: { activo: true },
       include: { 
@@ -20,7 +30,12 @@ export class ServiciosService {
     });
   }
 
-  async findOne(id: number) {
+  /**
+     * Ejecuta la operación de negocio findOne.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findOne(id: number) {
     const servicio = await this.prisma.servicio.findUnique({
       where: { id },
       include: { laboratorio: true },
@@ -29,7 +44,13 @@ export class ServiciosService {
     return servicio;
   }
 
-  async update(id: number, data: UpdateServicioDto) {
+  /**
+     * Ejecuta la operación de negocio update.
+     * @param id - Datos o identificador requerido (number)
+     * @param data - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async update(id: number, data: UpdateServicioDto) {
     await this.findOne(id);
     return this.prisma.servicio.update({
       where: { id },
@@ -37,7 +58,12 @@ export class ServiciosService {
     });
   }
 
-  async remove(id: number) {
+  /**
+     * Ejecuta la operación de negocio remove.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async remove(id: number) {
     await this.findOne(id);
     // Soft delete
     return this.prisma.servicio.update({

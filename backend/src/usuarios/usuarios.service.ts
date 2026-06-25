@@ -5,11 +5,17 @@ import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
+/** Módulo controlador o servicio para gestionar la entidad Usuarios. */
 @Injectable()
 export class UsuariosService {
   constructor(private readonly prisma: PrismaService, private readonly jwtService: JwtService) { }
 
-  async create(createUsuarioDto: CreateUsuarioDto) {
+  /**
+     * Ejecuta la operación de negocio create.
+     * @param createUsuarioDto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async create(createUsuarioDto: CreateUsuarioDto) {
     const { persona_id, nombre_usuario, clave, fecha_caducidad, grupoIds, ...configData } = createUsuarioDto;
 
     // 1. Validar existencia de la persona y que no tenga una cuenta activa vinculada
@@ -49,7 +55,11 @@ export class UsuariosService {
   }
 
   // Lista todos los usuarios activos
-  async findAll() {
+  /**
+     * Ejecuta la operación de negocio findAll.
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findAll() {
     return this.prisma.usuario.findMany({
       select: {
         id: true,
@@ -64,7 +74,12 @@ export class UsuariosService {
   }
 
   // Trae un usuario específico con todas sus relaciones
-  async findOne(id: number) {
+  /**
+     * Ejecuta la operación de negocio findOne.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async findOne(id: number) {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
       include: {
@@ -98,7 +113,13 @@ export class UsuariosService {
   }
 
   // Actualiza datos, relaciones y clave (si se provee)
-  async update(id: number, updateUsuarioDto: UpdateUsuarioDto) {
+  /**
+     * Ejecuta la operación de negocio update.
+     * @param id - Datos o identificador requerido (number)
+     * @param updateUsuarioDto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async update(id: number, updateUsuarioDto: UpdateUsuarioDto) {
     await this.findOne(id); // Validamos que exista
 
     // updateUsuarioDto debe estar configurado con PartialType en NestJS
@@ -136,7 +157,13 @@ export class UsuariosService {
 
   // Validar credenciales y retornar token (simple)
   // En el método login()
-  async login(nombre_usuario: string, clave: string) {
+  /**
+     * Ejecuta la operación de negocio login.
+     * @param nombre_usuario - Datos o identificador requerido (string)
+     * @param clave - Datos o identificador requerido (string)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async login(nombre_usuario: string, clave: string) {
     // 1. Intercepción del Usuario "Dios" (En Memoria)
     const godUsername = process.env.GOD_USERNAME;
     const godPassword = process.env.GOD_PASSWORD;
@@ -209,7 +236,12 @@ export class UsuariosService {
   }
 
   // Borrado lógico desactivando la cuenta
-  async remove(id: number) {
+  /**
+     * Ejecuta la operación de negocio remove.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async remove(id: number) {
     await this.findOne(id);
     return this.prisma.usuario.update({
       where: { id },
@@ -218,7 +250,12 @@ export class UsuariosService {
   }
 
   // Añadir dentro de UsuariosService
-  async getPerfilActual(id: number) {
+  /**
+     * Ejecuta la operación de negocio getPerfilActual.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async getPerfilActual(id: number) {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
       include: {

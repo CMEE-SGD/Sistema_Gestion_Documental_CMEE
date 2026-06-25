@@ -14,13 +14,20 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
 
+/** Módulo controlador o servicio para gestionar la entidad Personas. */
 @ApiTags('Personas')
 @Controller('personas')
 @UseGuards(JwtAuthGuard, AccessGuard)
 export class PersonasController {
   constructor(private readonly personasService: PersonasService) { }
 
-  @Post()
+  /**
+     * Crea un nuevo registro o procesa una acción en el sistema.
+     * @param createPersonaDto - Datos o identificador requerido (any)
+     * @param files - Datos o identificador requerido (Objeto complejo / PrismaResponse)
+     * @returns Array<Entidad>
+     */
+    @Post()
   @RequireAccess('Recursos Humanos', 5)
   @ApiOperation({ summary: 'Crear persona con foto y múltiples documentos' })
   @UseInterceptors(FileFieldsInterceptor([
@@ -105,21 +112,37 @@ export class PersonasController {
     }
   }
 
-  @Get()
+  /**
+     * Obtiene información de múltiples registros.
+     * @returns Array<Entidad>
+     */
+    @Get()
   @RequireAccess('Recursos Humanos', 2)
   @ApiOperation({ summary: 'Listar todas las personas activas' })
   findAll() {
     return this.personasService.findAll();
   }
 
-  @Get(':id')
+  /**
+     * Obtiene información de un registro específico.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Array<Entidad>
+     */
+    @Get(':id')
   @RequireAccess('Recursos Humanos', 2)
   @ApiOperation({ summary: 'Obtener una persona por ID con sus roles y puestos' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.personasService.findOne(id);
   }
 
-  @Patch(':id')
+  /**
+     * Actualiza parcialmente la información de un registro existente.
+     * @param id - Datos o identificador requerido (number)
+     * @param updatePersonaDto - Datos o identificador requerido (any)
+     * @param files - Datos o identificador requerido (Objeto complejo / PrismaResponse)
+     * @returns Array<Entidad>
+     */
+    @Patch(':id')
   @RequireAccess('Recursos Humanos', 4)
   @ApiOperation({ summary: 'Actualizar datos de una persona, foto y agregar documentos' })
   @UseInterceptors(FileFieldsInterceptor([
@@ -214,14 +237,24 @@ export class PersonasController {
     return personaActualizada;
   }
 
-  @Delete(':id')
+  /**
+     * Elimina lógicamente o inactiva un registro en el sistema.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Entidad | PrismaResponse
+     */
+    @Delete(':id')
   @RequireAccess('Recursos Humanos', 5)
   @ApiOperation({ summary: 'Desactivar una persona (Soft Delete)' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.personasService.remove(id);
   }
 
-  @Delete('documento/:id')
+  /**
+     * Elimina lógicamente o inactiva un registro en el sistema.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    @Delete('documento/:id')
   @RequireAccess('Recursos Humanos', 4)
   @ApiOperation({ summary: 'Eliminar un documento adjunto de una persona' })
   removeDocumento(@Param('id', ParseIntPipe) id: number) {

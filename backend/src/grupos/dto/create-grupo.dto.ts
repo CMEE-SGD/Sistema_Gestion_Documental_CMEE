@@ -1,6 +1,7 @@
 import { IsString, IsOptional, IsBoolean, IsArray, ValidateNested, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
+/** Módulo controlador o servicio para gestionar la entidad AplicacionGrupoDto. */
 export class AplicacionGrupoDto {
     @IsInt()
     aplicacion_id: number;
@@ -15,7 +16,8 @@ export class AplicacionGrupoDto {
     orden?: number;
     }
 
-    export class CreateGrupoDto {
+    /** Módulo controlador o servicio para gestionar la entidad CreateGrupoDto. */
+export class CreateGrupoDto {
     @IsString()
     nombre: string;
 

@@ -3,11 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePersonaPuestoDto } from './dto/create-persona-puesto.dto';
 import { UpdatePersonaPuestoDto } from './dto/update-persona-puesto.dto';
 
+/** Módulo controlador o servicio para gestionar la entidad PersonaPuesto. */
 @Injectable()
 export class PersonaPuestoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreatePersonaPuestoDto) {
+  /**
+     * Ejecuta la operación de negocio create.
+     * @param dto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async create(dto: CreatePersonaPuestoDto) {
     // 1. Validar límite máximo de 3 puestos activos (Complemento al Trigger de PostgreSQL)
     const puestosActivos = await this.prisma.personaPuesto.count({
       where: { persona_id: dto.persona_id, activo: true },
@@ -36,7 +42,11 @@ export class PersonaPuestoService {
     });
   }
 
-  findAll() {
+  /**
+     * Ejecuta la operación de negocio findAll.
+     * @returns Array<Entidad>
+     */
+    findAll() {
     return this.prisma.personaPuesto.findMany({
       where: { activo: true },
       include: { persona: true, puesto: true, departamento: true },
@@ -44,7 +54,12 @@ export class PersonaPuestoService {
     });
   }
 
-  async findOne(id: number) {
+  /**
+     * Ejecuta la operación de negocio findOne.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Entidad | PrismaResponse
+     */
+    async findOne(id: number) {
     const asignacion = await this.prisma.personaPuesto.findUnique({
       where: { id },
       include: { persona: true, puesto: true, departamento: true },
@@ -53,7 +68,13 @@ export class PersonaPuestoService {
     return asignacion;
   }
 
-  async update(id: number, dto: UpdatePersonaPuestoDto) {
+  /**
+     * Ejecuta la operación de negocio update.
+     * @param id - Datos o identificador requerido (number)
+     * @param dto - Datos o identificador requerido (Entidad | PrismaResponse)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async update(id: number, dto: UpdatePersonaPuestoDto) {
     await this.findOne(id);
     return this.prisma.personaPuesto.update({
       where: { id },
@@ -64,7 +85,12 @@ export class PersonaPuestoService {
     });
   }
 
-  async remove(id: number) {
+  /**
+     * Ejecuta la operación de negocio remove.
+     * @param id - Datos o identificador requerido (number)
+     * @returns Objeto complejo / PrismaResponse
+     */
+    async remove(id: number) {
     await this.findOne(id);
     return this.prisma.personaPuesto.update({
       where: { id },
