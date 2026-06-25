@@ -125,35 +125,48 @@ export class PersonasService {
      * @returns Array<Entidad>
      */
     async update(id: number, updatePersonaDto: UpdatePersonaDto) {
-    await this.findOne(id);
-    const { roles, puestos_asignados, ...personaData } = updatePersonaDto;
-    
-    personaData.cedula_identidad = emptyToNull(personaData.cedula_identidad);
-    
-    if (puestos_asignados) {
-      await this.prisma.personaPuesto.deleteMany({ where: { persona_id: id } });
+    // 1. Extraemos los datos que NO pertenecen a la tabla Persona
+    const { 
+      eliminar_foto, 
+      roles, 
+      puestos_asignados, 
+      ...datosBasicosPrisma 
+    } = updatePersonaDto;
+
+    // 2. Si el usuario pidió eliminar la foto, seteamos la ruta en null
+    if (eliminar_foto === 'true' || eliminar_foto === true) {
+      datosBasicosPrisma.foto_ruta = null;
     }
-    
+
+    // 3. Limpiamos los puestos anteriores
+    await this.prisma.personaPuesto.deleteMany({ where: { persona_id: id } });
+
+    // 4. Actualizamos pasando solo los datos que Prisma reconoce
     return this.prisma.persona.update({
       where: { id },
       data: {
-        ...personaData,
-        fecha_nacimiento: personaData.fecha_nacimiento ? new Date(personaData.fecha_nacimiento) : undefined,
-        roles: roles ? { set: roles.map(id => ({ id })) } : undefined,
-        puestos: puestos_asignados?.filter(p => p.departamento_id && p.puesto_id).length > 0 ? {
-          create: puestos_asignados
-            .filter(p => p.departamento_id && p.puesto_id)
-            .map((puesto, index) => ({
-              orden_puesto: index + 1,
-              departamento: { connect: { id: Number(puesto.departamento_id) } },
-              puesto: { connect: { id: Number(puesto.puesto_id) } }
-            }))
-        } : undefined
+        ...datosBasicosPrisma,
+        
+        // 👇 SOLUCIÓN: Validamos y convertimos explícitamente a Date o Null
+        cedula_identidad: emptyToNull(datosBasicosPrisma.cedula_identidad),
+        fecha_nacimiento: datosBasicosPrisma.fecha_nacimiento 
+          ? new Date(datosBasicosPrisma.fecha_nacimiento) 
+          : null,
+
+        // Actualizamos las relaciones de roles
+        roles: {
+          set: roles ? roles.map(rolId => ({ id: rolId })) : []
+        }
       },
       include: {
         roles: true,
-        puestos: { include: { puesto: true, departamento: true } }
-      },
+        puestos: {
+          include: {
+            puesto: true,
+            departamento: true
+          }
+        }
+      }
     });
   }
 
