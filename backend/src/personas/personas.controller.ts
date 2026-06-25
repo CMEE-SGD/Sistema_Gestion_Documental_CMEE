@@ -161,7 +161,10 @@ export class PersonasController {
     @UploadedFiles() files: { foto?: Express.Multer.File[], documentos?: Express.Multer.File[] }
   ) {
     const archivos = files || {};
-    
+
+    // ✅ Limpiar campos que no existen en el modelo Prisma
+    delete updatePersonaDto.eliminar_foto;
+
     // ✅ ACTUALIZAR RUTA DE FOTO CON NUEVA ESTRUCTURA
     if (archivos.foto && archivos.foto.length > 0) {
         // Obtener la persona actual para construir la ruta correcta

@@ -24,7 +24,7 @@ export class DepartamentosService {
           where: { activo: true },
           // AÑADIR ESTE BLOQUE INCLUDE
           include: {
-            persona: { select: { nombre: true, apellidos: true } },
+            persona: { select: { id: true, nombre: true, apellidos: true } },
             puesto: { select: { nombre: true } }
           }
         }
@@ -41,7 +41,7 @@ export class DepartamentosService {
         puestos_asignados: { 
           where: { activo: true },
           include: {
-            persona: { select: { nombre: true, apellidos: true } },
+            persona: { select: { id: true, nombre: true, apellidos: true } },
             puesto: { select: { nombre: true } } 
           }
         }

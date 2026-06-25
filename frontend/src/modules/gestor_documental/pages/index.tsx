@@ -12,6 +12,7 @@ export const GestorDocumentalPage = () => {
     const [loading, setLoading] = useState(true);
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [documentosSeleccionados, setDocumentosSeleccionados] = useState<number[]>([]);
+    const [misPermisos, setMisPermisos] = useState<{ permiso_docs: boolean; permiso_carpetas: boolean }>({ permiso_docs: true, permiso_carpetas: true });
 
     const [ordenarPor, setOrdenarPor] = useState<'alfabetico' | 'orden'>('orden');
     const [expandedFolders, setExpandedFolders] = useState<Record<number, boolean>>({});
@@ -52,8 +53,12 @@ export const GestorDocumentalPage = () => {
         if (id) {
             setExpandedFolders(prev => ({ ...prev, [parseInt(id)]: true }));
             fetchDocumentos(id);
+            api.get(`/carpetas/${id}/mis-permisos`).then(res => {
+                if (res.data) setMisPermisos(res.data);
+            }).catch(() => {});
         } else {
             setDocumentos([]);
+            setMisPermisos({ permiso_docs: true, permiso_carpetas: true });
         }
     }, [id, fetchDocumentos]);
 
@@ -245,13 +250,14 @@ export const GestorDocumentalPage = () => {
                             </button>
                             <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Nuevo documento</button>
                             <button
+                                disabled={!misPermisos.permiso_docs}
                                 onClick={() => navigate('/gestordocumental/nuevo-fichero', {
                                     state: {
                                         carpetaPadreId: id,
                                         carpetaPadreNombre: carpetaSeleccionada?.nombre
                                     }
                                 })}
-                                className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                                className={`px-3 py-1.5 text-sm border rounded transition-colors shadow-sm ${misPermisos.permiso_docs ? 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50' : 'text-gray-300 bg-gray-50 border-gray-200 cursor-not-allowed'}`}
                             >
                                 Nuevo fichero
                             </button>
@@ -262,19 +268,20 @@ export const GestorDocumentalPage = () => {
                             >
                                 Mover {documentosSeleccionados.length > 0 && `(${documentosSeleccionados.length})`}
                             </button>                            <button
-                                onClick={handleEliminarDocumentos} // <-- Aquí lo conectamos
+                                onClick={handleEliminarDocumentos}
                                 className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
                             >
                                 Eliminar {documentosSeleccionados.length > 0 && `(${documentosSeleccionados.length})`}
                             </button>                            <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Imprimir</button>
                             <button
+                                disabled={!misPermisos.permiso_carpetas}
                                 onClick={() => navigate('/gestordocumental/nueva-carpeta', {
                                     state: {
                                         carpetaPadreId: id,
                                         carpetaPadreNombre: carpetaSeleccionada?.nombre
                                     }
                                 })}
-                                className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                                className={`px-3 py-1.5 text-sm border rounded transition-colors shadow-sm ${misPermisos.permiso_carpetas ? 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50' : 'text-gray-300 bg-gray-50 border-gray-200 cursor-not-allowed'}`}
                             >
                                 Subcarpeta
                             </button>

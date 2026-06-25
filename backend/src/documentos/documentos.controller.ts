@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, BadRequestException, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, BadRequestException, Query, UseGuards, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentosService } from './documentos.service';
 import { UpdateDocumentoDto } from './dto/update-documento.dto';
@@ -17,11 +17,12 @@ export class DocumentosController {
   async create(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: any,
+    @Req() req: any,
   ) {
     if (!file) {
       throw new BadRequestException('El archivo PDF es obligatorio.');
     }
-    return this.documentosService.create(file, body);
+    return this.documentosService.create(file, body, req.user?.id);
   }
 
   @Get()

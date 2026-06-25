@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -23,8 +23,35 @@ export class DocumentosService {
     return path.join('uploads', 'Gestor_Documental', ...partes);
   }
 
-  async create(file: Express.Multer.File, data: any) {
+  async create(file: Express.Multer.File, data: any, usuarioId?: number) {
     const carpetaId = parseInt(data.carpeta_id, 10);
+
+    if (usuarioId) {
+      const usuario = await this.prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { persona_id: true },
+      });
+      if (usuario?.persona_id) {
+        const puestos = await this.prisma.personaPuesto.findMany({
+          where: { persona_id: usuario.persona_id, activo: true },
+          select: { departamento_id: true },
+        });
+        const deptosIds = puestos.map(p => p.departamento_id);
+        const permiso = await this.prisma.carpetaPermiso.findFirst({
+          where: {
+            carpeta_id: carpetaId,
+            OR: [
+              { persona_id: usuario.persona_id },
+              ...(deptosIds.length > 0 ? [{ departamento_id: { in: deptosIds } }] : []),
+            ],
+            permiso_docs: true,
+          },
+        });
+        if (!permiso) {
+          throw new ForbiddenException('No tienes permiso para crear documentos en esta carpeta');
+        }
+      }
+    }
 
     const rutaDestinoRelativa = await this.obtenerRutaFisica(carpetaId);
     const rutaDestinoAbsoluta = path.resolve(process.cwd(), rutaDestinoRelativa);
