@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { EquiposService } from './equipos.service';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
@@ -13,55 +23,58 @@ export class EquiposController {
   constructor(private readonly equiposService: EquiposService) {}
 
   /**
-     * Crea un nuevo registro o procesa una acción en el sistema.
-     * @param createEquipoDto - Datos o identificador requerido (Entidad | PrismaResponse)
-     * @returns Entidad | PrismaResponse
-     */
-    @Post()
+   * Crea un nuevo registro o procesa una acción en el sistema.
+   * @param createEquipoDto - Datos o identificador requerido (Entidad | PrismaResponse)
+   * @returns Entidad | PrismaResponse
+   */
+  @Post()
   @RequireAccess('Laboratorios', 5)
   create(@Body() createEquipoDto: CreateEquipoDto) {
     return this.equiposService.create(createEquipoDto);
   }
 
   /**
-     * Obtiene información de múltiples registros.
-     * @returns Array<Entidad>
-     */
-    @Get()
+   * Obtiene información de múltiples registros.
+   * @returns Array<Entidad>
+   */
+  @Get()
   @RequireAccess('Laboratorios', 2)
   findAll() {
     return this.equiposService.findAll();
   }
 
   /**
-     * Obtiene información de un registro específico.
-     * @param id - Datos o identificador requerido (number)
-     * @returns Entidad | PrismaResponse
-     */
-    @Get(':id')
+   * Obtiene información de un registro específico.
+   * @param id - Datos o identificador requerido (number)
+   * @returns Entidad | PrismaResponse
+   */
+  @Get(':id')
   @RequireAccess('Laboratorios', 2)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.equiposService.findOne(id);
   }
 
   /**
-     * Actualiza parcialmente la información de un registro existente.
-     * @param id - Datos o identificador requerido (number)
-     * @param updateEquipoDto - Datos o identificador requerido (Entidad | PrismaResponse)
-     * @returns Entidad | PrismaResponse
-     */
-    @Patch(':id')
+   * Actualiza parcialmente la información de un registro existente.
+   * @param id - Datos o identificador requerido (number)
+   * @param updateEquipoDto - Datos o identificador requerido (Entidad | PrismaResponse)
+   * @returns Entidad | PrismaResponse
+   */
+  @Patch(':id')
   @RequireAccess('Laboratorios', 4)
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateEquipoDto: UpdateEquipoDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateEquipoDto: UpdateEquipoDto,
+  ) {
     return this.equiposService.update(id, updateEquipoDto);
   }
 
   /**
-     * Elimina lógicamente o inactiva un registro en el sistema.
-     * @param id - Datos o identificador requerido (number)
-     * @returns Entidad | PrismaResponse
-     */
-    @Delete(':id')
+   * Elimina lógicamente o inactiva un registro en el sistema.
+   * @param id - Datos o identificador requerido (number)
+   * @returns Entidad | PrismaResponse
+   */
+  @Delete(':id')
   @RequireAccess('Laboratorios', 5)
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.equiposService.remove(id);

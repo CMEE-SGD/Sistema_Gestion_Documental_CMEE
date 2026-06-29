@@ -55,9 +55,9 @@ const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLo
                         <DataRow label="Apellidos" value={persona.apellidos} />
 
                         <DataRow label="Puesto">
-                            {persona.puestos && persona.puestos.length > 0 ? (
+                            {persona.puestos && persona.puestos.filter((p: any) => p.activo !== false).length > 0 ? (
                                 <div className="flex flex-col gap-1.5">
-                                    {persona.puestos.map((p: any, idx: number) => (
+                                    {persona.puestos.filter((p: any) => p.activo !== false).map((p: any, idx: number) => (
                                         <div key={idx} className="text-[11px] leading-tight">
                                             {p.puesto?.nombre && (
                                                 <span className="text-blue-600 underline cursor-pointer font-medium mr-1 hover:text-blue-800">

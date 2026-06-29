@@ -1,24 +1,30 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsInt,
+  IsBoolean,
+} from 'class-validator';
 
 /** Módulo controlador o servicio para gestionar la entidad CreateLaboratorioDto. */
 export class CreateLaboratorioDto {
-    @IsString()
-    @IsOptional()
-    codigo?: string;
+  @IsString()
+  @IsOptional()
+  codigo?: string;
 
-    @IsString()
-    @IsNotEmpty()
-    nombre: string;
+  @IsString()
+  @IsNotEmpty()
+  nombre: string;
 
-    @IsString()
-    @IsOptional()
-    descripcion?: string;
+  @IsString()
+  @IsOptional()
+  descripcion?: string;
 
-    @IsInt()
-    @IsOptional()
-    responsable_id?: number;
+  @IsInt()
+  @IsOptional()
+  responsable_id?: number;
 
-    @IsBoolean()
-    @IsOptional()
-    activo?: boolean;
+  @IsBoolean()
+  @IsOptional()
+  activo?: boolean;
 }

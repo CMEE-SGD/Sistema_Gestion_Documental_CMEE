@@ -31,18 +31,21 @@ const Index = () => {
           puestoExtraido = rel?.puesto?.nombre ?? puestoExtraido;
         }
 
+        const laboratorioId = resData.laboratorio_id ?? null;
+
         const userData = {
           id: resData.id,
-          persona_id: resData.persona_id,
+          persona_id: personaRaw.id ?? resData.persona_id,
           nombre_usuario: resData.nombre_usuario,
           rol: resData.rol || 'usuario',
-          grupos: resData.grupos ?? [], 
+          grupos: resData.grupos ?? [],
+          laboratorio_id: laboratorioId,
           persona: {
             nombre: personaRaw.nombre ?? '',
             apellidos: personaRaw.apellidos ?? '',
             foto_ruta: personaRaw.foto_ruta ?? '',
-            puesto: puestoExtraido
-          }
+            puesto: puestoExtraido,
+          },
         };
 
         localStorage.setItem('usuario', JSON.stringify(userData));

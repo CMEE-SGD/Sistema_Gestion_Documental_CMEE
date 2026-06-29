@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
@@ -8,24 +12,41 @@ import * as bcrypt from 'bcrypt';
 /** Módulo controlador o servicio para gestionar la entidad Usuarios. */
 @Injectable()
 export class UsuariosService {
-  constructor(private readonly prisma: PrismaService, private readonly jwtService: JwtService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   /**
-     * Ejecuta la operación de negocio create.
-     * @param createUsuarioDto - Datos o identificador requerido (Entidad | PrismaResponse)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async create(createUsuarioDto: CreateUsuarioDto) {
-    const { persona_id, nombre_usuario, clave, fecha_caducidad, grupoIds, ...configData } = createUsuarioDto;
+   * Ejecuta la operación de negocio create.
+   * @param createUsuarioDto - Datos o identificador requerido (Entidad | PrismaResponse)
+   * @returns Objeto complejo / PrismaResponse
+   */
+  async create(createUsuarioDto: CreateUsuarioDto) {
+    const {
+      persona_id,
+      nombre_usuario,
+      clave,
+      fecha_caducidad,
+      grupoIds,
+      ...configData
+    } = createUsuarioDto;
 
     // 1. Validar existencia de la persona y que no tenga una cuenta activa vinculada
-    const persona = await this.prisma.persona.findUnique({ where: { id: persona_id }, include: { usuario: true } });
+    const persona = await this.prisma.persona.findUnique({
+      where: { id: persona_id },
+      include: { usuario: true },
+    });
     if (!persona) throw new NotFoundException('Persona no encontrada');
-    if (persona.usuario) throw new ConflictException('Esta persona ya tiene un usuario asignado');
+    if (persona.usuario)
+      throw new ConflictException('Esta persona ya tiene un usuario asignado');
 
     // 2. Validar unicidad del username
-    const existeUsername = await this.prisma.usuario.findUnique({ where: { nombre_usuario } });
-    if (existeUsername) throw new ConflictException('El nombre de usuario ya está en uso');
+    const existeUsername = await this.prisma.usuario.findUnique({
+      where: { nombre_usuario },
+    });
+    if (existeUsername)
+      throw new ConflictException('El nombre de usuario ya está en uso');
 
     // 3. Hashear la contraseña recibida
     const saltRounds = 10;
@@ -39,9 +60,12 @@ export class UsuariosService {
         password_hash: hash,
         fecha_caducidad: fecha_caducidad ? new Date(fecha_caducidad) : null,
         ...configData,
-        grupos: grupoIds?.length > 0 ? {
-          connect: grupoIds.map(id => ({ id }))
-        } : undefined
+        grupos:
+          grupoIds?.length > 0
+            ? {
+                connect: grupoIds.map((id) => ({ id })),
+              }
+            : undefined,
       },
       select: {
         id: true,
@@ -49,17 +73,17 @@ export class UsuariosService {
         estado_cuenta: true,
         bloqueado: true,
         persona: { select: { nombre: true, apellidos: true } },
-        grupos: { select: { id: true, nombre: true } }
-      }
+        grupos: { select: { id: true, nombre: true } },
+      },
     });
   }
 
   // Lista todos los usuarios activos
   /**
-     * Ejecuta la operación de negocio findAll.
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async findAll() {
+   * Ejecuta la operación de negocio findAll.
+   * @returns Objeto complejo / PrismaResponse
+   */
+  async findAll() {
     return this.prisma.usuario.findMany({
       select: {
         id: true,
@@ -68,44 +92,45 @@ export class UsuariosService {
         bloqueado: true,
         fecha_caducidad: true,
         persona: { select: { id: true, nombre: true, apellidos: true } },
-        grupos: { select: { id: true, nombre: true } }
-      }
+        grupos: { select: { id: true, nombre: true } },
+      },
     });
   }
 
   // Trae un usuario específico con todas sus relaciones
   /**
-     * Ejecuta la operación de negocio findOne.
-     * @param id - Datos o identificador requerido (number)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async findOne(id: number) {
+   * Ejecuta la operación de negocio findOne.
+   * @param id - Datos o identificador requerido (number)
+   * @returns Objeto complejo / PrismaResponse
+   */
+  async findOne(id: number) {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
       include: {
         // 1. Incluimos la Persona
         persona: {
           select: {
-            id: true, 
+            id: true,
             nombre: true,
             apellidos: true,
             foto_ruta: true,
             puestos: {
               take: 1,
               orderBy: { orden_puesto: 'asc' },
-              include: { puesto: { select: { nombre: true } } }
-            }
-          }
+              include: { puesto: { select: { nombre: true } } },
+            },
+          },
         }, // <--- Fíjate que aquí se cierra persona
 
         // 2. Incluimos los Grupos (al mismo nivel)
         grupos: {
-          select: { id: true, nombre: true }
-        }
-      }
+          select: { id: true, nombre: true },
+        },
+      },
     });
 
-    if (!usuario) throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    if (!usuario)
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
 
     // Evitamos enviar el hash de la contraseña al frontend
     const { password_hash, ...result } = usuario;
@@ -114,18 +139,19 @@ export class UsuariosService {
 
   // Actualiza datos, relaciones y clave (si se provee)
   /**
-     * Ejecuta la operación de negocio update.
-     * @param id - Datos o identificador requerido (number)
-     * @param updateUsuarioDto - Datos o identificador requerido (Entidad | PrismaResponse)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async update(id: number, updateUsuarioDto: UpdateUsuarioDto) {
+   * Ejecuta la operación de negocio update.
+   * @param id - Datos o identificador requerido (number)
+   * @param updateUsuarioDto - Datos o identificador requerido (Entidad | PrismaResponse)
+   * @returns Objeto complejo / PrismaResponse
+   */
+  async update(id: number, updateUsuarioDto: UpdateUsuarioDto) {
     await this.findOne(id); // Validamos que exista
 
     // updateUsuarioDto debe estar configurado con PartialType en NestJS
-    const { clave, fecha_caducidad, grupoIds, ...configData } = updateUsuarioDto as any;
+    const { clave, fecha_caducidad, grupoIds, ...configData } =
+      updateUsuarioDto as any;
 
-    let dataToUpdate: any = { ...configData };
+    const dataToUpdate: any = { ...configData };
 
     // Si se envía una nueva clave, la encriptamos antes de guardar
     if (clave) {
@@ -133,12 +159,16 @@ export class UsuariosService {
     }
 
     if (fecha_caducidad !== undefined) {
-      dataToUpdate.fecha_caducidad = fecha_caducidad ? new Date(fecha_caducidad) : null;
+      dataToUpdate.fecha_caducidad = fecha_caducidad
+        ? new Date(fecha_caducidad)
+        : null;
     }
 
     // Si se envían grupos, usamos 'set' para reemplazar la lista anterior
     if (grupoIds) {
-      dataToUpdate.grupos = { set: grupoIds.map((gId: number) => ({ id: gId })) };
+      dataToUpdate.grupos = {
+        set: grupoIds.map((gId: number) => ({ id: gId })),
+      };
     }
 
     return this.prisma.usuario.update({
@@ -150,25 +180,30 @@ export class UsuariosService {
         estado_cuenta: true,
         bloqueado: true,
         persona: { select: { nombre: true, apellidos: true } },
-        grupos: { select: { id: true, nombre: true } }
-      }
+        grupos: { select: { id: true, nombre: true } },
+      },
     });
   }
 
   // Validar credenciales y retornar token (simple)
   // En el método login()
   /**
-     * Ejecuta la operación de negocio login.
-     * @param nombre_usuario - Datos o identificador requerido (string)
-     * @param clave - Datos o identificador requerido (string)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async login(nombre_usuario: string, clave: string) {
+   * Ejecuta la operación de negocio login.
+   * @param nombre_usuario - Datos o identificador requerido (string)
+   * @param clave - Datos o identificador requerido (string)
+   * @returns Objeto complejo / PrismaResponse
+   */
+  async login(nombre_usuario: string, clave: string) {
     // 1. Intercepción del Usuario "Dios" (En Memoria)
     const godUsername = process.env.GOD_USERNAME;
     const godPassword = process.env.GOD_PASSWORD;
 
-    if (godUsername && godPassword && nombre_usuario === godUsername && clave === godPassword) {
+    if (
+      godUsername &&
+      godPassword &&
+      nombre_usuario === godUsername &&
+      clave === godPassword
+    ) {
       // Construimos un payload virtual con permisos máximos (Nivel 5)
       const godPayload = {
         id: -1, // ID ficticio negativo para evitar choques con la BD
@@ -179,24 +214,26 @@ export class UsuariosService {
           nombre: 'Super',
           apellidos: 'Administrador (Memoria)',
           foto_ruta: '',
-          puestos: [{ puesto: { nombre: 'SYSTEM ROOT' } }]
+          puestos: [{ puesto: { nombre: 'SYSTEM ROOT' } }],
         },
-        grupos: [{
-          id: -1,
-          nombre: 'GOD_MODE',
-          aplicaciones: [
-            { aplicacion: { nombre: 'Gestion de Usuarios' }, nivel: 5 },
-            { aplicacion: { nombre: 'Recursos Humanos' }, nivel: 5 },
-            { aplicacion: { nombre: 'Gestor Documental' }, nivel: 5 },
-            { aplicacion: { nombre: 'Laboratorios' }, nivel: 5 },
-            { aplicacion: { nombre: 'Auditoria Global' }, nivel: 5 }
-          ]
-        }]
+        grupos: [
+          {
+            id: -1,
+            nombre: 'GOD_MODE',
+            aplicaciones: [
+              { aplicacion: { nombre: 'Gestion de Usuarios' }, nivel: 5 },
+              { aplicacion: { nombre: 'Recursos Humanos' }, nivel: 5 },
+              { aplicacion: { nombre: 'Gestor Documental' }, nivel: 5 },
+              { aplicacion: { nombre: 'Laboratorios' }, nivel: 5 },
+              { aplicacion: { nombre: 'Auditoria Global' }, nivel: 5 },
+            ],
+          },
+        ],
       };
 
       return {
         ...godPayload,
-        token: this.jwtService.sign({ sub: -1, isGod: true }) // Firmamos el token con el ID ficticio
+        token: this.jwtService.sign({ sub: -1, isGod: true }), // Firmamos el token con el ID ficticio
       };
     }
 
@@ -206,61 +243,7 @@ export class UsuariosService {
       include: {
         persona: {
           select: {
-            nombre: true, apellidos: true, foto_ruta: true,
-            puestos: {
-              where: { activo: true }, orderBy: { orden_puesto: 'asc' },
-              take: 1, include: { puesto: { select: { nombre: true } } }
-            }
-          }
-        },
-        grupos: {
-          include: { aplicaciones: { include: { aplicacion: true } } }
-        }
-      }
-    });
-
-    if (!usuario) throw new NotFoundException('Usuario no encontrado');
-    if (usuario.bloqueado) throw new NotFoundException('El usuario está bloqueado');
-    if (!usuario.estado_cuenta) throw new NotFoundException('La cuenta está inactiva');
-
-    const passwordValida = await bcrypt.compare(clave, usuario.password_hash);
-    if (!passwordValida) throw new NotFoundException('Usuario o contraseña incorrectos');
-
-    const { password_hash, ...result } = usuario;
-    const payload = { sub: usuario.id };
-
-    return {
-      ...result,
-      token: this.jwtService.sign(payload)
-    };
-  }
-
-  // Borrado lógico desactivando la cuenta
-  /**
-     * Ejecuta la operación de negocio remove.
-     * @param id - Datos o identificador requerido (number)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async remove(id: number) {
-    await this.findOne(id);
-    return this.prisma.usuario.update({
-      where: { id },
-      data: { estado_cuenta: false }
-    });
-  }
-
-  // Añadir dentro de UsuariosService
-  /**
-     * Ejecuta la operación de negocio getPerfilActual.
-     * @param id - Datos o identificador requerido (number)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async getPerfilActual(id: number) {
-    const usuario = await this.prisma.usuario.findUnique({
-      where: { id },
-      include: {
-        persona: {
-          select: {
+            id: true,
             nombre: true,
             apellidos: true,
             foto_ruta: true,
@@ -268,21 +251,106 @@ export class UsuariosService {
               where: { activo: true },
               orderBy: { orden_puesto: 'asc' },
               take: 1,
-              include: { puesto: { select: { nombre: true } } }
-            }
-          }
+              include: {
+                puesto: { select: { nombre: true } },
+                departamento: {
+                  include: {
+                    laboratorio: { select: { id: true, nombre: true } },
+                  },
+                },
+              },
+            },
+          },
         },
         grupos: {
-          include: {
-            aplicaciones: { include: { aplicacion: true } }
-          }
-        }
-      }
+          include: { aplicaciones: { include: { aplicacion: true } } },
+        },
+      },
     });
 
     if (!usuario) throw new NotFoundException('Usuario no encontrado');
-    
+    if (usuario.bloqueado)
+      throw new NotFoundException('El usuario está bloqueado');
+    if (!usuario.estado_cuenta)
+      throw new NotFoundException('La cuenta está inactiva');
+
+    const passwordValida = await bcrypt.compare(clave, usuario.password_hash);
+    if (!passwordValida)
+      throw new NotFoundException('Usuario o contraseña incorrectos');
+
     const { password_hash, ...result } = usuario;
-    return result;
+    const payload = { sub: usuario.id };
+
+    const laboratorioId =
+      usuario.persona?.puestos?.[0]?.departamento?.laboratorio?.id ?? null;
+
+    return {
+      ...result,
+      laboratorio_id: laboratorioId,
+      token: this.jwtService.sign(payload),
+    };
+  }
+
+  // Borrado lógico desactivando la cuenta
+  /**
+   * Ejecuta la operación de negocio remove.
+   * @param id - Datos o identificador requerido (number)
+   * @returns Objeto complejo / PrismaResponse
+   */
+  async remove(id: number) {
+    await this.findOne(id);
+    return this.prisma.usuario.update({
+      where: { id },
+      data: { estado_cuenta: false },
+    });
+  }
+
+  // Añadir dentro de UsuariosService
+  /**
+   * Ejecuta la operación de negocio getPerfilActual.
+   * @param id - Datos o identificador requerido (number)
+   * @returns Objeto complejo / PrismaResponse
+   */
+  async getPerfilActual(id: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id },
+      include: {
+        persona: {
+          select: {
+            id: true,
+            nombre: true,
+            apellidos: true,
+            foto_ruta: true,
+            puestos: {
+              where: { activo: true },
+              orderBy: { orden_puesto: 'asc' },
+              take: 1,
+              include: {
+                puesto: { select: { nombre: true } },
+                departamento: {
+                  include: {
+                    laboratorio: { select: { id: true, nombre: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        grupos: {
+          include: {
+            aplicaciones: { include: { aplicacion: true } },
+          },
+        },
+      },
+    });
+
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    const { password_hash, ...result } = usuario;
+
+    const laboratorioId =
+      usuario.persona?.puestos?.[0]?.departamento?.laboratorio?.id ?? null;
+
+    return { ...result, laboratorio_id: laboratorioId };
   }
 }

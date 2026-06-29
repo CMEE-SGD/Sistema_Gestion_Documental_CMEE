@@ -1,4 +1,11 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1, refetchOnWindowFocus: false },
+  },
+});
 
 // --- IMPORTACIONES BASE Y RRHH ---
 import LoginPage from '../../modules/auth/LoginPage';
@@ -61,9 +68,11 @@ import { AuditoriaPage } from '../../modules/auditoria/AuditoriaPage';
 // --- IMPORTACIONES ADMINISTRATIVO (NUEVO) ---
 import { AdministrativoLayout } from '../../modules/administrativo/components/AdministrativoLayout';
 import RecepcionEquiposPage from '../../modules/administrativo/pages/RecepcionEquiposPage';
+import BandejaTrabajoPage from '../../modules/administrativo/pages/BandejaTrabajoPage';
 
 const AppRouter = () => {
   return (
+    <QueryClientProvider client={queryClient}>
     <Router>
       <Routes>
         <Route path="/" element={<LoginPage />} />
@@ -133,11 +142,15 @@ const AppRouter = () => {
 
         {/* --- NUEVO MÓDULO ADMINISTRATIVO --- */}
         <Route path="/administrativo" element={<AdministrativoLayout />}>
-          <Route path="recepciones" element={<RecepcionEquiposPage />} />
+          <Route path="recepciones">
+            <Route index element={<RecepcionEquiposPage />} />
+            <Route path="bandeja-trabajo" element={<BandejaTrabajoPage />} />
+          </Route>
         </Route>
         
       </Routes>
     </Router>
+    </QueryClientProvider>
   );
 };
 

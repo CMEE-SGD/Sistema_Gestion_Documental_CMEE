@@ -7,10 +7,10 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   /**
-     * Obtiene información de un registro específico.
-     * @returns string
-     */
-    @Get()
+   * Obtiene información de un registro específico.
+   * @returns string
+   */
+  @Get()
   getHello(): string {
     return this.appService.getHello();
   }

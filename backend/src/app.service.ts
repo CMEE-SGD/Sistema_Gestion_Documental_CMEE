@@ -4,10 +4,10 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class AppService {
   /**
-     * Ejecuta la operación de negocio getHello.
-     * @returns string
-     */
-    getHello(): string {
+   * Ejecuta la operación de negocio getHello.
+   * @returns string
+   */
+  getHello(): string {
     return 'Hello World!';
   }
 }

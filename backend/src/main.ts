@@ -52,7 +52,7 @@ async function bootstrap() {
   // 7. Inicialización del servidor
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  
+
   console.log(`🚀 Aplicación corriendo en: http://localhost:${port}/api`);
   console.log(`📄 Swagger disponible en: http://localhost:${port}/api/docs`);
 }

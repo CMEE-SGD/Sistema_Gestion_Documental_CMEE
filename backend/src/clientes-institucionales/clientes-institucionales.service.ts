@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateClienteInstitucionalDto } from './dto/create-clientes-institucionale.dto';
 import { UpdateClientesInstitucionaleDto } from './dto/update-clientes-institucionale.dto';
@@ -13,7 +17,9 @@ export class ClientesInstitucionalesService {
     });
 
     if (existe) {
-      throw new ConflictException('Ya existe un cliente o institución con este nombre');
+      throw new ConflictException(
+        'Ya existe un cliente o institución con este nombre',
+      );
     }
 
     return this.prisma.clienteInstitucional.create({
@@ -31,7 +37,8 @@ export class ClientesInstitucionalesService {
     const cliente = await this.prisma.clienteInstitucional.findUnique({
       where: { id },
     });
-    if (!cliente) throw new NotFoundException(`Cliente con ID ${id} no encontrado`);
+    if (!cliente)
+      throw new NotFoundException(`Cliente con ID ${id} no encontrado`);
     return cliente;
   }
 

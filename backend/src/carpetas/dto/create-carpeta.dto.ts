@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsInt, IsBoolean, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  IsBoolean,
+  IsEnum,
+} from 'class-validator';
 import { TipoNivelCarpeta } from '@prisma/client';
 
 /** Módulo controlador o servicio para gestionar la entidad CreateCarpetaDto. */

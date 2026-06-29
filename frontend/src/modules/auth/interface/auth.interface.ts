@@ -4,6 +4,7 @@ export interface UserInfo {
   id: number;
   persona_id?: number;
   nombre_usuario: string;
+  laboratorio_id?: number | null;
   persona?: {
     nombre: string;
     apellidos: string;

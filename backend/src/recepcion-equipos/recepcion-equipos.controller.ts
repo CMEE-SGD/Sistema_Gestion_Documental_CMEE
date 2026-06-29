@@ -1,7 +1,18 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { RecepcionEquiposService } from './recepcion-equipos.service';
 import { CreateRecepcionEquipoDto } from './dto/create-recepcion-equipo.dto';
 import { UpdateRecepcionEquipoDto } from './dto/update-recepcion-equipo.dto';
+import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
@@ -15,8 +26,18 @@ export class RecepcionEquiposController {
   }
 
   @Get()
-  findAll() {
-    return this.recepcionService.findAll();
+  findAll(@Req() req: any) {
+    return this.recepcionService.findAll(req.user);
+  }
+
+  @Get('laboratorio/:laboratorioId/pendientes')
+  findPendientesByLaboratorio(@Param('laboratorioId') laboratorioId: string) {
+    return this.recepcionService.findPendientesByLaboratorio(+laboratorioId);
+  }
+
+  @Get('tecnico/:tecnicoId/pendientes')
+  findPendientesByTecnico(@Param('tecnicoId') tecnicoId: string) {
+    return this.recepcionService.findPendientesByTecnico(+tecnicoId);
   }
 
   @Get(':id')
@@ -27,6 +48,11 @@ export class RecepcionEquiposController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateDto: UpdateRecepcionEquipoDto) {
     return this.recepcionService.update(+id, updateDto);
+  }
+
+  @Patch(':id/asignar-tecnico')
+  asignarTecnico(@Param('id') id: string, @Body() dto: AsignarTecnicoDto) {
+    return this.recepcionService.asignarTecnico(+id, dto);
   }
 
   @Delete(':id')

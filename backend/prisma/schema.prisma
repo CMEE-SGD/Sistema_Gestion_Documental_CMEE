@@ -60,6 +60,10 @@ model Departamento {
   responsable_id Int?
   responsable    Persona? @relation("DeptoResponsable", fields: [responsable_id], references: [id])
 
+  // FK a Laboratorio (el departamento pertenece a un laboratorio)
+  laboratorio_id Int?
+  laboratorio    Laboratorio? @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
+
   orden     Int?     @default(0) @db.SmallInt
   activo    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -69,6 +73,7 @@ model Departamento {
   carpetas_permisos CarpetaPermiso[]
 
   @@index([dependencia_id])
+  @@index([laboratorio_id])
   @@map("departamento")
 }
 
@@ -161,6 +166,7 @@ model Persona {
   laboratorios_responsable Laboratorio[]
   logs_recibidos           Auditoria[]        @relation("LogPersonaAfectada")
   fases_participadas       FaseParticipante[]
+  recepciones_tecnicos     RecepcionEquipo[]  @relation("TecnicoRecepcion")
 
   @@map("persona")
 }
@@ -544,6 +550,7 @@ model Laboratorio {
   equipos        Equipo[]
   servicios      Servicio[]
   recepciones    RecepcionEquipo[]
+  departamentos  Departamento[]
 
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -692,12 +699,17 @@ model RecepcionEquipo {
   // Cumple el requisito: "Control de estado de trámites"
   estado                EstadoRecepcion @default(EN_ESPERA)
 
+  // Técnico asignado para la calibración
+  tecnico_id            Int?
+  tecnico               Persona?  @relation("TecnicoRecepcion", fields: [tecnico_id], references: [id])
+
   // Relación futura para los Certificados Híbridos
   // certificados       Certificado[]
 
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
+  @@index([tecnico_id])
   @@map("recepcion_equipos")
 }
 

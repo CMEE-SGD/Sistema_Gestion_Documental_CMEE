@@ -1,37 +1,44 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, IsEnum, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsInt,
+  IsEnum,
+  IsBoolean,
+} from 'class-validator';
 import { EstadoEquipo } from '@prisma/client';
 
 /** Módulo controlador o servicio para gestionar la entidad CreateEquipoDto. */
 export class CreateEquipoDto {
-    @IsString()
-    @IsNotEmpty()
-    codigo: string;
+  @IsString()
+  @IsNotEmpty()
+  codigo: string;
 
-    @IsString()
-    @IsNotEmpty()
-    nombre: string;
+  @IsString()
+  @IsNotEmpty()
+  nombre: string;
 
-    @IsString()
-    @IsOptional()
-    marca?: string;
+  @IsString()
+  @IsOptional()
+  marca?: string;
 
-    @IsString()
-    @IsOptional()
-    modelo?: string;
+  @IsString()
+  @IsOptional()
+  modelo?: string;
 
-    @IsString()
-    @IsOptional()
-    numero_serie?: string;
+  @IsString()
+  @IsOptional()
+  numero_serie?: string;
 
-    @IsEnum(EstadoEquipo)
-    @IsOptional()
-    estado?: EstadoEquipo;
+  @IsEnum(EstadoEquipo)
+  @IsOptional()
+  estado?: EstadoEquipo;
 
-    @IsInt()
-    @IsNotEmpty()
-    laboratorio_id: number;
+  @IsInt()
+  @IsNotEmpty()
+  laboratorio_id: number;
 
-    @IsBoolean()
-    @IsOptional()
-    activo?: boolean;
+  @IsBoolean()
+  @IsOptional()
+  activo?: boolean;
 }

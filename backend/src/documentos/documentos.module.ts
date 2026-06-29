@@ -24,9 +24,9 @@ if (!fs.existsSync(tempFolder)) {
           // Opcional: Reemplazamos los espacios por guiones bajos para evitar problemas en URLs
           const nombreLimpio = file.originalname.replace(/\s+/g, '_');
           cb(null, nombreLimpio);
-        }
-      })
-    })
+        },
+      }),
+    }),
   ],
   controllers: [DocumentosController],
   providers: [DocumentosService],
