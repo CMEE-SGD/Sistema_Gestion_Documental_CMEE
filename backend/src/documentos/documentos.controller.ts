@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, BadRequestException, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, BadRequestException, Query, UseGuards, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentosService } from './documentos.service';
 import { UpdateDocumentoDto } from './dto/update-documento.dto';
@@ -24,19 +24,15 @@ export class DocumentosController {
   async create(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: any,
+    @Req() req: any,
   ) {
     if (!file) {
       throw new BadRequestException('El archivo PDF es obligatorio.');
     }
-    return this.documentosService.create(file, body);
+    return this.documentosService.create(file, body, req.user?.id);
   }
 
-  /**
-     * Obtiene información de múltiples registros.
-     * @param carpetaId - Datos o identificador requerido (string)
-     * @returns Array<Entidad>
-     */
-    @Get()
+  @Get()
   @RequireAccess('Gestor Documental', 2) // Nivel 2: Ver documentos
   findAll(@Query('carpeta_id') carpetaId?: string) {
     return this.documentosService.findAll(carpetaId ? parseInt(carpetaId, 10) : undefined);
@@ -140,35 +136,19 @@ export class DocumentosController {
     return this.documentosService.rechazarFase(+id, body);
   }
 
-  /**
-     * Obtiene información de un registro específico.
-     * @param id - Datos o identificador requerido (string)
-     * @returns Array<Entidad>
-     */
-    @Get(':id')
+  @Get(':id')
   @RequireAccess('Gestor Documental', 2) // Nivel 2: Ver detalle del documento
   findOne(@Param('id') id: string) {
     return this.documentosService.findOne(+id);
   }
 
-  /**
-     * Actualiza parcialmente la información de un registro existente.
-     * @param id - Datos o identificador requerido (string)
-     * @param data - Datos o identificador requerido (any)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    @Patch(':id')
+  @Patch(':id')
   @RequireAccess('Gestor Documental', 4) // Nivel 4: Modificar metadatos del documento
   update(@Param('id') id: string, @Body() data: any) {
     return this.documentosService.update(+id, data);
   }
 
-  /**
-     * Elimina lógicamente o inactiva un registro en el sistema.
-     * @param id - Datos o identificador requerido (string)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    @Delete(':id')
+  @Delete(':id')
   @RequireAccess('Gestor Documental', 5) // Nivel 5: Eliminar documento
   remove(@Param('id') id: string) {
     return this.documentosService.remove(+id);

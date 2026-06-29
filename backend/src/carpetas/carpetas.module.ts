@@ -7,5 +7,6 @@ import { CarpetasController } from './carpetas.controller';
 @Module({
   controllers: [CarpetasController],
   providers: [CarpetasService],
+  exports: [CarpetasService],
 })
 export class CarpetasModule {}

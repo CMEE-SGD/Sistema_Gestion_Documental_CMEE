@@ -1,19 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CarpetasService } from '../carpetas/carpetas.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
-/** Módulo controlador o servicio para gestionar la entidad Documentos. */
 @Injectable()
 export class DocumentosService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private carpetasService: CarpetasService,
+  ) { }
 
-  /**
-     * Ejecuta la operación de negocio obtenerRutaFisica.
-     * @param carpetaId - Datos o identificador requerido (number)
-     * @returns Promise<string>
-     */
-    async obtenerRutaFisica(carpetaId: number): Promise<string> {
+  async obtenerRutaFisica(carpetaId: number): Promise<string> {
     const partes = [];
     let actualId: number | null = carpetaId;
 
@@ -29,14 +27,35 @@ export class DocumentosService {
     return path.join('uploads', 'Gestor_Documental', ...partes);
   }
 
-  /**
-     * Ejecuta la operación de negocio create.
-     * @param file - Datos o identificador requerido (Express.Multer.File)
-     * @param data - Datos o identificador requerido (any)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async create(file: Express.Multer.File, data: any) {
+  async create(file: Express.Multer.File, data: any, usuarioId?: number) {
     const carpetaId = parseInt(data.carpeta_id, 10);
+
+    if (usuarioId) {
+      const usuario = await this.prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { persona_id: true },
+      });
+      if (usuario?.persona_id) {
+        const puestos = await this.prisma.personaPuesto.findMany({
+          where: { persona_id: usuario.persona_id, activo: true },
+          select: { departamento_id: true },
+        });
+        const deptosIds = puestos.map(p => p.departamento_id);
+        const permiso = await this.prisma.carpetaPermiso.findFirst({
+          where: {
+            carpeta_id: carpetaId,
+            OR: [
+              { persona_id: usuario.persona_id },
+              ...(deptosIds.length > 0 ? [{ departamento_id: { in: deptosIds } }] : []),
+            ],
+            permiso_docs: true,
+          },
+        });
+        if (!permiso) {
+          throw new ForbiddenException('No tienes permiso para crear documentos en esta carpeta');
+        }
+      }
+    }
 
     const rutaDestinoRelativa = await this.obtenerRutaFisica(carpetaId);
     const rutaDestinoAbsoluta = path.resolve(process.cwd(), rutaDestinoRelativa);
@@ -105,11 +124,7 @@ export class DocumentosService {
     });
   }
 
-  /**
-     * Ejecuta la operación de negocio getCircuitos.
-     * @returns Array<Entidad>
-     */
-    getCircuitos() {
+  getCircuitos() {
     return this.prisma.circuito.findMany({
       where: { activo: true },
       orderBy: { nombre: 'asc' },
@@ -117,13 +132,7 @@ export class DocumentosService {
     });
   }
 
-  /**
-     * Ejecuta la operación de negocio createVersion.
-     * @param file - Datos o identificador requerido (Express.Multer.File)
-     * @param data - Datos o identificador requerido (any)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async createVersion(file: Express.Multer.File, data: any) {
+  async createVersion(file: Express.Multer.File, data: any) {
     const documentoId = parseInt(data.documento_id, 10);
     const doc = await this.prisma.documento.findUnique({ where: { id: documentoId } });
     if (!doc) throw new NotFoundException(`Documento con ID ${documentoId} no existe.`);
@@ -173,25 +182,14 @@ export class DocumentosService {
     });
   }
 
-  /**
-     * Ejecuta la operación de negocio getVersiones.
-     * @param documentoId - Datos o identificador requerido (number)
-     * @returns Array<Entidad>
-     */
-    getVersiones(documentoId: number) {
+  getVersiones(documentoId: number) {
     return this.prisma.documentoVersion.findMany({
       where: { documento_id: documentoId },
       orderBy: { created_at: 'desc' },
     });
   }
 
-  /**
-     * Ejecuta la operación de negocio restaurarVersion.
-     * @param documentoId - Datos o identificador requerido (number)
-     * @param versionId - Datos o identificador requerido (number)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async restaurarVersion(documentoId: number, versionId: number) {
+  async restaurarVersion(documentoId: number, versionId: number) {
     const version = await this.prisma.documentoVersion.findFirst({
       where: { id: versionId, documento_id: documentoId },
     });
@@ -206,12 +204,7 @@ export class DocumentosService {
     });
   }
 
-  /**
-     * Ejecuta la operación de negocio getWorkflow.
-     * @param documentoId - Datos o identificador requerido (number)
-     * @returns Array<Entidad>
-     */
-    async getWorkflow(documentoId: number) {
+  async getWorkflow(documentoId: number) {
     const wf = await this.prisma.documentoWorkflow.findUnique({
       where: { documento_id: documentoId },
       include: {
@@ -226,13 +219,7 @@ export class DocumentosService {
     return wf;
   }
 
-  /**
-     * Ejecuta la operación de negocio avanzarFase.
-     * @param file - Datos o identificador requerido (Express.Multer.File)
-     * @param data - Datos o identificador requerido (any)
-     * @returns Array<Entidad>
-     */
-    async avanzarFase(file: Express.Multer.File, data: any) {
+  async avanzarFase(file: Express.Multer.File, data: any) {
     const documentoId = parseInt(data.documento_id, 10);
     const doc = await this.prisma.documento.findUnique({ where: { id: documentoId } });
     if (!doc) throw new NotFoundException('Documento no encontrado');
@@ -299,13 +286,7 @@ export class DocumentosService {
     });
   }
 
-  /**
-     * Ejecuta la operación de negocio rechazarFase.
-     * @param documentoId - Datos o identificador requerido (number)
-     * @param data - Datos o identificador requerido (any)
-     * @returns Array<Entidad>
-     */
-    async rechazarFase(documentoId: number, data: any) {
+  async rechazarFase(documentoId: number, data: any) {
     const workflow = await this.prisma.documentoWorkflow.findUnique({
       where: { documento_id: documentoId },
       include: { fases: { orderBy: { id: 'asc' } } },
@@ -348,27 +329,20 @@ export class DocumentosService {
     });
   }
 
-  /**
-     * Ejecuta la operación de negocio findAll.
-     * @param carpetaId - Datos o identificador requerido (number)
-     * @returns Array<Entidad>
-     */
-    findAll(carpetaId?: number) {
-    const whereClause = carpetaId ? { carpeta_id: carpetaId } : {};
+  async findAll(carpetaId: number, usuarioId?: number) {
+    if (usuarioId && carpetaId) {
+      const ok = await this.carpetasService.verificarNivelPermiso(usuarioId, carpetaId, 1);
+      if (!ok) throw new ForbiddenException('No tienes permiso para ver documentos en esta carpeta');
+    }
     return this.prisma.documento.findMany({
-      where: whereClause,
+      where: { carpeta_id: carpetaId },
       orderBy: { created_at: 'desc' },
       include: { circuito: true },
     });
   }
 
-  /**
-     * Ejecuta la operación de negocio findOne.
-     * @param id - Datos o identificador requerido (number)
-     * @returns Array<Entidad>
-     */
-    findOne(id: number) {
-    return this.prisma.documento.findUnique({
+  async findOne(id: number, usuarioId?: number) {
+    const doc = await this.prisma.documento.findUnique({
       where: { id },
       include: {
         circuito: true,
@@ -392,18 +366,28 @@ export class DocumentosService {
         },
       },
     });
+    if (!doc) throw new NotFoundException('Documento no encontrado');
+    if (usuarioId) {
+      const ok = await this.carpetasService.verificarNivelPermiso(usuarioId, doc.carpeta_id, 1);
+      if (!ok) throw new ForbiddenException('No tienes permiso para ver este documento');
+    }
+    return doc;
   }
 
-  /**
-     * Ejecuta la operación de negocio update.
-     * @param id - Datos o identificador requerido (number)
-     * @param data - Datos o identificador requerido (any)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async update(id: number, data: any) {
+  async update(id: number, data: any, usuarioId?: number) {
     const documentoAntiguo = await this.prisma.documento.findUnique({ where: { id } });
+    if (!documentoAntiguo) throw new NotFoundException('Documento no encontrado');
 
-    if (data.carpeta_id && documentoAntiguo && documentoAntiguo.carpeta_id !== data.carpeta_id) {
+    if (usuarioId) {
+      const ok = await this.carpetasService.verificarNivelPermiso(usuarioId, documentoAntiguo.carpeta_id, 3);
+      if (!ok) throw new ForbiddenException('No tienes permiso para editar este documento');
+    }
+
+    if (data.carpeta_id && documentoAntiguo.carpeta_id !== data.carpeta_id) {
+      if (usuarioId) {
+        const puedeMover = await this.carpetasService.verificarNivelPermiso(usuarioId, documentoAntiguo.carpeta_id, 4);
+        if (!puedeMover) throw new ForbiddenException('No tienes permiso para mover este documento');
+      }
       const rutaAntiguaAbsoluta = path.resolve(process.cwd(), documentoAntiguo.archivo_url);
       const nuevaRutaRelativa = await this.obtenerRutaFisica(data.carpeta_id);
       const nuevaRutaAbsoluta = path.resolve(process.cwd(), nuevaRutaRelativa);
@@ -429,17 +413,16 @@ export class DocumentosService {
     });
   }
 
-  /**
-     * Ejecuta la operación de negocio remove.
-     * @param id - Datos o identificador requerido (number)
-     * @returns Objeto complejo / PrismaResponse
-     */
-    async remove(id: number) {
+  async remove(id: number, usuarioId?: number) {
     const documento = await this.prisma.documento.findUnique({
       where: { id },
     });
 
     if (!documento) throw new NotFoundException(`El documento con ID ${id} no existe.`);
+    if (usuarioId) {
+      const ok = await this.carpetasService.verificarNivelPermiso(usuarioId, documento.carpeta_id, 5);
+      if (!ok) throw new ForbiddenException('No tienes permiso para eliminar este documento');
+    }
 
     const documentoEliminado = await this.prisma.documento.delete({
       where: { id },
