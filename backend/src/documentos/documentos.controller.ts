@@ -26,9 +26,12 @@ export class DocumentosController {
   }
 
   @Get()
-  @RequireAccess('Gestor Documental', 2) // Nivel 2: Ver documentos
-  findAll(@Query('carpeta_id') carpetaId?: string) {
-    return this.documentosService.findAll(carpetaId ? parseInt(carpetaId, 10) : undefined);
+  @RequireAccess('Gestor Documental', 2)
+  findAll(@Query('carpeta_id') carpetaId?: string, @Req() req?: any) {
+    return this.documentosService.findAll(
+      carpetaId ? parseInt(carpetaId, 10) : undefined,
+      req.user?.id,
+    );
   }
 
   @Get('circuitos')
@@ -90,20 +93,20 @@ export class DocumentosController {
   }
 
   @Get(':id')
-  @RequireAccess('Gestor Documental', 2) // Nivel 2: Ver detalle del documento
-  findOne(@Param('id') id: string) {
-    return this.documentosService.findOne(+id);
+  @RequireAccess('Gestor Documental', 2)
+  findOne(@Param('id') id: string, @Req() req: any) {
+    return this.documentosService.findOne(+id, req.user?.id);
   }
 
   @Patch(':id')
-  @RequireAccess('Gestor Documental', 4) // Nivel 4: Modificar metadatos del documento
-  update(@Param('id') id: string, @Body() data: any) {
-    return this.documentosService.update(+id, data);
+  @RequireAccess('Gestor Documental', 4)
+  update(@Param('id') id: string, @Body() data: any, @Req() req: any) {
+    return this.documentosService.update(+id, data, req.user?.id);
   }
 
   @Delete(':id')
-  @RequireAccess('Gestor Documental', 5) // Nivel 5: Eliminar documento
-  remove(@Param('id') id: string) {
-    return this.documentosService.remove(+id);
+  @RequireAccess('Gestor Documental', 5)
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.documentosService.remove(+id, req.user?.id);
   }
 }

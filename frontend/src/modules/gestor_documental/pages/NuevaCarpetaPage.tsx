@@ -39,7 +39,6 @@ export const NuevaCarpetaPage = () => {
     });
 
     useEffect(() => {
-        // Cargar todas las carpetas y departamentos al iniciar
         const fetchData = async () => {
             try {
                 const [resCarpetas, resDeptos] = await Promise.all([
@@ -47,9 +46,21 @@ export const NuevaCarpetaPage = () => {
                     api.get('/departamentos') 
                 ]);
                 
-                // VALIDACIÓN CRÍTICA: Nos aseguramos de que siempre guardemos un Array.
                 setCarpetas(Array.isArray(resCarpetas?.data) ? resCarpetas.data : []);
-                setDepartamentos(Array.isArray(resDeptos?.data) ? resDeptos.data : []);
+                const deptos = Array.isArray(resDeptos?.data) ? resDeptos.data : [];
+                setDepartamentos(deptos);
+
+                const permisosIniciales: Record<string, any> = {};
+                deptos.forEach((d: any) => {
+                    const personas = (d.puestos_asignados || [])
+                        .filter((pa: any) => pa.persona)
+                        .map((pa: any) => pa.persona);
+                    const unicos = personas.filter((p: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.id === p.id) === i);
+                    unicos.forEach((p: any) => {
+                        permisosIniciales[`p_${p.id}`] = { nivel_permiso: 5, permiso_docs: true, permiso_carpetas: true, permiso_extra: true };
+                    });
+                });
+                setPermisos(permisosIniciales);
 
             } catch (error) {
                 console.error('Error cargando datos:', error);
@@ -108,17 +119,15 @@ export const NuevaCarpetaPage = () => {
         }
 
         try {
-            const permisosPayload = Object.entries(permisos).map(([key, val]) => {
-                const [tipo, id] = key.split('_');
-                return {
-                    ...(tipo === 'd' ? { departamento_id: Number(id) } : {}),
-                    ...(tipo === 'p' ? { persona_id: Number(id) } : {}),
+            const permisosPayload = Object.entries(permisos)
+                .filter(([key]) => key.startsWith('p_'))
+                .map(([key, val]) => ({
+                    persona_id: Number(key.split('_')[1]),
                     nivel_permiso: val.nivel_permiso,
                     permiso_docs: val.permiso_docs,
                     permiso_carpetas: val.permiso_carpetas,
                     permiso_extra: val.permiso_extra,
-                };
-            });
+                }));
 
             const payload = {
                 nombre: formData.nombre,
@@ -285,15 +294,14 @@ export const NuevaCarpetaPage = () => {
                         ) : (
                             <div className="border border-t-0 border-gray-200 rounded-b divide-y divide-gray-100">
                                 {departamentos.filter((d: any) => d.puestos_asignados?.some((pa: any) => pa.persona)).map(depto => {
-                                    const deptoKey = `d_${depto.id}`;
-                                    const deptoPerm = permisos[deptoKey] || { nivel_permiso: 1, permiso_docs: false, permiso_carpetas: false, permiso_extra: false };
                                     const usuarios = depto.puestos_asignados?.filter((pa: any) => pa.persona).map((pa: any) => pa.persona) || [];
                                     const unicos = usuarios.filter((p: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.id === p.id) === i);
+                                    const todosSeleccionados = unicos.every((p: any) => !!permisos[`p_${p.id}`]);
 
                                     return (
                                         <div key={depto.id}>
                                             <div className="flex items-center px-3 py-2 hover:bg-gray-50">
-                                                <div className="w-1/3 flex items-center gap-2">
+                                                <div className="flex items-center gap-2">
                                                     <button
                                                         type="button"
                                                         onClick={() => setExpandidos(prev => ({ ...prev, [depto.id]: !prev[depto.id] }))}
@@ -303,12 +311,15 @@ export const NuevaCarpetaPage = () => {
                                                     </button>
                                                     <input
                                                         type="checkbox"
-                                                        checked={!!permisos[deptoKey]}
+                                                        checked={todosSeleccionados}
                                                         onChange={(e) => {
                                                             if (e.target.checked) {
-                                                                setPermisos(prev => ({ ...prev, [deptoKey]: deptoPerm }));
+                                                                const nuevos: Record<string, any> = {};
+                                                                unicos.forEach(p => { nuevos[`p_${p.id}`] = { nivel_permiso: 5, permiso_docs: true, permiso_carpetas: true, permiso_extra: true }; });
+                                                                setPermisos(prev => ({ ...prev, ...nuevos }));
                                                             } else {
-                                                                const { [deptoKey]: _, ...rest } = permisos;
+                                                                const rest = { ...permisos };
+                                                                unicos.forEach(p => delete rest[`p_${p.id}`]);
                                                                 setPermisos(rest);
                                                             }
                                                         }}
@@ -316,32 +327,13 @@ export const NuevaCarpetaPage = () => {
                                                     />
                                                     <span className="font-bold text-gray-800">{depto.nombre}</span>
                                                 </div>
-                                                <div className="w-1/4 flex justify-center">
-                                                    <select
-                                                        value={deptoPerm.nivel_permiso}
-                                                        onChange={(e) => setPermisos(prev => ({
-                                                            ...prev,
-                                                            [deptoKey]: { ...deptoPerm, nivel_permiso: Number(e.target.value) }
-                                                        }))}
-                                                        disabled={!permisos[deptoKey]}
-                                                        className="border border-gray-300 rounded px-2 py-1 text-xs outline-none focus:border-blue-500 disabled:opacity-40"
-                                                    >
-                                                        <option value={1}>Ver y Descargar</option>
-                                                        <option value={2}>Todos los privilegios</option>
-                                                    </select>
-                                                </div>
-                                                <div className="flex-1 flex justify-around">
-                                                    <input type="checkbox" checked={deptoPerm.permiso_docs} onChange={(e) => setPermisos(prev => ({ ...prev, [deptoKey]: { ...deptoPerm, permiso_docs: e.target.checked } }))} disabled={!permisos[deptoKey]} className="w-4 h-4 text-blue-600 rounded border-gray-300 disabled:opacity-40" />
-                                                    <input type="checkbox" checked={deptoPerm.permiso_carpetas} onChange={(e) => setPermisos(prev => ({ ...prev, [deptoKey]: { ...deptoPerm, permiso_carpetas: e.target.checked } }))} disabled={!permisos[deptoKey]} className="w-4 h-4 text-blue-600 rounded border-gray-300 disabled:opacity-40" />
-                                                    <input type="checkbox" checked={deptoPerm.permiso_extra} onChange={(e) => setPermisos(prev => ({ ...prev, [deptoKey]: { ...deptoPerm, permiso_extra: e.target.checked } }))} disabled={!permisos[deptoKey]} className="w-4 h-4 text-blue-600 rounded border-gray-300 disabled:opacity-40" />
-                                                </div>
                                             </div>
 
                                             {expandidos[depto.id] && unicos.length > 0 && (
                                                 <div className="bg-gray-50 border-t border-gray-100">
                                                     {unicos.map((persona: any) => {
                                                         const userKey = `p_${persona.id}`;
-                                                        const userPerm = permisos[userKey] || { nivel_permiso: 1, permiso_docs: false, permiso_carpetas: false, permiso_extra: false };
+                                                        const userPerm = permisos[userKey] || { nivel_permiso: 5, permiso_docs: true, permiso_carpetas: true, permiso_extra: true };
                                                         return (
                                                             <div key={persona.id} className="flex items-center px-10 py-1.5 hover:bg-white text-xs">
                                                                 <div className="w-1/3 flex items-center gap-2">
@@ -370,8 +362,11 @@ export const NuevaCarpetaPage = () => {
                                                                         disabled={!permisos[userKey]}
                                                                         className="border border-gray-300 rounded px-2 py-1 text-xs outline-none focus:border-blue-500 disabled:opacity-40"
                                                                     >
-                                                                        <option value={1}>Ver y Descargar</option>
-                                                                        <option value={2}>Todos los privilegios</option>
+                                                                        <option value={1}>Nivel 1: Ver</option>
+                                                                        <option value={2}>Nivel 2: Ver y Descargar</option>
+                                                                        <option value={3}>Nivel 3: Ver, Descargar y Editar</option>
+                                                                        <option value={4}>Nivel 4: Ver, Descargar, Editar y Mover</option>
+                                                                        <option value={5}>Nivel 5: Todos los privilegios</option>
                                                                     </select>
                                                                 </div>
                                                                 <div className="flex-1 flex justify-around">

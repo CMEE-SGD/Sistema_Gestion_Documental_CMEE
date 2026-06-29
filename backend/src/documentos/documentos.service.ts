@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CarpetasService } from '../carpetas/carpetas.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
 @Injectable()
 export class DocumentosService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private carpetasService: CarpetasService,
+  ) { }
 
   async obtenerRutaFisica(carpetaId: number): Promise<string> {
     const partes = [];
@@ -325,17 +329,20 @@ export class DocumentosService {
     });
   }
 
-  findAll(carpetaId?: number) {
-    const whereClause = carpetaId ? { carpeta_id: carpetaId } : {};
+  async findAll(carpetaId: number, usuarioId?: number) {
+    if (usuarioId && carpetaId) {
+      const ok = await this.carpetasService.verificarNivelPermiso(usuarioId, carpetaId, 1);
+      if (!ok) throw new ForbiddenException('No tienes permiso para ver documentos en esta carpeta');
+    }
     return this.prisma.documento.findMany({
-      where: whereClause,
+      where: { carpeta_id: carpetaId },
       orderBy: { created_at: 'desc' },
       include: { circuito: true },
     });
   }
 
-  findOne(id: number) {
-    return this.prisma.documento.findUnique({
+  async findOne(id: number, usuarioId?: number) {
+    const doc = await this.prisma.documento.findUnique({
       where: { id },
       include: {
         circuito: true,
@@ -359,12 +366,28 @@ export class DocumentosService {
         },
       },
     });
+    if (!doc) throw new NotFoundException('Documento no encontrado');
+    if (usuarioId) {
+      const ok = await this.carpetasService.verificarNivelPermiso(usuarioId, doc.carpeta_id, 1);
+      if (!ok) throw new ForbiddenException('No tienes permiso para ver este documento');
+    }
+    return doc;
   }
 
-  async update(id: number, data: any) {
+  async update(id: number, data: any, usuarioId?: number) {
     const documentoAntiguo = await this.prisma.documento.findUnique({ where: { id } });
+    if (!documentoAntiguo) throw new NotFoundException('Documento no encontrado');
 
-    if (data.carpeta_id && documentoAntiguo && documentoAntiguo.carpeta_id !== data.carpeta_id) {
+    if (usuarioId) {
+      const ok = await this.carpetasService.verificarNivelPermiso(usuarioId, documentoAntiguo.carpeta_id, 3);
+      if (!ok) throw new ForbiddenException('No tienes permiso para editar este documento');
+    }
+
+    if (data.carpeta_id && documentoAntiguo.carpeta_id !== data.carpeta_id) {
+      if (usuarioId) {
+        const puedeMover = await this.carpetasService.verificarNivelPermiso(usuarioId, documentoAntiguo.carpeta_id, 4);
+        if (!puedeMover) throw new ForbiddenException('No tienes permiso para mover este documento');
+      }
       const rutaAntiguaAbsoluta = path.resolve(process.cwd(), documentoAntiguo.archivo_url);
       const nuevaRutaRelativa = await this.obtenerRutaFisica(data.carpeta_id);
       const nuevaRutaAbsoluta = path.resolve(process.cwd(), nuevaRutaRelativa);
@@ -390,12 +413,16 @@ export class DocumentosService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: number, usuarioId?: number) {
     const documento = await this.prisma.documento.findUnique({
       where: { id },
     });
 
     if (!documento) throw new NotFoundException(`El documento con ID ${id} no existe.`);
+    if (usuarioId) {
+      const ok = await this.carpetasService.verificarNivelPermiso(usuarioId, documento.carpeta_id, 5);
+      if (!ok) throw new ForbiddenException('No tienes permiso para eliminar este documento');
+    }
 
     const documentoEliminado = await this.prisma.documento.delete({
       where: { id },

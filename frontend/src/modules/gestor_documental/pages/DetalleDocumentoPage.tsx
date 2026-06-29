@@ -24,12 +24,12 @@ export const DetalleDocumentoPage = () => {
 
     const [showRejectForm, setShowRejectForm] = useState(false);
     const [rejectComentario, setRejectComentario] = useState('');
+    const [nivelPermiso, setNivelPermiso] = useState<number>(5);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                // 👉 Consultamos el documento y la lista de carpetas al mismo tiempo
                 const [resDoc, resCarpetas] = await Promise.all([
                     api.get(`/documentos/${id}`),
                     api.get('/carpetas')
@@ -37,6 +37,13 @@ export const DetalleDocumentoPage = () => {
 
                 setDocumento(resDoc.data);
                 setCarpetas(Array.isArray(resCarpetas.data) ? resCarpetas.data : []);
+
+                const doc = resDoc.data;
+                if (doc?.carpeta_id) {
+                    api.get(`/carpetas/${doc.carpeta_id}/mis-permisos`).then(r => {
+                        if (r.data?.nivel_permiso !== undefined) setNivelPermiso(r.data.nivel_permiso);
+                    }).catch(() => {});
+                }
             } catch (err) {
                 console.error("Error al cargar el documento:", err);
                 setError("No se pudo cargar la información del documento.");
@@ -306,31 +313,40 @@ export const DetalleDocumentoPage = () => {
 
             {/* Botonera Superior */}
             <div className="flex flex-wrap items-center gap-1.5 mb-6">
-                <button className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Editar</button>
                 <button
+                    disabled={nivelPermiso < 3}
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 3 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
+                >
+                    Editar
+                </button>
+                <button
+                    disabled={nivelPermiso < 3}
                     onClick={() => setShowVersionForm(!showVersionForm)}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 3 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Nueva versión
                 </button>
                 <button
+                    disabled={nivelPermiso < 5}
                     onClick={handleEliminar}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm text-black-600 "
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 5 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Eliminar
                 </button>                <button className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Log</button>
 
                 {/* Botón Mover conectado */}
                 <button
+                    disabled={nivelPermiso < 4}
                     onClick={handleMover}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 4 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Mover
                 </button>
 
                 <button 
+                    disabled={nivelPermiso < 2}
                     onClick={handleDescargar}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 2 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Descargar
                 </button>

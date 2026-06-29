@@ -12,7 +12,7 @@ export const GestorDocumentalPage = () => {
     const [loading, setLoading] = useState(true);
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [documentosSeleccionados, setDocumentosSeleccionados] = useState<number[]>([]);
-    const [misPermisos, setMisPermisos] = useState<{ permiso_docs: boolean; permiso_carpetas: boolean }>({ permiso_docs: true, permiso_carpetas: true });
+    const [misPermisos, setMisPermisos] = useState<{ permiso_docs: boolean; permiso_carpetas: boolean; nivel_permiso: number }>({ permiso_docs: true, permiso_carpetas: true, nivel_permiso: 5 });
 
     const [ordenarPor, setOrdenarPor] = useState<'alfabetico' | 'orden'>('orden');
     const [expandedFolders, setExpandedFolders] = useState<Record<number, boolean>>({});
@@ -58,7 +58,7 @@ export const GestorDocumentalPage = () => {
             }).catch(() => {});
         } else {
             setDocumentos([]);
-            setMisPermisos({ permiso_docs: true, permiso_carpetas: true });
+            setMisPermisos({ permiso_docs: true, permiso_carpetas: true, nivel_permiso: 5 });
         }
     }, [id, fetchDocumentos]);
 

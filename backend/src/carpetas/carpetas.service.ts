@@ -39,12 +39,12 @@ export class CarpetasService {
     return !!permisoRecord;
   }
 
-  async obtenerPermisosUsuario(usuarioId: number, carpetaId: number) {
+  async verificarNivelPermiso(usuarioId: number, carpetaId: number, nivelMinimo: number): Promise<boolean> {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id: usuarioId },
       select: { persona_id: true },
     });
-    if (!usuario?.persona_id) return { permiso_docs: false, permiso_carpetas: false };
+    if (!usuario?.persona_id) return false;
 
     const puestos = await this.prisma.personaPuesto.findMany({
       where: { persona_id: usuario.persona_id, activo: true },
@@ -55,7 +55,38 @@ export class CarpetasService {
     const totalPermisos = await this.prisma.carpetaPermiso.count({
       where: { carpeta_id: carpetaId },
     });
-    if (totalPermisos === 0) return { permiso_docs: true, permiso_carpetas: true };
+    if (totalPermisos === 0) return true;
+
+    const permiso = await this.prisma.carpetaPermiso.findFirst({
+      where: {
+        carpeta_id: carpetaId,
+        OR: [
+          { persona_id: usuario.persona_id },
+          ...(deptosIds.length > 0 ? [{ departamento_id: { in: deptosIds } }] : []),
+        ],
+        nivel_permiso: { gte: nivelMinimo },
+      },
+    });
+    return !!permiso;
+  }
+
+  async obtenerPermisosUsuario(usuarioId: number, carpetaId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { persona_id: true },
+    });
+    if (!usuario?.persona_id) return { permiso_docs: false, permiso_carpetas: false, nivel_permiso: 0 };
+
+    const puestos = await this.prisma.personaPuesto.findMany({
+      where: { persona_id: usuario.persona_id, activo: true },
+      select: { departamento_id: true },
+    });
+    const deptosIds = puestos.map(p => p.departamento_id);
+
+    const totalPermisos = await this.prisma.carpetaPermiso.count({
+      where: { carpeta_id: carpetaId },
+    });
+    if (totalPermisos === 0) return { permiso_docs: true, permiso_carpetas: true, nivel_permiso: 5 };
 
     const whereBase = {
       carpeta_id: carpetaId,
@@ -65,12 +96,21 @@ export class CarpetasService {
       ],
     };
 
-    const [docs, carpetas] = await Promise.all([
+    const [permisoRecord, docs, carpetas] = await Promise.all([
+      this.prisma.carpetaPermiso.findFirst({
+        where: whereBase,
+        orderBy: { nivel_permiso: 'desc' },
+        select: { nivel_permiso: true },
+      }),
       this.prisma.carpetaPermiso.findFirst({ where: { ...whereBase, permiso_docs: true } }),
       this.prisma.carpetaPermiso.findFirst({ where: { ...whereBase, permiso_carpetas: true } }),
     ]);
 
-    return { permiso_docs: !!docs, permiso_carpetas: !!carpetas };
+    return {
+      permiso_docs: !!docs,
+      permiso_carpetas: !!carpetas,
+      nivel_permiso: permisoRecord?.nivel_permiso ?? 0,
+    };
   }
 
   async obtenerRutaFisica(carpetaId: number): Promise<string> {
