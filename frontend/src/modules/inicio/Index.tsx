@@ -10,7 +10,8 @@ const favorites = [
   'Gestor Documental',
   'Recursos Humanos',
   'Auditoria Global',
-  'Laboratorios'
+  'Laboratorios',
+  'Administrativo'
 ];
 
 const Index = () => {

@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
-// --- IMPORTACIONES BASE Y RRHH (De tu compañero) ---
+// --- IMPORTACIONES BASE Y RRHH ---
 import LoginPage from '../../modules/auth/LoginPage';
 import WelcomePage from '../../modules/inicio/Index';
 import { IndexRRHHPage } from '../../modules/rrhh/pages/index';
@@ -32,14 +32,14 @@ import { ServiciosPage } from '../../modules/laboratorios/pages/servicios/Servic
 import { NuevoServicioPage } from '../../modules/laboratorios/pages/servicios/NuevoServicioPage';
 import { EditarServicioPage } from '../../modules/laboratorios/pages/servicios/EditarServicioPage';
 
-// --- IMPORTACIONES DE USUARIOS CORREGIDAS ---
+// --- IMPORTACIONES DE USUARIOS ---
 import { UsuarioFormPage } from '../../modules/usuarios/UsuarioFormPage';
 import { UsuariosLayout } from '../../modules/usuarios/UsuariosLayout';
 import { UsuariosPage } from '../../modules/usuarios/UsuariosPage';
 import { UsuariosGruposPage } from '../../modules/usuarios/UsuariosGrupoPage';
 import { GrupoFormPage } from '../../modules/usuarios/GrupoFormPage';
 
-//-----------------Gestor Documental-----------------
+// --- GESTOR DOCUMENTAL ---
 import { GestorDocumentalPage } from '../../modules/gestor_documental/pages/index';
 import { NuevaCarpetaPage } from '../../modules/gestor_documental/pages/NuevaCarpetaPage';
 import { GestorDocumentalLayout } from '../../modules/gestor_documental/components/GDLayout';
@@ -58,18 +58,18 @@ import { EditarFasePage } from '../../modules/gestor_documental/pages/configurac
 
 import { AuditoriaPage } from '../../modules/auditoria/AuditoriaPage';
 
+// --- IMPORTACIONES ADMINISTRATIVO (NUEVO) ---
+import { AdministrativoLayout } from '../../modules/administrativo/components/AdministrativoLayout';
+import RecepcionEquiposPage from '../../modules/administrativo/pages/RecepcionEquiposPage';
+
 const AppRouter = () => {
   return (
     <Router>
       <Routes>
-        {/* Rutas base existentes */}
         <Route path="/" element={<LoginPage />} />
         <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/403" element={<AccesoDenegadoPage />} />
 
-        {/* ---------------------------------------------------- */}
-        {/* MÓDULO DE GESTIÓN DE USUARIOS                        */}
-        {/* ---------------------------------------------------- */}
         <Route path="/usuarios" element={<UsuariosLayout />}>
           <Route index element={<UsuariosPage />} />
           <Route path="nuevo" element={<UsuarioFormPage />} />
@@ -79,9 +79,6 @@ const AppRouter = () => {
           <Route path="grupos/editar/:id" element={<GrupoFormPage />} />
         </Route>
 
-        {/* ---------------------------------------------------- */}
-        {/* MÓDULO DE RECURSOS HUMANOS                           */}
-        {/* ---------------------------------------------------- */}
         <Route path="/rrhh" element={<RRHHLayout />}>
           <Route index element={<IndexRRHHPage />} />
           <Route path="grupos" element={<GruposPage />} />
@@ -104,9 +101,6 @@ const AppRouter = () => {
           <Route path="personalizacion" element={<div>Configuración de RRHH</div>} />
         </Route>
         
-        {/* ---------------------------------------------------- */}
-        {/* MÓDULO DE LABORATORIOS                               */}
-        {/* ---------------------------------------------------- */}
         <Route path="/laboratorios" element={<LaboratoriosLayout />}>
           <Route index element={<LaboratoriosPage />} />
           <Route path="equipos" element={<EquiposPage />} />
@@ -115,10 +109,6 @@ const AppRouter = () => {
           <Route path="servicios/editar/:id" element={<EditarServicioPage />} />
         </Route>
         
-
-        {/* ---------------------------------------------------- */}
-        {/* MÓDULO DE GESTOR DOCUMENTAL                          */}
-        {/* ---------------------------------------------------- */}
         <Route path="/gestordocumental" element={<GestorDocumentalLayout />}>
           <Route index element={<GestorDocumentalPage />} />
           <Route path="carpeta/:id" element={<GestorDocumentalPage />} />
@@ -128,7 +118,6 @@ const AppRouter = () => {
           <Route path="documento/:id" element={<DetalleDocumentoPage />} />
         </Route>
 
-        {/* RUTA MAESTRA DE CONFIGURACIÓN */}
         <Route path="/gestordocumental/configuracion" element={<LayoutConfiguracion />}>
           <Route index element={<LibreriasConfigPage />} />
           <Route path="areas" element={<AreasConfigPage />} />
@@ -140,10 +129,13 @@ const AppRouter = () => {
           <Route path="circuitos/:circuitoId/fases/:faseId/editar" element={<EditarFasePage />} />
         </Route>
 
-        {/* ---------------------------------------------------- */}
-        {/* MÓDULO DE CONFIGURACIÓN / AUDITORÍA                  */}
-        {/* ---------------------------------------------------- */}
         <Route path="/auditoria" element={<AuditoriaPage />} />
+
+        {/* --- NUEVO MÓDULO ADMINISTRATIVO --- */}
+        <Route path="/administrativo" element={<AdministrativoLayout />}>
+          <Route path="recepciones" element={<RecepcionEquiposPage />} />
+        </Route>
+        
       </Routes>
     </Router>
   );

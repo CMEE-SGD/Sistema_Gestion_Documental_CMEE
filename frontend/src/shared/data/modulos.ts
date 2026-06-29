@@ -27,4 +27,5 @@ export const modules: Module[] = [
   { id: 19, name: "Notificaciones", category: "General", path: "/notificaciones" },
   { id: 20, name: "Integraciones", category: "IT", path: "/integraciones" },
   { id: 21, name: "Laboratorios", category: "Operaciones", path: "/laboratorios" }, // <- Nuevo
+  { id: 22, name: "Administrativo", category: "Administracion", path: "/administrativo/recepciones" }
 ];

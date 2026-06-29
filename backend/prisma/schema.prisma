@@ -543,6 +543,7 @@ model Laboratorio {
 
   equipos        Equipo[]
   servicios      Servicio[]
+  recepciones    RecepcionEquipo[]
 
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -650,4 +651,63 @@ model FaseParticipante {
 
   @@unique([fase_id, persona_id])
   @@map("fases_participantes")
+}
+
+// =========================================================================
+// MÓDULO: ADMINISTRATIVO (Recepción y Clientes)
+// =========================================================================
+
+// Cumple el requisito: "Registro de unidades solicitantes o usuarios del servicio"
+model ClienteInstitucional {
+  id               Int       @id @default(autoincrement())
+  nombre           String    @unique @db.VarChar(200) // Ej: "Fuerte Militar Rumiñahui" o "Andes Petroleum"
+  tipo             TipoCliente @default(CIVIL)
+  activo           Boolean   @default(true)
+
+  recepciones      RecepcionEquipo[]
+
+  @@map("clientes_institucionales")
+}
+
+// Cumple el requisito: "Registro de solicitudes" y "Control de estado"
+model RecepcionEquipo {
+  id                    Int       @id @default(autoincrement())
+  
+  // El número preimpreso en rojo (Ej: 0013679)
+  orden_trabajo_fisica  String    @unique @db.VarChar(50) 
+  fecha_ingreso         DateTime  @default(now()) @db.Date
+
+  // Relación con la unidad solicitante
+  cliente_id            Int
+  cliente               ClienteInstitucional @relation(fields: [cliente_id], references: [id])
+
+  // Datos del equipo para identificarlo en el laboratorio
+  equipo_descripcion    String    @db.VarChar(200) 
+  codigo_serie          String?   @db.VarChar(100)
+
+  // A qué laboratorio se deriva
+  laboratorio_id        Int
+  laboratorio           Laboratorio @relation(fields: [laboratorio_id], references: [id])
+
+  // Cumple el requisito: "Control de estado de trámites"
+  estado                EstadoRecepcion @default(EN_ESPERA)
+
+  // Relación futura para los Certificados Híbridos
+  // certificados       Certificado[]
+
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("recepcion_equipos")
+}
+
+enum TipoCliente {
+  MILITAR
+  CIVIL
+}
+
+enum EstadoRecepcion {
+  EN_ESPERA
+  EN_CALIBRACION
+  FINALIZADO
 }
