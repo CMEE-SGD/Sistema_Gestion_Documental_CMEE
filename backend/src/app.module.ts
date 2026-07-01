@@ -19,6 +19,7 @@ import { LaboratoriosModule } from './laboratorios/laboratorios.module';
 import { CircuitosModule } from './circuitos/circuitos.module';
 import { EquiposModule } from './equipos/equipos.module';
 import { ServiciosModule } from './servicios/servicios.module';
+import { NotificacionesModule } from './notificaciones/notificaciones.module';
 
 /** Módulo controlador o servicio para gestionar la entidad AppModule. */
 @Module({
@@ -51,6 +52,7 @@ import { ServiciosModule } from './servicios/servicios.module';
     CircuitosModule,
     EquiposModule,
     ServiciosModule,
+    NotificacionesModule,
   ],
   controllers: [],
   providers: [],

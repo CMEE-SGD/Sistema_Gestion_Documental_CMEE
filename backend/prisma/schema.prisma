@@ -184,7 +184,8 @@ model Usuario {
   password_hash              String  @db.VarChar(255)
   cambiar_clave_proxima_sesion Boolean @default(false)
 
-  auditorias Auditoria[] 
+  auditorias   Auditoria[] 
+  notificaciones Notificacion[]
 
   // -- Tab 3: Configuración --
   idioma              String? @db.VarChar(50)
@@ -650,4 +651,23 @@ model FaseParticipante {
 
   @@unique([fase_id, persona_id])
   @@map("fases_participantes")
+}
+
+// ==========================================
+// 12. NOTIFICACIONES
+// ==========================================
+model Notificacion {
+  id         Int      @id @default(autoincrement())
+  usuario_id Int
+  usuario    Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  tipo       String   @db.VarChar(50)    // workflow_avance, workflow_rechazo, etc.
+  mensaje    String   @db.VarChar(500)
+  leido      Boolean  @default(false)
+  referencia_id Int?                     // ID del documento relacionado
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([usuario_id, leido])
+  @@map("notificaciones")
 }

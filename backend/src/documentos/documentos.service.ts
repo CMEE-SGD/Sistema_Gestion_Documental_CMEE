@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CarpetasService } from '../carpetas/carpetas.service';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -9,6 +10,7 @@ export class DocumentosService {
   constructor(
     private prisma: PrismaService,
     private carpetasService: CarpetasService,
+    private notificacionesService: NotificacionesService,
   ) { }
 
   async obtenerRutaFisica(carpetaId: number): Promise<string> {
@@ -266,6 +268,20 @@ export class DocumentosService {
           where: { id: siguienteFase.id },
           data: { estado: 'EN_CURSO' },
         });
+
+        const participantes = await tx.faseParticipante.findMany({
+          where: { fase_id: siguienteFase.fase_id },
+          select: { persona_id: true },
+        });
+        const documentoNombre = doc.nombre;
+        for (const p of participantes) {
+          await this.notificacionesService.crear(
+            'workflow_avance',
+            `Tienes un documento pendiente por revisar: "${documentoNombre}"`,
+            p.persona_id,
+            documentoId,
+          );
+        }
       } else {
         await tx.documentoWorkflow.update({
           where: { id: workflow.id },
