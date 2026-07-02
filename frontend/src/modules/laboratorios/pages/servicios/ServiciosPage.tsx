@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import { Button } from '../../../../shared/components/atoms/button';
-import { tienePermiso } from '../../../../shared/utils/auth';
+import { tienePermiso, esRolRestringido } from '../../../../shared/utils/auth';
 import { Modal } from '../../../../shared/components/molecules/Modal';
 import { ServicioForm } from '../../components/ServicioForm';
 
@@ -76,7 +76,7 @@ export const ServiciosPage = () => {
                 <div className="flex gap-3">
                     <Button variant="outline" onClick={() => navigate('/laboratorios')}>Ver Laboratorios</Button>
                     
-                    {tienePermiso('Laboratorios', 5) && (
+                    {tienePermiso('Laboratorios', 5) && !esRolRestringido() && (
                         <Button variant="default" onClick={() => openModal(null)}>
                             + Nuevo Servicio
                         </Button>

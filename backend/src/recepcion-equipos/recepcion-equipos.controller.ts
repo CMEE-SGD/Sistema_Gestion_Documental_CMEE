@@ -13,49 +13,58 @@ import { RecepcionEquiposService } from './recepcion-equipos.service';
 import { CreateRecepcionEquipoDto } from './dto/create-recepcion-equipo.dto';
 import { UpdateRecepcionEquipoDto } from './dto/update-recepcion-equipo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
+import { TransicionEstadoDto } from './dto/transicion-estado.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AccessGuard } from '../auth/guards/access.guard';
+import { RequireAccess } from '../auth/decorators/access.decorator';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, AccessGuard)
 @Controller('recepcion-equipos')
 export class RecepcionEquiposController {
   constructor(private readonly recepcionService: RecepcionEquiposService) {}
 
   @Post()
+  @RequireAccess('Recepcion Equipos', 3)
   create(@Body() createDto: CreateRecepcionEquipoDto) {
     return this.recepcionService.create(createDto);
   }
 
   @Get()
+  @RequireAccess('Recepcion Equipos', 1)
   findAll(@Req() req: any) {
     return this.recepcionService.findAll(req.user);
   }
 
-  @Get('laboratorio/:laboratorioId/pendientes')
-  findPendientesByLaboratorio(@Param('laboratorioId') laboratorioId: string) {
-    return this.recepcionService.findPendientesByLaboratorio(+laboratorioId);
-  }
-
-  @Get('tecnico/:tecnicoId/pendientes')
-  findPendientesByTecnico(@Param('tecnicoId') tecnicoId: string) {
-    return this.recepcionService.findPendientesByTecnico(+tecnicoId);
-  }
-
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.recepcionService.findOne(+id);
+  @RequireAccess('Recepcion Equipos', 1)
+  findOne(@Param('id') id: string, @Req() req: any) {
+    return this.recepcionService.findOne(+id, req.user);
   }
 
   @Patch(':id')
+  @RequireAccess('Recepcion Equipos', 4)
   update(@Param('id') id: string, @Body() updateDto: UpdateRecepcionEquipoDto) {
     return this.recepcionService.update(+id, updateDto);
   }
 
   @Patch(':id/asignar-tecnico')
+  @RequireAccess('Recepcion Equipos', 4)
   asignarTecnico(@Param('id') id: string, @Body() dto: AsignarTecnicoDto) {
     return this.recepcionService.asignarTecnico(+id, dto);
   }
 
+  @Patch(':id/transicion-estado')
+  @RequireAccess('Recepcion Equipos', 4)
+  transicionEstado(
+    @Param('id') id: string,
+    @Body() dto: TransicionEstadoDto,
+    @Req() req: any,
+  ) {
+    return this.recepcionService.transicionEstado(+id, dto, req.user);
+  }
+
   @Delete(':id')
+  @RequireAccess('Recepcion Equipos', 5)
   remove(@Param('id') id: string) {
     return this.recepcionService.remove(+id);
   }

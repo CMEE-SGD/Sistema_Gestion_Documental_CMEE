@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   ParseIntPipe,
+  Req,
 } from '@nestjs/common';
 import { LaboratoriosService } from './laboratorios.service';
 import { CreateLaboratorioDto } from './dto/create-laboratorio.dto';
@@ -39,8 +40,8 @@ export class LaboratoriosController {
    */
   @Get()
   @RequireAccess('Laboratorios', 2)
-  findAll() {
-    return this.laboratoriosService.findAll();
+  findAll(@Req() req: any) {
+    return this.laboratoriosService.findAll(req.user);
   }
 
   /**
@@ -50,8 +51,8 @@ export class LaboratoriosController {
    */
   @Get(':id')
   @RequireAccess('Laboratorios', 2)
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.laboratoriosService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.laboratoriosService.findOne(id, req.user);
   }
 
   /**
@@ -65,18 +66,14 @@ export class LaboratoriosController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateLaboratorioDto: UpdateLaboratorioDto,
+    @Req() req: any,
   ) {
-    return this.laboratoriosService.update(id, updateLaboratorioDto);
+    return this.laboratoriosService.update(id, updateLaboratorioDto, req.user);
   }
 
-  /**
-   * Elimina lógicamente o inactiva un registro en el sistema.
-   * @param id - Datos o identificador requerido (number)
-   * @returns Objeto complejo / PrismaResponse
-   */
   @Delete(':id')
   @RequireAccess('Laboratorios', 5)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.laboratoriosService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.laboratoriosService.remove(id, req.user);
   }
 }

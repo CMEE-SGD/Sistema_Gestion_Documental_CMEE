@@ -8,6 +8,7 @@ import {
   Delete,
   ParseIntPipe,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { ServiciosService } from './servicios.service';
 import { CreateServicioDto } from './dto/create-servicio.dto';
@@ -41,8 +42,8 @@ export class ServiciosController {
    */
   @Get()
   @RequireAccess('Laboratorios', 2) // Nivel 2: Lectura
-  findAll() {
-    return this.serviciosService.findAll();
+  findAll(@Req() req: any) {
+    return this.serviciosService.findAll(req.user);
   }
 
   /**
@@ -52,8 +53,8 @@ export class ServiciosController {
    */
   @Get(':id')
   @RequireAccess('Laboratorios', 2)
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.serviciosService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.serviciosService.findOne(id, req.user);
   }
 
   /**

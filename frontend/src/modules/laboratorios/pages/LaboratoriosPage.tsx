@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
-import { tienePermiso } from '../../../shared/utils/auth';
+import { tienePermiso, esRolRestringido } from '../../../shared/utils/auth';
 import { Modal } from '../../../shared/components/molecules/Modal'; // 👇 Importamos el Modal
 import { LaboratorioForm } from '../components/LaboratorioForm'; // 👇 Importamos el Formulario
 
@@ -12,6 +12,8 @@ export const LaboratoriosPage = () => {
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo');
+
+    const esTecnicoLimitado = esRolRestringido();
 
     // 👇 Estados para controlar el Modal
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -102,7 +104,17 @@ export const LaboratoriosPage = () => {
                         Inventario Equipos
                     </Button>
 
-                    {tienePermiso('Laboratorios', 5) && (
+                    {esTecnicoLimitado && (
+                        <Button
+                            variant="default"
+                            onClick={() => navigate('/administrativo/recepciones')}
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                        >
+                            Ir a Mis Tareas de Calibración
+                        </Button>
+                    )}
+
+                    {tienePermiso('Laboratorios', 5) && !esTecnicoLimitado && (
                         <Button variant="default" onClick={openCreateModal}>
                             + Nuevo Laboratorio
                         </Button>
@@ -174,7 +186,7 @@ export const LaboratoriosPage = () => {
 
                                             {tienePermiso('Laboratorios', 4) && (
                                                 <button 
-                                                    onClick={() => openEditModal(lab.id)} // 👇 Abre Modal
+                                                    onClick={() => openEditModal(lab.id)}
                                                     className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1"
                                                 >
                                                     Editar

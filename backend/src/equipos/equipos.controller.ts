@@ -8,6 +8,7 @@ import {
   Delete,
   ParseIntPipe,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { EquiposService } from './equipos.service';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
@@ -39,8 +40,8 @@ export class EquiposController {
    */
   @Get()
   @RequireAccess('Laboratorios', 2)
-  findAll() {
-    return this.equiposService.findAll();
+  findAll(@Req() req: any) {
+    return this.equiposService.findAll(req.user);
   }
 
   /**
@@ -50,8 +51,8 @@ export class EquiposController {
    */
   @Get(':id')
   @RequireAccess('Laboratorios', 2)
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.equiposService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.equiposService.findOne(id, req.user);
   }
 
   /**

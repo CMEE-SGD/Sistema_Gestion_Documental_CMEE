@@ -1,73 +1,80 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service'; // Ajusta la ruta si es necesario
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
+import type { HydratedUser } from '../common/helpers/lab-scope';
+import { isRestrictedToLab } from '../common/helpers/lab-scope';
 
-/** Módulo controlador o servicio para gestionar la entidad Equipos. */
 @Injectable()
 export class EquiposService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Ejecuta la operación de negocio create.
-   * @param data - Datos o identificador requerido (Entidad | PrismaResponse)
-   * @returns Entidad | PrismaResponse
-   */
   async create(data: CreateEquipoDto) {
     return this.prisma.equipo.create({ data });
   }
 
-  /**
-   * Ejecuta la operación de negocio findAll.
-   * @returns Array<Entidad>
-   */
-  async findAll() {
+  async findAll(user?: HydratedUser) {
+    if (user?.isGod) {
+      return this.prisma.equipo.findMany({
+        include: {
+          laboratorio: { select: { nombre: true, codigo: true } },
+        },
+      });
+    }
+
+    const puesto = user?.puesto ?? '';
+    const labId: number | null = user?.laboratorio_id ?? null;
+
+    const where = isRestrictedToLab(puesto)
+      ? { laboratorio_id: labId ?? -1 }
+      : undefined;
+
     return this.prisma.equipo.findMany({
-      //where: { activo: true },
-      // Traemos el nombre y código del laboratorio asociado
+      where,
       include: {
         laboratorio: { select: { nombre: true, codigo: true } },
       },
     });
   }
 
-  /**
-   * Ejecuta la operación de negocio findOne.
-   * @param id - Datos o identificador requerido (number)
-   * @returns Entidad | PrismaResponse
-   */
-  async findOne(id: number) {
-    const equipo = await this.prisma.equipo.findUnique({
-      where: { id },
+  async findOne(id: number, user?: HydratedUser) {
+    if (user?.isGod) {
+      const equipo = await this.prisma.equipo.findUnique({
+        where: { id },
+        include: { laboratorio: true },
+      });
+      if (!equipo)
+        throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+      return equipo;
+    }
+
+    const puesto = user?.puesto ?? '';
+    const labId: number | null = user?.laboratorio_id ?? null;
+
+    const where = isRestrictedToLab(puesto)
+      ? { id, laboratorio_id: labId ?? -1 }
+      : { id };
+
+    const equipo = await this.prisma.equipo.findFirst({
+      where,
       include: { laboratorio: true },
     });
+
     if (!equipo)
       throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
     return equipo;
   }
 
-  /**
-   * Ejecuta la operación de negocio update.
-   * @param id - Datos o identificador requerido (number)
-   * @param data - Datos o identificador requerido (Entidad | PrismaResponse)
-   * @returns Entidad | PrismaResponse
-   */
   async update(id: number, data: UpdateEquipoDto) {
-    await this.findOne(id); // Valida existencia
+    await this.findOne(id);
     return this.prisma.equipo.update({
       where: { id },
       data,
     });
   }
 
-  /**
-   * Ejecuta la operación de negocio remove.
-   * @param id - Datos o identificador requerido (number)
-   * @returns Entidad | PrismaResponse
-   */
   async remove(id: number) {
     await this.findOne(id);
-    // Soft delete para mantener la trazabilidad de los certificados calibrados con este equipo
     return this.prisma.equipo.update({
       where: { id },
       data: { activo: false },

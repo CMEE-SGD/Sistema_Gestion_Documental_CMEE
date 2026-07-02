@@ -167,6 +167,8 @@ model Persona {
   logs_recibidos           Auditoria[]        @relation("LogPersonaAfectada")
   fases_participadas       FaseParticipante[]
   recepciones_tecnicos     RecepcionEquipo[]  @relation("TecnicoRecepcion")
+  certificados_subidos     Certificado[]      @relation("TecnicoCertificado")
+  historial_estados        HistorialEstado[]  @relation("HistorialEstadoPersona")
 
   @@map("persona")
 }
@@ -703,8 +705,8 @@ model RecepcionEquipo {
   tecnico_id            Int?
   tecnico               Persona?  @relation("TecnicoRecepcion", fields: [tecnico_id], references: [id])
 
-  // Relación futura para los Certificados Híbridos
-  // certificados       Certificado[]
+  certificados       Certificado[]
+  historial_estado    HistorialEstado[]
 
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -713,13 +715,53 @@ model RecepcionEquipo {
   @@map("recepcion_equipos")
 }
 
+model Certificado {
+  id                    Int       @id @default(autoincrement())
+  recepcion_equipo_id   Int
+  recepcion_equipo      RecepcionEquipo @relation(fields: [recepcion_equipo_id], references: [id])
+  ruta_archivo          String    @db.VarChar(500)
+  nombre_original       String    @db.VarChar(255)
+  fecha_subida          DateTime  @default(now()) @db.Timestamptz
+  tecnico_id            Int
+  tecnico               Persona   @relation("TecnicoCertificado", fields: [tecnico_id], references: [id])
+
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([recepcion_equipo_id])
+  @@index([tecnico_id])
+  @@map("certificado")
+}
+
 enum TipoCliente {
   MILITAR
   CIVIL
 }
 
+model HistorialEstado {
+  id                  Int             @id @default(autoincrement())
+  recepcion_equipo_id Int
+  recepcion_equipo    RecepcionEquipo @relation(fields: [recepcion_equipo_id], references: [id])
+  estado_anterior     EstadoRecepcion
+  estado_nuevo        EstadoRecepcion
+  accion              String          @db.VarChar(20)
+  observaciones       String?         @db.Text
+  realizado_por_id    Int
+  realizado_por       Persona         @relation("HistorialEstadoPersona", fields: [realizado_por_id], references: [id])
+
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([recepcion_equipo_id])
+  @@map("historial_estado")
+}
+
 enum EstadoRecepcion {
   EN_ESPERA
   EN_CALIBRACION
+  REVISION_OBT
+  PENDIENTE_FIRMA_TECNICO
+  REVISION_JEFE
+  REVISION_DIRECTOR
+  LISTO_PARA_ENTREGA
   FINALIZADO
 }

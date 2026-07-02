@@ -21,6 +21,7 @@ import { EquiposModule } from './equipos/equipos.module';
 import { ServiciosModule } from './servicios/servicios.module';
 import { ClientesInstitucionalesModule } from './clientes-institucionales/clientes-institucionales.module';
 import { RecepcionEquiposModule } from './recepcion-equipos/recepcion-equipos.module';
+import { CertificadosModule } from './certificados/certificados.module';
 
 /** Módulo controlador o servicio para gestionar la entidad AppModule. */
 @Module({
@@ -55,6 +56,7 @@ import { RecepcionEquiposModule } from './recepcion-equipos/recepcion-equipos.mo
     ServiciosModule,
     ClientesInstitucionalesModule,
     RecepcionEquiposModule,
+    CertificadosModule,
   ],
   controllers: [],
   providers: [],

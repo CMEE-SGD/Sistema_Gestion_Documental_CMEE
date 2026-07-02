@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 // 👇 Usamos la librería élite de íconos que ya tienes instalada
-import { Users, FileStack, ShieldCheck, FlaskConical, LayoutDashboard, BriefcaseBusiness } from 'lucide-react';
+import { Users, FileStack, ShieldCheck, FlaskConical, LayoutDashboard, BriefcaseBusiness, ClipboardList } from 'lucide-react';
 
 // Mapeo de íconos y colores suaves (usando opacidad para fondos)
 const getModuleStyle = (name: string) => {
@@ -15,6 +15,8 @@ const getModuleStyle = (name: string) => {
             return { icon: ShieldCheck, colorClass: 'text-rose-600 bg-rose-50 group-hover:bg-rose-100' };
         case 'Laboratorios':
             return { icon: FlaskConical, colorClass: 'text-purple-600 bg-purple-50 group-hover:bg-purple-100' };
+        case 'Recepcion Equipos':
+            return { icon: ClipboardList, colorClass: 'text-cyan-600 bg-cyan-50 group-hover:bg-cyan-100' };
         case 'Dashboard':
             return { icon: LayoutDashboard, colorClass: 'text-slate-600 bg-slate-50 group-hover:bg-slate-100' };
         default:

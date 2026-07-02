@@ -37,6 +37,10 @@ export class AplicacionesSeeder implements OnModuleInit {
         nombre: 'Auditoria Global',
         descripcion: 'Registro de actividades del sistema',
       },
+      {
+        nombre: 'Recepcion Equipos',
+        descripcion: 'Módulo de recepción y seguimiento de equipos',
+      },
     ];
 
     for (const app of aplicacionesBase) {

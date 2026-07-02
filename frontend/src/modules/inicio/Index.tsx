@@ -1,23 +1,19 @@
-import { useState, useEffect } from 'react';
-import { modules } from '../../shared/data/modulos';
+import { useEffect } from 'react';
 import Navbar from '../../shared/components/organisms/Navbar';
 import WelcomeHeader from './components/WelcomeHeader';
 import ModuleCard from './components/ModuleCard';
-import api from '../../core/api/axios'; 
+import api from '../../core/api/axios';
 
-const favorites = [
-  'Gestion de Usuarios', 
-  'Gestor Documental',
-  'Recursos Humanos',
-  'Auditoria Global',
-  'Laboratorios',
-  'Administrativo'
+const MODULES = [
+  { id: 1, name: 'Gestion de Usuarios', path: '/usuarios' },
+  { id: 2, name: 'Recursos Humanos', path: '/rrhh' },
+  { id: 3, name: 'Gestor Documental', path: '/gestordocumental' },
+  { id: 4, name: 'Laboratorios', path: '/laboratorios' },
+  { id: 5, name: 'Auditoria Global', path: '/auditoria' },
+  { id: 6, name: 'Recepcion Equipos', path: '/administrativo/recepciones' },
 ];
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<'favoritos' | 'aplicaciones'>('favoritos');
-
-  // Lógica de useEffect intacta (Refresco silencioso)
   useEffect(() => {
     const refrescarPermisos = async () => {
       try {
@@ -57,9 +53,6 @@ const Index = () => {
     if (localStorage.getItem('token')) refrescarPermisos();
   }, []);
 
-  const favModules = modules.filter((m) => favorites.includes(m.name));
-  const displayModules = activeTab === 'favoritos' ? favModules : modules;
-
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Navbar />
@@ -68,40 +61,20 @@ const Index = () => {
         <div className="w-full max-w-5xl">
           <WelcomeHeader />
           
-          {/* Contenedor principal de Módulos */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden mt-6">
-            
-            {/* Pestañas estilo Shadcn */}
             <div className="flex border-b border-border bg-muted/30 px-4 pt-2">
-              <button
-                onClick={() => setActiveTab('favoritos')}
-                className={`px-6 py-3 text-sm font-semibold transition-all relative ${
-                  activeTab === 'favoritos'
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Módulos Activos
-                {/* Línea indicadora inferior */}
-                {activeTab === 'favoritos' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-t-full" />
-                )}
-              </button>
+              <div className="px-6 py-3 text-sm font-semibold text-primary relative">
+                Módulos del Sistema
+                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-t-full" />
+              </div>
             </div>
 
-            {/* Cuadrícula de Tarjetas */}
             <div className="p-8 bg-card/50">
-              {displayModules.length === 0 ? (
-                <div className="text-center py-12">
-                    <p className="text-muted-foreground text-sm font-medium">No hay módulos disponibles para tu perfil.</p>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-6 justify-center md:justify-start">
-                  {displayModules.map((mod) => (
-                    <ModuleCard key={mod.id} mod={mod} />
-                  ))}
-                </div>
-              )}
+              <div className="flex flex-wrap gap-6 justify-center md:justify-start">
+                {MODULES.map((mod) => (
+                  <ModuleCard key={mod.id} mod={mod} />
+                ))}
+              </div>
             </div>
             
           </div>
