@@ -7,16 +7,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateDepartamentoDto } from './dto/create-departamento.dto';
 import { UpdateDepartamentoDto } from './dto/update-departamento.dto';
 
-/** Módulo controlador o servicio para gestionar la entidad Departamentos. */
 @Injectable()
 export class DepartamentosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Ejecuta la operación de negocio create.
-   * @param createDepartamentoDto - Datos o identificador requerido (Entidad | PrismaResponse)
-   * @returns Objeto complejo / PrismaResponse
-   */
   async create(createDepartamentoDto: CreateDepartamentoDto) {
     const existe = await this.prisma.departamento.findUnique({
       where: { codigo: createDepartamentoDto.codigo },
@@ -27,19 +21,14 @@ export class DepartamentosService {
     return this.prisma.departamento.create({ data: createDepartamentoDto });
   }
 
-  /**
-   * Ejecuta la operación de negocio findAll.
-   * @returns Array<Entidad>
-   */
   findAll() {
     return this.prisma.departamento.findMany({
       orderBy: { orden: 'asc' },
       include: {
         puestos_asignados: {
           where: { activo: true },
-          // AÑADIR ESTE BLOQUE INCLUDE
           include: {
-            persona: { select: { nombre: true, apellidos: true } },
+            persona: { select: { id: true, nombre: true, apellidos: true } },
             puesto: { select: { nombre: true } },
           },
         },
@@ -47,11 +36,6 @@ export class DepartamentosService {
     });
   }
 
-  /**
-   * Ejecuta la operación de negocio findOne.
-   * @param id - Datos o identificador requerido (number)
-   * @returns Objeto complejo / PrismaResponse
-   */
   async findOne(id: number) {
     const departamento = await this.prisma.departamento.findUnique({
       where: { id },
@@ -61,7 +45,7 @@ export class DepartamentosService {
         puestos_asignados: {
           where: { activo: true },
           include: {
-            persona: { select: { nombre: true, apellidos: true } },
+            persona: { select: { id: true, nombre: true, apellidos: true } },
             puesto: { select: { nombre: true } },
           },
         },
@@ -72,12 +56,6 @@ export class DepartamentosService {
     return departamento;
   }
 
-  /**
-   * Ejecuta la operación de negocio update.
-   * @param id - Datos o identificador requerido (number)
-   * @param updateDepartamentoDto - Datos o identificador requerido (Entidad | PrismaResponse)
-   * @returns Objeto complejo / PrismaResponse
-   */
   async update(id: number, updateDepartamentoDto: UpdateDepartamentoDto) {
     await this.findOne(id);
     if (updateDepartamentoDto.dependencia_id === id) {
@@ -92,11 +70,6 @@ export class DepartamentosService {
     });
   }
 
-  /**
-   * Ejecuta la operación de negocio remove.
-   * @param id - Datos o identificador requerido (number)
-   * @returns Objeto complejo / PrismaResponse
-   */
   async remove(id: number) {
     await this.findOne(id);
     return this.prisma.departamento.update({

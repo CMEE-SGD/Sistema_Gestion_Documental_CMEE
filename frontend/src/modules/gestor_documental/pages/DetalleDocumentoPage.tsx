@@ -24,12 +24,12 @@ export const DetalleDocumentoPage = () => {
 
     const [showRejectForm, setShowRejectForm] = useState(false);
     const [rejectComentario, setRejectComentario] = useState('');
+    const [nivelPermiso, setNivelPermiso] = useState<number>(5);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                // 👉 Consultamos el documento y la lista de carpetas al mismo tiempo
                 const [resDoc, resCarpetas] = await Promise.all([
                     api.get(`/documentos/${id}`),
                     api.get('/carpetas')
@@ -37,6 +37,13 @@ export const DetalleDocumentoPage = () => {
 
                 setDocumento(resDoc.data);
                 setCarpetas(Array.isArray(resCarpetas.data) ? resCarpetas.data : []);
+
+                const doc = resDoc.data;
+                if (doc?.carpeta_id) {
+                    api.get(`/carpetas/${doc.carpeta_id}/mis-permisos`).then(r => {
+                        if (r.data?.nivel_permiso !== undefined) setNivelPermiso(r.data.nivel_permiso);
+                    }).catch(() => {});
+                }
             } catch (err) {
                 console.error("Error al cargar el documento:", err);
                 setError("No se pudo cargar la información del documento.");
@@ -134,6 +141,26 @@ export const DetalleDocumentoPage = () => {
             state: { documentos: [documento] }
         });
     };
+    const handleDescargarArchivoWF = async (ruta: string) => {
+        const backendUrl = 'http://localhost:3001';
+        const rutaLimpia = ruta.replace(/\\/g, '/');
+        const fileUrl = `${backendUrl}/${rutaLimpia}`;
+        try {
+            const response = await fetch(fileUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', ruta.split('/').pop() || 'documento.pdf');
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error al descargar:', error);
+        }
+    };
+
     // 👉 NUEVA FUNCIÓN: Abre el PDF en una nueva pestaña
     const handleAbrirFichero = () => {
         if (documento?.archivo_url) {
@@ -286,31 +313,40 @@ export const DetalleDocumentoPage = () => {
 
             {/* Botonera Superior */}
             <div className="flex flex-wrap items-center gap-1.5 mb-6">
-                <button className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Editar</button>
                 <button
+                    disabled={nivelPermiso < 3}
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 3 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
+                >
+                    Editar
+                </button>
+                <button
+                    disabled={nivelPermiso < 3}
                     onClick={() => setShowVersionForm(!showVersionForm)}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 3 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Nueva versión
                 </button>
                 <button
+                    disabled={nivelPermiso < 5}
                     onClick={handleEliminar}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm text-black-600 "
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 5 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Eliminar
                 </button>                <button className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Log</button>
 
                 {/* Botón Mover conectado */}
                 <button
+                    disabled={nivelPermiso < 4}
                     onClick={handleMover}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 4 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Mover
                 </button>
 
                 <button 
+                    disabled={nivelPermiso < 2}
                     onClick={handleDescargar}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 2 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Descargar
                 </button>
@@ -437,20 +473,28 @@ export const DetalleDocumentoPage = () => {
                                             <tr key={wf.id} className="border-b border-gray-100 text-sm">
                                                 <td className="py-1.5"><Paperclip className="w-4 h-4 text-gray-400" /></td>
                                                 <td className="py-1.5 font-semibold">{wf.fase?.nombre || '---'}</td>
-                                                <td className="py-1.5">{wf.procesado_por || '---'}</td>
+                                                <td className="py-1.5">{wf.fase?.participantes?.map((p: any) => `${p.persona.nombre} ${p.persona.apellidos}`).join(', ') || '---'}</td>
                                                 <td className="py-1.5">{wf.created_at ? new Date(wf.created_at).toLocaleDateString('es-ES') : '---'}</td>
                                                 <td className="py-1.5 text-gray-500">{wf.comentario || '---'}</td>
                                                 <td className={`py-1.5 font-semibold ${colorEstado}`}>{labelEstado}</td>
                                                 <td className="py-1.5">
                                                     {wf.archivo_url && (
-                                                        <a
-                                                            href={`http://localhost:3001/${wf.archivo_url.replace(/\\/g, '/')}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-blue-600 hover:underline text-xs"
-                                                        >
-                                                            Ver PDF
-                                                        </a>
+                                                        <div className="flex gap-2">
+                                                            <a
+                                                                href={`http://localhost:3001/${wf.archivo_url.replace(/\\/g, '/')}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-blue-600 hover:underline text-xs"
+                                                            >
+                                                                Ver PDF
+                                                            </a>
+                                                            <button
+                                                                onClick={() => handleDescargarArchivoWF(wf.archivo_url)}
+                                                                className="text-blue-600 hover:underline text-xs"
+                                                            >
+                                                                Descargar
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </td>
                                             </tr>
@@ -468,103 +512,88 @@ export const DetalleDocumentoPage = () => {
                             const faseActual = documento.workflow.fases?.find((f: any) => f.estado === 'EN_CURSO');
                             const asignados = faseActual?.fase?.participantes?.map((p: any) => p.persona.id) || [];
                             const esAsignado = asignados.length === 0 || asignados.includes(currentPersonaId);
-                            const nombresAsignados = faseActual?.fase?.participantes?.map((p: any) => `${p.persona.nombre} ${p.persona.apellidos}`).join(', ');
+                            const esPrimeraFase = faseActual?.id === documento.workflow.fases?.[0]?.id;
 
-                            return (
+                            return esAsignado ? (
                                 <div className="border-t border-gray-200 p-3 bg-gray-50">
-                                    {esAsignado ? (
-                                        !showWorkflowForm && !showRejectForm ? (
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => setShowWorkflowForm(true)}
-                                                    className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                                                >
-                                                    Subir PDF firmado
-                                                </button>
+                                    {!showWorkflowForm && !showRejectForm ? (
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setShowWorkflowForm(true)}
+                                                className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                                            >
+                                                Subir PDF firmado
+                                            </button>
+                                            {!esPrimeraFase && (
                                                 <button
                                                     onClick={() => setShowRejectForm(true)}
                                                     className="px-3 py-1.5 bg-white border border-red-300 text-red-600 rounded hover:bg-red-50 text-sm"
                                                 >
                                                     Rechazar fase
                                                 </button>
+                                            )}
+                                        </div>
+                                    ) : showWorkflowForm ? (
+                                        <div className="flex flex-col gap-2">
+                                            <input
+                                                type="file"
+                                                accept="application/pdf"
+                                                onChange={(e) => setWorkflowFile(e.target.files?.[0] || null)}
+                                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Comentario (opcional)"
+                                                value={workflowComentario}
+                                                onChange={(e) => setWorkflowComentario(e.target.value)}
+                                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
+                                            />
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={handleAvanzarFase}
+                                                    disabled={!workflowFile || subiendoWorkflow}
+                                                    className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm disabled:opacity-50"
+                                                >
+                                                    {subiendoWorkflow ? 'Subiendo...' : 'Confirmar y avanzar'}
+                                                </button>
+                                                <button
+                                                    onClick={() => { setShowWorkflowForm(false); setWorkflowFile(null); setWorkflowComentario(''); }}
+                                                    className="px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm"
+                                                >
+                                                    Cancelar
+                                                </button>
                                             </div>
-                                        ) : showWorkflowForm ? (
-                                            <div className="flex flex-col gap-2">
-                                                <input
-                                                    type="file"
-                                                    accept="application/pdf"
-                                                    onChange={(e) => setWorkflowFile(e.target.files?.[0] || null)}
-                                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Comentario (opcional)"
-                                                    value={workflowComentario}
-                                                    onChange={(e) => setWorkflowComentario(e.target.value)}
-                                                    className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
-                                                />
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={handleAvanzarFase}
-                                                        disabled={!workflowFile || subiendoWorkflow}
-                                                        className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm disabled:opacity-50"
-                                                    >
-                                                        {subiendoWorkflow ? 'Subiendo...' : 'Confirmar y avanzar'}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => { setShowWorkflowForm(false); setWorkflowFile(null); setWorkflowComentario(''); }}
-                                                        className="px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm"
-                                                    >
-                                                        Cancelar
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="flex flex-col gap-2">
-                                                <p className="text-sm text-gray-600 font-semibold">Motivo del rechazo:</p>
-                                                <textarea
-                                                    rows={2}
-                                                    placeholder="Describa el motivo del rechazo..."
-                                                    value={rejectComentario}
-                                                    onChange={(e) => setRejectComentario(e.target.value)}
-                                                    className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-red-500 text-sm"
-                                                />
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={handleRechazarFase}
-                                                        disabled={!rejectComentario.trim()}
-                                                        className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm disabled:opacity-50"
-                                                    >
-                                                        Confirmar rechazo
-                                                    </button>
-                                                    <button
-                                                        onClick={() => { setShowRejectForm(false); setRejectComentario(''); }}
-                                                        className="px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm"
-                                                    >
-                                                        Cancelar
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )
+                                        </div>
                                     ) : (
-                                        <p className="text-gray-500 text-sm">
-                                            Fase asignada a: <strong>{nombresAsignados || '—'}</strong>
-                                        </p>
+                                        <div className="flex flex-col gap-2">
+                                            <p className="text-sm text-gray-600 font-semibold">Motivo del rechazo:</p>
+                                            <textarea
+                                                rows={2}
+                                                placeholder="Describa el motivo del rechazo..."
+                                                value={rejectComentario}
+                                                onChange={(e) => setRejectComentario(e.target.value)}
+                                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-red-500 text-sm"
+                                            />
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={handleRechazarFase}
+                                                    disabled={!rejectComentario.trim()}
+                                                    className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm disabled:opacity-50"
+                                                >
+                                                    Confirmar rechazo
+                                                </button>
+                                                <button
+                                                    onClick={() => { setShowRejectForm(false); setRejectComentario(''); }}
+                                                    className="px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
-                            );
+                            ) : null;
                         })()}
-
-                        {documento.workflow.estado === 'COMPLETADO' && (
-                            <div className="border-t border-gray-200 p-3 bg-green-50 text-green-700 text-sm font-semibold">
-                                Workflow completado
-                            </div>
-                        )}
-                        {documento.workflow.estado === 'RECHAZADO' && (
-                            <div className="border-t border-gray-200 p-3 bg-red-50 text-red-700 text-sm font-semibold">
-                                Workflow rechazado
-                            </div>
-                        )}
                     </div>
                 ) : (
                     <div className="bg-white p-3 text-gray-500 text-sm">
