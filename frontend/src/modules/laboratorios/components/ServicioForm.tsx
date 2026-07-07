@@ -52,7 +52,12 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const payload = { ...formData, laboratorio_id: parseInt(formData.laboratorio_id) };
+            const payload = {
+                nombre: formData.nombre,
+                magnitud: formData.magnitud,
+                descripcion: formData.descripcion,
+                laboratorio_id: parseInt(formData.laboratorio_id)
+            };
             if (servicioId) {
                 await api.patch(`/servicios/${servicioId}`, payload);
             } else {

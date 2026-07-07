@@ -29,11 +29,17 @@ export const EditarGrupoPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        await api.patch(`/departamentos/${id}`, {
-            ...formData,
+        const payload = {
+            nombre: formData.nombre,
+            descripcion: formData.descripcion,
+            codigo: formData.codigo,
+            orden: Number(formData.orden),
+            tipo: formData.tipo,
+            activo: formData.activo,
             dependencia_id: formData.dependencia_id ? Number(formData.dependencia_id) : null,
             responsable_id: formData.responsable_id ? Number(formData.responsable_id) : null,
-        });
+        };
+        await api.patch(`/departamentos/${id}`, payload);
         navigate(`/rrhh/grupos/${id}`);
     };
 

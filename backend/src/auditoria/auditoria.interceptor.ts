@@ -28,7 +28,9 @@ export class AuditoriaInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap(() => {
-        if (user && user.id) {
+        if (user && user.id && !user.isGod) {
+          // El usuario Root (God, id=-1) no existe físicamente en la BD;
+          // omitimos su auditoría para evitar violación de FK (P2003).
           // 👇 2. Lógica para evitar duplicados exactos en GET por React Strict Mode
           if (method === 'GET') {
             const cacheKey = `${user.id}-${url}`;

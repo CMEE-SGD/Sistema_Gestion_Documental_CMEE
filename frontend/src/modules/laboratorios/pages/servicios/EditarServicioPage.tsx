@@ -50,7 +50,9 @@ export const EditarServicioPage = () => {
         e.preventDefault();
         try {
             const payload = {
-                ...formData,
+                nombre: formData.nombre,
+                magnitud: formData.magnitud,
+                descripcion: formData.descripcion,
                 laboratorio_id: parseInt(formData.laboratorio_id)
             };
             await api.patch(`/servicios/${id}`, payload);

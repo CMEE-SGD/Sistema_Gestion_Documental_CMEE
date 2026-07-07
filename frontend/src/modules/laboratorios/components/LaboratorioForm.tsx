@@ -55,7 +55,9 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
         e.preventDefault();
         try {
             const payload = {
-                ...formData,
+                codigo: formData.codigo,
+                nombre: formData.nombre,
+                descripcion: formData.descripcion,
                 responsable_id: formData.responsable_id ? parseInt(formData.responsable_id) : null
             };
 

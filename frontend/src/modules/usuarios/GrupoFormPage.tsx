@@ -104,7 +104,9 @@ export const GrupoFormPage = () => {
         setLoading(true);
         try {
             const payload = {
-                ...formData,
+                nombre: formData.nombre,
+                descripcion: formData.descripcion,
+                activo: formData.activo,
                 aplicaciones: formData.aplicaciones.map(app => ({
                     aplicacion_id: app.aplicacion_id,
                     nivel: Number(app.nivel),

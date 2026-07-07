@@ -25,7 +25,7 @@ export class PersonasService {
    * @returns Array<Entidad>
    */
   async create(createPersonaDto: CreatePersonaDto) {
-    const { roles, puestos_asignados, ...personaData } = createPersonaDto;
+    const { roles, puestos_asignados, activo, ...personaData } = createPersonaDto as any;
 
     personaData.cedula_identidad = emptyToNull(personaData.cedula_identidad);
 

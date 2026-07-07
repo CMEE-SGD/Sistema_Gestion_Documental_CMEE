@@ -61,7 +61,12 @@ export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) =>
         e.preventDefault();
         try {
             const payload = {
-                ...formData,
+                codigo: formData.codigo,
+                nombre: formData.nombre,
+                marca: formData.marca,
+                modelo: formData.modelo,
+                numero_serie: formData.numero_serie,
+                estado: formData.estado,
                 laboratorio_id: parseInt(formData.laboratorio_id)
             };
 
