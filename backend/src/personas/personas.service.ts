@@ -146,23 +146,29 @@ export class PersonasService {
    */
   async update(id: number, updatePersonaDto: UpdatePersonaDto) {
     // 1. Extraemos los datos que NO pertenecen a la tabla Persona
-    const { eliminar_foto, roles, puestos_asignados, ...datosBasicosPrisma } =
-      updatePersonaDto;
+    const { eliminar_foto, roles, puestos_asignados, puestos, activo, ...datosBasicosPrisma } =
+      updatePersonaDto as any;
 
     // 2. Si el usuario pidió eliminar la foto, seteamos la ruta en null
     if (eliminar_foto === 'true' || eliminar_foto === true) {
       datosBasicosPrisma.foto_ruta = null;
     }
 
-    // 3. Limpiamos los puestos anteriores
-    await this.prisma.personaPuesto.deleteMany({ where: { persona_id: id } });
+    // 3. Compatibilidad: el frontend puede enviar 'puestos' (nombre de la relación en Prisma)
+    const puestosInput = puestos_asignados ?? puestos;
+    const tienePuestos = 'puestos_asignados' in updatePersonaDto || 'puestos' in updatePersonaDto;
 
-    // 4. Preparamos puestos si vienen en el payload
-    const puestosParaCrear = Array.isArray(puestos_asignados)
-      ? puestos_asignados.filter((p: any) => p.departamento_id && p.puesto_id)
+    // 4. Solo borramos si el payload trajo puestos explícitamente
+    if (tienePuestos) {
+      await this.prisma.personaPuesto.deleteMany({ where: { persona_id: id } });
+    }
+
+    // 5. Preparamos puestos si vienen en el payload
+    const puestosParaCrear = Array.isArray(puestosInput)
+      ? puestosInput.filter((p: any) => p.departamento_id && p.puesto_id)
       : [];
 
-    // 5. Actualizamos pasando solo los datos que Prisma reconoce
+    // 6. Actualizamos pasando solo los datos que Prisma reconoce
     return this.prisma.persona.update({
       where: { id },
       data: {
@@ -176,7 +182,15 @@ export class PersonasService {
 
         // Actualizamos las relaciones de roles
         roles: {
-          set: roles ? roles.map((rolId) => ({ id: rolId })) : [],
+          set: (() => {
+            const r = roles as any;
+            const ids = Array.isArray(r)
+              ? r.map((item: any) => (item && typeof item === 'object' ? Number(item.id) : Number(item)))
+              : r
+                ? [r && typeof r === 'object' ? Number(r.id) : Number(r)]
+                : [];
+            return ids.filter((id: number) => !isNaN(id)).map((id: number) => ({ id }));
+          })(),
         },
 
         // Re-creamos los puestos con activo: true por defecto

@@ -77,6 +77,11 @@ export class PersonasController {
   }))
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: any, @UploadedFiles() files: { foto?: Express.Multer.File[]; documentos?: Express.Multer.File[] }) {
     delete dto.eliminar_foto;
+
+    // Multer entrega todo como strings; parseamos los campos compuestos
+    dto.roles = typeof dto.roles === 'string' ? JSON.parse(dto.roles) : dto.roles;
+    dto.puestos_asignados = typeof dto.puestos_asignados === 'string' ? JSON.parse(dto.puestos_asignados) : dto.puestos_asignados;
+
     const persona = await this.personasService.update(id, dto);
     return persona;
   }
