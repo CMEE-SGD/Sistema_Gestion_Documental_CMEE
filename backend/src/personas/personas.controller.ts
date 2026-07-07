@@ -41,9 +41,14 @@ export class PersonasController {
     delete dto.eliminar_foto;
     if (files.foto) dto.foto_ruta = `/uploads/Personas/${(dto.nombre || 'U').replace(/\s+/g, '_')}_${(dto.apellidos || '').replace(/\s+/g, '_')}_${(dto.cedula_identidad || '0').replace(/\s+/g, '')}/${files.foto[0].filename}`;
     
-    dto.roles = typeof dto.roles === 'string' ? JSON.parse(dto.roles) : [];
-    dto.puestos_asignados = typeof dto.puestos_asignados === 'string' ? JSON.parse(dto.puestos_asignados) : [];
+    // PATCH: try-catch defensivo contra JSON malformado
+    try { dto.roles = typeof dto.roles === 'string' ? JSON.parse(dto.roles) : []; } catch { dto.roles = []; }
+    try { dto.puestos_asignados = typeof dto.puestos_asignados === 'string' ? JSON.parse(dto.puestos_asignados) : []; } catch { dto.puestos_asignados = []; }
     dto.activo = dto.activo === 'true';
+
+    // PATCH: whitelist manual (ValidationPipe global inefectivo con @Body() any)
+    const camposCreate = ['grado', 'nombre', 'apellidos', 'cedula_identidad', 'fecha_nacimiento', 'sexo', 'domicilio', 'ciudad', 'provincia', 'celular_1', 'celular_2', 'email_1', 'email_2', 'foto_ruta', 'hoja_vida_ruta', 'tipo_recurso', 'idioma', 'estado', 'eliminar_foto', 'roles', 'puestos_asignados', 'activo'];
+    for (const key of Object.keys(dto)) { if (!camposCreate.includes(key)) delete dto[key]; }
 
     const persona = await this.personasService.create(dto);
     if (files.documentos) {
@@ -79,8 +84,13 @@ export class PersonasController {
     delete dto.eliminar_foto;
 
     // Multer entrega todo como strings; parseamos los campos compuestos
-    dto.roles = typeof dto.roles === 'string' ? JSON.parse(dto.roles) : dto.roles;
-    dto.puestos_asignados = typeof dto.puestos_asignados === 'string' ? JSON.parse(dto.puestos_asignados) : dto.puestos_asignados;
+    // PATCH: try-catch defensivo contra JSON malformado
+    try { dto.roles = typeof dto.roles === 'string' ? JSON.parse(dto.roles) : dto.roles; } catch { dto.roles = dto.roles ?? []; }
+    try { dto.puestos_asignados = typeof dto.puestos_asignados === 'string' ? JSON.parse(dto.puestos_asignados) : dto.puestos_asignados; } catch { dto.puestos_asignados = dto.puestos_asignados ?? []; }
+
+    // PATCH: whitelist manual (ValidationPipe global inefectivo con @Body() any)
+    const camposUpdate = ['grado', 'nombre', 'apellidos', 'cedula_identidad', 'fecha_nacimiento', 'sexo', 'domicilio', 'ciudad', 'provincia', 'celular_1', 'celular_2', 'email_1', 'email_2', 'foto_ruta', 'hoja_vida_ruta', 'tipo_recurso', 'idioma', 'estado', 'eliminar_foto', 'roles', 'puestos_asignados', 'puestos'];
+    for (const key of Object.keys(dto)) { if (!camposUpdate.includes(key)) delete dto[key]; }
 
     const persona = await this.personasService.update(id, dto);
     return persona;
