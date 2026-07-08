@@ -40,6 +40,12 @@ export class CreateDepartamentoDto {
   @IsInt()
   responsable_id?: number;
 
+  // PATCH: Nueva propiedad para vincular el departamento a un laboratorio
+  @ApiPropertyOptional({ description: 'ID del laboratorio al que pertenece el departamento' })
+  @IsOptional()
+  @IsInt()
+  laboratorio_id?: number;
+
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()
   @IsInt()

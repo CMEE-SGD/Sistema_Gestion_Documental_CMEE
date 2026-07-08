@@ -24,6 +24,7 @@ import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 import { Button } from '../../../shared/components/atoms/button';
 import SubirCertificadoModal from '../components/SubirCertificadoModal';
 import ValidacionCertificadoModal from '../components/ValidacionCertificadoModal';
+import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -178,10 +179,11 @@ function TableSkeleton({ cols }: { cols: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// RegistroRapidoModal
+// NuevoRegistroModal — Reemplaza el antiguo RegistroRapidoModal
+// usando el nuevo componente FormOrdenTrabajo (Master-Detail)
 // ---------------------------------------------------------------------------
 
-function RegistroRapidoModal({
+function NuevoRegistroModal({
   open,
   onClose,
 }: {
@@ -190,90 +192,15 @@ function RegistroRapidoModal({
 }) {
   const queryClient = useQueryClient();
 
-  const { data: clientes } = useQuery<ClienteOption[]>({
-    queryKey: ['clientes-institucionales'],
-    queryFn: async () => {
-      const res = await api.get('/clientes-institucionales');
-      return res.data;
-    },
-  });
-
-  const { data: laboratorios } = useQuery<LaboratorioOption[]>({
-    queryKey: ['laboratorios'],
-    queryFn: async () => {
-      const res = await api.get('/laboratorios');
-      return res.data;
-    },
-  });
-
-  const [form, setForm] = useState({
-    orden_trabajo_fisica: '',
-    cliente_id: '',
-    equipo_descripcion: '',
-    codigo_serie: '',
-    laboratorio_id: '',
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const mutation = useMutation({
-    mutationFn: async (data: {
-      orden_trabajo_fisica: string;
-      cliente_id: number;
-      equipo_descripcion: string;
-      codigo_serie?: string;
-      laboratorio_id: number;
-    }) => {
-      const res = await api.post('/recepcion-equipos', data);
-      return res.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
-      onClose();
-    },
-    onError: (err: unknown) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiErr = err as any;
-      alert(
-        apiErr?.response?.data?.message?.[0] ||
-          apiErr?.response?.data?.message ||
-          'Error al crear el registro',
-      );
-    },
-  });
-
-  const validate = () => {
-    const errs: Record<string, string> = {};
-    if (!form.orden_trabajo_fisica.trim())
-      errs.orden_trabajo_fisica = 'Campo obligatorio';
-    if (!form.cliente_id) errs.cliente_id = 'Seleccione un cliente';
-    if (!form.equipo_descripcion.trim())
-      errs.equipo_descripcion = 'Campo obligatorio';
-    if (!form.laboratorio_id) errs.laboratorio_id = 'Seleccione un laboratorio';
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-    mutation.mutate({
-      orden_trabajo_fisica: form.orden_trabajo_fisica.trim(),
-      cliente_id: Number(form.cliente_id),
-      equipo_descripcion: form.equipo_descripcion.trim(),
-      codigo_serie: form.codigo_serie.trim() || undefined,
-      laboratorio_id: Number(form.laboratorio_id),
-    });
-  };
-
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40">
-      <div className="bg-popover text-popover-foreground border border-border rounded-xl shadow-lg w-full max-w-lg relative mx-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto backdrop-blur-sm bg-black/40 py-4">
+      {/* PATCH: max-w-[1800px] + min-h-[85vh] para aprovechar monitores grandes */}
+      <div className="bg-popover text-popover-foreground border border-border rounded-xl shadow-lg w-[95vw] max-w-[1800px] min-h-[85vh] relative mx-4 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="text-lg font-semibold">Nuevo registro</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+          <h2 className="text-lg font-semibold">Nueva Orden de Trabajo</h2>
           <button
             type="button"
             onClick={onClose}
@@ -283,181 +210,16 @@ function RegistroRapidoModal({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4">
-            <div>
-              <label
-                htmlFor="orden_trabajo_fisica"
-                className="mb-1.5 block text-sm font-medium text-foreground"
-              >
-                N° Orden Física
-              </label>
-              <input
-                id="orden_trabajo_fisica"
-                type="text"
-                placeholder="Ej: 0013679"
-                value={form.orden_trabajo_fisica}
-                onChange={(e) =>
-                  setForm({ ...form, orden_trabajo_fisica: e.target.value })
-                }
-                className={cn(
-                  'block w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  errors.orden_trabajo_fisica
-                    ? 'border-destructive'
-                    : 'border-input',
-                )}
-              />
-              {errors.orden_trabajo_fisica && (
-                <p className="mt-1 text-xs text-destructive">
-                  {errors.orden_trabajo_fisica}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="cliente_id"
-                className="mb-1.5 block text-sm font-medium text-foreground"
-              >
-                Cliente / Unidad
-              </label>
-              <select
-                id="cliente_id"
-                value={form.cliente_id}
-                onChange={(e) =>
-                  setForm({ ...form, cliente_id: e.target.value })
-                }
-                className={cn(
-                  'block w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  errors.cliente_id ? 'border-destructive' : 'border-input',
-                )}
-              >
-                <option value="">Seleccione un cliente…</option>
-                {clientes?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
-              {errors.cliente_id && (
-                <p className="mt-1 text-xs text-destructive">
-                  {errors.cliente_id}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="equipo_descripcion"
-                className="mb-1.5 block text-sm font-medium text-foreground"
-              >
-                Descripción del Equipo
-              </label>
-              <input
-                id="equipo_descripcion"
-                type="text"
-                placeholder="Marca, modelo, serie…"
-                value={form.equipo_descripcion}
-                onChange={(e) =>
-                  setForm({ ...form, equipo_descripcion: e.target.value })
-                }
-                className={cn(
-                  'block w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  errors.equipo_descripcion
-                    ? 'border-destructive'
-                    : 'border-input',
-                )}
-              />
-              {errors.equipo_descripcion && (
-                <p className="mt-1 text-xs text-destructive">
-                  {errors.equipo_descripcion}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="codigo_serie"
-                className="mb-1.5 block text-sm font-medium text-foreground"
-              >
-                Código de Serie{' '}
-                <span className="text-muted-foreground font-normal">
-                  (opcional)
-                </span>
-              </label>
-              <input
-                id="codigo_serie"
-                type="text"
-                placeholder="N° de serie del equipo"
-                value={form.codigo_serie}
-                onChange={(e) =>
-                  setForm({ ...form, codigo_serie: e.target.value })
-                }
-                className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="laboratorio_id"
-                className="mb-1.5 block text-sm font-medium text-foreground"
-              >
-                Laboratorio Destino
-              </label>
-              <select
-                id="laboratorio_id"
-                value={form.laboratorio_id}
-                onChange={(e) =>
-                  setForm({ ...form, laboratorio_id: e.target.value })
-                }
-                className={cn(
-                  'block w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  errors.laboratorio_id
-                    ? 'border-destructive'
-                    : 'border-input',
-                )}
-              >
-                <option value="">Seleccione un laboratorio…</option>
-                {laboratorios?.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.nombre}
-                  </option>
-                ))}
-              </select>
-              {errors.laboratorio_id && (
-                <p className="mt-1 text-xs text-destructive">
-                  {errors.laboratorio_id}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 rounded-b-xl bg-muted/30 p-4 border-t border-border">
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex items-center justify-center rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground shadow-sm transition-colors hover:bg-secondary/80"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={mutation.isPending}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
-            >
-              {mutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Guardando…
-                </>
-              ) : (
-                'Guardar'
-              )}
-            </button>
-          </div>
-        </form>
+        {/* Body — flex-1 + overflow-auto para que la tabla scrollée sin comprimir */}
+        <div className="flex-1 overflow-auto p-6">
+          <FormOrdenTrabajo
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+              onClose();
+            }}
+            onCancel={onClose}
+          />
+        </div>
       </div>
     </div>
   );
@@ -1052,7 +814,7 @@ export default function BandejaTrabajoPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Modals */}
       {/* ------------------------------------------------------------------ */}
-      <RegistroRapidoModal
+      <NuevoRegistroModal
         open={isRegistroModalOpen}
         onClose={() => setIsRegistroModalOpen(false)}
       />

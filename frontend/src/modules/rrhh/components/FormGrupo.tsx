@@ -6,11 +6,13 @@ interface FormGrupoProps {
     setFormData: React.Dispatch<React.SetStateAction<any>>;
     grupos: any[];
     personas: any[];
+    // PATCH: Nueva prop para lista de laboratorios
+    laboratorios: any[];
     onSubmit: (e: React.FormEvent) => void;
     isEdit?: boolean;
 }
 
-const FormGrupo = ({ formData, setFormData, grupos, personas, onSubmit, isEdit = false }: FormGrupoProps) => {
+const FormGrupo = ({ formData, setFormData, grupos, personas, laboratorios, onSubmit, isEdit = false }: FormGrupoProps) => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -62,6 +64,14 @@ const FormGrupo = ({ formData, setFormData, grupos, personas, onSubmit, isEdit =
                 <select name="responsable_id" value={formData.responsable_id} onChange={handleChange} className="border p-1 w-64 bg-white">
                     <option value="">Seleccione responsable</option>
                     {personas.map(p => (<option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>))}
+                </select>
+            </div>
+            {/* PATCH: Select para vincular el departamento a un laboratorio */}
+            <div className="grid grid-cols-[150px_1fr] items-center gap-4 border-b border-gray-200 pb-2">
+                <label>Laboratorio:</label>
+                <select name="laboratorio_id" value={formData.laboratorio_id ?? ''} onChange={handleChange} className="border p-1 w-64 bg-white">
+                    <option value="">Sin laboratorio</option>
+                    {laboratorios.map(lab => (<option key={lab.id} value={lab.id}>{lab.nombre}</option>))}
                 </select>
             </div>
             <div className="grid grid-cols-[150px_1fr] items-center gap-4 pb-2">

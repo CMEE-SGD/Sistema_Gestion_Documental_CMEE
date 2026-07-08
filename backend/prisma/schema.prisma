@@ -122,7 +122,6 @@ model Puesto {
 // ==========================================
 // 4. PERSONA
 // ==========================================
-// Definición de los tres estados requeridos para el personal
 enum EstadoPersona {
   ACTIVO
   INACTIVO
@@ -131,17 +130,17 @@ enum EstadoPersona {
 
 model Persona {
   id               Int            @id @default(autoincrement())
-  grado            String?        @db.VarChar(30)  // Reemplaza a 'saludo' para registrar grados militares/profesionales abreviados
+  grado            String?        @db.VarChar(30)
   nombre           String         @db.VarChar(100)
   apellidos        String         @db.VarChar(100)
   cedula_identidad String?        @unique @db.VarChar(20)
   fecha_nacimiento DateTime?      @db.Date
-  sexo             String?        @db.Char(1)      // Soporta 'M', 'F', 'O' (Otros)
+  sexo             String?        @db.Char(1)
   domicilio        String?        @db.VarChar(250)
   ciudad           String?        @db.VarChar(100)
-  provincia        String?        @db.VarChar(100) // Se manejará como texto, el desplegable se valida en Frontend
-  celular_1        String?        @db.VarChar(20)  // Reemplaza a 'telefono' fijo
-  celular_2        String?        @db.VarChar(20)  // Reemplaza a 'fax'
+  provincia        String?        @db.VarChar(100)
+  celular_1        String?        @db.VarChar(20)
+  celular_2        String?        @db.VarChar(20)
   email_1          String?        @db.VarChar(150)
   email_2          String?        @db.VarChar(150)
   foto_ruta        String?        @db.VarChar(500)
@@ -149,14 +148,12 @@ model Persona {
   tipo_recurso     String?        @default("Usuario del sistema") @db.VarChar(50)
   fecha_alta       DateTime       @default(dbgenerated("CURRENT_DATE")) @db.Date
   idioma           String?        @default("Idioma por defecto del centro") @db.VarChar(50)
-  
-  // Cambio de booleano a Enum de 3 estados
+
   estado           EstadoPersona  @default(ACTIVO)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  // Relaciones inversas (Se mantienen intactas)
   usuario                  Usuario?
   puestos                  PersonaPuesto[]
   documentos               DocumentoPersona[]
@@ -166,7 +163,8 @@ model Persona {
   laboratorios_responsable Laboratorio[]
   logs_recibidos           Auditoria[]        @relation("LogPersonaAfectada")
   fases_participadas       FaseParticipante[]
-  recepciones_tecnicos     RecepcionEquipo[]  @relation("TecnicoRecepcion")
+  equipos_tecnicos         EquipoRecepcion[]  @relation("TecnicoRecepcion")
+  ordenes_recibidas        OrdenTrabajo[]     @relation("PersonaRecibeOrden")
   certificados_subidos     Certificado[]      @relation("TecnicoCertificado")
   historial_estados        HistorialEstado[]  @relation("HistorialEstadoPersona")
 
@@ -181,21 +179,18 @@ model Usuario {
   persona_id Int     @unique
   persona    Persona @relation(fields: [persona_id], references: [id], onDelete: Cascade)
 
-  // -- Tab 1: Nuevo usuario --
   nombre_usuario  String    @unique @db.VarChar(80)
   fecha_caducidad DateTime? @db.Date
   estado_cuenta   Boolean   @default(true)
   bloqueado       Boolean   @default(false)
   grupos          Grupo[]   @relation("UsuarioGrupos")
 
-  // -- Tab 2: Clave --
   password_hash              String  @db.VarChar(255)
   cambiar_clave_proxima_sesion Boolean @default(false)
 
-  auditorias   Auditoria[] 
+  auditorias   Auditoria[]
   notificaciones Notificacion[]
 
-  // -- Tab 3: Configuración --
   idioma              String? @db.VarChar(50)
   acceso_preferencias Boolean @default(false)
   acceso_chat         Boolean @default(false)
@@ -243,8 +238,8 @@ model DocumentoPersona {
   persona        Persona  @relation(fields: [persona_id], references: [id], onDelete: Cascade)
   nombre_archivo String   @db.VarChar(300)
   ruta           String   @db.VarChar(500)
-  tipo_documento String?  @db.VarChar(100) // Ej: "CV", "Certificado", "Contrato"
-  peso_bytes     Int?     // <-- Nuevo campo recomendado
+  tipo_documento String?  @db.VarChar(100)
+  peso_bytes     Int?
   fecha_subida   DateTime @default(now()) @db.Timestamptz
   activo         Boolean  @default(true)
 
@@ -261,10 +256,8 @@ model Grupo {
   descripcion String? @db.Text
   activo      Boolean @default(true)
 
-  // Relación N:M implícita con Usuarios
   usuarios Usuario[] @relation("UsuarioGrupos")
 
-  // Relación 1:N hacia la tabla intermedia para los niveles por aplicación
   aplicaciones GrupoAplicacion[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -274,22 +267,21 @@ model Grupo {
 }
 
 // ==========================================
-// 9. APLICACION (Catálogo de Módulos)
+// 9. APLICACION
 // ==========================================
 model Aplicacion {
   id          Int     @id @default(autoincrement())
-  nombre      String  @unique @db.VarChar(100) // Ej: "Recursos Humanos", "Gestor Documental"
+  nombre      String  @unique @db.VarChar(100)
   descripcion String? @db.Text
   activo      Boolean @default(true)
 
-  // Relación inversa a la tabla intermedia
   grupos GrupoAplicacion[]
 
   @@map("aplicacion")
 }
 
 // ==========================================
-// 10. GRUPO_APLICACION (Tabla Intermedia)
+// 10. GRUPO_APLICACION
 // ==========================================
 model GrupoAplicacion {
   id Int @id @default(autoincrement())
@@ -300,16 +292,13 @@ model GrupoAplicacion {
   aplicacion_id Int
   aplicacion    Aplicacion @relation(fields: [aplicacion_id], references: [id], onDelete: Cascade)
 
-  // Aquí guardamos el nivel de permiso según el PDF (1 al 5)
   nivel Int @db.SmallInt
 
-  // El orden de aparición en el menú (ej: 510, 40, 20)
   orden Int? @default(0) @db.SmallInt
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  // Un grupo no puede tener la misma aplicación asignada dos veces
   @@unique([grupo_id, aplicacion_id])
   @@index([grupo_id])
   @@index([aplicacion_id])
@@ -317,13 +306,13 @@ model GrupoAplicacion {
 }
 
 // =========================================================================
-// MÓDULO 2: GESTIÓN DOCUMENTAL (Biblioteca, Carpetas y Archivos)
+// MÓDULO 2: GESTIÓN DOCUMENTAL
 // =========================================================================
 
 enum TipoNivelCarpeta {
-  LIBRERIA     
-  AREA         
-  SUBCARPETA   
+  LIBRERIA
+  AREA
+  SUBCARPETA
 }
 
 enum EstadoWorkflow {
@@ -341,31 +330,26 @@ enum EstadoFaseWorkflow {
 
 model Documento {
   id                 Int               @id @default(autoincrement())
-  
-  // -- Campos del Formulario "Nuevo Fichero" --
+
   empresa            String?           @default("Centro de Metrología del Ejército Ecuatoriano") @db.VarChar(200)
-  fecha_documento    DateTime?         @db.Date // La fecha que sale a la derecha (01/06/2026)
+  fecha_documento    DateTime?         @db.Date
   circuito_id        Int?
   circuito           Circuito?         @relation(fields: [circuito_id], references: [id])
-  activo             Boolean           @default(true) // El checkbox de "Estado"
+  activo             Boolean           @default(true)
   propietario        String?           @db.VarChar(150)
-  
-  // Fichero
-  archivo_url        String            // Aquí va la ruta donde se guardó el PDF (/uploads/...)
-  nombre             String            // Es el "Título" del formulario
+
+  archivo_url        String
+  nombre             String
   version            String?           @default("1")
-  
-  // -- Campos internos --
+
   codigo             String?           @db.VarChar(50)
   orden              Int               @default(0)
   created_at         DateTime          @default(now())
   updated_at         DateTime          @updatedAt
 
-  // Carpeta contenedora
   carpeta_id         Int
   carpeta            Carpeta           @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
 
-  // Relaciones entre documentos (Botón: Relaciones de documentos)
   documentos_origen  DocumentoRelacion[] @relation("DocOrigen")
   documentos_destino DocumentoRelacion[] @relation("DocDestino")
 
@@ -424,7 +408,7 @@ model DocumentoRelacion {
   id               Int       @id @default(autoincrement())
   doc_origen_id    Int
   doc_destino_id   Int
-  tipo_relacion    String?   // Ej: "Sustituye a", "Anexo de", "Complementa a"
+  tipo_relacion    String?
 
   doc_origen       Documento @relation("DocOrigen", fields: [doc_origen_id], references: [id], onDelete: Cascade)
   doc_destino      Documento @relation("DocDestino", fields: [doc_destino_id], references: [id], onDelete: Cascade)
@@ -432,19 +416,13 @@ model DocumentoRelacion {
   @@map("documentos_relaciones")
 }
 
-// -------------------------------------------------------------------------
-// ROLES Y SEGURIDAD EXCLUSIVA DE LA BIBLIOTECA DOCUMENTAL
-// -------------------------------------------------------------------------
-
 model RolCarpeta {
   id          Int      @id @default(autoincrement())
-  nombre      String   // Ej: "Solo Lector", "Editor de Área", "Administrador Documental"
-  descripcion String?  // Nivel de Privilegios asignado (1 al 5):
-  
-  // 1: Ver | 2: Ver y Descargar | 3: Ver, Descargar y Editar 
-  // 4: Ver, Descargar, Editar y Mover | 5: Todos los privilegios (+Eliminar)
-  nivel       Int      @default(1) 
-  
+  nombre      String
+  descripcion String?
+
+  nivel       Int      @default(1)
+
   activo      Boolean  @default(true)
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
@@ -454,12 +432,12 @@ model RolCarpeta {
 
 model Carpeta {
   id               Int              @id @default(autoincrement())
-  nombre           String           
+  nombre           String
   descripcion      String?          @db.Text
   codigo           String?          @db.VarChar(50)
   version_inicial  String?          @default("1")
   etiquetas        String?          @db.Text
-  
+
   tipo             TipoNivelCarpeta @default(SUBCARPETA)
   orden            Int              @default(0)
   activo           Boolean          @default(true)
@@ -469,7 +447,7 @@ model Carpeta {
   carpeta_padre_id Int?
   carpeta_padre    Carpeta?         @relation("JerarquiaCarpetas", fields: [carpeta_padre_id], references: [id], onDelete: Cascade)
   subcarpetas      Carpeta[]        @relation("JerarquiaCarpetas")
-  
+
   documentos       Documento[]
   permisos         CarpetaPermiso[]
 
@@ -479,16 +457,13 @@ model Carpeta {
 model CarpetaPermiso {
   id               Int        @id @default(autoincrement())
   carpeta_id       Int
-  
-  // Ahora el permiso se asigna a un Departamento O a una Persona
+
   departamento_id  Int?
   persona_id       Int?
 
-  // Nivel de acceso (Dropdown: Ver, Ver y Descargar, Todos los privilegios...)
-  nivel_permiso    Int        @default(1) 
-  
-  // Los 3 checkboxes de la derecha (Word, Carpeta, Plus)
-  permiso_docs     Boolean    @default(false) 
+  nivel_permiso    Int        @default(1)
+
+  permiso_docs     Boolean    @default(false)
   permiso_carpetas Boolean    @default(false)
   permiso_extra    Boolean    @default(false)
 
@@ -500,25 +475,21 @@ model CarpetaPermiso {
 }
 
 // ==========================================
-// 11. BITÁCORA DE ACCESOS Y AUDITORÍA (LOGS)
+// 11. BITÁCORA DE AUDITORÍA
 // ==========================================
 model Auditoria {
   id                  Int      @id @default(autoincrement())
-  
-  // Quién realiza la acción (Obligatorio)
+
   usuario_id          Int
   usuario             Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Restrict)
 
-  // Qué se hizo
-  modulo              String   @db.VarChar(50)  // Ej: "RRHH", "GESTOR_DOCUMENTAL"
-  accion              String   @db.VarChar(100) // Ej: "Ver ficha de recurso", "Descarga del documento"
-  descripcion         String?  @db.Text         // Ej: "De: Carpeta A -> A: Carpeta B" o IPs
+  modulo              String   @db.VarChar(50)
+  accion              String   @db.VarChar(100)
+  descripcion         String?  @db.Text
 
-  // Vínculo al Gestor Documental (Opcional)
   documento_id        Int?
   documento           Documento? @relation(fields: [documento_id], references: [id], onDelete: Cascade)
 
-  // Vínculo a RRHH (Opcional - a quién le editaron o vieron la ficha)
   persona_afectada_id Int?
   persona_afectada    Persona?   @relation("LogPersonaAfectada", fields: [persona_afectada_id], references: [id], onDelete: Cascade)
 
@@ -542,17 +513,16 @@ model Auditoria {
 model Laboratorio {
   id             Int       @id @default(autoincrement())
   codigo         String?   @unique @db.VarChar(20)
-  nombre         String    @unique @db.VarChar(100) // Ej: Laboratorio de Masa, Laboratorio de Temperatura
+  nombre         String    @unique @db.VarChar(100)
   descripcion    String?   @db.Text
   activo         Boolean   @default(true)
 
-  // FK a Persona (Responsable técnico del laboratorio)
   responsable_id Int?
   responsable    Persona?  @relation(fields: [responsable_id], references: [id], onDelete: Restrict)
 
   equipos        Equipo[]
   servicios      Servicio[]
-  recepciones    RecepcionEquipo[]
+  equipos_recibidos  EquipoRecepcion[]
   departamentos  Departamento[]
 
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
@@ -567,14 +537,13 @@ model Laboratorio {
 // ==========================================
 model Equipo {
   id             Int          @id @default(autoincrement())
-  codigo         String       @unique @db.VarChar(50) // Código de inventario CMEE
+  codigo         String       @unique @db.VarChar(50)
   nombre         String       @db.VarChar(150)
   marca          String?      @db.VarChar(100)
   modelo         String?      @db.VarChar(100)
   numero_serie   String?      @db.VarChar(100)
   estado         EstadoEquipo @default(OPERATIVO)
 
-  // Relación con el Laboratorio
   laboratorio_id Int
   laboratorio    Laboratorio  @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
 
@@ -587,15 +556,14 @@ model Equipo {
 }
 
 // ==========================================
-// 14. SERVICIO (Magnitudes ofertadas)
+// 14. SERVICIO
 // ==========================================
 model Servicio {
   id             Int       @id @default(autoincrement())
-  nombre         String    @db.VarChar(200) // Ej: Calibración de balanzas analíticas
-  magnitud       String?   @db.VarChar(100) // Ej: Masa, Volumen, Presión
+  nombre         String    @db.VarChar(200)
+  magnitud       String?   @db.VarChar(100)
   descripcion    String?   @db.Text
 
-  // Relación con el Laboratorio
   laboratorio_id Int
   laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
 
@@ -607,17 +575,18 @@ model Servicio {
   @@map("servicio")
 }
 
-// Enum para el control de los equipos
 enum EstadoEquipo {
   OPERATIVO
   EN_CALIBRACION
   FUERA_DE_SERVICIO
 }
-// 12. CONFIGURACIÓN DE CIRCUITOS Y FASES
+
+// ==========================================
+// CIRCUITOS Y FASES
 // ==========================================
 model Circuito {
   id          Int         @id @default(autoincrement())
-  nombre      String      @unique @db.VarChar(100) // Ej: CALIDAD, PRESIÓN
+  nombre      String      @unique @db.VarChar(100)
   activo      Boolean     @default(true)
 
   fases       Fase[]
@@ -632,11 +601,11 @@ model Fase {
   circuito_id            Int
   circuito               Circuito @relation(fields: [circuito_id], references: [id], onDelete: Cascade)
 
-  nombre                 String   @db.VarChar(100) // Ej: ELABORACIÓN, APROBACIÓN
+  nombre                 String   @db.VarChar(100)
   orden                  Int      @default(10)
 
-  etiqueta_singular      String?  @db.VarChar(100) // Ej: ELABORACIÓN
-  etiqueta_plural        String?  @db.VarChar(100) // Ej: ELABORACIONES
+  etiqueta_singular      String?  @db.VarChar(100)
+  etiqueta_plural        String?  @db.VarChar(100)
 
   individual_paralelo    Boolean  @default(false)
   mostrar_hora           Boolean  @default(true)
@@ -655,7 +624,7 @@ model FaseParticipante {
   id          Int      @id @default(autoincrement())
   fase_id     Int
   fase        Fase     @relation(fields: [fase_id], references: [id], onDelete: Cascade)
-  
+
   persona_id  Int
   persona     Persona  @relation(fields: [persona_id], references: [id], onDelete: Cascade)
 
@@ -664,62 +633,101 @@ model FaseParticipante {
 }
 
 // =========================================================================
-// MÓDULO: ADMINISTRATIVO (Recepción y Clientes)
+// MÓDULO ADMINISTRATIVO — Recepción de Equipos (Cabecera-Detalle)
 // =========================================================================
 
 // Cumple el requisito: "Registro de unidades solicitantes o usuarios del servicio"
 model ClienteInstitucional {
   id             Int         @id @default(autoincrement())
-  nombre         String      @unique @db.VarChar(200) // Ej: "Fuerte Militar Rumiñahui" o "Andes Petroleum"
+  nombre         String      @unique @db.VarChar(200)
   tipo           TipoCliente @default(CIVIL)
   activo         Boolean     @default(true)
 
-  recepciones    RecepcionEquipo[]
+  ordenes_trabajo  OrdenTrabajo[]
 
   @@map("clientes_institucionales")
 }
 
-// Cumple el requisito: "Registro de solicitudes" y "Control de estado"
-model RecepcionEquipo {
+// CABECERA — Orden de Trabajo Física
+// Cumple el requisito: "Registro de solicitudes"
+model OrdenTrabajo {
   id                    Int       @id @default(autoincrement())
-  
-  // El número preimpreso en rojo (Ej: 0013679)
-  orden_trabajo_fisica  String    @unique @db.VarChar(50) 
+
+  // Número preimpreso en rojo (Ej: 0013679) — AHORA ÚNICO A NIVEL DE CABECERA
+  orden_trabajo_fisica  String    @unique @db.VarChar(50)
   fecha_ingreso         DateTime  @default(now()) @db.Date
 
-  // Relación con la unidad solicitante
+  // El cliente se registra una sola vez por orden
   cliente_id            Int
   cliente               ClienteInstitucional @relation(fields: [cliente_id], references: [id])
 
-  // Datos del equipo para identificarlo en el laboratorio
-  equipo_descripcion    String    @db.VarChar(200) 
-  codigo_serie          String?   @db.VarChar(100)
+  // Nuevos campos de cabecera
+  n_proforma            String?   @db.VarChar(50)
+  recibe_responsable_id Int?
+  recibe_responsable    Persona?  @relation("PersonaRecibeOrden", fields: [recibe_responsable_id], references: [id])
 
-  // A qué laboratorio se deriva
-  laboratorio_id        Int
-  laboratorio           Laboratorio @relation(fields: [laboratorio_id], references: [id])
-
-  // Cumple el requisito: "Control de estado de trámites"
-  estado                EstadoRecepcion @default(EN_ESPERA)
-
-  // Técnico asignado para la calibración
-  tecnico_id            Int?
-  tecnico               Persona?  @relation("TecnicoRecepcion", fields: [tecnico_id], references: [id])
-
-  certificados       Certificado[]
-  historial_estado    HistorialEstado[]
+  // Un detalle por cada equipo recibido en esta orden
+  equipos               EquipoRecepcion[]
 
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
+  @@index([cliente_id])
+  @@index([recibe_responsable_id])
+  @@map("ordenes_trabajo")
+}
+
+// DETALLE — Cada equipo dentro de una orden de trabajo
+// Cumple el requisito: "Control de estado"
+model EquipoRecepcion {
+  id                    Int       @id @default(autoincrement())
+
+  // FK a la cabecera
+  orden_trabajo_id      Int
+  orden_trabajo         OrdenTrabajo @relation(fields: [orden_trabajo_id], references: [id])
+
+  // Datos del equipo
+  equipo_descripcion    String    @db.VarChar(200)
+  codigo_serie          String?   @db.VarChar(100)
+
+  // Nuevos campos del detalle (formato Excel legacy)
+  codigo_cmee           String?   @db.VarChar(50)
+  marca                 String?   @db.VarChar(100)
+  modelo                String?   @db.VarChar(100)
+  accesorios            String?   @db.VarChar(300)
+  requerimientos_calibracion String? @db.VarChar(500)
+
+  // A qué laboratorio se deriva (puede diferir por equipo dentro de la misma orden)
+  laboratorio_id        Int
+  laboratorio           Laboratorio @relation(fields: [laboratorio_id], references: [id])
+
+  // Fecha en que el equipo ingresó físicamente al laboratorio
+  fecha_ingreso_laboratorio DateTime? @db.Date
+
+  // Estado individual del equipo
+  estado                EstadoRecepcion @default(EN_ESPERA)
+
+  // Técnico asignado para la calibración de este equipo
+  tecnico_id            Int?
+  tecnico               Persona?  @relation("TecnicoRecepcion", fields: [tecnico_id], references: [id])
+
+  certificados          Certificado[]
+  historial_estado      HistorialEstado[]
+
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([orden_trabajo_id])
   @@index([tecnico_id])
-  @@map("recepcion_equipos")
+  @@index([laboratorio_id])
+  @@index([codigo_cmee])
+  @@map("equipos_recepcion")
 }
 
 model Certificado {
   id                    Int       @id @default(autoincrement())
-  recepcion_equipo_id   Int
-  recepcion_equipo      RecepcionEquipo @relation(fields: [recepcion_equipo_id], references: [id])
+  equipo_recepcion_id   Int
+  equipo_recepcion      EquipoRecepcion @relation(fields: [equipo_recepcion_id], references: [id])
   ruta_archivo          String    @db.VarChar(500)
   nombre_original       String    @db.VarChar(255)
   fecha_subida          DateTime  @default(now()) @db.Timestamptz
@@ -729,7 +737,7 @@ model Certificado {
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@index([recepcion_equipo_id])
+  @@index([equipo_recepcion_id])
   @@index([tecnico_id])
   @@map("certificado")
 }
@@ -739,10 +747,11 @@ enum TipoCliente {
   CIVIL
 }
 
+// Historial de transiciones de estado POR EQUIPO (Detalle)
 model HistorialEstado {
   id                  Int             @id @default(autoincrement())
-  recepcion_equipo_id Int
-  recepcion_equipo    RecepcionEquipo @relation(fields: [recepcion_equipo_id], references: [id])
+  equipo_recepcion_id Int
+  equipo_recepcion    EquipoRecepcion @relation(fields: [equipo_recepcion_id], references: [id])
   estado_anterior     EstadoRecepcion
   estado_nuevo        EstadoRecepcion
   accion              String          @db.VarChar(20)
@@ -752,7 +761,7 @@ model HistorialEstado {
 
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
 
-  @@index([recepcion_equipo_id])
+  @@index([equipo_recepcion_id])
   @@map("historial_estado")
 }
 
@@ -768,17 +777,17 @@ enum EstadoRecepcion {
 }
 
 // ==========================================
-// 12. NOTIFICACIONES
+// NOTIFICACIONES
 // ==========================================
 model Notificacion {
   id            Int      @id @default(autoincrement())
   usuario_id    Int
   usuario       Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
 
-  tipo          String   @db.VarChar(50)    // workflow_avance, workflow_rechazo, etc.
+  tipo          String   @db.VarChar(50)
   mensaje       String   @db.VarChar(500)
   leido         Boolean  @default(false)
-  referencia_id Int?                        // ID del documento relacionado
+  referencia_id Int?
 
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
 

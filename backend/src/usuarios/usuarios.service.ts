@@ -254,6 +254,7 @@ export class UsuariosService {
               include: {
                 puesto: { select: { nombre: true } },
                 departamento: {
+                  // PATCH: Include ya existente — extrae laboratorio_id correctamente
                   include: {
                     laboratorio: { select: { id: true, nombre: true } },
                   },
@@ -328,6 +329,7 @@ export class UsuariosService {
               include: {
                 puesto: { select: { nombre: true } },
                 departamento: {
+                  // PATCH: Include ya existente — extrae laboratorio_id correctamente
                   include: {
                     laboratorio: { select: { id: true, nombre: true } },
                   },

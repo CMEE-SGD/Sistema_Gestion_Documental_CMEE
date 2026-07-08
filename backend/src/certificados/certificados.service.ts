@@ -15,27 +15,25 @@ export class CertificadosService {
 
   async upload(
     file: Express.Multer.File,
-    recepcionEquipoId: number,
+    equipoRecepcionId: number,
     user: HydratedUser,
   ) {
-    // 1. Validar existencia y estado de la recepción
-    const recepcion = await this.prisma.recepcionEquipo.findUnique({
-      where: { id: recepcionEquipoId },
+    const equipo = await this.prisma.equipoRecepcion.findUnique({
+      where: { id: equipoRecepcionId },
     });
 
-    if (!recepcion) {
+    if (!equipo) {
       throw new NotFoundException(
-        `Recepción de equipo con ID ${recepcionEquipoId} no encontrada`,
+        `Equipo con ID ${equipoRecepcionId} no encontrado`,
       );
     }
 
-    if (recepcion.estado !== EstadoRecepcion.EN_CALIBRACION) {
+    if (equipo.estado !== EstadoRecepcion.EN_CALIBRACION) {
       throw new BadRequestException(
         'El equipo no se encuentra en estado de calibración activa',
       );
     }
 
-    // 2. Hidratar datos del usuario (persona_id, puesto, laboratorio)
     let personaId = user.persona_id;
     let puesto = user.puesto ?? '';
     let labId: number | null = user.laboratorio_id ?? null;
@@ -69,7 +67,6 @@ export class CertificadosService {
       labId = puestos[0]?.departamento?.laboratorio?.id ?? null;
     }
 
-    // 3. ABAC: verificar permiso según el puesto del usuario
     if (!user.isGod) {
       const n = puesto
         .toLowerCase()
@@ -79,38 +76,37 @@ export class CertificadosService {
       const esObservador = n.includes('observador');
       const esTecnico = n.includes('tecnico') && !n.includes('observador');
 
-      if (esObservador && recepcion.laboratorio_id !== labId) {
+      if (esObservador && equipo.laboratorio_id !== labId) {
         throw new ForbiddenException(
           'No tienes permiso para subir certificados a equipos de otro laboratorio',
         );
       }
 
-      if (esTecnico && recepcion.tecnico_id !== personaId) {
+      if (esTecnico && equipo.tecnico_id !== personaId) {
         throw new ForbiddenException(
           'No tienes permiso para subir certificados a equipos que no te fueron asignados',
         );
       }
     }
 
-    // 4. Transacción atómica: crear certificado + avanzar a revisión OBT
     return this.prisma.$transaction(async (tx) => {
       const certificado = await tx.certificado.create({
         data: {
-          recepcion_equipo_id: recepcionEquipoId,
+          equipo_recepcion_id: equipoRecepcionId,
           ruta_archivo: file.path,
           nombre_original: file.originalname,
           tecnico_id: user.isGod ? 1 : personaId,
         },
       });
 
-      await tx.recepcionEquipo.update({
-        where: { id: recepcionEquipoId },
+      await tx.equipoRecepcion.update({
+        where: { id: equipoRecepcionId },
         data: { estado: EstadoRecepcion.REVISION_OBT },
       });
 
       await tx.historialEstado.create({
         data: {
-          recepcion_equipo_id: recepcionEquipoId,
+          equipo_recepcion_id: equipoRecepcionId,
           estado_anterior: EstadoRecepcion.EN_CALIBRACION,
           estado_nuevo: EstadoRecepcion.REVISION_OBT,
           accion: 'APROBAR',
@@ -121,10 +117,9 @@ export class CertificadosService {
       return tx.certificado.findUnique({
         where: { id: certificado.id },
         include: {
-          recepcion_equipo: {
+          equipo_recepcion: {
             select: {
               id: true,
-              orden_trabajo_fisica: true,
               estado: true,
             },
           },
@@ -137,12 +132,11 @@ export class CertificadosService {
     const certificado = await this.prisma.certificado.findUnique({
       where: { id },
       include: {
-        recepcion_equipo: {
+        equipo_recepcion: {
           select: {
             id: true,
             tecnico_id: true,
             laboratorio_id: true,
-            orden_trabajo_fisica: true,
           },
         },
       },
@@ -152,9 +146,8 @@ export class CertificadosService {
       throw new NotFoundException(`Certificado con ID ${id} no encontrado`);
     }
 
-    const recepcion = certificado.recepcion_equipo;
+    const equipo = certificado.equipo_recepcion;
 
-    // Hidratar datos del usuario
     let personaId = user.persona_id;
     let puesto = user.puesto ?? '';
     let labId: number | null = user.laboratorio_id ?? null;
@@ -197,13 +190,13 @@ export class CertificadosService {
       const esObservador = n.includes('observador');
       const esTecnico = n.includes('tecnico') && !n.includes('observador');
 
-      if (esObservador && recepcion.laboratorio_id !== labId) {
+      if (esObservador && equipo.laboratorio_id !== labId) {
         throw new ForbiddenException(
           'No tienes permiso para ver certificados de otro laboratorio',
         );
       }
 
-      if (esTecnico && recepcion.tecnico_id !== personaId) {
+      if (esTecnico && equipo.tecnico_id !== personaId) {
         throw new ForbiddenException(
           'No tienes permiso para ver certificados que no te fueron asignados',
         );
@@ -213,17 +206,17 @@ export class CertificadosService {
     return path.resolve(certificado.ruta_archivo);
   }
 
-  async findAll(recepcionEquipoId?: number) {
-    const where = recepcionEquipoId
-      ? { recepcion_equipo_id: recepcionEquipoId }
+  async findAll(equipoRecepcionId?: number) {
+    const where = equipoRecepcionId
+      ? { equipo_recepcion_id: equipoRecepcionId }
       : {};
 
     return this.prisma.certificado.findMany({
       where,
       orderBy: { fecha_subida: 'desc' },
       include: {
-        recepcion_equipo: {
-          select: { id: true, orden_trabajo_fisica: true, estado: true },
+        equipo_recepcion: {
+          select: { id: true, estado: true },
         },
       },
     });
@@ -233,8 +226,8 @@ export class CertificadosService {
     const certificado = await this.prisma.certificado.findUnique({
       where: { id },
       include: {
-        recepcion_equipo: {
-          select: { id: true, orden_trabajo_fisica: true },
+        equipo_recepcion: {
+          select: { id: true },
         },
       },
     });

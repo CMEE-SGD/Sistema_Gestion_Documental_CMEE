@@ -10,8 +10,8 @@ import {
   Req,
 } from '@nestjs/common';
 import { RecepcionEquiposService } from './recepcion-equipos.service';
-import { CreateRecepcionEquipoDto } from './dto/create-recepcion-equipo.dto';
-import { UpdateRecepcionEquipoDto } from './dto/update-recepcion-equipo.dto';
+import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
+import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,7 +25,7 @@ export class RecepcionEquiposController {
 
   @Post()
   @RequireAccess('Recepcion Equipos', 3)
-  create(@Body() createDto: CreateRecepcionEquipoDto) {
+  create(@Body() createDto: CreateOrdenTrabajoDto) {
     return this.recepcionService.create(createDto);
   }
 
@@ -43,7 +43,7 @@ export class RecepcionEquiposController {
 
   @Patch(':id')
   @RequireAccess('Recepcion Equipos', 4)
-  update(@Param('id') id: string, @Body() updateDto: UpdateRecepcionEquipoDto) {
+  update(@Param('id') id: string, @Body() updateDto: UpdateOrdenTrabajoDto) {
     return this.recepcionService.update(+id, updateDto);
   }
 

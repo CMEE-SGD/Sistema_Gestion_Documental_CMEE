@@ -6,27 +6,39 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateRecepcionEquipoDto } from './dto/create-recepcion-equipo.dto';
-import { UpdateRecepcionEquipoDto } from './dto/update-recepcion-equipo.dto';
+import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
+import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
 import { EstadoRecepcion } from '@prisma/client';
 
-const INCLUDE_RELATIONS = {
+const ORDEN_INCLUDE = {
   cliente: { select: { id: true, nombre: true, tipo: true } },
+  equipos: {
+    include: {
+      laboratorio: {
+        select: { id: true, nombre: true, responsable_id: true },
+      },
+      tecnico: { select: { id: true, nombre: true, apellidos: true } },
+      certificados: { select: { id: true } },
+    },
+    orderBy: { id: 'asc' as const },
+  },
+};
+
+const EQUIPO_INCLUDE = {
   laboratorio: { select: { id: true, nombre: true, responsable_id: true } },
   tecnico: { select: { id: true, nombre: true, apellidos: true } },
   certificados: { select: { id: true } },
+  orden_trabajo: {
+    select: {
+      id: true,
+      orden_trabajo_fisica: true,
+      cliente: { select: { id: true, nombre: true, tipo: true } },
+    },
+  },
 };
 
-/**
- * Resolve row-level where clause from the full job-title string stored in
- * the database (e.g. "Observador Técnico", no acronyms).
- *
- *   God / "Jefe…" / "Director…" / "Responsable servicio al Cliente" → no filter (all records)
- *   "Observador Técnico"                                           → filtered by lab
- *   Any other "Técnico" (not Jefe)                                 → filtered by assigned tech
- */
 function normalizePuesto(str: string) {
   return str
     .toLowerCase()
@@ -34,7 +46,7 @@ function normalizePuesto(str: string) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
-function resolveWhere(
+function resolveOrdenWhere(
   puesto: string,
   personaId: number | null,
   labId: number | null,
@@ -44,36 +56,55 @@ function resolveWhere(
 
   const n = normalizePuesto(puesto);
 
-  // Jefes y Directores ven todos los registros (no filtro)
   if (n.includes('jefe') || n.includes('director')) return undefined;
 
   if (n.includes('observador'))
-    return labId ? { laboratorio_id: labId } : undefined;
+    return labId
+      ? { equipos: { some: { laboratorio_id: labId } } }
+      : undefined;
 
   if (n.includes('tecnico'))
-    return personaId ? { tecnico_id: personaId } : undefined;
+    return personaId
+      ? { equipos: { some: { tecnico_id: personaId } } }
+      : undefined;
 
-  return undefined; // RSEC, otros → all records
+  return undefined;
+}
+
+function hydrateUserJobInfo(usuario: any) {
+  const puestos = usuario?.persona?.puestos ?? [];
+  return {
+    personaId: usuario?.persona?.id ?? null,
+    puesto: puestos[0]?.puesto?.nombre ?? '',
+    labId: puestos[0]?.departamento?.laboratorio?.id ?? null,
+  };
 }
 
 @Injectable()
 export class RecepcionEquiposService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createDto: CreateRecepcionEquipoDto) {
-    const existeOrden = await this.prisma.recepcionEquipo.findUnique({
-      where: { orden_trabajo_fisica: createDto.orden_trabajo_fisica },
+  async create(dto: CreateOrdenTrabajoDto) {
+    const existe = await this.prisma.ordenTrabajo.findUnique({
+      where: { orden_trabajo_fisica: dto.orden_trabajo_fisica },
     });
 
-    if (existeOrden) {
+    if (existe) {
       throw new ConflictException(
-        `La Orden Física #${createDto.orden_trabajo_fisica} ya está registrada en el sistema.`,
+        `La Orden Física #${dto.orden_trabajo_fisica} ya está registrada en el sistema.`,
       );
     }
 
-    return this.prisma.recepcionEquipo.create({
-      data: createDto,
-      include: INCLUDE_RELATIONS,
+    const { equipos, ...header } = dto;
+
+    return this.prisma.ordenTrabajo.create({
+      data: {
+        ...header,
+        equipos: {
+          create: equipos,
+        },
+      },
+      include: ORDEN_INCLUDE,
     });
   }
 
@@ -85,17 +116,16 @@ export class RecepcionEquiposService {
     laboratorio_id?: number;
   }) {
     if (user?.isGod) {
-      return this.prisma.recepcionEquipo.findMany({
+      return this.prisma.ordenTrabajo.findMany({
         orderBy: { fecha_ingreso: 'desc' },
-        include: INCLUDE_RELATIONS,
+        include: ORDEN_INCLUDE,
       });
     }
 
-    let personaId = user?.persona_id;
+    let personaId = user?.persona_id ?? null;
     let puesto = user?.puesto ?? '';
     let labId: number | null = user?.laboratorio_id ?? null;
 
-    // Fallback: if the JWT payload didn't include the fields above, hydrate from DB
     if (!puesto && user?.id) {
       const usuario = await this.prisma.usuario.findUnique({
         where: { id: user.id },
@@ -119,19 +149,18 @@ export class RecepcionEquiposService {
         },
       });
 
-      const puestos = usuario?.persona?.puestos ?? [];
-      personaId = usuario?.persona?.id;
-      puesto = puestos[0]?.puesto?.nombre ?? '';
-      labId = puestos[0]?.departamento?.laboratorio?.id ?? null;
+      const info = hydrateUserJobInfo(usuario);
+      personaId = info.personaId;
+      puesto = info.puesto;
+      labId = info.labId;
     }
 
-    // Build the where clause from the full job-title string
-    const where = resolveWhere(puesto, personaId, labId, user?.isGod);
+    const where = resolveOrdenWhere(puesto, personaId, labId, user?.isGod);
 
-    return this.prisma.recepcionEquipo.findMany({
+    return this.prisma.ordenTrabajo.findMany({
       where,
       orderBy: { fecha_ingreso: 'desc' },
-      include: INCLUDE_RELATIONS,
+      include: ORDEN_INCLUDE,
     });
   }
 
@@ -146,21 +175,22 @@ export class RecepcionEquiposService {
     },
   ) {
     if (user?.isGod) {
-      const recepcion = await this.prisma.recepcionEquipo.findUnique({
+      const orden = await this.prisma.ordenTrabajo.findUnique({
         where: { id },
-        include: INCLUDE_RELATIONS,
+        include: ORDEN_INCLUDE,
       });
-      if (!recepcion) {
-        throw new NotFoundException(`Recepción con ID ${id} no encontrada`);
+      if (!orden) {
+        throw new NotFoundException(
+          `Orden de trabajo con ID ${id} no encontrada`,
+        );
       }
-      return recepcion;
+      return orden;
     }
 
-    let personaId = user?.persona_id;
+    let personaId = user?.persona_id ?? null;
     let puesto = user?.puesto ?? '';
     let labId: number | null = user?.laboratorio_id ?? null;
 
-    // Fallback: hydrate from DB if JWT payload didn't include these fields
     if (!puesto && user?.id) {
       const usuario = await this.prisma.usuario.findUnique({
         where: { id: user.id },
@@ -184,67 +214,96 @@ export class RecepcionEquiposService {
         },
       });
 
-      const puestos = usuario?.persona?.puestos ?? [];
-      personaId = usuario?.persona?.id;
-      puesto = puestos[0]?.puesto?.nombre ?? '';
-      labId = puestos[0]?.departamento?.laboratorio?.id ?? null;
+      const info = hydrateUserJobInfo(usuario);
+      personaId = info.personaId;
+      puesto = info.puesto;
+      labId = info.labId;
     }
 
-    const scopeWhere = resolveWhere(puesto, personaId, labId, user?.isGod) ?? {};
+    const scopeWhere =
+      resolveOrdenWhere(puesto, personaId, labId, user?.isGod) ?? {};
 
-    const recepcion = await this.prisma.recepcionEquipo.findFirst({
+    const orden = await this.prisma.ordenTrabajo.findFirst({
       where: { id, ...scopeWhere },
-      include: INCLUDE_RELATIONS,
+      include: ORDEN_INCLUDE,
     });
 
-    if (!recepcion) {
-      throw new NotFoundException(`Recepción con ID ${id} no encontrada`);
+    if (!orden) {
+      throw new NotFoundException(
+        `Orden de trabajo con ID ${id} no encontrada`,
+      );
     }
-    return recepcion;
+    return orden;
   }
 
-  async update(id: number, updateDto: UpdateRecepcionEquipoDto) {
+  async update(id: number, dto: UpdateOrdenTrabajoDto) {
     await this.findOne(id);
-    return this.prisma.recepcionEquipo.update({
+    return this.prisma.ordenTrabajo.update({
       where: { id },
-      data: updateDto,
-      include: INCLUDE_RELATIONS,
+      data: dto,
+      include: ORDEN_INCLUDE,
     });
   }
 
   async remove(id: number) {
     await this.findOne(id);
-    return this.prisma.recepcionEquipo.delete({
+    return this.prisma.ordenTrabajo.delete({
       where: { id },
     });
   }
 
-  async asignarTecnico(id: number, dto: AsignarTecnicoDto) {
-    await this.findOne(id);
-    return this.prisma.recepcionEquipo.update({
+  // ------------------------------------------------------------------
+  // Operaciones a nivel de Equipo (Detalle)
+  // ------------------------------------------------------------------
+
+  private async findOneEquipo(id: number) {
+    const equipo = await this.prisma.equipoRecepcion.findUnique({
       where: { id },
+      include: EQUIPO_INCLUDE,
+    });
+    if (!equipo) {
+      throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+    }
+    return equipo;
+  }
+
+  async asignarTecnico(equipoId: number, dto: AsignarTecnicoDto) {
+    await this.findOneEquipo(equipoId);
+    return this.prisma.equipoRecepcion.update({
+      where: { id: equipoId },
       data: {
         tecnico_id: dto.tecnico_id,
         estado: EstadoRecepcion.EN_CALIBRACION,
       },
-      include: INCLUDE_RELATIONS,
+      include: EQUIPO_INCLUDE,
+    });
+  }
+
+  async updateEquipoStatus(
+    equipoId: number,
+    estado: EstadoRecepcion,
+  ) {
+    await this.findOneEquipo(equipoId);
+    return this.prisma.equipoRecepcion.update({
+      where: { id: equipoId },
+      data: { estado },
+      include: EQUIPO_INCLUDE,
     });
   }
 
   async transicionEstado(
-    id: number,
+    equipoId: number,
     dto: TransicionEstadoDto,
     user: any,
   ) {
-    const recepcion = await this.prisma.recepcionEquipo.findUnique({
-      where: { id },
+    const equipo = await this.prisma.equipoRecepcion.findUnique({
+      where: { id: equipoId },
     });
 
-    if (!recepcion) {
-      throw new NotFoundException(`Recepción con ID ${id} no encontrada`);
+    if (!equipo) {
+      throw new NotFoundException(`Equipo con ID ${equipoId} no encontrado`);
     }
 
-    // Hidratar datos del usuario desde BD si el JWT no trajo puesto/persona_id
     let personaId = user.persona_id;
     let puesto = user.puesto ?? '';
     let labId: number | null = user.laboratorio_id ?? null;
@@ -272,28 +331,25 @@ export class RecepcionEquiposService {
         },
       });
 
-      const puestos = usuario?.persona?.puestos ?? [];
-      personaId = usuario?.persona?.id;
-      puesto = puestos[0]?.puesto?.nombre ?? '';
-      labId = puestos[0]?.departamento?.laboratorio?.id ?? null;
+      const info = hydrateUserJobInfo(usuario);
+      personaId = info.personaId;
+      puesto = info.puesto;
+      labId = info.labId;
     }
 
     const n = normalizePuesto(puesto);
-    const estadoActual = recepcion.estado;
+    const estadoActual = equipo.estado;
     const accion = dto.accion;
     const observaciones = dto.observaciones;
 
-    // Validar observaciones requeridas para RECHAZAR
     if (accion === 'RECHAZAR' && !observaciones?.trim()) {
       throw new BadRequestException(
         'Las observaciones son obligatorias cuando se rechaza',
       );
     }
 
-    // Determinar estado destino según máquina de estados
     let estadoNuevo: EstadoRecepcion | null = null;
 
-    // Helper para validar rol basado en puesto normalizado
     const esObservador = n.includes('observador');
     const esTecnico = n.includes('tecnico') && !n.includes('observador');
     const esJefe = n.includes('jefe');
@@ -307,7 +363,7 @@ export class RecepcionEquiposService {
             'Solo el técnico asignado puede enviar a revisión',
           );
         }
-        if (recepcion.tecnico_id !== personaId) {
+        if (equipo.tecnico_id !== personaId) {
           throw new ForbiddenException(
             'No eres el técnico asignado a este equipo',
           );
@@ -340,7 +396,7 @@ export class RecepcionEquiposService {
             'Solo el técnico asignado puede firmar',
           );
         }
-        if (recepcion.tecnico_id !== personaId) {
+        if (equipo.tecnico_id !== personaId) {
           throw new ForbiddenException(
             'No eres el técnico asignado a este equipo',
           );
@@ -397,16 +453,15 @@ export class RecepcionEquiposService {
         );
     }
 
-    // Ejecutar transición en transacción
     return this.prisma.$transaction(async (tx) => {
-      await tx.recepcionEquipo.update({
-        where: { id },
+      await tx.equipoRecepcion.update({
+        where: { id: equipoId },
         data: { estado: estadoNuevo! },
       });
 
       await tx.historialEstado.create({
         data: {
-          recepcion_equipo_id: id,
+          equipo_recepcion_id: equipoId,
           estado_anterior: estadoActual,
           estado_nuevo: estadoNuevo!,
           accion,
@@ -415,9 +470,9 @@ export class RecepcionEquiposService {
         },
       });
 
-      return tx.recepcionEquipo.findUnique({
-        where: { id },
-        include: INCLUDE_RELATIONS,
+      return tx.equipoRecepcion.findUnique({
+        where: { id: equipoId },
+        include: EQUIPO_INCLUDE,
       });
     });
   }
