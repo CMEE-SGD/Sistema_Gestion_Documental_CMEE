@@ -363,7 +363,11 @@ export class RecepcionEquiposService {
 
     const esObservador = n.includes('observador');
     const esTecnico = n.includes('tecnico') && !n.includes('observador');
-    const esJefe = n.includes('jefe');
+    const esCalidad = n.includes('calidad');
+    // Excluye "calidad" porque "Jefe Departamento Gestión de la Calidad"
+    // también contiene "jefe" — sin esto, ese puesto colaría en la revisión
+    // de Jefe de Laboratorio además de la de Calidad.
+    const esJefe = n.includes('jefe') && !esCalidad;
     const esDirector = n.includes('director');
     const esRSEC = n.includes('responsable servicio al cliente');
 
@@ -426,9 +430,22 @@ export class RecepcionEquiposService {
           );
         }
         if (accion === 'APROBAR') {
-          estadoNuevo = EstadoRecepcion.REVISION_DIRECTOR;
+          estadoNuevo = EstadoRecepcion.REVISION_CALIDAD;
         } else {
           estadoNuevo = EstadoRecepcion.REVISION_OBT;
+        }
+        break;
+
+      case EstadoRecepcion.REVISION_CALIDAD:
+        if (!esCalidad) {
+          throw new ForbiddenException(
+            'Solo el Jefe del Departamento de Gestión de la Calidad puede revisar',
+          );
+        }
+        if (accion === 'APROBAR') {
+          estadoNuevo = EstadoRecepcion.REVISION_DIRECTOR;
+        } else {
+          estadoNuevo = EstadoRecepcion.REVISION_JEFE;
         }
         break;
 
@@ -441,7 +458,7 @@ export class RecepcionEquiposService {
         if (accion === 'APROBAR') {
           estadoNuevo = EstadoRecepcion.LISTO_PARA_ENTREGA;
         } else {
-          estadoNuevo = EstadoRecepcion.REVISION_JEFE;
+          estadoNuevo = EstadoRecepcion.REVISION_CALIDAD;
         }
         break;
 

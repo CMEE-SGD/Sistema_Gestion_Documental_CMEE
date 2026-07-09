@@ -739,6 +739,11 @@ model Certificado {
   tecnico_id            Int
   tecnico               Persona   @relation("TecnicoCertificado", fields: [tecnico_id], references: [id])
 
+  // Control de numeración (secuencia propia, independiente del id interno)
+  numero_certificado    Int       @unique @default(autoincrement())
+  // Identificador público no adivinable para verificación de autenticidad
+  codigo_verificacion   String    @unique @default(uuid())
+
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -776,6 +781,7 @@ enum EstadoRecepcion {
   REVISION_OBT
   PENDIENTE_FIRMA_TECNICO
   REVISION_JEFE
+  REVISION_CALIDAD
   REVISION_DIRECTOR
   LISTO_PARA_ENTREGA
   FINALIZADO

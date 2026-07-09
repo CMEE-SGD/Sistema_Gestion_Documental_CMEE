@@ -1,0 +1,230 @@
+PLAN DE TRABAJO PARA ESTUDIANTES PASANTES DE LA UNIVERSIDAD DE LAS FUERZAS ARMADAS ESPE
+DESARROLLO DE APLICACIÓN INFORMÁTICA PARA LA GESTIÓN ADMINISTRATIVA, GESTIÓN DE CALIDAD, VALIDACIÓN Y FIRMA DE CERTIFICADOS DEL CENTRO DE METROLOGÍA DEL EJÉRCITO ECUATORIANO
+1. Datos generales
+CampoDetalleInstitución receptoraCentro de Metrología del Ejército EcuatorianoInstitución de procedenciaUniversidad de las Fuerzas Armadas ESPEModalidadPasantías / prácticas preprofesionalesDuración estimada4 mesesTiempo de ejecución16 semanasProyectoDesarrollo de una aplicación informática para la gestión administrativa, gestión de calidad, validación y firma de certificados de los cinco laboratorios del Centro de Metrología.Producto final esperadoAplicación funcional, memoria técnica, manual de usuario, manual técnico, respaldos del código fuente, base de datos, evidencias de pruebas y acta de entrega-recepción bajo modalidad “llave en mano”.
+2. Antecedente
+El Centro de Metrología del Ejército Ecuatoriano requiere fortalecer sus procesos administrativos, técnicos y de gestión de calidad mediante el desarrollo de una aplicación informática que permita centralizar, controlar y mejorar el flujo de información generado por sus cinco laboratorios.
+Actualmente, los procesos relacionados con la emisión, revisión, validación, aprobación y firma de certificados requieren una gestión ordenada, trazable y segura, especialmente por la naturaleza técnica de los documentos emitidos. En este contexto, los estudiantes pasantes de la Universidad de las Fuerzas Armadas ESPE aportarán al diseño, desarrollo, implementación y documentación de una solución informática que permita optimizar la gestión del Centro, garantizando funcionalidad, trazabilidad documental, control de usuarios, seguridad de la información y respaldo técnico suficiente para su operación posterior.
+3. Objetivo general
+Desarrollar una aplicación informática para el Centro de Metrología del Ejército Ecuatoriano, orientada a la gestión administrativa, gestión de calidad, validación y firma de certificados de los cinco laboratorios, mediante una planificación semanal que permita entregar una solución funcional, documentada, probada y operativa bajo modalidad “llave en mano”.
+4. Objetivos específicos
+* Levantar los requerimientos funcionales y técnicos del Centro de Metrología, considerando las necesidades administrativas, técnicas, documentales y de gestión de calidad.
+* Diseñar la arquitectura de la aplicación, los módulos funcionales, la base de datos, los perfiles de usuario y los flujos de validación de certificados.
+* Desarrollar los módulos informáticos requeridos para la gestión administrativa, gestión de laboratorios, emisión de certificados, validación, aprobación, firma y trazabilidad documental.
+* Implementar controles de seguridad, respaldo, auditoría, gestión de usuarios y control de acceso según los perfiles definidos por la institución.
+* Ejecutar pruebas funcionales, técnicas y de usuario para verificar el correcto funcionamiento de la aplicación.
+* Entregar la aplicación informática con memoria técnica, manuales, código fuente, base de datos, respaldos y capacitación al personal designado.
+5. Alcance del proyecto
+El proyecto comprende el desarrollo de una aplicación informática para uso interno del Centro de Metrología del Ejército Ecuatoriano, considerando como mínimo los siguientes componentes:
+* Gestión de usuarios y perfiles de acceso.
+* Gestión administrativa del Centro.
+* Gestión de los cinco laboratorios.
+* Registro de solicitudes de servicio.
+* Ingreso y control de información técnica asociada a los certificados.
+* Generación, revisión, validación, aprobación y firma de certificados.
+* Control de estados del certificado.
+* Trazabilidad de modificaciones, responsables, fechas y observaciones.
+* Repositorio digital de certificados emitidos.
+* Módulo de gestión de calidad vinculado a documentos, registros, procedimientos, no conformidades, acciones correctivas o evidencias de control.
+* Generación de reportes administrativos y técnicos.
+* Manual técnico, manual de usuario y memoria técnica.
+* Capacitación al personal responsable.
+* Entrega final bajo modalidad “llave en mano”.
+6. Organización general del trabajo
+Para asegurar el cumplimiento del proyecto, los estudiantes pasantes deberán organizarse en equipos o responsables por áreas de trabajo:
+Área de trabajoResponsabilidad principalLevantamiento de requerimientosRecolectar información, entrevistar usuarios, identificar necesidades y documentar procesos.Análisis y diseñoDiseñar módulos, flujos, base de datos, roles, pantallas y arquitectura general.Desarrollo frontendConstruir la interfaz de usuario de la aplicación.Desarrollo backendProgramar la lógica del sistema, validaciones, control de usuarios, certificados y reportes.Base de datosDiseñar, crear y administrar las tablas, relaciones, consultas y respaldos.Gestión de calidadVincular el sistema con documentos, registros, trazabilidad, control de cambios y evidencias.PruebasEjecutar pruebas funcionales, técnicas, de seguridad, de validación y aceptación.DocumentaciónElaborar memoria técnica, manual de usuario, manual técnico y actas de entrega.
+7. Plan de trabajo por semanas
+MES 1: Levantamiento, análisis y diseño del sistema
+Semana 1: Inducción institucional y planificación inicial
+ActividadesProductos esperadosResponsablePresentación de los estudiantes pasantes ante el Centro de Metrología.Registro de inducción.Tutor institucionalSocialización de la misión, estructura, laboratorios, procesos administrativos y técnicos del Centro.Acta de inicio del proyecto.Responsable del proyectoInducción sobre normas internas, confidencialidad, seguridad de la información y manejo documental.Compromiso de confidencialidad.Tutor institucionalDefinición del equipo de trabajo, roles, responsables y metodología de desarrollo.Matriz de responsabilidades.Pasantes / TutorElaboración del cronograma general del proyecto.Cronograma preliminar de 16 semanas.Equipo de desarrollo
+Resultado de la semana: Equipo organizado, alcance preliminar definido y planificación inicial aprobada.
+Semana 2: Levantamiento de procesos administrativos y técnicos
+ActividadesProductos esperadosResponsableIdentificación de los cinco laboratorios y sus procesos principales.Matriz de laboratorios y procesos.PasantesLevantamiento del flujo actual de emisión de certificados.Diagrama del proceso actual.Equipo de análisisIdentificación de responsables de elaboración, revisión, validación, aprobación y firma.Matriz de responsables por etapa.PasantesRevisión de formatos de certificados, registros, solicitudes y documentos asociados.Inventario documental inicial.Gestión documentalEntrevistas con personal técnico, administrativo y de calidad.Registro de entrevistas.Pasantes
+Resultado de la semana: Diagnóstico inicial del proceso administrativo, técnico y documental.
+Semana 3: Levantamiento de requerimientos funcionales y no funcionales
+ActividadesProductos esperadosResponsableDefinición de requerimientos funcionales de la aplicación.Documento de requerimientos funcionales.Equipo de análisisDefinición de requerimientos no funcionales: seguridad, disponibilidad, respaldo, facilidad de uso y trazabilidad.Documento de requerimientos no funcionales.Equipo de desarrolloIdentificación de usuarios del sistema: administrador, técnico, jefe de laboratorio, calidad, dirección, firmante y consulta.Matriz de perfiles de usuario.PasantesDefinición de permisos por perfil.Matriz de roles y accesos.Backend / CalidadValidación de requerimientos con el personal designado del Centro.Acta de aprobación de requerimientos.Tutor institucional
+Resultado de la semana: Requerimientos aprobados para iniciar diseño técnico.
+Semana 4: Diseño funcional, técnico y documental de la aplicación
+ActividadesProductos esperadosResponsableDiseño de arquitectura general de la aplicación.Diagrama de arquitectura.Equipo técnicoDiseño de módulos del sistema.Mapa funcional de módulos.Equipo de análisisDiseño preliminar de base de datos.Modelo entidad-relación preliminar.Responsable de base de datosDiseño de pantallas principales.Prototipos o wireframes.FrontendDiseño del flujo digital del certificado: creación, revisión, validación, firma, emisión y archivo.Diagrama de flujo del certificado.Equipo de desarrolloValidación del diseño con el Centro de Metrología.Acta de aprobación del diseño.Tutor institucional
+Resultado de la semana: Diseño funcional y técnico aprobado.
+MES 2: Desarrollo de módulos principales
+Semana 5: Configuración del ambiente de desarrollo y estructura base
+ActividadesProductos esperadosResponsableDefinición de herramientas, lenguaje de programación, motor de base de datos y entorno de trabajo.Documento de herramientas tecnológicas.Equipo técnicoInstalación y configuración del ambiente de desarrollo.Ambiente operativo.Backend / Base de datosCreación de repositorio del código fuente.Repositorio inicial.Equipo técnicoConfiguración de base de datos inicial.Base de datos estructural.Responsable de base de datosDesarrollo de plantilla general de la aplicación.Estructura inicial del sistema.Frontend / Backend
+Resultado de la semana: Entorno de desarrollo operativo y estructura base creada.
+Semana 6: Desarrollo del módulo de usuarios, perfiles y seguridad
+ActividadesProductos esperadosResponsableDesarrollo de inicio de sesión.Módulo de autenticación.BackendCreación de perfiles y roles de usuario.Módulo de roles y permisos.BackendDesarrollo de control de acceso por perfil.Matriz de acceso implementada.BackendRegistro de auditoría de accesos.Bitácora de ingresos al sistema.BackendPruebas de acceso, permisos y restricciones.Informe de pruebas de seguridad básica.Equipo de pruebas
+Resultado de la semana: Módulo de usuarios y seguridad funcional.
+Semana 7: Desarrollo del módulo administrativo
+ActividadesProductos esperadosResponsableDesarrollo del registro de solicitudes de servicio.Módulo de solicitudes.Frontend / BackendCreación de estados administrativos: recibido, en proceso, observado, aprobado, finalizado y archivado.Flujo administrativo implementado.BackendRegistro de clientes internos o externos, unidades solicitantes y datos generales.Base de datos administrativa.Base de datosGeneración de reportes administrativos básicos.Reportes preliminares.BackendPruebas del módulo administrativo.Informe de pruebas del módulo.Equipo de pruebas
+Resultado de la semana: Módulo administrativo operativo para registro y seguimiento.
+Semana 8: Desarrollo del módulo de laboratorios
+ActividadesProductos esperadosResponsableRegistro de los cinco laboratorios del Centro de Metrología.Módulo de laboratorios.BackendRegistro de áreas, magnitudes, equipos, responsables y servicios por laboratorio.Catálogo técnico por laboratorio.Pasantes / Base de datosAsignación de solicitudes a laboratorios.Flujo de asignación implementado.BackendRegistro de información técnica base por laboratorio.Formularios técnicos iniciales.FrontendPruebas de asignación y consulta por laboratorio.Informe de pruebas.Equipo de pruebas
+Resultado de la semana: Módulo de laboratorios integrado al sistema.
+MES 3: Certificados, gestión de calidad, validación y firma
+Semana 9: Desarrollo del módulo de certificados
+ActividadesProductos esperadosResponsableDiseño e implementación de formularios para emisión de certificados.Formularios digitales de certificados.Frontend / BackendCarga de datos técnicos requeridos para certificados.Campos técnicos implementados.BackendGeneración automática o semiautomática de certificados.Certificado preliminar generado por sistema.BackendIncorporación de numeración, fecha, responsable y laboratorio.Control documental del certificado.BackendPruebas de generación de certificados.Certificados de prueba.Equipo de pruebas
+Resultado de la semana: Generación inicial de certificados en la aplicación.
+Semana 10: Desarrollo del flujo de revisión, validación y aprobación
+ActividadesProductos esperadosResponsableImplementación de estados del certificado: borrador, revisión, observado, validado, aprobado, firmado y emitido.Flujo de estados implementado.BackendRegistro de observaciones por parte de revisores.Módulo de observaciones.BackendControl de cambios en certificados.Historial de modificaciones.BackendAsignación de responsables de revisión y validación.Flujo de validación por perfil.BackendPruebas del flujo completo del certificado.Informe de validación funcional.Equipo de pruebas
+Resultado de la semana: Flujo de revisión y validación implementado.
+Semana 11: Desarrollo del módulo de firma y control documental
+ActividadesProductos esperadosResponsableImplementación de mecanismo de firma o validación final, según la política institucional.Módulo de firma o aprobación final.BackendIncorporación de códigos de verificación, identificador único o control de autenticidad.Certificado con trazabilidad.BackendGeneración de PDF del certificado final.Certificado final exportable.BackendRepositorio digital de certificados emitidos.Archivo digital de certificados.Base de datosPruebas de emisión, archivo y consulta.Informe de pruebas del certificado final.Equipo de pruebas
+Resultado de la semana: Certificados emitidos, archivados y trazables.
+Semana 12: Desarrollo del módulo de gestión de calidad
+ActividadesProductos esperadosResponsableRegistro y control de documentos del sistema de gestión de calidad.Módulo documental de calidad.BackendControl de versiones, fechas, responsables y estado de documentos.Matriz digital de documentos.Calidad / BackendRegistro de no conformidades, observaciones o acciones de mejora, si aplica.Módulo de acciones de mejora.BackendVinculación de certificados con registros de calidad.Trazabilidad calidad-certificado.BackendGeneración de reportes de calidad.Reportes de gestión de calidad.Equipo técnico
+Resultado de la semana: Módulo de gestión de calidad integrado al sistema.
+MES 4: Integración, pruebas, capacitación y entrega llave en mano
+Semana 13: Integración general del sistema
+ActividadesProductos esperadosResponsableIntegración de módulos administrativos, laboratorios, certificados, firma y calidad.Sistema integrado.Equipo técnicoRevisión de navegación general.Aplicación funcional integrada.FrontendCorrección de errores de integración.Registro de incidencias corregidas.BackendRevisión de base de datos y relaciones.Base de datos depurada.Base de datosValidación interna del sistema por los pasantes.Informe de integración.Equipo de pruebas
+Resultado de la semana: Aplicación integrada y lista para pruebas institucionales.
+Semana 14: Pruebas funcionales, técnicas y de usuario
+ActividadesProductos esperadosResponsableEjecución de pruebas funcionales por módulo.Matriz de pruebas funcionales.Equipo de pruebasPruebas de usuarios y permisos.Informe de seguridad y accesos.BackendPruebas de generación, revisión, validación, firma y emisión de certificados.Certificados de prueba validados.Equipo técnicoPruebas de reportes, consultas y repositorio documental.Informe de reportes.Equipo de pruebasRegistro de observaciones del personal del Centro.Matriz de observaciones.Tutor institucional
+Resultado de la semana: Observaciones identificadas y sistema probado por usuarios.
+Semana 15: Correcciones, documentación y capacitación
+ActividadesProductos esperadosResponsableCorrección de observaciones detectadas en pruebas.Sistema corregido.Equipo técnicoElaboración de memoria técnica.Memoria técnica preliminar.Equipo documentalElaboración de manual de usuario.Manual de usuario.Equipo documentalElaboración de manual técnico.Manual técnico.Equipo documentalCapacitación al personal designado del Centro.Registro de capacitación.Pasantes / TutorPrueba final con usuarios responsables.Acta de conformidad preliminar.Tutor institucional
+Resultado de la semana: Aplicación corregida, documentada y personal capacitado.
+Semana 16: Entrega final bajo modalidad “llave en mano”
+ActividadesProductos esperadosResponsableInstalación final de la aplicación en el ambiente definido por el Centro.Aplicación instalada.Equipo técnicoEntrega de código fuente, base de datos, credenciales administrativas y respaldos.Paquete técnico completo.PasantesEntrega de memoria técnica, manual técnico y manual de usuario.Documentación final.Equipo documentalEntrega de matriz de pruebas y evidencias de funcionamiento.Informe final de pruebas.Equipo de pruebasPresentación final del sistema al Director y personal designado.Presentación de cierre.PasantesSuscripción del acta de entrega-recepción.Acta de entrega final.Tutor institucional / Centro
+Resultado de la semana: Aplicación entregada, documentada, probada y transferida al Centro de Metrología.
+8. Módulos mínimos que debe contener la aplicación
+8.1. Módulo de administración del sistema
+* Usuarios.
+* Roles y permisos.
+* Bitácora de accesos.
+* Configuración general.
+* Respaldo de información.
+8.2. Módulo administrativo
+* Registro de solicitudes.
+* Control de estado de trámites.
+* Registro de unidades solicitantes o usuarios del servicio.
+* Seguimiento de actividades.
+* Reportes administrativos.
+8.3. Módulo de laboratorios
+* Registro de los cinco laboratorios.
+* Responsables por laboratorio.
+* Servicios ofertados.
+* Equipos asociados.
+* Información técnica por laboratorio.
+8.4. Módulo de certificados
+* Creación de certificados.
+* Carga de información técnica.
+* Generación de certificados en PDF.
+* Control de numeración.
+* Estados del certificado.
+* Historial de cambios.
+* Repositorio de certificados emitidos.
+8.5. Módulo de validación y firma
+* Revisión técnica.
+* Validación del jefe de laboratorio.
+* Aprobación de calidad, si corresponde.
+* Firma o aprobación final.
+* Control de observaciones.
+* Código de verificación o identificador único.
+8.6. Módulo de gestión de calidad
+* Control documental.
+* Registros de calidad.
+* Control de versiones.
+* Acciones de mejora.
+* No conformidades, si aplica.
+* Trazabilidad documental.
+* Indicadores de gestión.
+8.7. Módulo de reportes
+* Reportes por laboratorio.
+* Certificados emitidos.
+* Certificados pendientes.
+* Certificados observados.
+* Tiempos de atención.
+* Reportes de calidad.
+* Reportes administrativos.
+9. Entregables del proyecto
+Al finalizar los cuatro meses, los estudiantes pasantes deberán entregar:
+* Aplicación informática funcional.
+* Código fuente completo.
+* Base de datos estructurada.
+* Instalador o guía de instalación.
+* Manual técnico.
+* Manual de usuario.
+* Memoria técnica del proyecto.
+* Matriz de requerimientos.
+* Matriz de pruebas.
+* Evidencias de pruebas funcionales.
+* Credenciales de administrador.
+* Respaldo digital completo.
+* Capacitación al personal designado.
+* Acta de entrega-recepción.
+10. Contenido mínimo de la memoria técnica
+La memoria técnica deberá contener:
+* Portada.
+* Índice.
+* Antecedentes.
+* Justificación.
+* Objetivo general y objetivos específicos.
+* Alcance del sistema.
+* Metodología de desarrollo.
+* Requerimientos funcionales.
+* Requerimientos no funcionales.
+* Arquitectura de la aplicación.
+* Descripción de módulos.
+* Modelo de base de datos.
+* Diccionario de datos.
+* Flujo de validación y firma de certificados.
+* Control de usuarios y seguridad.
+* Pruebas realizadas.
+* Resultados obtenidos.
+* Limitaciones.
+* Recomendaciones.
+* Conclusiones.
+* Anexos.
+* Capturas de pantalla.
+* Manual de instalación.
+* Manual de usuario.
+* Acta de entrega.
+11. Criterios de aceptación del producto final
+El Centro de Metrología podrá considerar aceptada la aplicación si cumple con los siguientes criterios:
+* La aplicación permite ingresar con usuarios y perfiles diferenciados.
+* Los cinco laboratorios se encuentran registrados y operativos dentro del sistema.
+* El sistema permite registrar solicitudes y asociarlas a un laboratorio.
+* La aplicación permite generar certificados.
+* El certificado puede ser revisado, observado, validado, aprobado, firmado y archivado.
+* El sistema mantiene trazabilidad de usuarios, fechas, cambios y estados.
+* La información puede consultarse mediante reportes.
+* Existe control documental vinculado a la gestión de calidad.
+* La aplicación cuenta con respaldos y base de datos funcional.
+* El personal designado fue capacitado.
+* Se entregó la memoria técnica, manual técnico, manual de usuario y código fuente.
+* El sistema fue instalado y probado en el ambiente definido por el Centro.
+12. Responsabilidades de los estudiantes pasantes
+* Cumplir el cronograma de actividades.
+* Mantener confidencialidad de la información institucional.
+* Documentar cada fase del desarrollo.
+* Reportar avances semanalmente.
+* Entregar productos verificables.
+* Corregir observaciones emitidas por el Centro.
+* No modificar información institucional sin autorización.
+* No entregar credenciales, código o respaldos a personal no autorizado.
+* Garantizar que el sistema quede funcional y documentado.
+13. Responsabilidades del Centro de Metrología
+* Designar un tutor institucional.
+* Facilitar información necesaria para el desarrollo.
+* Definir usuarios responsables de validar requerimientos.
+* Entregar formatos de certificados y documentos aplicables.
+* Revisar avances semanales.
+* Emitir observaciones oportunamente.
+* Definir el ambiente de instalación final.
+* Validar la entrega final del producto.
+14. Seguimiento y control
+El seguimiento del proyecto se realizará mediante reuniones semanales entre los estudiantes pasantes y el tutor institucional. En cada reunión se revisarán los avances, dificultades, productos entregados y actividades pendientes.
+Ejemplo de matriz de seguimiento:
+SemanaActividad planificadaProducto esperadoEstadoObservacionesResponsable1Inducción y planificaciónActa de inicioPendiente / En proceso / Cumplido2Levantamiento de procesosMatriz de procesosPendiente / En proceso / Cumplido3RequerimientosDocumento de requerimientosPendiente / En proceso / Cumplido4Diseño del sistemaDiagrama y prototiposPendiente / En proceso / Cumplido
+15. Cronograma resumido
+MesFaseResultado esperadoMes 1Levantamiento, análisis y diseñoRequerimientos, procesos, arquitectura, base de datos y prototipos aprobados.Mes 2Desarrollo de módulos principalesUsuarios, seguridad, administración y laboratorios desarrollados.Mes 3Certificados, validación, firma y calidadMódulos técnicos críticos implementados.Mes 4Integración, pruebas, documentación y entregaAplicación final instalada, probada, documentada y entregada.
+16. Recomendaciones finales
+* El proyecto debe iniciar con un levantamiento claro de requerimientos, ya que el flujo de certificados, validación y firma constituye el eje crítico de la aplicación.
+* El sistema debe priorizar la trazabilidad, debido a que los certificados emitidos por el Centro de Metrología poseen valor técnico e institucional.
+* La gestión de calidad debe integrarse desde el diseño inicial, no como un módulo aislado al final del desarrollo.
+* La entrega final debe realizarse únicamente cuando exista aplicación funcional, documentación completa, código fuente, base de datos y capacitación al personal responsable.
+* La modalidad “llave en mano” exige que el Centro pueda operar la aplicación sin depender permanentemente de los estudiantes pasantes una vez concluido el proyecto.
+17. Cierre
+El presente plan de trabajo permite organizar el aporte de los estudiantes pasantes de la Universidad de las Fuerzas Armadas ESPE durante cuatro meses, orientando sus actividades al desarrollo de una aplicación informática funcional para el Centro de Metrología del Ejército Ecuatoriano. La planificación propuesta garantiza una ejecución progresiva, verificable y documentada, con énfasis en la gestión administrativa, gestión de calidad, validación y firma de certificados de los cinco laboratorios, hasta alcanzar una entrega final bajo modalidad “llave en mano”.
+Página 1
+

@@ -21,11 +21,11 @@ import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
 
 @Controller('certificados')
-@UseGuards(JwtAuthGuard, AccessGuard)
 export class CertificadosController {
   constructor(private readonly certificadosService: CertificadosService) {}
 
   @Post('upload')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Recepcion Equipos', 3)
   @UseInterceptors(FileInterceptor('file'))
   async upload(
@@ -40,12 +40,23 @@ export class CertificadosController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Recepcion Equipos', 1)
   findAll(@Req() req: any) {
     return this.certificadosService.findAll();
   }
 
+  // Endpoint público — sin JwtAuthGuard/AccessGuard a propósito. Permite que
+  // un tercero (cliente, auditor) confirme la autenticidad de un certificado
+  // sin necesitar una cuenta en el sistema. Solo expone metadatos, nunca el
+  // PDF ni la ruta del archivo.
+  @Get('verificar/:codigo')
+  verificar(@Param('codigo') codigo: string) {
+    return this.certificadosService.verificar(codigo);
+  }
+
   @Get('download/:id')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Recepcion Equipos', 2)
   async download(
     @Param('id', ParseIntPipe) id: number,
@@ -63,12 +74,14 @@ export class CertificadosController {
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Recepcion Equipos', 1)
   findOne(@Param('id') id: string) {
     return this.certificadosService.findOne(+id);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Recepcion Equipos', 5)
   remove(@Param('id') id: string) {
     return this.certificadosService.remove(+id);

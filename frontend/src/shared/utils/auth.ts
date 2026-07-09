@@ -8,6 +8,7 @@ export interface UsuarioStorage {
     puesto?: string;
   };
   grupos?: Array<{
+    nombre?: string;
     aplicaciones?: Array<{
       aplicacion: { nombre: string };
       nivel: number;
@@ -61,6 +62,12 @@ export const tienePermiso = (modulo: string, nivelRequerido: number): boolean =>
     if (!usuario) return false;
 
     try {
+        // El usuario "Dios" (backend: isGod) llega con un grupo en memoria
+        // llamado GOD_MODE que no cubre todas las aplicaciones reales — se le
+        // da acceso libre aquí igual que hace AccessGuard en el backend.
+        const esGod = usuario.grupos?.some((grupo) => grupo.nombre === 'GOD_MODE');
+        if (esGod) return true;
+
         return usuario.grupos?.some((grupo: any) =>
         grupo.aplicaciones?.some((appConfig: any) =>
             appConfig.aplicacion.nombre === modulo && appConfig.nivel >= nivelRequerido

@@ -8,6 +8,19 @@ import {
 import { EstadoRecepcion } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { HydratedUser } from '../common/helpers/lab-scope';
+import { formatearNumeroCertificado } from '../common/helpers/certificado-format';
+
+function conNumeroFormateado<
+  T extends { numero_certificado: number; fecha_subida: Date },
+>(certificado: T) {
+  return {
+    ...certificado,
+    numero_certificado_formateado: formatearNumeroCertificado(
+      certificado.numero_certificado,
+      certificado.fecha_subida,
+    ),
+  };
+}
 
 @Injectable()
 export class CertificadosService {
@@ -114,7 +127,7 @@ export class CertificadosService {
         },
       });
 
-      return tx.certificado.findUnique({
+      const creado = await tx.certificado.findUnique({
         where: { id: certificado.id },
         include: {
           equipo_recepcion: {
@@ -125,6 +138,8 @@ export class CertificadosService {
           },
         },
       });
+
+      return creado ? conNumeroFormateado(creado) : creado;
     });
   }
 
@@ -206,20 +221,84 @@ export class CertificadosService {
     return path.resolve(certificado.ruta_archivo);
   }
 
+  /**
+   * Verificación pública de autenticidad — sin autenticación. Devuelve solo
+   * metadatos seguros (nunca la ruta del archivo ni datos personales más
+   * allá del nombre del técnico responsable).
+   */
+  async verificar(codigo: string) {
+    const certificado = await this.prisma.certificado.findUnique({
+      where: { codigo_verificacion: codigo },
+      include: {
+        tecnico: { select: { nombre: true, apellidos: true } },
+        equipo_recepcion: {
+          select: {
+            equipo_descripcion: true,
+            estado: true,
+            laboratorio: { select: { nombre: true } },
+            orden_trabajo: {
+              select: {
+                orden_trabajo_fisica: true,
+                cliente: { select: { nombre: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!certificado) {
+      throw new NotFoundException(
+        'El código de verificación no corresponde a ningún certificado emitido',
+      );
+    }
+
+    const equipo = certificado.equipo_recepcion;
+
+    return {
+      valido: true,
+      numero_certificado: formatearNumeroCertificado(
+        certificado.numero_certificado,
+        certificado.fecha_subida,
+      ),
+      fecha_emision: certificado.fecha_subida,
+      laboratorio: equipo.laboratorio?.nombre ?? null,
+      cliente: equipo.orden_trabajo?.cliente?.nombre ?? null,
+      orden_trabajo_fisica: equipo.orden_trabajo?.orden_trabajo_fisica ?? null,
+      equipo: equipo.equipo_descripcion,
+      tecnico_responsable: `${certificado.tecnico.nombre} ${certificado.tecnico.apellidos}`,
+      estado: equipo.estado,
+    };
+  }
+
   async findAll(equipoRecepcionId?: number) {
     const where = equipoRecepcionId
       ? { equipo_recepcion_id: equipoRecepcionId }
       : {};
 
-    return this.prisma.certificado.findMany({
+    const certificados = await this.prisma.certificado.findMany({
       where,
       orderBy: { fecha_subida: 'desc' },
       include: {
+        tecnico: { select: { id: true, nombre: true, apellidos: true } },
         equipo_recepcion: {
-          select: { id: true, estado: true },
+          select: {
+            id: true,
+            estado: true,
+            equipo_descripcion: true,
+            laboratorio: { select: { id: true, nombre: true } },
+            orden_trabajo: {
+              select: {
+                orden_trabajo_fisica: true,
+                cliente: { select: { id: true, nombre: true } },
+              },
+            },
+          },
         },
       },
     });
+
+    return certificados.map(conNumeroFormateado);
   }
 
   async findOne(id: number) {
@@ -236,7 +315,7 @@ export class CertificadosService {
       throw new NotFoundException(`Certificado con ID ${id} no encontrado`);
     }
 
-    return certificado;
+    return conNumeroFormateado(certificado);
   }
 
   async remove(id: number) {

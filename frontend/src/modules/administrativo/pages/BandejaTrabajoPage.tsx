@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   UserCheck,
   Handshake,
+  Award,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import api from '../../../core/api/axios';
@@ -37,6 +38,7 @@ type EstadoKey =
   | 'REVISION_OBT'
   | 'PENDIENTE_FIRMA_TECNICO'
   | 'REVISION_JEFE'
+  | 'REVISION_CALIDAD'
   | 'REVISION_DIRECTOR'
   | 'LISTO_PARA_ENTREGA'
   | 'FINALIZADO';
@@ -113,6 +115,8 @@ const ESTADO_STYLES: Record<EstadoKey, string> = {
     'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   REVISION_JEFE:
     'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+  REVISION_CALIDAD:
+    'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
   REVISION_DIRECTOR:
     'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
   LISTO_PARA_ENTREGA:
@@ -129,6 +133,58 @@ function viewTitle(): string {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+const STAT_TONE_STYLES = {
+  neutral: {
+    chip: 'bg-primary/10',
+    icon: 'text-primary',
+    value: 'text-primary',
+  },
+  amber: {
+    chip: 'bg-amber-100 dark:bg-amber-900/30',
+    icon: 'text-amber-600 dark:text-amber-400',
+    value: 'text-amber-600 dark:text-amber-400',
+  },
+  blue: {
+    chip: 'bg-blue-100 dark:bg-blue-900/30',
+    icon: 'text-blue-600 dark:text-blue-400',
+    value: 'text-blue-600 dark:text-blue-400',
+  },
+} as const;
+
+function StatItem({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof ClipboardList;
+  label: string;
+  value: number;
+  tone: keyof typeof STAT_TONE_STYLES;
+}) {
+  const styles = STAT_TONE_STYLES[tone];
+  return (
+    <div className="flex flex-1 items-center gap-3 px-6 py-4">
+      <div
+        className={cn(
+          'flex h-10 w-10 shrink-0 items-center justify-center rounded-md',
+          styles.chip,
+        )}
+      >
+        <Icon className={cn('h-5 w-5', styles.icon)} />
+      </div>
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {label}
+        </p>
+        <p className={cn('mt-0.5 font-mono text-2xl font-bold tabular-nums', styles.value)}>
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function StatusBadge({ estado }: { estado: EstadoKey }) {
   return (
     <span
@@ -142,7 +198,7 @@ function StatusBadge({ estado }: { estado: EstadoKey }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ hasFilter }: { hasFilter: boolean }) {
   return (
     <tr>
       <td colSpan={100}>
@@ -151,11 +207,12 @@ function EmptyState() {
             <Inbox className="h-8 w-8 text-muted-foreground/60" />
           </div>
           <h3 className="text-base font-semibold text-foreground">
-            No hay registros pendientes
+            {hasFilter ? 'Sin resultados para la búsqueda' : 'No hay registros pendientes'}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Todos los equipos han sido procesados o no hay solicitudes activas en
-            este momento.
+            {hasFilter
+              ? 'Intente con otro número de orden, equipo, cliente o técnico.'
+              : 'Todos los equipos han sido procesados o no hay solicitudes activas en este momento.'}
           </p>
         </div>
       </td>
@@ -439,11 +496,35 @@ export default function BandejaTrabajoPage() {
   const nPuesto = normalize(puesto);
   const esObservador = nPuesto.includes('observador');
   const esTecnico = nPuesto.includes('tecnico') && !nPuesto.includes('observador');
-  const esJefe = nPuesto.includes('jefe');
+  const esCalidad = nPuesto.includes('calidad');
+  // Excluye "calidad" — "Jefe Departamento Gestión de la Calidad" también
+  // contiene "jefe" y no debe colar en la revisión de Jefe de Laboratorio.
+  const esJefe = nPuesto.includes('jefe') && !esCalidad;
   const esDirector = nPuesto.includes('director');
   const esRSEC = nPuesto.includes('responsable servicio al cliente');
 
   const { data: recepciones, isLoading, error } = useBandejaData();
+
+  const [busqueda, setBusqueda] = useState('');
+
+  const recepcionesFiltradas = useMemo(() => {
+    const lista = recepciones ?? [];
+    const termino = normalize(busqueda.trim());
+    if (!termino) return lista;
+
+    return lista.filter((r) => {
+      const haystack = normalize(
+        [
+          r.orden_trabajo_fisica,
+          r.cliente?.nombre ?? '',
+          r.equipo_descripcion,
+          r.laboratorio?.nombre ?? '',
+          r.tecnico ? `${r.tecnico.nombre} ${r.tecnico.apellidos}` : '',
+        ].join(' '),
+      );
+      return haystack.includes(termino);
+    });
+  }, [recepciones, busqueda]);
 
   // Modal state
   const [isRegistroModalOpen, setIsRegistroModalOpen] = useState(false);
@@ -513,30 +594,20 @@ export default function BandejaTrabajoPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Header */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <ClipboardList className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              Bandeja de Trabajo
-            </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {viewTitle()}
-            </p>
-          </div>
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+          <ClipboardList className="h-5 w-5 text-primary" />
         </div>
-
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Buscar por orden, equipo o cliente…"
-            className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            Bandeja de Trabajo
+          </h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">{viewTitle()}</p>
         </div>
       </div>
+
+      {/* Regla de calibre — divisor graduado, sin decoración de más */}
+      <div className="h-px border-t border-dashed border-border" />
 
       {/* ------------------------------------------------------------------ */}
       {/* Error banner */}
@@ -548,55 +619,42 @@ export default function BandejaTrabajoPage() {
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* KPI Cards */}
+      {/* KPI strip */}
       {/* ------------------------------------------------------------------ */}
       {!isLoading && recepciones && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-xl border border-border bg-card text-card-foreground p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-muted-foreground">
-                Total Recepciones
-              </p>
-              <ClipboardList className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <p className="mt-2 text-2xl font-bold">{kpis.total}</p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card text-card-foreground p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-muted-foreground">
-                En Espera
-              </p>
-              <Clock className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <p className="mt-2 text-2xl font-bold text-amber-600">
-              {kpis.enEspera}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card text-card-foreground p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-muted-foreground">
-                En Calibración
-              </p>
-              <FlaskConical className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <p className="mt-2 text-2xl font-bold text-blue-600">
-              {kpis.enCalibracion}
-            </p>
-          </div>
+        <div className="flex flex-col divide-y divide-dashed divide-border overflow-hidden rounded-lg border border-border border-t-2 border-t-[#A67C3D] bg-card text-card-foreground shadow-sm sm:flex-row sm:divide-x sm:divide-y-0">
+          <StatItem
+            icon={ClipboardList}
+            label="Total recepciones"
+            value={kpis.total}
+            tone="neutral"
+          />
+          <StatItem
+            icon={Clock}
+            label="En espera"
+            value={kpis.enEspera}
+            tone="amber"
+          />
+          <StatItem
+            icon={FlaskConical}
+            label="En calibración"
+            value={kpis.enCalibracion}
+            tone="blue"
+          />
         </div>
       )}
 
       {/* ------------------------------------------------------------------ */}
       {/* Table toolbar */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex items-center justify-between">
-        <div className="relative w-full max-w-xs">
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Buscar…"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por orden, equipo o cliente…"
             className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
@@ -640,18 +698,18 @@ export default function BandejaTrabajoPage() {
                     canAssign || canExecute ? 8 : 7
                   }
                 />
-              ) : recepciones && recepciones.length > 0 ? (
-                recepciones.map((req) => (
+              ) : recepcionesFiltradas.length > 0 ? (
+                recepcionesFiltradas.map((req) => (
                   <tr
                     key={req.id}
                     className="border-b border-border transition-colors hover:bg-muted/50"
                   >
-                    <td className="whitespace-nowrap px-6 py-4 font-medium">
+                    <td className="whitespace-nowrap px-6 py-4 font-mono font-medium">
                       <span className="text-primary">
                         #{req.orden_trabajo_fisica}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                    <td className="whitespace-nowrap px-6 py-4 font-mono text-sm text-muted-foreground">
                       {new Date(req.fecha_ingreso).toLocaleDateString()}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
@@ -683,7 +741,7 @@ export default function BandejaTrabajoPage() {
                         </span>
                       )}
                     </td>
-                    {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC) && (
+                    {(canAssign || canExecute || esObservador || esJefe || esCalidad || esDirector || esRSEC) && (
                       <td className="whitespace-nowrap px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           {/* EN_ESPERA: Asignar técnico */}
@@ -784,6 +842,27 @@ export default function BandejaTrabajoPage() {
                             </Button>
                           )}
 
+                          {/* REVISION_CALIDAD: Aprobación de Calidad */}
+                          {req.estado === 'REVISION_CALIDAD' && esCalidad && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedValidacionRecepcion({
+                                  id: req.id,
+                                  estado: req.estado,
+                                  titulo: 'Aprobación de Calidad',
+                                });
+                                setIsValidacionModalOpen(true);
+                              }}
+                              title="Aprobación de calidad"
+                              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                            >
+                              <Award className="h-4 w-4" />
+                              Aprobación de Calidad
+                            </Button>
+                          )}
+
                           {/* REVISION_DIRECTOR: Aprobación Final (Director) */}
                           {req.estado === 'REVISION_DIRECTOR' && esDirector && (
                             <Button
@@ -846,7 +925,7 @@ export default function BandejaTrabajoPage() {
                   </tr>
                 ))
               ) : (
-                <EmptyState />
+                <EmptyState hasFilter={busqueda.trim().length > 0} />
               )}
             </tbody>
           </table>
