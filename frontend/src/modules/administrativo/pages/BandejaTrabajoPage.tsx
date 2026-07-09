@@ -233,20 +233,25 @@ function NuevoRegistroModal({
 function AsignarTecnicoModal({
   open,
   recepcionId,
+  laboratorioId,
   onClose,
 }: {
   open: boolean;
   recepcionId: number | null;
+  laboratorioId: number | null;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
 
   const { data: personas } = useQuery<PersonaOption[]>({
-    queryKey: ['personas'],
+    queryKey: ['personas', 'laboratorio', laboratorioId],
     queryFn: async () => {
-      const res = await api.get('/personas');
+      const res = await api.get('/personas', {
+        params: { laboratorio_id: laboratorioId },
+      });
       return res.data;
     },
+    enabled: open && !!laboratorioId,
   });
 
   const [selectedTecnicoId, setSelectedTecnicoId] = useState<number | null>(
@@ -322,7 +327,8 @@ function AsignarTecnicoModal({
                     e.target.value ? Number(e.target.value) : null,
                   )
                 }
-                className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={!laboratorioId}
+                className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
               >
                 <option value="">Seleccione un técnico…</option>
                 {personas?.map((p) => (
@@ -332,6 +338,17 @@ function AsignarTecnicoModal({
                   </option>
                 ))}
               </select>
+              {!laboratorioId && (
+                <p className="mt-1.5 text-xs text-destructive">
+                  Este equipo no tiene laboratorio asignado — no se puede
+                  filtrar la lista de técnicos.
+                </p>
+              )}
+              {laboratorioId && personas && personas.length === 0 && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  No hay técnicos asignados a este laboratorio.
+                </p>
+              )}
             </div>
           </div>
 
@@ -430,9 +447,10 @@ export default function BandejaTrabajoPage() {
 
   // Modal state
   const [isRegistroModalOpen, setIsRegistroModalOpen] = useState(false);
-  const [assigningEquipoId, setAssigningEquipoId] = useState<number | null>(
-    null,
-  );
+  const [asignacionTecnico, setAsignacionTecnico] = useState<{
+    equipoId: number;
+    laboratorioId: number | null;
+  } | null>(null);
   const [isCertificadoModalOpen, setIsCertificadoModalOpen] = useState(false);
   const [selectedCertificadoRecepcionId, setSelectedCertificadoRecepcionId] =
     useState<number | null>(null);
@@ -673,7 +691,12 @@ export default function BandejaTrabajoPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => setAssigningEquipoId(req.id)}
+                              onClick={() =>
+                                setAsignacionTecnico({
+                                  equipoId: req.id,
+                                  laboratorioId: req.laboratorio?.id ?? null,
+                                })
+                              }
                               title="Asignar técnico"
                             >
                               <UserPlus className="h-4 w-4" />
@@ -839,9 +862,10 @@ export default function BandejaTrabajoPage() {
       />
 
       <AsignarTecnicoModal
-        open={assigningEquipoId !== null}
-        recepcionId={assigningEquipoId}
-        onClose={() => setAssigningEquipoId(null)}
+        open={asignacionTecnico !== null}
+        recepcionId={asignacionTecnico?.equipoId ?? null}
+        laboratorioId={asignacionTecnico?.laboratorioId ?? null}
+        onClose={() => setAsignacionTecnico(null)}
       />
 
       <SubirCertificadoModal

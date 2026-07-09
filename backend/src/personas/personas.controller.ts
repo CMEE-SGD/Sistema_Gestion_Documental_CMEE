@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, UseInterceptors, UploadedFiles, ConflictException, InternalServerErrorException
+  Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, UseInterceptors, UploadedFiles, ConflictException, InternalServerErrorException, Query
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -59,7 +59,11 @@ export class PersonasController {
 
   @Get()
   @RequireAccess('Recursos Humanos', 1)
-  findAll() { return this.personasService.findAll(); }
+  findAll(@Query('laboratorio_id') laboratorioId?: string) {
+    return this.personasService.findAll(
+      laboratorioId ? +laboratorioId : undefined,
+    );
+  }
 
   @Get(':id')
   @RequireAccess('Recursos Humanos', 2)

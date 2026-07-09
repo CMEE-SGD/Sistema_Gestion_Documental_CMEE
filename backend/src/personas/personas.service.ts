@@ -80,10 +80,22 @@ export class PersonasService {
 
   /**
    * Ejecuta la operación de negocio findAll.
+   * @param laboratorioId - Si se provee, filtra solo personas con un puesto
+   * activo en un departamento perteneciente a ese laboratorio.
    * @returns Array<Entidad>
    */
-  findAll() {
+  findAll(laboratorioId?: number) {
     return this.prisma.persona.findMany({
+      where: laboratorioId
+        ? {
+            puestos: {
+              some: {
+                activo: true,
+                departamento: { laboratorio_id: laboratorioId },
+              },
+            },
+          }
+        : undefined,
       include: {
         roles: { select: { id: true, nombre: true } },
         puestos: { include: { puesto: true, departamento: true } },
