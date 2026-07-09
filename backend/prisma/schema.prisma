@@ -640,6 +640,11 @@ model FaseParticipante {
 model ClienteInstitucional {
   id             Int         @id @default(autoincrement())
   nombre         String      @unique @db.VarChar(200)
+  ruc            String?     @unique @db.VarChar(20)
+  representante  String      @db.VarChar(150)
+  direccion      String      @db.VarChar(250)
+  telefono       String      @db.VarChar(20)
+  email          String?     @db.VarChar(150)
   tipo           TipoCliente @default(CIVIL)
   activo         Boolean     @default(true)
 

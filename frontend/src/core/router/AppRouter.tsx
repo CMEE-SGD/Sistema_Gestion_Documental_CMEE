@@ -68,6 +68,8 @@ import { AuditoriaPage } from '../../modules/auditoria/AuditoriaPage';
 // --- IMPORTACIONES ADMINISTRATIVO (NUEVO) ---
 import { AdministrativoLayout } from '../../modules/administrativo/components/AdministrativoLayout';
 import BandejaTrabajoPage from '../../modules/administrativo/pages/BandejaTrabajoPage';
+import RecepcionesPage from '../../modules/administrativo/pages/RecepcionesPage';
+import ClientesPage from '../../modules/administrativo/pages/ClientesPage';
 
 const AppRouter = () => {
   return (
@@ -142,6 +144,8 @@ const AppRouter = () => {
         {/* --- NUEVO MÓDULO ADMINISTRATIVO --- */}
         <Route path="/administrativo" element={<AdministrativoLayout />}>
           <Route path="recepciones" element={<BandejaTrabajoPage />} />
+          <Route path="ordenes" element={<RecepcionesPage />} />
+          <Route path="clientes" element={<ClientesPage />} />
         </Route>
         
       </Routes>

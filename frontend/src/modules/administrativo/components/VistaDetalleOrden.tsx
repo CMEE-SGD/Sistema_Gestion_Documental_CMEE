@@ -46,7 +46,7 @@ interface EquipoResumen {
   certificados: CertificadoResumen[];
 }
 
-interface OrdenTrabajoDetalle {
+export interface OrdenTrabajoDetalle {
   id: number;
   orden_trabajo_fisica: string;
   n_proforma: string | null;

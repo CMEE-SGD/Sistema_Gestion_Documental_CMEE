@@ -25,6 +25,7 @@ import { Button } from '../../../shared/components/atoms/button';
 import SubirCertificadoModal from '../components/SubirCertificadoModal';
 import ValidacionCertificadoModal from '../components/ValidacionCertificadoModal';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
+import { type OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -370,6 +371,12 @@ function AsignarTecnicoModal({
 // ---------------------------------------------------------------------------
 // Data fetching — all roles use the same unified endpoint; the backend
 // applies row-level filtering via the JWT's `puesto` acronym.
+//
+// El backend devuelve una fila por ORDEN (cabecera) con un arreglo `equipos`
+// anidado (modelo Maestro-Detalle). La bandeja de trabajo opera a nivel de
+// equipo (cada acción — asignar técnico, subir certificado, transicionar
+// estado — usa el id del equipo), así que aplanamos cada orden en una fila
+// por equipo, heredando los datos de cabecera (nº orden, fecha, cliente).
 // ---------------------------------------------------------------------------
 
 function useBandejaData() {
@@ -379,8 +386,20 @@ function useBandejaData() {
   return useQuery<BandejaRecepcion[]>({
     queryKey: ['bandeja-trabajo', puesto],
     queryFn: async () => {
-      const res = await api.get('/recepcion-equipos');
-      return res.data;
+      const res = await api.get<OrdenTrabajoDetalle[]>('/recepcion-equipos');
+      return res.data.flatMap((orden) =>
+        orden.equipos.map((equipo) => ({
+          id: equipo.id,
+          orden_trabajo_fisica: orden.orden_trabajo_fisica,
+          fecha_ingreso: orden.fecha_ingreso,
+          equipo_descripcion: equipo.equipo_descripcion,
+          estado: equipo.estado as EstadoKey,
+          cliente: orden.cliente,
+          laboratorio: equipo.laboratorio ?? undefined,
+          tecnico: equipo.tecnico ?? undefined,
+          certificados: equipo.certificados,
+        })),
+      );
     },
     enabled: !!puesto,
     retry: 1,

@@ -39,6 +39,10 @@ const EQUIPO_INCLUDE = {
   },
 };
 
+function toDate(value?: string): Date | undefined {
+  return value ? new Date(value) : undefined;
+}
+
 function normalizePuesto(str: string) {
   return str
     .toLowerCase()
@@ -100,8 +104,12 @@ export class RecepcionEquiposService {
     return this.prisma.ordenTrabajo.create({
       data: {
         ...header,
+        fecha_ingreso: toDate(dto.fecha_ingreso),
         equipos: {
-          create: equipos,
+          create: equipos.map((equipo) => ({
+            ...equipo,
+            fecha_ingreso_laboratorio: toDate(equipo.fecha_ingreso_laboratorio),
+          })),
         },
       },
       include: ORDEN_INCLUDE,
@@ -240,7 +248,10 @@ export class RecepcionEquiposService {
     await this.findOne(id);
     return this.prisma.ordenTrabajo.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        fecha_ingreso: toDate(dto.fecha_ingreso),
+      },
       include: ORDEN_INCLUDE,
     });
   }

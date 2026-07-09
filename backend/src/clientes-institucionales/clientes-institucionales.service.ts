@@ -12,14 +12,26 @@ export class ClientesInstitucionalesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createDto: CreateClienteInstitucionalDto) {
-    const existe = await this.prisma.clienteInstitucional.findUnique({
+    const existeNombre = await this.prisma.clienteInstitucional.findUnique({
       where: { nombre: createDto.nombre },
     });
 
-    if (existe) {
+    if (existeNombre) {
       throw new ConflictException(
         'Ya existe un cliente o institución con este nombre',
       );
+    }
+
+    if (createDto.ruc) {
+      const existeRuc = await this.prisma.clienteInstitucional.findUnique({
+        where: { ruc: createDto.ruc },
+      });
+
+      if (existeRuc) {
+        throw new ConflictException(
+          'Ya existe un cliente registrado con este RUC',
+        );
+      }
     }
 
     return this.prisma.clienteInstitucional.create({

@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Trash2, Loader2, UserPlus } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { getUsuarioActual } from '../../../shared/hooks/useAuth';
+import ClienteFormModal, {
+  type ClienteInstitucionalCreado,
+} from './ClienteFormModal';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -82,18 +85,40 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Modal de alta rápida de cliente
+  const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
+
   // ------------------------------------------------------------------
   // Fetch catalogs on mount
   // ------------------------------------------------------------------
-  useEffect(() => {
-    Promise.all([
-      api.get('/clientes-institucionales'),
-      api.get('/laboratorios'),
-    ]).then(([resClientes, resLabs]) => {
-      setClientes(resClientes.data);
-      setLaboratorios(resLabs.data);
-    });
+  const fetchClientes = useCallback(async () => {
+    const res = await api.get('/clientes-institucionales');
+    setClientes(res.data);
+    return res.data as ClienteOption[];
   }, []);
+
+  useEffect(() => {
+    Promise.all([fetchClientes(), api.get('/laboratorios')]).then(
+      ([, resLabs]) => {
+        setLaboratorios(resLabs.data);
+      },
+    );
+  }, [fetchClientes]);
+
+  // ------------------------------------------------------------------
+  // Alta rápida de cliente — refresca el catálogo y selecciona el nuevo
+  // ------------------------------------------------------------------
+  const handleClienteCreado = async (cliente: ClienteInstitucionalCreado) => {
+    await fetchClientes();
+    setHeader((prev) => ({ ...prev, cliente_id: String(cliente.id) }));
+    if (errors.cliente_id) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.cliente_id;
+        return next;
+      });
+    }
+  };
 
   // ------------------------------------------------------------------
   // Header handlers
@@ -211,6 +236,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
     }`;
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* ============================================================== */}
       {/* SECTION 1: DATOS DE LA ORDEN (Cabecera) */}
@@ -260,9 +286,19 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
 
           {/* Cliente / Unidad */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Cliente / Unidad <span className="text-destructive">*</span>
-            </label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="block text-sm font-medium text-foreground">
+                Cliente / Unidad <span className="text-destructive">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsClienteModalOpen(true)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Nuevo Cliente
+              </button>
+            </div>
             <select
               name="cliente_id"
               value={header.cliente_id}
@@ -528,5 +564,12 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
         </button>
       </div>
     </form>
+
+    <ClienteFormModal
+      open={isClienteModalOpen}
+      onClose={() => setIsClienteModalOpen(false)}
+      onSuccess={handleClienteCreado}
+    />
+    </>
   );
 }

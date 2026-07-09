@@ -1,0 +1,268 @@
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { AlertTriangle, ClipboardList, Eye, Inbox, Search } from 'lucide-react';
+import { cn } from '../../../shared/utils/utils';
+import api from '../../../core/api/axios';
+import { Button } from '../../../shared/components/atoms/button';
+import VistaDetalleOrden, {
+  type OrdenTrabajoDetalle,
+} from '../components/VistaDetalleOrden';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('es-BO', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'UTC',
+  });
+}
+
+const COMBINING_DIACRITICS_START = 0x0300;
+const COMBINING_DIACRITICS_END = 0x036f;
+
+function normalize(str: string) {
+  return Array.from(str.toLowerCase().normalize('NFD'))
+    .filter((ch) => {
+      const code = ch.codePointAt(0) ?? 0;
+      return code < COMBINING_DIACRITICS_START || code > COMBINING_DIACRITICS_END;
+    })
+    .join('');
+}
+
+// ---------------------------------------------------------------------------
+// Data fetching — reutiliza el endpoint Maestro-Detalle del backend
+// (recepcion-equipos.service.ts → findAll con ORDEN_INCLUDE)
+// ---------------------------------------------------------------------------
+
+function useOrdenesTrabajo() {
+  return useQuery<OrdenTrabajoDetalle[]>({
+    queryKey: ['ordenes-trabajo'],
+    queryFn: async () => {
+      const res = await api.get<OrdenTrabajoDetalle[]>('/recepcion-equipos');
+      return res.data;
+    },
+    retry: 1,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function TH({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <th
+      className={cn(
+        'px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground',
+        className,
+      )}
+    >
+      {children}
+    </th>
+  );
+}
+
+function TableSkeleton({ cols }: { cols: number }) {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <tr key={i}>
+          {Array.from({ length: cols }).map((_, j) => (
+            <td key={j} className="px-6 py-4">
+              <div className="h-4 w-full max-w-[120px] animate-pulse rounded bg-muted-foreground/10" />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
+
+function EmptyState({ cols, hasFilter }: { cols: number; hasFilter: boolean }) {
+  return (
+    <tr>
+      <td colSpan={cols}>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted/30">
+            <Inbox className="h-8 w-8 text-muted-foreground/60" />
+          </div>
+          <h3 className="text-base font-semibold text-foreground">
+            {hasFilter
+              ? 'Sin resultados para la búsqueda'
+              : 'No hay órdenes de trabajo registradas'}
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {hasFilter
+              ? 'Intente con otro número de orden o nombre de cliente.'
+              : 'Aún no se ha registrado ninguna orden de trabajo en el sistema.'}
+          </p>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page component
+// ---------------------------------------------------------------------------
+
+const COLS = 6;
+
+export default function RecepcionesPage() {
+  const { data: ordenes, isLoading, isError, error } = useOrdenesTrabajo();
+
+  const [busqueda, setBusqueda] = useState('');
+  const [ordenSeleccionada, setOrdenSeleccionada] =
+    useState<OrdenTrabajoDetalle | null>(null);
+
+  // ------------------------------------------------------------------
+  // Filtro local por Nº Orden Física o Cliente
+  // ------------------------------------------------------------------
+  const ordenesFiltradas = useMemo(() => {
+    const lista = ordenes ?? [];
+    const termino = normalize(busqueda.trim());
+    if (!termino) return lista;
+
+    return lista.filter((orden) => {
+      const numeroOrden = normalize(orden.orden_trabajo_fisica ?? '');
+      const cliente = normalize(orden.cliente?.nombre ?? '');
+      return numeroOrden.includes(termino) || cliente.includes(termino);
+    });
+  }, [ordenes, busqueda]);
+
+  return (
+    <div className="space-y-6 p-6">
+      {/* ------------------------------------------------------------------ */}
+      {/* Header */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <ClipboardList className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              Órdenes de Trabajo
+            </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Listado de recepciones registradas en el sistema
+            </p>
+          </div>
+        </div>
+
+        <div className="relative w-full sm:w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por Nº orden o cliente…"
+            className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Error banner */}
+      {/* ------------------------------------------------------------------ */}
+      {isError && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {error instanceof Error
+            ? error.message
+            : 'No se pudieron cargar las órdenes de trabajo. Intente nuevamente.'}
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Table card */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <TH>Nº Orden Física</TH>
+                <TH>Nº Proforma</TH>
+                <TH>Cliente</TH>
+                <TH>Fecha de Ingreso</TH>
+                <TH className="text-center">Equipos</TH>
+                <TH className="text-center">Acciones</TH>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <TableSkeleton cols={COLS} />
+              ) : ordenesFiltradas.length > 0 ? (
+                ordenesFiltradas.map((orden) => (
+                  <tr
+                    key={orden.id}
+                    className="border-b border-border transition-colors hover:bg-muted/50"
+                  >
+                    <td className="whitespace-nowrap px-6 py-4 font-medium">
+                      <span className="text-red-600">
+                        #{orden.orden_trabajo_fisica}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
+                      {orden.n_proforma || (
+                        <span className="italic text-muted-foreground/60">—</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
+                      {orden.cliente?.nombre ?? (
+                        <span className="italic text-muted-foreground/60">
+                          Sin cliente
+                        </span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                      {formatDate(orden.fecha_ingreso)}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-center text-sm text-foreground">
+                      {orden.equipos?.length ?? 0}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setOrdenSeleccionada(orden)}
+                      >
+                        <Eye className="h-4 w-4" />
+                        Ver Detalle
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <EmptyState cols={COLS} hasFilter={busqueda.trim().length > 0} />
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Modal de detalle — pantalla completa (w-[95vw]) */}
+      {/* ------------------------------------------------------------------ */}
+      {ordenSeleccionada && (
+        <VistaDetalleOrden
+          orden={ordenSeleccionada}
+          onClose={() => setOrdenSeleccionada(null)}
+        />
+      )}
+    </div>
+  );
+}
