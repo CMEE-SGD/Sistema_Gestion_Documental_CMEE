@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   UserCheck,
   Handshake,
-  Award,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import api from '../../../core/api/axios';
@@ -38,7 +37,6 @@ type EstadoKey =
   | 'REVISION_OBT'
   | 'PENDIENTE_FIRMA_TECNICO'
   | 'REVISION_JEFE'
-  | 'REVISION_CALIDAD'
   | 'REVISION_DIRECTOR'
   | 'LISTO_PARA_ENTREGA'
   | 'FINALIZADO';
@@ -115,8 +113,6 @@ const ESTADO_STYLES: Record<EstadoKey, string> = {
     'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   REVISION_JEFE:
     'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
-  REVISION_CALIDAD:
-    'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
   REVISION_DIRECTOR:
     'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
   LISTO_PARA_ENTREGA:
@@ -496,10 +492,10 @@ export default function BandejaTrabajoPage() {
   const nPuesto = normalize(puesto);
   const esObservador = nPuesto.includes('observador');
   const esTecnico = nPuesto.includes('tecnico') && !nPuesto.includes('observador');
-  const esCalidad = nPuesto.includes('calidad');
-  // Excluye "calidad" — "Jefe Departamento Gestión de la Calidad" también
-  // contiene "jefe" y no debe colar en la revisión de Jefe de Laboratorio.
-  const esJefe = nPuesto.includes('jefe') && !esCalidad;
+  // "Jefe Departamento Gestión de la Calidad" no participa de este flujo,
+  // pero su puesto también contiene "jefe" — se excluye para que no cuele
+  // como Jefe de Laboratorio en REVISION_JEFE.
+  const esJefe = nPuesto.includes('jefe') && !nPuesto.includes('calidad');
   const esDirector = nPuesto.includes('director');
   const esRSEC = nPuesto.includes('responsable servicio al cliente');
 
@@ -741,7 +737,7 @@ export default function BandejaTrabajoPage() {
                         </span>
                       )}
                     </td>
-                    {(canAssign || canExecute || esObservador || esJefe || esCalidad || esDirector || esRSEC) && (
+                    {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC) && (
                       <td className="whitespace-nowrap px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           {/* EN_ESPERA: Asignar técnico */}
@@ -839,27 +835,6 @@ export default function BandejaTrabajoPage() {
                             >
                               <ShieldCheck className="h-4 w-4" />
                               Validar Jefatura
-                            </Button>
-                          )}
-
-                          {/* REVISION_CALIDAD: Aprobación de Calidad */}
-                          {req.estado === 'REVISION_CALIDAD' && esCalidad && (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedValidacionRecepcion({
-                                  id: req.id,
-                                  estado: req.estado,
-                                  titulo: 'Aprobación de Calidad',
-                                });
-                                setIsValidacionModalOpen(true);
-                              }}
-                              title="Aprobación de calidad"
-                              className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                            >
-                              <Award className="h-4 w-4" />
-                              Aprobación de Calidad
                             </Button>
                           )}
 
