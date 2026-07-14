@@ -5,6 +5,7 @@ import api from '../../../../core/api/axios';
 import FormPersona from '../../components/FormPersona';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
+import { validarCedula } from '../../../../shared/utils/utils';
 
 export const NuevaPersonaPage = () => {
     const navigate = useNavigate();
@@ -47,6 +48,13 @@ export const NuevaPersonaPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const ci = formData.cedula_identidad;
+        if (ci && /^\d{10}$/.test(ci) && !validarCedula(ci)) {
+            await alert({ message: 'La cédula ingresada no es válida.' });
+            return;
+        }
+
         try {
             const payload = new FormData();
 

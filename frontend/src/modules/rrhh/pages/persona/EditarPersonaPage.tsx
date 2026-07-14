@@ -5,6 +5,7 @@ import api from '../../../../core/api/axios';
 import FormPersona from '../../components/FormPersona';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
+import { validarCedula } from '../../../../shared/utils/utils';
 
 export const EditarPersonaPage = () => {
     const { id } = useParams<{ id: string }>();
@@ -85,6 +86,12 @@ export const EditarPersonaPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const ci = formData.cedula_identidad;
+        if (ci && /^\d{10}$/.test(ci) && !validarCedula(ci)) {
+            await alert({ message: 'La cédula ingresada no es válida.' });
+            return;
+        }
 
         const ok = await confirm({ title: 'Actualizar recurso', message: '¿Está seguro de que desea guardar los cambios realizados en este recurso?' });
         if (!ok) return;
