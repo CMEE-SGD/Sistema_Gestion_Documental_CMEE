@@ -3,10 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../../../shared/components/atoms/button';
 import api from '../../../../core/api/axios';
 import { FileText, Eye, Download, Printer, Trash2 } from 'lucide-react';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const DocumentosPersonaPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [persona, setPersona] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -27,22 +31,21 @@ export const DocumentosPersonaPage = () => {
         fetchDatos();
     }, [id]);
     const handleEliminar = async (docId: number, nombreArchivo: string) => {
-        const confirmar = window.confirm(`¿Está seguro de que desea eliminar el documento "${nombreArchivo}"?`);
-        if (!confirmar) return;
+        const ok = await confirm({ message: `¿Está seguro de que desea eliminar el documento "${nombreArchivo}"?` });
+        if (!ok) return;
 
         try {
-            // 👇 CORRECCIÓN: Apuntamos a la nueva ruta que acabamos de crear en NestJS
             await api.delete(`/personas/documento/${docId}`);
 
-            // Actualizamos el estado local para que desaparezca
             setPersona((prev: any) => ({
                 ...prev,
                 documentos: prev.documentos.filter((doc: any) => doc.id !== docId)
             }));
 
+            toast({ message: 'Documento eliminado correctamente.' });
         } catch (error) {
             console.error('Error al eliminar', error);
-            alert('Hubo un error al intentar eliminar el documento.');
+            await alert({ message: 'Hubo un error al intentar eliminar el documento.' });
         }
     };
 
@@ -67,15 +70,14 @@ export const DocumentosPersonaPage = () => {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            alert('Documentos agregados exitosamente.');
+            toast({ message: 'Documentos agregados exitosamente.' });
 
-            // Recargamos la información de la persona para que la tabla se actualice al instante
             const response = await api.get(`/personas/${id}`);
             setPersona(response.data);
 
         } catch (error) {
             console.error('Error al subir documentos', error);
-            alert('Hubo un error al intentar subir los documentos.');
+            await alert({ message: 'Hubo un error al intentar subir los documentos.' });
         } finally {
             setSubiendo(false);
             // Limpiamos el input por si el usuario quiere subir el mismo archivo de nuevo
@@ -104,34 +106,28 @@ export const DocumentosPersonaPage = () => {
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Error al descargar', error);
-            alert('No se pudo descargar el documento.');
+            await alert({ message: 'No se pudo descargar el documento.' });
         }
     };
 
-    // Forzar la ventana de impresión usando un Iframe invisible
     const handleImprimir = async (fileUrl: string) => {
         try {
-            // 1. Descargamos el archivo como Blob para evitar bloqueos de seguridad cruzada (CORS)
             const response = await fetch(fileUrl);
             const blob = await response.blob();
             const blobUrl = window.URL.createObjectURL(blob);
 
-            // 2. Creamos un "iframe" (una ventana incrustada) pero la hacemos invisible
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';
             iframe.src = blobUrl;
             document.body.appendChild(iframe);
 
-            // 3. Esperamos a que el PDF cargue en el iframe y lanzamos la impresión
             iframe.onload = () => {
-                // Un pequeño delay (200ms) asegura que el PDF esté completamente dibujado
                 setTimeout(() => {
                     if (iframe.contentWindow) {
                         iframe.contentWindow.focus();
                         iframe.contentWindow.print();
                     }
 
-                    // 4. Limpiamos la memoria después de unos segundos para no dejar iframes fantasma
                     setTimeout(() => {
                         document.body.removeChild(iframe);
                         window.URL.revokeObjectURL(blobUrl);
@@ -140,7 +136,7 @@ export const DocumentosPersonaPage = () => {
             };
         } catch (error) {
             console.error('Error al intentar imprimir', error);
-            alert('Error: No se pudo preparar el documento para impresión.');
+            await alert({ message: 'Error: No se pudo preparar el documento para impresión.' });
         }
     };
 

@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Upload, ArrowLeft } from 'lucide-react';
 import api from '../../../core/api/axios';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 export const NuevoFicheroPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { toast } = useToast();
 
     // Atrapamos la carpeta destino
     const carpetaPadreId = location.state?.carpetaPadreId;
@@ -126,6 +128,7 @@ export const NuevoFicheroPage = () => {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
+            toast({ message: 'Fichero creado correctamente' });
             window.dispatchEvent(new Event('refreshDocumentos'));
             navigate(-1);
 

@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Paperclip, RotateCcw, Upload } from 'lucide-react';
 import api from '../../../core/api/axios';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 export const DetalleDocumentoPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
 
     const [documento, setDocumento] = useState<any>(null);
     const [carpetas, setCarpetas] = useState<any[]>([]);
@@ -94,7 +98,7 @@ export const DetalleDocumentoPage = () => {
             window.URL.revokeObjectURL(url); // Liberamos memoria
         } catch (error) {
             console.error('Error al descargar:', error);
-            alert('Hubo un problema al intentar descargar el archivo.');
+            await alert({ message: 'Hubo un problema al intentar descargar el archivo.' });
         }
     };
 
@@ -130,7 +134,7 @@ export const DetalleDocumentoPage = () => {
             };
         } catch (error) {
             console.error('Error al imprimir:', error);
-            alert('No se pudo enviar a imprimir el archivo.');
+            await alert({ message: 'No se pudo enviar a imprimir el archivo.' });
         }
     };
 
@@ -203,14 +207,14 @@ export const DetalleDocumentoPage = () => {
             window.dispatchEvent(new Event('refreshDocumentos'));
         } catch (err) {
             console.error('Error subiendo nueva versión:', err);
-            alert('Error al subir la nueva versión.');
+            await alert({ message: 'Error al subir la nueva versión.' });
         } finally {
             setSubiendoVersion(false);
         }
     };
 
     const handleRestaurarVersion = async (versionId: number) => {
-        const ok = window.confirm('¿Restaurar esta versión? El documento apuntará al archivo de esta versión.');
+        const ok = await confirm({ title: 'Restaurar versión', message: '¿Restaurar esta versión? El documento apuntará al archivo de esta versión.' });
         if (!ok) return;
         try {
             const res = await api.post(`/documentos/${id}/versiones/${versionId}/restaurar`);
@@ -221,7 +225,7 @@ export const DetalleDocumentoPage = () => {
             }));
         } catch (err) {
             console.error('Error restaurando versión:', err);
-            alert('Error al restaurar la versión.');
+            await alert({ message: 'Error al restaurar la versión.' });
         }
     };
 
@@ -253,7 +257,7 @@ export const DetalleDocumentoPage = () => {
             setWorkflowComentario('');
         } catch (err) {
             console.error('Error avanzando fase:', err);
-            alert('Error al procesar la fase.');
+            await alert({ message: 'Error al procesar la fase.' });
         } finally {
             setSubiendoWorkflow(false);
         }
@@ -271,7 +275,7 @@ export const DetalleDocumentoPage = () => {
             setRejectComentario('');
         } catch (err) {
             console.error('Error rechazando fase:', err);
-            alert('Error al rechazar la fase.');
+            await alert({ message: 'Error al rechazar la fase.' });
         }
     };
 
@@ -279,18 +283,18 @@ export const DetalleDocumentoPage = () => {
     const handleEliminar = async () => {
         if (!documento) return;
 
-        const confirmacion = window.confirm(`¿Está seguro de eliminar el documento "${documento.nombre}"? Esta acción no se puede deshacer.`);
+        const confirmacion = await confirm({ title: 'Eliminar documento', message: `¿Está seguro de eliminar el documento "${documento.nombre}"? Esta acción no se puede deshacer.` });
         if (!confirmacion) return;
 
         try {
             await api.delete(`/documentos/${documento.id}`);
 
-            // Avisamos a las otras vistas que recarguen y volvemos atrás
+            toast({ message: 'Documento eliminado correctamente' });
             window.dispatchEvent(new Event('refreshDocumentos'));
             navigate(-1);
         } catch (error) {
             console.error("Error al eliminar el documento:", error);
-            alert("Ocurrió un error al intentar eliminar el documento.");
+            await alert({ message: "Ocurrió un error al intentar eliminar el documento." });
         }
     };
 

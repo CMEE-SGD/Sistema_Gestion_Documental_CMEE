@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import FormRol from '../../components/FormRol';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const EditarRolPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
         codigo: '', nombre: '', funciones: '',
@@ -34,6 +38,8 @@ export const EditarRolPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const ok = await confirm({ title: 'Actualizar rol', message: '¿Está seguro de guardar los cambios en este rol?' });
+        if (!ok) return;
         try {
             const payload = {
                 codigo: formData.codigo, nombre: formData.nombre, funciones: formData.funciones,
@@ -44,12 +50,13 @@ export const EditarRolPage = () => {
                 orden: Number(formData.orden), activo: Boolean(formData.activo)
             };
             await api.patch(`/roles/${id}`, payload);
+            toast({ message: 'Rol actualizado correctamente.' });
             navigate(`/rrhh/roles/${id}`);
         } catch (error: any) {
             console.error('Detalle del error del backend:', error.response?.data || error);
             const mensajeBackend = error.response?.data?.message;
             const mensajeAlerta = Array.isArray(mensajeBackend) ? mensajeBackend.join('\n') : mensajeBackend || 'Error al actualizar el rol';
-            alert(`Error:\n${mensajeAlerta}`);
+            await alert({ message: mensajeAlerta });
         }
     };
 

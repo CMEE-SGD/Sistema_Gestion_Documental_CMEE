@@ -6,7 +6,9 @@ import { Persona } from '../../interfaces/persona.interface';
 import PrintHeader from '../../../../shared/components/organisms/PrintHeader';
 import { Button } from '../../../../shared/components/atoms/button';
 import FichaPersona from '../../components/FichaPersona';
-import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos auth
+import { tienePermiso } from '../../../../shared/utils/auth';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 interface DocumentoAdjunto {
     id: number;
@@ -17,6 +19,8 @@ interface DocumentoAdjunto {
 export const DetallePersonaPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [persona, setPersona] = useState<Persona | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -56,15 +60,15 @@ export const DetallePersonaPage = () => {
     };
 
     const handleEliminar = async () => {
-        const confirmar = window.confirm('¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?');
-        if (!confirmar) return;
+        const ok = await confirm({ message: '¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?' });
+        if (!ok) return;
         try {
             await api.delete(`/personas/${id}`);
-            alert('El recurso ha sido inactivado correctamente.');
+            toast({ message: 'El recurso ha sido inactivado correctamente.' });
             navigate('/rrhh/personas');
         } catch (error) {
             console.error('Error al inactivar el recurso', error);
-            alert('No se pudo desactivar el recurso. Inténtelo de nuevo.');
+            await alert({ message: 'No se pudo desactivar el recurso. Inténtelo de nuevo.' });
         }
     };
 
