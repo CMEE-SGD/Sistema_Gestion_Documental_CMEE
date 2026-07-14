@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 interface ServicioFormProps {
     servicioId?: number | null;
@@ -9,6 +11,8 @@ interface ServicioFormProps {
 }
 
 export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormProps) => {
+    const { alert } = useAlert();
+    const { toast } = useToast();
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
@@ -37,7 +41,7 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
                 }
             } catch (error) {
                 console.error('Error al cargar datos', error);
-                alert('No se pudo cargar la información.');
+                await alert({ title: 'Error', message: 'No se pudo cargar la información.' });
             } finally {
                 setLoading(false);
             }
@@ -63,11 +67,12 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
             } else {
                 await api.post('/servicios', payload);
             }
+            toast({ message: servicioId ? 'Servicio actualizado exitosamente.' : 'Servicio registrado exitosamente.' });
             onSuccess();
             onClose();
         } catch (error) {
             console.error('Error al guardar', error);
-            alert('Error al guardar el servicio.');
+            await alert({ title: 'Error', message: 'Error al guardar el servicio.' });
         }
     };
 

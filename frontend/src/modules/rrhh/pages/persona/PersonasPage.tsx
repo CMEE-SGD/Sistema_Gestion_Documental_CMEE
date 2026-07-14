@@ -6,9 +6,13 @@ import { Button } from '../../../../shared/components/atoms/button';
 import PrintHeader from '../../../../shared/components/organisms/PrintHeader';
 import TablaPersonas from '../../components/TablaPersonas';
 import { tienePermiso } from '../../../../shared/utils/auth';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const PersonasPage = () => {
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
 
     const [personas, setPersonas] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -57,16 +61,19 @@ export const PersonasPage = () => {
     };
 
     const handleEliminarSeleccionados = async () => {
-        if (seleccionados.length === 0) return alert("Seleccione al menos un recurso.");
-        const confirmar = window.confirm(`¿Está seguro de que desea enviar a INACTIVO ${seleccionados.length} recurso(s)?`);
-        if (!confirmar) return;
+        if (seleccionados.length === 0) {
+            await alert({ message: "Seleccione al menos un recurso." });
+            return;
+        }
+        const ok = await confirm({ message: `¿Está seguro de que desea enviar a INACTIVO ${seleccionados.length} recurso(s)?` });
+        if (!ok) return;
 
         try {
             await Promise.all(seleccionados.map(id => api.delete(`/personas/${id}`)));
-            alert('Recursos inhabilitados exitosamente.');
+            toast({ message: 'Recursos inhabilitados exitosamente.' });
             window.location.reload();
         } catch (error) {
-            alert('Hubo un error al intentar modificar los recursos.');
+            await alert({ message: 'Hubo un error al intentar modificar los recursos.' });
         }
     };
 

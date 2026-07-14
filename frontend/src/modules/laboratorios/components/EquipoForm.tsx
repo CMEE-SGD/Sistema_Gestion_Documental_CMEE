@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 interface EquipoFormProps {
     equipoId?: number | null;
@@ -9,6 +11,8 @@ interface EquipoFormProps {
 }
 
 export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) => {
+    const { alert } = useAlert();
+    const { toast } = useToast();
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
@@ -45,7 +49,7 @@ export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) =>
                 }
             } catch (error) {
                 console.error('Error al cargar datos', error);
-                alert('No se pudo cargar la información requerida.');
+                await alert({ title: 'Error', message: 'No se pudo cargar la información requerida.' });
             } finally {
                 setLoading(false);
             }
@@ -76,11 +80,12 @@ export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) =>
                 await api.post('/equipos', payload);
             }
             
+            toast({ message: equipoId ? 'Equipo actualizado exitosamente.' : 'Equipo registrado exitosamente.' });
             onSuccess(); // Actualizamos la tabla
             onClose(); // Cerramos el modal
         } catch (error) {
             console.error('Error al guardar el equipo', error);
-            alert('Error al guardar las modificaciones.');
+            await alert({ title: 'Error', message: 'Error al guardar las modificaciones.' });
         }
     };
 

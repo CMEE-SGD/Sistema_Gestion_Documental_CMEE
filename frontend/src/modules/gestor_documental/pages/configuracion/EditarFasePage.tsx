@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../../../core/api/axios';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const EditarFasePage = () => {
-    // Atrapamos el ID del circuito y de la fase desde la URL
     const { circuitoId, faseId } = useParams();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
 
     const [formData, setFormData] = useState({
         nombre: '',
@@ -58,7 +61,7 @@ export const EditarFasePage = () => {
                 }
             } catch (error) {
                 console.error("Error al cargar detalles de la fase:", error);
-                alert("No se pudo cargar la información de la fase.");
+                await alert({ message: "No se pudo cargar la información de la fase." });
             } finally {
                 setLoadingFase(false);
             }
@@ -87,6 +90,9 @@ export const EditarFasePage = () => {
         e.preventDefault();
         if (!formData.nombre.trim()) return;
 
+        const ok = await confirm({ title: 'Actualizar fase', message: '¿Está seguro de guardar los cambios en esta fase?' });
+        if (!ok) return;
+
         try {
             setGuardando(true);
             const payload = {
@@ -98,10 +104,12 @@ export const EditarFasePage = () => {
 
             // Usamos el mismo endpoint de guardar, el backend actualizará porque enviamos el "id"
             await api.post(`/circuitos/${circuitoId}/fases`, payload);
+
+            toast({ message: 'Fase actualizada correctamente' });
             navigate(-1);
         } catch (error) {
             console.error("Error al actualizar fase:", error);
-            alert("Ocurrió un error al guardar los cambios.");
+            await alert({ message: "Ocurrió un error al guardar los cambios." });
         } finally {
             setGuardando(false);
         }

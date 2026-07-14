@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 interface Props {
   isOpen: boolean;
@@ -23,6 +25,8 @@ export default function ValidacionCertificadoModal({
   onSuccess,
 }: Props) {
   const queryClient = useQueryClient();
+  const { alert } = useAlert();
+  const { toast } = useToast();
   const [accion, setAccion] = useState<'APROBAR' | 'RECHAZAR' | null>(null);
   const [observaciones, setObservaciones] = useState('');
 
@@ -52,13 +56,14 @@ export default function ValidacionCertificadoModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+      toast({ message: 'Certificado validado correctamente.' });
       onSuccess();
       onClose();
     },
-    onError: (err: unknown) => {
+    onError: async (err: unknown) => {
       const apiErr = err as any;
       console.error('Error en transición:', apiErr);
-      alert(apiErr?.message || 'Error al procesar la transición');
+      await alert({ message: apiErr?.message || 'Error al procesar la transición' });
     },
   });
 

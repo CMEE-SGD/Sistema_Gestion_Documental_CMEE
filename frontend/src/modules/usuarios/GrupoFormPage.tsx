@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { X, Trash2, ArrowLeft, UsersRound } from 'lucide-react';
 import api from '../../core/api/axios';
+import { useAlert } from '../../shared/components/molecules/AlertModal';
+import { useToast } from '../../shared/components/molecules/Toast';
 
 // Componente Toggle reutilizable modernizado
 const Toggle = ({ label, checked, onChange }: any) => (
@@ -18,6 +20,8 @@ const Toggle = ({ label, checked, onChange }: any) => (
 export const GrupoFormPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [activeTab, setActiveTab] = useState<'datos' | 'usuarios' | 'aplicaciones'>('datos');
     const [loading, setLoading] = useState(false);
     
@@ -116,27 +120,30 @@ export const GrupoFormPage = () => {
 
             if (id) {
                 await api.patch(`/grupos/${id}`, payload);
+                toast({ message: 'Grupo actualizado correctamente.' });
             } else {
                 await api.post('/grupos', payload);
+                toast({ message: 'Grupo creado correctamente.' });
             }
             navigate('/usuarios/grupos');
         } catch (error) {
             console.error("Error al guardar grupo", error);
-            alert("Error al guardar el grupo");
+            await alert({ message: "Error al guardar el grupo" });
         } finally {
             setLoading(false);
         }
     };
 
     const handleDelete = async () => {
-        if (!window.confirm("¿Estás seguro de que deseas eliminar este grupo permanentemente?")) return;
+        if (!await confirm({ message: "¿Estás seguro de que deseas eliminar este grupo permanentemente?" })) return;
         try {
             setLoading(true);
             await api.delete(`/grupos/${id}`);
+            toast({ message: 'Grupo eliminado correctamente.' });
             navigate('/usuarios/grupos');
         } catch (error) {
             console.error("Error al eliminar grupo", error);
-            alert("No se pudo eliminar el grupo. Verifica que no tenga usuarios activos asignados.");
+            await alert({ message: "No se pudo eliminar el grupo. Verifica que no tenga usuarios activos asignados." });
         } finally {
             setLoading(false);
         }

@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import FormGrupo from '../../components/FormGrupo';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const NuevoGrupoPage = () => {
     const navigate = useNavigate();
+    const { toast } = useToast();
     // PATCH: Nuevo estado para laboratorios
     const [grupos, setGrupos] = useState<any[]>([]);
     const [personas, setPersonas] = useState<any[]>([]);
@@ -39,6 +41,7 @@ export const NuevoGrupoPage = () => {
                 responsable_id: formData.responsable_id ? Number(formData.responsable_id) : undefined,
                 laboratorio_id: formData.laboratorio_id ? Number(formData.laboratorio_id) : undefined,
             });
+            toast({ message: 'Grupo creado correctamente.' });
             navigate('/rrhh/grupos');
         } catch (error) {
             console.error('Error guardando', error);

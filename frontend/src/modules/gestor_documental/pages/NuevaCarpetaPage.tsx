@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FileText, Folder, Plus, ArrowLeft } from 'lucide-react';
 import api from '../../../core/api/axios';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
 
 export const NuevaCarpetaPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { alert } = useAlert();
     
     // Atrapamos los datos si venimos del botón "Subcarpeta" en el gestor
     const carpetaPadreId = location.state?.carpetaPadreId;
@@ -148,7 +150,7 @@ export const NuevaCarpetaPage = () => {
             navigate(-1);
         } catch (error) {
             console.error('Error guardando carpeta', error);
-            alert('Hubo un error al guardar la carpeta');
+            await alert({ message: 'Hubo un error al guardar la carpeta' });
         }
     };
 

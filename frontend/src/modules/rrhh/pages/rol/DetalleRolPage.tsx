@@ -4,11 +4,15 @@ import { Button } from '../../../../shared/components/atoms/button';
 import PrintHeader  from '../../../../shared/components/organisms/PrintHeader';
 import api from '../../../../core/api/axios';
 import FichaRol from '../../components/FichaRol';
-import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos auth
+import { tienePermiso } from '../../../../shared/utils/auth';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const DetalleRolPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [rol, setRol] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
@@ -46,15 +50,15 @@ export const DetalleRolPage = () => {
     };
 
     const handleEliminar = async () => {
-        const confirmar = window.confirm('¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?');
-        if (!confirmar) return;
+        const ok = await confirm({ message: '¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?' });
+        if (!ok) return;
         try {
             await api.delete(`/roles/${id}`);
-            alert('El recurso ha sido inactivado correctamente.');
+            toast({ message: 'El recurso ha sido inactivado correctamente.' });
             navigate('/rrhh/roles');
         } catch (error) {
             console.error('Error al inactivar', error);
-            alert('No se pudo desactivar el recurso. Inténtelo de nuevo.');
+            await alert({ message: 'No se pudo desactivar el recurso. Inténtelo de nuevo.' });
         }
     };
 

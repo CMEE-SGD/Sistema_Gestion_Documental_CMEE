@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2, Lock, Calendar, X, ArrowLeft } from 'lucide-react';
 import api from '../../core/api/axios';
+import { useAlert } from '../../shared/components/molecules/AlertModal';
+import { useToast } from '../../shared/components/molecules/Toast';
 
 // Toggle rediseñado: Estilo Switch moderno
 const Toggle = ({ label, checked, onChange, icon }: any) => (
@@ -20,6 +22,8 @@ const Toggle = ({ label, checked, onChange, icon }: any) => (
 export const UsuarioFormPage = () => {
     const { id } = useParams(); 
     const navigate = useNavigate();
+    const { alert } = useAlert();
+    const { toast } = useToast();
     const [activeTab, setActiveTab] = useState<'general' | 'clave' | 'config'>('general');
     const [loading, setLoading] = useState(false);
     
@@ -107,17 +111,17 @@ export const UsuarioFormPage = () => {
         try {
             // Validar campos requeridos
             if (!formData.nombre_usuario.trim()) {
-                alert("El nombre de usuario es requerido");
+                await alert({ message: "El nombre de usuario es requerido" });
                 setLoading(false);
                 return;
             }
             if (!formData.persona_id) {
-                alert("Debes seleccionar un recurso (Persona)");
+                await alert({ message: "Debes seleccionar un recurso (Persona)" });
                 setLoading(false);
                 return;
             }
             if (!id && !formData.clave.trim()) {
-                alert("La contraseña es requerida para crear un usuario");
+                await alert({ message: "La contraseña es requerida para crear un usuario" });
                 setLoading(false);
                 return;
             }
@@ -145,7 +149,7 @@ export const UsuarioFormPage = () => {
             if (!id) {
                 // Crear usuario: clave es obligatoria
                 if (!formData.clave.trim()) {
-                    alert("La contraseña es requerida");
+                    await alert({ message: "La contraseña es requerida" });
                     setLoading(false);
                     return;
                 }
@@ -157,16 +161,16 @@ export const UsuarioFormPage = () => {
 
             if (id) {
                 await api.patch(`/usuarios/${id}`, payload);
-                alert("Usuario actualizado correctamente");
+                toast({ message: "Usuario actualizado correctamente" });
             } else {
                 await api.post('/usuarios', payload);
-                alert("Usuario creado correctamente");
+                toast({ message: "Usuario creado correctamente" });
             }
             navigate('/usuarios');
         } catch (error: any) {
             console.error(error);
             const errorMsg = error.response?.data?.message || error.message || "Error al guardar el usuario";
-            alert(errorMsg);
+            await alert({ message: errorMsg });
         } finally {
             setLoading(false);
         }

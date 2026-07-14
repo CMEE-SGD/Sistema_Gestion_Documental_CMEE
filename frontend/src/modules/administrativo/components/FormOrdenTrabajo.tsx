@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Loader2, UserPlus } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { getUsuarioActual } from '../../../shared/hooks/useAuth';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 import ClienteFormModal, {
   type ClienteInstitucionalCreado,
 } from './ClienteFormModal';
@@ -54,6 +56,8 @@ interface Props {
 // ---------------------------------------------------------------------------
 
 export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
+  const { alert } = useAlert();
+  const { toast } = useToast();
   const [clientes, setClientes] = useState<ClienteOption[]>([]);
   const [laboratorios, setLaboratorios] = useState<LaboratorioOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -216,11 +220,12 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
         })),
       });
 
+      toast({ message: 'Orden de trabajo guardada correctamente.' });
       onSuccess();
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      alert(
-        apiErr?.response?.data?.message || 'Error al guardar la orden de trabajo',
+      await alert(
+        { message: apiErr?.response?.data?.message || 'Error al guardar la orden de trabajo' },
       );
     } finally {
       setIsSubmitting(false);

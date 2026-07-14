@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../../../core/api/axios';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const NuevaFasePage = () => {
     const { circuitoId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
+    const { alert } = useAlert();
+    const { toast } = useToast();
     
     // Recuperamos el nombre del circuito para el título (si venimos de la vista anterior)
     const nombreCircuito = location.state?.nombreCircuito || 'CIRCUITO';
@@ -62,7 +66,7 @@ export const NuevaFasePage = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.nombre.trim()) {
-            alert("El nombre de la fase es obligatorio");
+            await alert({ message: "El nombre de la fase es obligatorio" });
             return;
         }
 
@@ -76,11 +80,12 @@ export const NuevaFasePage = () => {
 
             // Usamos el endpoint que creamos en el paso anterior
             await api.post(`/circuitos/${circuitoId}/fases`, payload);
-            
-            navigate(-1); // Regresamos a la lista de fases
+
+            toast({ message: 'Fase creada correctamente' });
+            navigate(-1);
         } catch (error) {
             console.error("Error al guardar fase:", error);
-            alert("Ocurrió un error al guardar la fase.");
+            await alert({ message: "Ocurrió un error al guardar la fase." });
         } finally {
             setLoading(false);
         }

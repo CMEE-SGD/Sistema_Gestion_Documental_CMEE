@@ -3,9 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
 import api from '../../../../core/api/axios';
 import FormPersona from '../../components/FormPersona';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const NuevaPersonaPage = () => {
     const navigate = useNavigate();
+    const { alert } = useAlert();
+    const { toast } = useToast();
 
     const [rolesLista, setRolesLista] = useState([]);
     const [departamentos, setDepartamentos] = useState([]);
@@ -70,11 +74,11 @@ export const NuevaPersonaPage = () => {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            alert('Recurso creado exitosamente.');
+            toast({ message: 'Recurso creado exitosamente.' });
             navigate('/rrhh/personas');
         } catch (error) {
             console.error('Error al guardar', error);
-            alert('Error al crear el recurso.');
+            await alert({ message: 'Error al crear el recurso.' });
         }
     };
 

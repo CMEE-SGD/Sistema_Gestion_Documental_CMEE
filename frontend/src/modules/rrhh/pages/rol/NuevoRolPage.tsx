@@ -2,9 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import FormRol from '../../components/FormRol';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const NuevoRolPage = () => {
     const navigate = useNavigate();
+    const { alert } = useAlert();
+    const { toast } = useToast();
     const [formData, setFormData] = useState({
         codigo: '', nombre: '', funciones: '',
         educacion_indispensable: '', educacion_deseable: '',
@@ -18,10 +22,11 @@ export const NuevoRolPage = () => {
         e.preventDefault();
         try {
             await api.post('/roles', formData);
+            toast({ message: 'Rol creado correctamente.' });
             navigate('/rrhh/roles');
         } catch (error) {
             console.error('Error al guardar', error);
-            alert('Error guardando el rol');
+            await alert({ message: 'Error guardando el rol' });
         }
     };
 

@@ -5,9 +5,13 @@ import { Button } from '../../../../shared/components/atoms/button';
 import { tienePermiso, esRolRestringido } from '../../../../shared/utils/auth';
 import { Modal } from '../../../../shared/components/molecules/Modal';
 import { ServicioForm } from '../../components/ServicioForm';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const ServiciosPage = () => {
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [servicios, setServicios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
@@ -42,22 +46,24 @@ export const ServiciosPage = () => {
     });
 
     const handleEliminar = async (id: number) => {
-        if (!window.confirm('¿Está seguro de desactivar este servicio?')) return;
+        if (!await confirm({ title: 'Confirmar', message: '¿Está seguro de desactivar este servicio?' })) return;
         try {
             await api.delete(`/servicios/${id}`);
             fetchServicios();
+            toast({ message: 'Servicio desactivado exitosamente.' });
         } catch (error) {
-            alert('Error al desactivar el servicio');
+            await alert({ title: 'Error', message: 'Error al desactivar el servicio' });
         }
     };
 
     const handleReactivar = async (id: number) => {
-        if (!window.confirm('¿Desea volver a activar este servicio?')) return;
+        if (!await confirm({ title: 'Confirmar', message: '¿Desea volver a activar este servicio?' })) return;
         try {
             await api.patch(`/servicios/${id}`, { activo: true });
             fetchServicios();
+            toast({ message: 'Servicio reactivado exitosamente.' });
         } catch (error) {
-            alert('Error al reactivar el servicio');
+            await alert({ title: 'Error', message: 'Error al reactivar el servicio' });
         }
     };
 

@@ -3,10 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { UserCheck } from 'lucide-react';
 import api from '../../../../core/api/axios';
 import FormPersona from '../../components/FormPersona';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const EditarPersonaPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
 
     const [rolesLista, setRolesLista] = useState([]);
@@ -82,9 +86,8 @@ export const EditarPersonaPage = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // 👇 VENTANA DE CONFIRMACIÓN EN EDICIÓN
-        const confirmar = window.confirm('¿Está seguro de que desea guardar los cambios realizados en este recurso?');
-        if (!confirmar) return;
+        const ok = await confirm({ title: 'Actualizar recurso', message: '¿Está seguro de que desea guardar los cambios realizados en este recurso?' });
+        if (!ok) return;
 
         try {
             const payload = new FormData();
@@ -115,11 +118,11 @@ export const EditarPersonaPage = () => {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            alert('Recurso actualizado exitosamente.');
+            toast({ message: 'Recurso actualizado exitosamente.' });
             navigate(`/rrhh/personas/${id}`);
         } catch (error) {
             console.error('Error al actualizar', error);
-            alert('Error al actualizar el recurso.');
+            await alert({ message: 'Error al actualizar el recurso.' });
         }
     };
 

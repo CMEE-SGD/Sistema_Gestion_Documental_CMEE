@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import FormPuesto from '../../components/FormPuesto';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const NuevoPuestoPage = () => {
     const navigate = useNavigate();
+    const { toast } = useToast();
     const [formData, setFormData] = useState({
         codigo: '', nombre: '', educacion: '', formacion: '', habilidad: '', experiencia: '',
         conocimiento_tecnico: '', calificacion: '', autoridad: '', responsabilidades: '',
@@ -18,6 +20,7 @@ export const NuevoPuestoPage = () => {
         e.preventDefault();
         try {
             await api.post('/puestos', formData);
+            toast({ message: 'Puesto creado correctamente.' });
             navigate('/rrhh/puestos');
         } catch (error) {
             console.error('Error guardando', error);
