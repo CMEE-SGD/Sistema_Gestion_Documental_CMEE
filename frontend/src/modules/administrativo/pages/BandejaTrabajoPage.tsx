@@ -502,13 +502,28 @@ export default function BandejaTrabajoPage() {
   const { data: recepciones, isLoading, error } = useBandejaData();
 
   const [busqueda, setBusqueda] = useState('');
+  const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
+
+  const laboratorios = useMemo(() => {
+    const mapa = new Map<number, string>();
+    for (const r of recepciones ?? []) {
+      if (r.laboratorio) mapa.set(r.laboratorio.id, r.laboratorio.nombre);
+    }
+    return Array.from(mapa.entries())
+      .map(([id, nombre]): LaboratorioOption => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [recepciones]);
 
   const recepcionesFiltradas = useMemo(() => {
     const lista = recepciones ?? [];
     const termino = normalize(busqueda.trim());
-    if (!termino) return lista;
 
     return lista.filter((r) => {
+      if (laboratorioFiltro && String(r.laboratorio?.id) !== laboratorioFiltro) {
+        return false;
+      }
+      if (!termino) return true;
+
       const haystack = normalize(
         [
           r.orden_trabajo_fisica,
@@ -520,7 +535,7 @@ export default function BandejaTrabajoPage() {
       );
       return haystack.includes(termino);
     });
-  }, [recepciones, busqueda]);
+  }, [recepciones, busqueda, laboratorioFiltro]);
 
   // Modal state
   const [isRegistroModalOpen, setIsRegistroModalOpen] = useState(false);
@@ -643,16 +658,31 @@ export default function BandejaTrabajoPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Table toolbar */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por orden, equipo o cliente…"
-            className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <select
+            value={laboratorioFiltro}
+            onChange={(e) => setLaboratorioFiltro(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">Todos los laboratorios</option>
+            {laboratorios.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.nombre}
+              </option>
+            ))}
+          </select>
+
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por orden, equipo o cliente…"
+              className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
         </div>
 
         {canCreate && (
@@ -900,7 +930,9 @@ export default function BandejaTrabajoPage() {
                   </tr>
                 ))
               ) : (
-                <EmptyState hasFilter={busqueda.trim().length > 0} />
+                <EmptyState
+                  hasFilter={busqueda.trim().length > 0 || !!laboratorioFiltro}
+                />
               )}
             </tbody>
           </table>
