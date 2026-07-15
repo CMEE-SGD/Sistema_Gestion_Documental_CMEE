@@ -81,24 +81,24 @@ model Departamento {
 // 3. PUESTO
 // ==========================================
 model Puesto {
-  id                             Int      @id @default(autoincrement())
-  codigo                         String   @unique @db.VarChar(20)
-  nombre                         String   @db.VarChar(200)
-  educacion                      String?  @db.Text
-  formacion                      String?  @db.Text
-  habilidad                      String?  @db.Text
-  experiencia                    String?  @db.Text
-  conocimiento_tecnico           String?  @db.Text
-  calificacion                   String?  @db.Text
-  autoridad                      String?  @db.Text
-  responsabilidades              String?  @db.Text
-  funcion_principal              String?  @db.Text
-  funciones_alternas             String?  @db.Text
-  funciones                      String?  @db.Text
-  perfil_educacion_indispensable String?  @db.Text
-  perfil_formacion_deseable      String?  @db.Text
-  perfil_capacidades_deseable    String?  @db.Text
-  perfil_experiencia_deseable    String?  @db.Text
+  id                             Int     @id @default(autoincrement())
+  codigo                         String  @unique @db.VarChar(20)
+  nombre                         String  @db.VarChar(200)
+  educacion                      String? @db.Text
+  formacion                      String? @db.Text
+  habilidad                      String? @db.Text
+  experiencia                    String? @db.Text
+  conocimiento_tecnico           String? @db.Text
+  calificacion                   String? @db.Text
+  autoridad                      String? @db.Text
+  responsabilidades              String? @db.Text
+  funcion_principal              String? @db.Text
+  funciones_alternas             String? @db.Text
+  funciones                      String? @db.Text
+  perfil_educacion_indispensable String? @db.Text
+  perfil_formacion_deseable      String? @db.Text
+  perfil_capacidades_deseable    String? @db.Text
+  perfil_experiencia_deseable    String? @db.Text
 
   // Jerarquía recursiva
   dependencia_id Int?
@@ -129,27 +129,27 @@ enum EstadoPersona {
 }
 
 model Persona {
-  id               Int            @id @default(autoincrement())
-  grado            String?        @db.VarChar(30)
-  nombre           String         @db.VarChar(100)
-  apellidos        String         @db.VarChar(100)
-  cedula_identidad String?        @unique @db.VarChar(20)
-  fecha_nacimiento DateTime?      @db.Date
-  sexo             String?        @db.Char(1)
-  domicilio        String?        @db.VarChar(250)
-  ciudad           String?        @db.VarChar(100)
-  provincia        String?        @db.VarChar(100)
-  celular_1        String?        @db.VarChar(20)
-  celular_2        String?        @db.VarChar(20)
-  email_1          String?        @db.VarChar(150)
-  email_2          String?        @db.VarChar(150)
-  foto_ruta        String?        @db.VarChar(500)
-  hoja_vida_ruta   String?        @db.VarChar(500)
-  tipo_recurso     String?        @default("Usuario del sistema") @db.VarChar(50)
-  fecha_alta       DateTime       @default(dbgenerated("CURRENT_DATE")) @db.Date
-  idioma           String?        @default("Idioma por defecto del centro") @db.VarChar(50)
+  id               Int       @id @default(autoincrement())
+  grado            String?   @db.VarChar(30)
+  nombre           String    @db.VarChar(100)
+  apellidos        String    @db.VarChar(100)
+  cedula_identidad String?   @unique @db.VarChar(20)
+  fecha_nacimiento DateTime? @db.Date
+  sexo             String?   @db.Char(1)
+  domicilio        String?   @db.VarChar(250)
+  ciudad           String?   @db.VarChar(100)
+  provincia        String?   @db.VarChar(100)
+  celular_1        String?   @db.VarChar(20)
+  celular_2        String?   @db.VarChar(20)
+  email_1          String?   @db.VarChar(150)
+  email_2          String?   @db.VarChar(150)
+  foto_ruta        String?   @db.VarChar(500)
+  hoja_vida_ruta   String?   @db.VarChar(500)
+  tipo_recurso     String?   @default("Usuario del sistema") @db.VarChar(50)
+  fecha_alta       DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  idioma           String?   @default("Idioma por defecto del centro") @db.VarChar(50)
 
-  estado           EstadoPersona  @default(ACTIVO)
+  estado EstadoPersona @default(ACTIVO)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -186,11 +186,12 @@ model Usuario {
   bloqueado       Boolean   @default(false)
   grupos          Grupo[]   @relation("UsuarioGrupos")
 
-  password_hash              String  @db.VarChar(255)
+  password_hash                String  @db.VarChar(255)
   cambiar_clave_proxima_sesion Boolean @default(false)
 
-  auditorias   Auditoria[]
+  auditorias     Auditoria[]
   notificaciones Notificacion[]
+  intentos_login IntentoLogin[]
 
   idioma              String? @db.VarChar(50)
   acceso_preferencias Boolean @default(false)
@@ -330,26 +331,26 @@ enum EstadoFaseWorkflow {
 }
 
 model Documento {
-  id                 Int               @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  empresa            String?           @default("Centro de Metrología del Ejército Ecuatoriano") @db.VarChar(200)
-  fecha_documento    DateTime?         @db.Date
-  circuito_id        Int?
-  circuito           Circuito?         @relation(fields: [circuito_id], references: [id])
-  activo             Boolean           @default(true)
-  propietario        String?           @db.VarChar(150)
+  empresa         String?   @default("Centro de Metrología del Ejército Ecuatoriano") @db.VarChar(200)
+  fecha_documento DateTime? @db.Date
+  circuito_id     Int?
+  circuito        Circuito? @relation(fields: [circuito_id], references: [id])
+  activo          Boolean   @default(true)
+  propietario     String?   @db.VarChar(150)
 
-  archivo_url        String
-  nombre             String
-  version            String?           @default("1")
+  archivo_url String
+  nombre      String
+  version     String? @default("1")
 
-  codigo             String?           @db.VarChar(50)
-  orden              Int               @default(0)
-  created_at         DateTime          @default(now())
-  updated_at         DateTime          @updatedAt
+  codigo     String?  @db.VarChar(50)
+  orden      Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  carpeta_id         Int
-  carpeta            Carpeta           @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
+  carpeta_id Int
+  carpeta    Carpeta @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
 
   documentos_origen  DocumentoRelacion[] @relation("DocOrigen")
   documentos_destino DocumentoRelacion[] @relation("DocDestino")
@@ -362,115 +363,115 @@ model Documento {
 }
 
 model DocumentoVersion {
-  id            Int       @id @default(autoincrement())
-  documento_id  Int
-  documento     Documento @relation(fields: [documento_id], references: [id], onDelete: Cascade)
-  version       String    @db.VarChar(20)
-  archivo_url   String
-  subido_por    String?   @db.VarChar(150)
-  comentario    String?   @db.Text
-  created_at    DateTime  @default(now())
+  id           Int       @id @default(autoincrement())
+  documento_id Int
+  documento    Documento @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+  version      String    @db.VarChar(20)
+  archivo_url  String
+  subido_por   String?   @db.VarChar(150)
+  comentario   String?   @db.Text
+  created_at   DateTime  @default(now())
 
   @@map("documentos_versiones")
 }
 
 model DocumentoWorkflow {
-  id            Int                  @id @default(autoincrement())
-  documento_id  Int                  @unique
-  documento     Documento            @relation(fields: [documento_id], references: [id], onDelete: Cascade)
-  circuito_id   Int
-  circuito      Circuito             @relation(fields: [circuito_id], references: [id])
-  estado        EstadoWorkflow       @default(EN_CURSO)
-  created_at    DateTime             @default(now())
-  updated_at    DateTime             @updatedAt
+  id           Int            @id @default(autoincrement())
+  documento_id Int            @unique
+  documento    Documento      @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+  circuito_id  Int
+  circuito     Circuito       @relation(fields: [circuito_id], references: [id])
+  estado       EstadoWorkflow @default(EN_CURSO)
+  created_at   DateTime       @default(now())
+  updated_at   DateTime       @updatedAt
 
-  fases         DocumentoWorkflowFase[]
+  fases DocumentoWorkflowFase[]
 
   @@map("documentos_workflow")
 }
 
 model DocumentoWorkflowFase {
-  id              Int                 @id @default(autoincrement())
-  workflow_id     Int
-  workflow        DocumentoWorkflow   @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
-  fase_id         Int
-  fase            Fase                @relation(fields: [fase_id], references: [id])
-  estado          EstadoFaseWorkflow  @default(PENDIENTE)
-  archivo_url     String?
-  procesado_por   String?             @db.VarChar(150)
-  comentario      String?             @db.Text
-  created_at      DateTime            @default(now())
-  updated_at      DateTime            @updatedAt
+  id            Int                @id @default(autoincrement())
+  workflow_id   Int
+  workflow      DocumentoWorkflow  @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  fase_id       Int
+  fase          Fase               @relation(fields: [fase_id], references: [id])
+  estado        EstadoFaseWorkflow @default(PENDIENTE)
+  archivo_url   String?
+  procesado_por String?            @db.VarChar(150)
+  comentario    String?            @db.Text
+  created_at    DateTime           @default(now())
+  updated_at    DateTime           @updatedAt
 
   @@map("documentos_workflow_fases")
 }
 
 model DocumentoRelacion {
-  id               Int       @id @default(autoincrement())
-  doc_origen_id    Int
-  doc_destino_id   Int
-  tipo_relacion    String?
+  id             Int     @id @default(autoincrement())
+  doc_origen_id  Int
+  doc_destino_id Int
+  tipo_relacion  String?
 
-  doc_origen       Documento @relation("DocOrigen", fields: [doc_origen_id], references: [id], onDelete: Cascade)
-  doc_destino      Documento @relation("DocDestino", fields: [doc_destino_id], references: [id], onDelete: Cascade)
+  doc_origen  Documento @relation("DocOrigen", fields: [doc_origen_id], references: [id], onDelete: Cascade)
+  doc_destino Documento @relation("DocDestino", fields: [doc_destino_id], references: [id], onDelete: Cascade)
 
   @@map("documentos_relaciones")
 }
 
 model RolCarpeta {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   nombre      String
   descripcion String?
 
-  nivel       Int      @default(1)
+  nivel Int @default(1)
 
-  activo      Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  activo     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@map("roles_carpetas")
 }
 
 model Carpeta {
-  id               Int              @id @default(autoincrement())
-  nombre           String
-  descripcion      String?          @db.Text
-  codigo           String?          @db.VarChar(50)
-  version_inicial  String?          @default("1")
-  etiquetas        String?          @db.Text
+  id              Int     @id @default(autoincrement())
+  nombre          String
+  descripcion     String? @db.Text
+  codigo          String? @db.VarChar(50)
+  version_inicial String? @default("1")
+  etiquetas       String? @db.Text
 
-  tipo             TipoNivelCarpeta @default(SUBCARPETA)
-  orden            Int              @default(0)
-  activo           Boolean          @default(true)
-  created_at       DateTime         @default(now())
-  updated_at       DateTime         @updatedAt
+  tipo       TipoNivelCarpeta @default(SUBCARPETA)
+  orden      Int              @default(0)
+  activo     Boolean          @default(true)
+  created_at DateTime         @default(now())
+  updated_at DateTime         @updatedAt
 
   carpeta_padre_id Int?
-  carpeta_padre    Carpeta?         @relation("JerarquiaCarpetas", fields: [carpeta_padre_id], references: [id], onDelete: Cascade)
-  subcarpetas      Carpeta[]        @relation("JerarquiaCarpetas")
+  carpeta_padre    Carpeta?  @relation("JerarquiaCarpetas", fields: [carpeta_padre_id], references: [id], onDelete: Cascade)
+  subcarpetas      Carpeta[] @relation("JerarquiaCarpetas")
 
-  documentos       Documento[]
-  permisos         CarpetaPermiso[]
+  documentos Documento[]
+  permisos   CarpetaPermiso[]
 
   @@map("carpetas")
 }
 
 model CarpetaPermiso {
-  id               Int        @id @default(autoincrement())
-  carpeta_id       Int
+  id         Int @id @default(autoincrement())
+  carpeta_id Int
 
-  departamento_id  Int?
-  persona_id       Int?
+  departamento_id Int?
+  persona_id      Int?
 
-  nivel_permiso    Int        @default(1)
+  nivel_permiso Int @default(1)
 
-  permiso_docs     Boolean    @default(false)
-  permiso_carpetas Boolean    @default(false)
-  permiso_extra    Boolean    @default(false)
+  permiso_docs     Boolean @default(false)
+  permiso_carpetas Boolean @default(false)
+  permiso_extra    Boolean @default(false)
 
-  carpeta          Carpeta       @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
-  departamento     Departamento? @relation(fields: [departamento_id], references: [id], onDelete: Cascade)
-  persona          Persona?      @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+  carpeta      Carpeta       @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
+  departamento Departamento? @relation(fields: [departamento_id], references: [id], onDelete: Cascade)
+  persona      Persona?      @relation(fields: [persona_id], references: [id], onDelete: Cascade)
 
   @@map("carpetas_permisos")
 }
@@ -479,55 +480,91 @@ model CarpetaPermiso {
 // 11. BITÁCORA DE AUDITORÍA
 // ==========================================
 model Auditoria {
-  id                  Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  usuario_id          Int
-  usuario             Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Restrict)
+  usuario_id Int
+  usuario    Usuario @relation(fields: [usuario_id], references: [id], onDelete: Restrict)
 
-  modulo              String   @db.VarChar(50)
-  accion              String   @db.VarChar(100)
-  descripcion         String?  @db.Text
+  modulo      String  @db.VarChar(50)
+  accion      String  @db.VarChar(100)
+  descripcion String? @db.Text
+  // Snapshot del payload enviado en la mutación (POST/PATCH/PUT), con campos
+  // sensibles redactados — ver sanitizarBody() en auditoria.interceptor.ts.
+  detalle     String? @db.Text
 
-  documento_id        Int?
-  documento           Documento? @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+  documento_id Int?
+  documento    Documento? @relation(fields: [documento_id], references: [id], onDelete: Cascade)
 
   persona_afectada_id Int?
-  persona_afectada    Persona?   @relation("LogPersonaAfectada", fields: [persona_afectada_id], references: [id], onDelete: Cascade)
+  persona_afectada    Persona? @relation("LogPersonaAfectada", fields: [persona_afectada_id], references: [id], onDelete: Cascade)
 
-  rol_afectado_id     Int?
-  rol_afectado        Rol?       @relation(fields: [rol_afectado_id], references: [id], onDelete: Cascade)
+  rol_afectado_id Int?
+  rol_afectado    Rol? @relation(fields: [rol_afectado_id], references: [id], onDelete: Cascade)
 
-  puesto_afectado_id  Int?
-  puesto_afectado     Puesto?    @relation(fields: [puesto_afectado_id], references: [id], onDelete: Cascade)
+  puesto_afectado_id Int?
+  puesto_afectado    Puesto? @relation(fields: [puesto_afectado_id], references: [id], onDelete: Cascade)
 
-  fecha_hora          DateTime @default(now()) @db.Timestamptz
+  // Id genérico de la entidad afectada, capturado para CUALQUIER módulo con
+  // un id numérico en la URL (no solo los que tienen relación FK dedicada
+  // arriba). Sin relación referencial a propósito: apunta a tablas distintas
+  // según `modulo`, así que no se puede modelar como una FK única de Prisma.
+  entidad_id Int?
+
+  fecha_hora DateTime @default(now()) @db.Timestamptz
 
   @@index([usuario_id])
   @@index([documento_id])
   @@index([modulo])
+  @@index([modulo, entidad_id])
   @@map("auditoria")
+}
+
+// ==========================================
+// BITÁCORA DE INTENTOS DE INICIO DE SESIÓN
+// Independiente de Auditoria porque un intento fallido puede no corresponder
+// a ningún Usuario real (usuario inexistente) — Auditoria.usuario_id es
+// obligatorio y no admite ese caso.
+// ==========================================
+model IntentoLogin {
+  id Int @id @default(autoincrement())
+
+  nombre_usuario String @db.VarChar(80)
+
+  exito        Boolean
+  motivo_fallo String? @db.VarChar(100)
+  ip           String? @db.VarChar(45)
+
+  usuario_id Int?
+  usuario    Usuario? @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+
+  fecha_hora DateTime @default(now()) @db.Timestamptz
+
+  @@index([nombre_usuario])
+  @@index([usuario_id])
+  @@index([fecha_hora])
+  @@map("intento_login")
 }
 
 // ==========================================
 // 12. LABORATORIO
 // ==========================================
 model Laboratorio {
-  id             Int       @id @default(autoincrement())
-  codigo         String?   @unique @db.VarChar(20)
-  nombre         String    @unique @db.VarChar(100)
-  descripcion    String?   @db.Text
-  activo         Boolean   @default(true)
+  id          Int     @id @default(autoincrement())
+  codigo      String? @unique @db.VarChar(20)
+  nombre      String  @unique @db.VarChar(100)
+  descripcion String? @db.Text
+  activo      Boolean @default(true)
 
   responsable_id Int?
-  responsable    Persona?  @relation(fields: [responsable_id], references: [id], onDelete: Restrict)
+  responsable    Persona? @relation(fields: [responsable_id], references: [id], onDelete: Restrict)
 
-  equipos        Equipo[]
-  servicios      Servicio[]
-  equipos_recibidos  EquipoRecepcion[]
-  departamentos  Departamento[]
+  equipos           Equipo[]
+  servicios         Servicio[]
+  equipos_recibidos EquipoRecepcion[]
+  departamentos     Departamento[]
 
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([responsable_id])
   @@map("laboratorio")
@@ -537,20 +574,20 @@ model Laboratorio {
 // 13. EQUIPO (Inventario de instrumentos)
 // ==========================================
 model Equipo {
-  id             Int          @id @default(autoincrement())
-  codigo         String       @unique @db.VarChar(50)
-  nombre         String       @db.VarChar(150)
-  marca          String?      @db.VarChar(100)
-  modelo         String?      @db.VarChar(100)
-  numero_serie   String?      @db.VarChar(100)
-  estado         EstadoEquipo @default(OPERATIVO)
+  id           Int          @id @default(autoincrement())
+  codigo       String       @unique @db.VarChar(50)
+  nombre       String       @db.VarChar(150)
+  marca        String?      @db.VarChar(100)
+  modelo       String?      @db.VarChar(100)
+  numero_serie String?      @db.VarChar(100)
+  estado       EstadoEquipo @default(OPERATIVO)
 
   laboratorio_id Int
-  laboratorio    Laboratorio  @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
+  laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
 
-  activo         Boolean      @default(true)
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([laboratorio_id])
   @@map("equipo")
@@ -560,17 +597,17 @@ model Equipo {
 // 14. SERVICIO
 // ==========================================
 model Servicio {
-  id             Int       @id @default(autoincrement())
-  nombre         String    @db.VarChar(200)
-  magnitud       String?   @db.VarChar(100)
-  descripcion    String?   @db.Text
+  id          Int     @id @default(autoincrement())
+  nombre      String  @db.VarChar(200)
+  magnitud    String? @db.VarChar(100)
+  descripcion String? @db.Text
 
   laboratorio_id Int
   laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
 
-  activo         Boolean   @default(true)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([laboratorio_id])
   @@map("servicio")
@@ -586,48 +623,48 @@ enum EstadoEquipo {
 // CIRCUITOS Y FASES
 // ==========================================
 model Circuito {
-  id          Int         @id @default(autoincrement())
-  nombre      String      @unique @db.VarChar(100)
-  activo      Boolean     @default(true)
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique @db.VarChar(100)
+  activo Boolean @default(true)
 
-  fases       Fase[]
-  documentos  Documento[]
-  workflows   DocumentoWorkflow[]
+  fases      Fase[]
+  documentos Documento[]
+  workflows  DocumentoWorkflow[]
 
   @@map("circuitos")
 }
 
 model Fase {
-  id                     Int      @id @default(autoincrement())
-  circuito_id            Int
-  circuito               Circuito @relation(fields: [circuito_id], references: [id], onDelete: Cascade)
+  id          Int      @id @default(autoincrement())
+  circuito_id Int
+  circuito    Circuito @relation(fields: [circuito_id], references: [id], onDelete: Cascade)
 
-  nombre                 String   @db.VarChar(100)
-  orden                  Int      @default(10)
+  nombre String @db.VarChar(100)
+  orden  Int    @default(10)
 
-  etiqueta_singular      String?  @db.VarChar(100)
-  etiqueta_plural        String?  @db.VarChar(100)
+  etiqueta_singular String? @db.VarChar(100)
+  etiqueta_plural   String? @db.VarChar(100)
 
-  individual_paralelo    Boolean  @default(false)
-  mostrar_hora           Boolean  @default(true)
-  ocultar_enviar_correo  Boolean  @default(false)
-  activo                 Boolean  @default(true)
-  en_vigor               Boolean  @default(false)
-  obligatorio_todos      Boolean  @default(false)
+  individual_paralelo   Boolean @default(false)
+  mostrar_hora          Boolean @default(true)
+  ocultar_enviar_correo Boolean @default(false)
+  activo                Boolean @default(true)
+  en_vigor              Boolean @default(false)
+  obligatorio_todos     Boolean @default(false)
 
-  participantes          FaseParticipante[]
-  workflow_fases         DocumentoWorkflowFase[]
+  participantes  FaseParticipante[]
+  workflow_fases DocumentoWorkflowFase[]
 
   @@map("fases")
 }
 
 model FaseParticipante {
-  id          Int      @id @default(autoincrement())
-  fase_id     Int
-  fase        Fase     @relation(fields: [fase_id], references: [id], onDelete: Cascade)
+  id      Int  @id @default(autoincrement())
+  fase_id Int
+  fase    Fase @relation(fields: [fase_id], references: [id], onDelete: Cascade)
 
-  persona_id  Int
-  persona     Persona  @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+  persona_id Int
+  persona    Persona @relation(fields: [persona_id], references: [id], onDelete: Cascade)
 
   @@unique([fase_id, persona_id])
   @@map("fases_participantes")
@@ -639,17 +676,17 @@ model FaseParticipante {
 
 // Cumple el requisito: "Registro de unidades solicitantes o usuarios del servicio"
 model ClienteInstitucional {
-  id             Int         @id @default(autoincrement())
-  nombre         String      @unique @db.VarChar(200)
-  ruc            String?     @unique @db.VarChar(20)
-  representante  String      @db.VarChar(150)
-  direccion      String      @db.VarChar(250)
-  telefono       String      @db.VarChar(20)
-  email          String?     @db.VarChar(150)
-  tipo           TipoCliente @default(CIVIL)
-  activo         Boolean     @default(true)
+  id            Int         @id @default(autoincrement())
+  nombre        String      @unique @db.VarChar(200)
+  ruc           String?     @unique @db.VarChar(20)
+  representante String      @db.VarChar(150)
+  direccion     String      @db.VarChar(250)
+  telefono      String      @db.VarChar(20)
+  email         String?     @db.VarChar(150)
+  tipo          TipoCliente @default(CIVIL)
+  activo        Boolean     @default(true)
 
-  ordenes_trabajo  OrdenTrabajo[]
+  ordenes_trabajo OrdenTrabajo[]
 
   @@map("clientes_institucionales")
 }
@@ -657,26 +694,26 @@ model ClienteInstitucional {
 // CABECERA — Orden de Trabajo Física
 // Cumple el requisito: "Registro de solicitudes"
 model OrdenTrabajo {
-  id                    Int       @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
   // Número preimpreso en rojo (Ej: 0013679) — AHORA ÚNICO A NIVEL DE CABECERA
-  orden_trabajo_fisica  String    @unique @db.VarChar(50)
-  fecha_ingreso         DateTime  @default(now()) @db.Date
+  orden_trabajo_fisica String   @unique @db.VarChar(50)
+  fecha_ingreso        DateTime @default(now()) @db.Date
 
   // El cliente se registra una sola vez por orden
-  cliente_id            Int
-  cliente               ClienteInstitucional @relation(fields: [cliente_id], references: [id])
+  cliente_id Int
+  cliente    ClienteInstitucional @relation(fields: [cliente_id], references: [id])
 
   // Nuevos campos de cabecera
-  n_proforma            String?   @db.VarChar(50)
+  n_proforma            String?  @db.VarChar(50)
   recibe_responsable_id Int?
-  recibe_responsable    Persona?  @relation("PersonaRecibeOrden", fields: [recibe_responsable_id], references: [id])
+  recibe_responsable    Persona? @relation("PersonaRecibeOrden", fields: [recibe_responsable_id], references: [id])
 
   // Un detalle por cada equipo recibido en esta orden
-  equipos               EquipoRecepcion[]
+  equipos EquipoRecepcion[]
 
-  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([cliente_id])
   @@index([recibe_responsable_id])
@@ -686,42 +723,42 @@ model OrdenTrabajo {
 // DETALLE — Cada equipo dentro de una orden de trabajo
 // Cumple el requisito: "Control de estado"
 model EquipoRecepcion {
-  id                    Int       @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
   // FK a la cabecera
-  orden_trabajo_id      Int
-  orden_trabajo         OrdenTrabajo @relation(fields: [orden_trabajo_id], references: [id])
+  orden_trabajo_id Int
+  orden_trabajo    OrdenTrabajo @relation(fields: [orden_trabajo_id], references: [id])
 
   // Datos del equipo
-  equipo_descripcion    String    @db.VarChar(200)
-  codigo_serie          String?   @db.VarChar(100)
+  equipo_descripcion String  @db.VarChar(200)
+  codigo_serie       String? @db.VarChar(100)
 
   // Nuevos campos del detalle (formato Excel legacy)
-  codigo_cmee           String?   @db.VarChar(50)
-  marca                 String?   @db.VarChar(100)
-  modelo                String?   @db.VarChar(100)
-  accesorios            String?   @db.VarChar(300)
+  codigo_cmee                String? @db.VarChar(50)
+  marca                      String? @db.VarChar(100)
+  modelo                     String? @db.VarChar(100)
+  accesorios                 String? @db.VarChar(300)
   requerimientos_calibracion String? @db.VarChar(500)
 
   // A qué laboratorio se deriva (puede diferir por equipo dentro de la misma orden)
-  laboratorio_id        Int
-  laboratorio           Laboratorio @relation(fields: [laboratorio_id], references: [id])
+  laboratorio_id Int
+  laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id])
 
   // Fecha en que el equipo ingresó físicamente al laboratorio
   fecha_ingreso_laboratorio DateTime? @db.Date
 
   // Estado individual del equipo
-  estado                EstadoRecepcion @default(EN_ESPERA)
+  estado EstadoRecepcion @default(EN_ESPERA)
 
   // Técnico asignado para la calibración de este equipo
-  tecnico_id            Int?
-  tecnico               Persona?  @relation("TecnicoRecepcion", fields: [tecnico_id], references: [id])
+  tecnico_id Int?
+  tecnico    Persona? @relation("TecnicoRecepcion", fields: [tecnico_id], references: [id])
 
-  certificados          Certificado[]
-  historial_estado      HistorialEstado[]
+  certificados     Certificado[]
+  historial_estado HistorialEstado[]
 
-  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([orden_trabajo_id])
   @@index([tecnico_id])
@@ -731,24 +768,24 @@ model EquipoRecepcion {
 }
 
 model Certificado {
-  id                    Int       @id @default(autoincrement())
-  equipo_recepcion_id   Int
-  equipo_recepcion      EquipoRecepcion @relation(fields: [equipo_recepcion_id], references: [id])
-  ruta_archivo          String    @db.VarChar(500)
-  nombre_original       String    @db.VarChar(255)
-  fecha_subida          DateTime  @default(now()) @db.Timestamptz
-  tecnico_id            Int
-  tecnico               Persona   @relation("TecnicoCertificado", fields: [tecnico_id], references: [id])
+  id                  Int             @id @default(autoincrement())
+  equipo_recepcion_id Int
+  equipo_recepcion    EquipoRecepcion @relation(fields: [equipo_recepcion_id], references: [id])
+  ruta_archivo        String          @db.VarChar(500)
+  nombre_original     String          @db.VarChar(255)
+  fecha_subida        DateTime        @default(now()) @db.Timestamptz
+  tecnico_id          Int
+  tecnico             Persona         @relation("TecnicoCertificado", fields: [tecnico_id], references: [id])
 
   // Control de numeración (secuencia propia, independiente del id interno)
-  numero_certificado    Int       @unique @default(autoincrement())
+  numero_certificado  Int    @unique @default(autoincrement())
   // Identificador público no adivinable para verificación de autenticidad
-  codigo_verificacion   String    @unique @default(uuid())
+  codigo_verificacion String @unique @default(uuid())
 
-  firmas                FirmaDigital[]
+  firmas FirmaDigital[]
 
-  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([equipo_recepcion_id])
   @@index([tecnico_id])
@@ -774,30 +811,30 @@ enum EtapaFirma {
 }
 
 model FirmaDigital {
-  id                  Int         @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  certificado_id      Int
-  certificado         Certificado @relation(fields: [certificado_id], references: [id])
+  certificado_id Int
+  certificado    Certificado @relation(fields: [certificado_id], references: [id])
 
-  firmante_id         Int
-  firmante            Persona     @relation("FirmanteDigital", fields: [firmante_id], references: [id])
+  firmante_id Int
+  firmante    Persona @relation("FirmanteDigital", fields: [firmante_id], references: [id])
 
-  etapa               EtapaFirma
+  etapa EtapaFirma
 
   // Datos públicos extraídos del certificado .p12 al momento de firmar —
   // nunca la clave privada ni la contraseña, que no salen del navegador.
-  certificado_titular       String   @db.VarChar(200)
-  certificado_emisor        String   @db.VarChar(200)
-  certificado_numero_serie  String   @db.VarChar(100)
-  certificado_valido_desde  DateTime
-  certificado_valido_hasta  DateTime
+  certificado_titular      String   @db.VarChar(200)
+  certificado_emisor       String   @db.VarChar(200)
+  certificado_numero_serie String   @db.VarChar(100)
+  certificado_valido_desde DateTime
+  certificado_valido_hasta DateTime
 
   // Hash SHA-256 del PDF resultante en el momento de esta firma —
   // permite detectar si el archivo fue alterado después de firmarse.
-  hash_documento      String      @db.VarChar(128)
+  hash_documento String @db.VarChar(128)
 
-  fecha_firma         DateTime    @default(now())
-  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  fecha_firma DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([certificado_id])
   @@index([firmante_id])
@@ -816,7 +853,7 @@ model HistorialEstado {
   realizado_por_id    Int
   realizado_por       Persona         @relation("HistorialEstadoPersona", fields: [realizado_por_id], references: [id])
 
-  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([equipo_recepcion_id])
   @@map("historial_estado")
@@ -837,16 +874,16 @@ enum EstadoRecepcion {
 // NOTIFICACIONES
 // ==========================================
 model Notificacion {
-  id            Int      @id @default(autoincrement())
-  usuario_id    Int
-  usuario       Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  id         Int     @id @default(autoincrement())
+  usuario_id Int
+  usuario    Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
 
-  tipo          String   @db.VarChar(50)
-  mensaje       String   @db.VarChar(500)
-  leido         Boolean  @default(false)
+  tipo          String  @db.VarChar(50)
+  mensaje       String  @db.VarChar(500)
+  leido         Boolean @default(false)
   referencia_id Int?
 
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([usuario_id, leido])
   @@map("notificaciones")

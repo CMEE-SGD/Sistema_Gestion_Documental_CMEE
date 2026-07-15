@@ -1,5 +1,7 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { AuditoriaService } from './auditoria.service';
+import { FindAuditoriaDto } from './dto/find-auditoria.dto';
+import { FindIntentosLoginDto } from './dto/find-intentos-login.dto';
 
 // 👇 Importaciones de Seguridad
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -18,8 +20,18 @@ export class AuditoriaController {
    */
   @Get()
   @RequireAccess('Auditoria Global', 2) // Nivel 2: Lectura de logs
-  findAll() {
-    return this.auditoriaService.findAll();
+  findAll(@Query() filtros: FindAuditoriaDto) {
+    return this.auditoriaService.findAll(filtros);
+  }
+
+  /**
+   * Lista la bitácora de intentos de inicio de sesión (éxitos y fallos).
+   * @returns Objeto complejo / PrismaResponse
+   */
+  @Get('intentos-login')
+  @RequireAccess('Auditoria Global', 2)
+  findIntentosLogin(@Query() filtros: FindIntentosLoginDto) {
+    return this.auditoriaService.findIntentosLogin(filtros);
   }
 
   /**

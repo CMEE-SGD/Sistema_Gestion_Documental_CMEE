@@ -32,8 +32,12 @@ export class UsuariosController {
    */
   @Post('login')
   @ApiOperation({ summary: 'Login con nombre de usuario y contraseña' })
-  login(@Body() loginDto: LoginDto) {
-    return this.usuariosService.login(loginDto.nombre_usuario, loginDto.clave);
+  login(@Body() loginDto: LoginDto, @Req() req: any) {
+    return this.usuariosService.login(
+      loginDto.nombre_usuario,
+      loginDto.clave,
+      req.ip,
+    );
   }
 
   /**

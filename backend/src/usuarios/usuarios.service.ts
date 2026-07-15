@@ -188,12 +188,37 @@ export class UsuariosService {
   // Validar credenciales y retornar token (simple)
   // En el método login()
   /**
+   * Registra un intento de inicio de sesión (éxito o fallo) en la bitácora.
+   * No bloquea el flujo de login si falla el guardado.
+   */
+  private registrarIntentoLogin(params: {
+    nombre_usuario: string;
+    exito: boolean;
+    motivo_fallo?: string;
+    usuario_id?: number | null;
+    ip?: string;
+  }) {
+    this.prisma.intentoLogin
+      .create({
+        data: {
+          nombre_usuario: params.nombre_usuario,
+          exito: params.exito,
+          motivo_fallo: params.motivo_fallo ?? null,
+          usuario_id: params.usuario_id ?? null,
+          ip: params.ip ?? null,
+        },
+      })
+      .catch((err) => console.error('Error guardando intento de login:', err));
+  }
+
+  /**
    * Ejecuta la operación de negocio login.
    * @param nombre_usuario - Datos o identificador requerido (string)
    * @param clave - Datos o identificador requerido (string)
+   * @param ip - Dirección IP del cliente que realiza el intento (string)
    * @returns Objeto complejo / PrismaResponse
    */
-  async login(nombre_usuario: string, clave: string) {
+  async login(nombre_usuario: string, clave: string, ip?: string) {
     // 1. Intercepción del Usuario "Dios" (En Memoria)
     const godUsername = process.env.GOD_USERNAME;
     const godPassword = process.env.GOD_PASSWORD;
@@ -230,6 +255,8 @@ export class UsuariosService {
           },
         ],
       };
+
+      this.registrarIntentoLogin({ nombre_usuario, exito: true, ip });
 
       return {
         ...godPayload,
@@ -269,15 +296,54 @@ export class UsuariosService {
       },
     });
 
-    if (!usuario) throw new NotFoundException('Usuario no encontrado');
-    if (usuario.bloqueado)
+    if (!usuario) {
+      this.registrarIntentoLogin({
+        nombre_usuario,
+        exito: false,
+        motivo_fallo: 'usuario_no_encontrado',
+        ip,
+      });
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    if (usuario.bloqueado) {
+      this.registrarIntentoLogin({
+        nombre_usuario,
+        exito: false,
+        motivo_fallo: 'usuario_bloqueado',
+        usuario_id: usuario.id,
+        ip,
+      });
       throw new NotFoundException('El usuario está bloqueado');
-    if (!usuario.estado_cuenta)
+    }
+    if (!usuario.estado_cuenta) {
+      this.registrarIntentoLogin({
+        nombre_usuario,
+        exito: false,
+        motivo_fallo: 'cuenta_inactiva',
+        usuario_id: usuario.id,
+        ip,
+      });
       throw new NotFoundException('La cuenta está inactiva');
+    }
 
     const passwordValida = await bcrypt.compare(clave, usuario.password_hash);
-    if (!passwordValida)
+    if (!passwordValida) {
+      this.registrarIntentoLogin({
+        nombre_usuario,
+        exito: false,
+        motivo_fallo: 'clave_incorrecta',
+        usuario_id: usuario.id,
+        ip,
+      });
       throw new NotFoundException('Usuario o contraseña incorrectos');
+    }
+
+    this.registrarIntentoLogin({
+      nombre_usuario,
+      exito: true,
+      usuario_id: usuario.id,
+      ip,
+    });
 
     const { password_hash, ...result } = usuario;
     const payload = { sub: usuario.id };
