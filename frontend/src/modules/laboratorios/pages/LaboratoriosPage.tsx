@@ -5,9 +5,13 @@ import { Button } from '../../../shared/components/atoms/button';
 import { tienePermiso, esRolRestringido } from '../../../shared/utils/auth';
 import { Modal } from '../../../shared/components/molecules/Modal'; // 👇 Importamos el Modal
 import { LaboratorioForm } from '../components/LaboratorioForm'; // 👇 Importamos el Formulario
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 export const LaboratoriosPage = () => {
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
@@ -44,23 +48,26 @@ export const LaboratoriosPage = () => {
     });
 
     const handleEliminar = async (id: number) => {
-        if (!window.confirm('¿Está seguro de desactivar este laboratorio? Esto no eliminará sus equipos, pero lo marcará como inactivo.')) return;
+        if (!await confirm({ title: 'Confirmar', message: '¿Está seguro de desactivar este laboratorio? Esto no eliminará sus equipos, pero lo marcará como inactivo.' })) return;
         try {
             await api.delete(`/laboratorios/${id}`);
             fetchLaboratorios();
+            toast({ message: 'Laboratorio desactivado exitosamente.' });
         } catch (error) {
             console.error('Error eliminando', error);
-            alert('Error al desactivar el laboratorio');
+            await alert({ title: 'Error', message: 'Error al desactivar el laboratorio' });
         }
     };
 
     const handleReactivar = async (id: number) => {
-        if (!window.confirm('¿Desea volver a activar este laboratorio?')) return;
+        if (!await confirm({ title: 'Confirmar', message: '¿Desea volver a activar este laboratorio?' })) return;
         try {
             await api.patch(`/laboratorios/${id}`, { activo: true });
             fetchLaboratorios();
+            toast({ message: 'Laboratorio reactivado exitosamente.' });
         } catch (error) {
             console.error('Error al reactivar', error);
+            await alert({ title: 'Error', message: 'Error al reactivar el laboratorio' });
         }
     };
 

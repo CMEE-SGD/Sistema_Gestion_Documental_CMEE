@@ -157,7 +157,7 @@ const FormPersona = ({
             </LabelRow>
 
             <LabelRow label="C.I. / Pasaporte: " mb="mb-4">
-              <input type="text" required name="cedula_identidad" value={formData.cedula_identidad} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-48 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
+              <input type="text" required name="cedula_identidad" value={formData.cedula_identidad} onChange={handleChange} maxLength={10} className="border border-gray-300 px-2 py-1 w-48 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
             </LabelRow>
           </div>
         </div>

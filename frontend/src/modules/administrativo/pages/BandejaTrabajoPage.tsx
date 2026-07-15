@@ -21,6 +21,8 @@ import {
 import { cn } from '../../../shared/utils/utils';
 import api from '../../../core/api/axios';
 import { getUsuarioActual } from '../../../shared/hooks/useAuth';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 import { Button } from '../../../shared/components/atoms/button';
 import SubirCertificadoModal from '../components/SubirCertificadoModal';
 import ValidacionCertificadoModal from '../components/ValidacionCertificadoModal';
@@ -296,6 +298,8 @@ function AsignarTecnicoModal({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { alert } = useAlert();
+  const { toast } = useToast();
 
   const { data: personas } = useQuery<PersonaOption[]>({
     queryKey: ['personas', 'laboratorio', laboratorioId],
@@ -322,13 +326,14 @@ function AsignarTecnicoModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+      toast({ message: 'Técnico asignado correctamente.' });
       onClose();
     },
-    onError: (err: unknown) => {
+    onError: async (err: unknown) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const apiErr = err as any;
-      alert(
-        apiErr?.response?.data?.message || 'Error al asignar técnico',
+      await alert(
+        { message: apiErr?.response?.data?.message || 'Error al asignar técnico' },
       );
     },
   });
@@ -486,6 +491,7 @@ export default function BandejaTrabajoPage() {
   const puesto = user?.persona?.puesto ?? '';
 
   const queryClient = useQueryClient();
+  const { alert } = useAlert();
 
   // --- RBAC / ABAC flags derived from the permission helpers ---
   const { canCreate, canAssign, canExecute } = getPermissions(puesto);
@@ -575,7 +581,7 @@ export default function BandejaTrabajoPage() {
       window.open(url, '_blank');
     } catch (err) {
       console.error('Error al descargar certificado:', err);
-      alert('No se pudo abrir el certificado');
+      await alert({ message: 'No se pudo abrir el certificado' });
     }
   };
 

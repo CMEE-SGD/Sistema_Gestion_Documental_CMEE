@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FolderOutput, ArrowLeft } from 'lucide-react';
 import api from '../../../core/api/axios';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 export const MoverDocumentosPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { confirm } = useAlert();
+    const { toast } = useToast();
     
     // Recibimos los documentos que el usuario seleccionó en la tabla
     const documentosAMover = location.state?.documentos || [];
@@ -81,6 +85,9 @@ export const MoverDocumentosPage = () => {
             return;
         }
 
+        const ok = await confirm({ message: `¿Mover ${documentosAMover.length} documento(s) a la carpeta seleccionada?` });
+        if (!ok) return;
+
         setLoading(true);
         setError('');
 
@@ -93,6 +100,7 @@ export const MoverDocumentosPage = () => {
                 )
             );
 
+            toast({ message: 'Documentos movidos correctamente' });
             window.dispatchEvent(new Event('refreshDocumentos'));
             navigate(-1);
         } catch (err) {

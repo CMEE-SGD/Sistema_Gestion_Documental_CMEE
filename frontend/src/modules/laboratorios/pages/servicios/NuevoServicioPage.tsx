@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../../core/api/axios'; 
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const NuevoServicioPage = () => {
     const navigate = useNavigate();
+    const { alert } = useAlert();
+    const { toast } = useToast();
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         nombre: '',
@@ -36,10 +40,11 @@ export const NuevoServicioPage = () => {
                 laboratorio_id: parseInt(formData.laboratorio_id)
             };
             await api.post('/servicios', payload);
+            toast({ message: 'Servicio registrado exitosamente.' });
             navigate('/laboratorios/servicios');
         } catch (error) {
             console.error('Error al registrar servicio', error);
-            alert('Error al guardar el servicio.');
+            await alert({ title: 'Error', message: 'Error al guardar el servicio.' });
         }
     };
 

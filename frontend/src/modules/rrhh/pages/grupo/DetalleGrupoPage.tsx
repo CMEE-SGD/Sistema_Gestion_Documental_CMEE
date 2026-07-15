@@ -4,11 +4,15 @@ import PrintHeader from '../../../../shared/components/organisms/PrintHeader';
 import { Button } from '../../../../shared/components/atoms/button';
 import api from '../../../../core/api/axios';
 import { FichaGrupo } from '../../components/FichaGrupo';
-import { tienePermiso } from '../../../../shared/utils/auth'; // 👇 Importamos auth
+import { tienePermiso } from '../../../../shared/utils/auth';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const DetalleGrupoPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [departamento, setDepartamento] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
@@ -27,14 +31,14 @@ export const DetalleGrupoPage = () => {
     }, [id]);
 
     const handleEliminar = async () => {
-        if (window.confirm('¿Está seguro de que desea eliminar (desactivar) este recurso?')) {
-            try {
-                await api.delete(`/departamentos/${id}`);
-                alert('Inactivado correctamente.');
-                navigate('/rrhh/grupos'); 
-            } catch (error) {
-                alert('No se pudo desactivar el recurso.');
-            }
+        const ok = await confirm({ message: '¿Está seguro de que desea eliminar (desactivar) este recurso?' });
+        if (!ok) return;
+        try {
+            await api.delete(`/departamentos/${id}`);
+            toast({ message: 'Inactivado correctamente.' });
+            navigate('/rrhh/grupos'); 
+        } catch (error) {
+            await alert({ message: 'No se pudo desactivar el recurso.' });
         }
     };
 

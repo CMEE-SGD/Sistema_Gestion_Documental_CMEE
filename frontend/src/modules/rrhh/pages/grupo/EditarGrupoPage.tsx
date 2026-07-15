@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import FormGrupo from '../../components/FormGrupo';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const EditarGrupoPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { confirm } = useAlert();
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     // PATCH: Nuevo estado para laboratorios
     const [grupos, setGrupos] = useState<any[]>([]);
@@ -35,6 +39,8 @@ export const EditarGrupoPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const ok = await confirm({ title: 'Actualizar grupo', message: '¿Está seguro de guardar los cambios en este grupo?' });
+        if (!ok) return;
         const payload = {
             nombre: formData.nombre,
             descripcion: formData.descripcion,
@@ -48,6 +54,7 @@ export const EditarGrupoPage = () => {
             laboratorio_id: formData.laboratorio_id ? Number(formData.laboratorio_id) : null,
         };
         await api.patch(`/departamentos/${id}`, payload);
+        toast({ message: 'Grupo actualizado correctamente.' });
         navigate(`/rrhh/grupos/${id}`);
     };
 

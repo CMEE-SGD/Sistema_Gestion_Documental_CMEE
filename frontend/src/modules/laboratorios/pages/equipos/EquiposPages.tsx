@@ -5,9 +5,13 @@ import { Button } from '../../../../shared/components/atoms/button';
 import { tienePermiso, esRolRestringido } from '../../../../shared/utils/auth';
 import { Modal } from '../../../../shared/components/molecules/Modal';
 import { EquipoForm } from '../../components/EquipoForm';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const EquiposPage = () => {
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [searchParams] = useSearchParams();
     const labIdFiltro = searchParams.get('laboratorio_id');
 
@@ -57,22 +61,24 @@ export const EquiposPage = () => {
     };
 
     const handleEliminar = async (id: number) => {
-        if (!window.confirm('¿Está seguro de desactivar este equipo?')) return;
+        if (!await confirm({ title: 'Confirmar', message: '¿Está seguro de desactivar este equipo?' })) return;
         try {
             await api.delete(`/equipos/${id}`);
             fetchEquipos();
+            toast({ message: 'Equipo desactivado exitosamente.' });
         } catch (error) {
-            alert('Error al desactivar el equipo');
+            await alert({ title: 'Error', message: 'Error al desactivar el equipo' });
         }
     };
 
     const handleReactivar = async (id: number) => {
-        if (!window.confirm('¿Desea volver a activar este equipo?')) return;
+        if (!await confirm({ title: 'Confirmar', message: '¿Desea volver a activar este equipo?' })) return;
         try {
             await api.patch(`/equipos/${id}`, { activo: true });
             fetchEquipos();
+            toast({ message: 'Equipo reactivado exitosamente.' });
         } catch (error) {
-            alert('Error al reactivar el equipo');
+            await alert({ title: 'Error', message: 'Error al reactivar el equipo' });
         }
     };
 

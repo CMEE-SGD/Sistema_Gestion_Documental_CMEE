@@ -2,6 +2,8 @@ import { useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { UploadCloud, FileText, X, Loader2 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 interface Props {
   isOpen: boolean;
@@ -19,6 +21,8 @@ export default function SubirCertificadoModal({
   onSuccess,
 }: Props) {
   const queryClient = useQueryClient();
+  const { alert } = useAlert();
+  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
 
@@ -47,20 +51,21 @@ export default function SubirCertificadoModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+      toast({ message: 'Certificado subido correctamente.' });
       onSuccess();
       onClose();
     },
-    onError: (err: unknown) => {
+    onError: async (err: unknown) => {
       const apiErr = err as any;
       console.error('Error al subir certificado:', apiErr);
-      alert(apiErr?.message || 'Error al subir el certificado');
+      await alert({ message: apiErr?.message || 'Error al subir el certificado' });
     },
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
     if (selected && selected.type !== 'application/pdf') {
-      alert('Solo se permiten archivos PDF');
+      await alert({ message: 'Solo se permiten archivos PDF' });
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -68,11 +73,11 @@ export default function SubirCertificadoModal({
     setFile(selected);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     const dropped = e.dataTransfer.files?.[0] ?? null;
     if (dropped && dropped.type !== 'application/pdf') {
-      alert('Solo se permiten archivos PDF');
+      await alert({ message: 'Solo se permiten archivos PDF' });
       return;
     }
     setFile(dropped);

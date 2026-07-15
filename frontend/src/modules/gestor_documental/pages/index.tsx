@@ -2,10 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { HelpCircle, Folder, Edit2 } from 'lucide-react';
 import api from '../../../core/api/axios';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 export const GestorDocumentalPage = () => {
     const navigate = useNavigate();
     const { id } = useParams();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
 
     const [carpetas, setCarpetas] = useState<any[]>([]);
     const [documentos, setDocumentos] = useState<any[]>([]);
@@ -80,11 +84,11 @@ export const GestorDocumentalPage = () => {
 
     const handleEliminarDocumentos = async () => {
         if (documentosSeleccionados.length === 0) {
-            alert("Por favor, seleccione al menos un documento para eliminar.");
+            await alert({ message: "Por favor, seleccione al menos un documento para eliminar." });
             return;
         }
 
-        const confirmacion = window.confirm(`¿Está seguro de eliminar ${documentosSeleccionados.length} documento(s)? Esta acción no se puede deshacer.`);
+        const confirmacion = await confirm({ message: `¿Está seguro de eliminar ${documentosSeleccionados.length} documento(s)? Esta acción no se puede deshacer.` });
         if (!confirmacion) return;
 
         try {
@@ -95,7 +99,7 @@ export const GestorDocumentalPage = () => {
                 documentosSeleccionados.map(docId => api.delete(`/documentos/${docId}`))
             );
 
-            // Limpiamos la selección
+            toast({ message: 'Documentos eliminados correctamente' });
             setDocumentosSeleccionados([]);
 
             // Volvemos a cargar la tabla para que los documentos borrados desaparezcan
@@ -103,7 +107,7 @@ export const GestorDocumentalPage = () => {
 
         } catch (error) {
             console.error("Error al eliminar los documentos:", error);
-            alert("Ocurrió un error al intentar eliminar. Es posible que no tenga permisos.");
+            await alert({ message: "Ocurrió un error al intentar eliminar. Es posible que no tenga permisos." });
         } finally {
             setLoadingDocs(false);
         }
@@ -130,9 +134,9 @@ export const GestorDocumentalPage = () => {
         }
     };
     // 👉 Función para el botón Mover
-    const handleMoverDocumentos = () => {
+    const handleMoverDocumentos = async () => {
         if (documentosSeleccionados.length === 0) {
-            alert("Por favor, seleccione al menos un documento para mover.");
+            await alert({ message: "Por favor, seleccione al menos un documento para mover." });
             return;
         }
 

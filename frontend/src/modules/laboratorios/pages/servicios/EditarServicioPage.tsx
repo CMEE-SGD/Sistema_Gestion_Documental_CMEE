@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../../../core/api/axios';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const EditarServicioPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { alert } = useAlert();
+    const { toast } = useToast();
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
@@ -33,7 +37,7 @@ export const EditarServicioPage = () => {
                 });
             } catch (error) {
                 console.error('Error al cargar la información', error);
-                alert('No se pudo recuperar los datos del servicio.');
+                await alert({ title: 'Error', message: 'No se pudo recuperar los datos del servicio.' });
                 navigate('/laboratorios/servicios');
             } finally {
                 setLoading(false);
@@ -56,10 +60,11 @@ export const EditarServicioPage = () => {
                 laboratorio_id: parseInt(formData.laboratorio_id)
             };
             await api.patch(`/servicios/${id}`, payload);
+            toast({ message: 'Servicio actualizado exitosamente.' });
             navigate('/laboratorios/servicios');
         } catch (error) {
             console.error('Error al actualizar servicio', error);
-            alert('Error al guardar las modificaciones.');
+            await alert({ title: 'Error', message: 'Error al guardar las modificaciones.' });
         }
     };
 

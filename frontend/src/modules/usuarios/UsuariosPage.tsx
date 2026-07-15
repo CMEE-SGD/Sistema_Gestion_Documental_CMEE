@@ -3,9 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { UserPlus, Edit2, Trash2, Search, Users, ArchiveRestore } from 'lucide-react';
 import api from '../../core/api/axios';
 import { tienePermiso } from '../../shared/utils/auth';
+import { useAlert } from '../../shared/components/molecules/AlertModal';
+import { useToast } from '../../shared/components/molecules/Toast';
 
 export const UsuariosPage = () => {
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [usuarios, setUsuarios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
@@ -50,15 +54,16 @@ export const UsuariosPage = () => {
     });
 
     const handleDelete = async (id: number) => {
-        if (!window.confirm("¿Deseas desactivar/eliminar este usuario?")) return;
+        if (!await confirm({ message: "¿Deseas desactivar/eliminar este usuario?" })) return;
         try {
             await api.delete(`/usuarios/${id}`);
             // 👇 3. En lugar de borrarlo, lo actualizamos localmente como inactivo
             setUsuarios(usuarios.map(u => 
                 u.id === id ? { ...u, estado_cuenta: false, activo: false } : u
             ));
+            toast({ message: 'Usuario desactivado correctamente.' });
         } catch (error) {
-            alert("Error al eliminar el usuario");
+            await alert({ message: "Error al eliminar el usuario" });
         }
     };
 

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import api from '../../../core/api/axios'; 
+import api from '../../../core/api/axios';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 interface Props {
   onClose: () => void;
@@ -7,6 +9,8 @@ interface Props {
 }
 
 export default function RecepcionFormModal({ onClose, onSuccess }: Props) {
+  const { alert } = useAlert();
+  const { toast } = useToast();
   const [clientes, setClientes] = useState<any[]>([]);
   const [laboratorios, setLaboratorios] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,7 +48,7 @@ export default function RecepcionFormModal({ onClose, onSuccess }: Props) {
 
       if (isNewClient) {
         if (!newClientData.nombre) {
-          alert('Por favor ingrese el nombre del nuevo cliente');
+          await alert({ message: 'Por favor ingrese el nombre del nuevo cliente' });
           setIsLoading(false);
           return;
         }
@@ -64,10 +68,11 @@ export default function RecepcionFormModal({ onClose, onSuccess }: Props) {
         laboratorio_id: Number(formData.laboratorio_id)
       });
       
+      toast({ message: 'Recepción registrada correctamente.' });
       onSuccess();
     } catch (error: any) {
       console.error('Error al guardar:', error);
-      alert(error.response?.data?.message || 'Error al guardar el registro');
+      await alert({ message: error.response?.data?.message || 'Error al guardar el registro' });
     } finally {
       setIsLoading(false);
     }

@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import FormPuesto from '../../components/FormPuesto';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const EditarPuestoPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
         codigo: '', nombre: '', educacion: '', formacion: '', habilidad: '', experiencia: '',
@@ -34,6 +38,8 @@ export const EditarPuestoPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const ok = await confirm({ title: 'Actualizar puesto', message: '¿Está seguro de guardar los cambios en este puesto?' });
+        if (!ok) return;
         try {
             // Extraemos SOLO los campos permitidos por el DTO de NestJS para evitar el Error 400
             const payload = {
@@ -59,11 +65,12 @@ export const EditarPuestoPage = () => {
             };
 
             await api.patch(`/puestos/${id}`, payload);
+            toast({ message: 'Puesto actualizado correctamente.' });
             navigate(`/rrhh/puestos/${id}`);
         } catch (error: any) {
             const mensajeBackend = error.response?.data?.message || error.message;
             console.error('Error detallado del backend:', error.response?.data);
-            alert(`Error al actualizar: ${JSON.stringify(mensajeBackend)}`);
+            await alert({ message: `Error al actualizar: ${JSON.stringify(mensajeBackend)}` });
         }
     };
 

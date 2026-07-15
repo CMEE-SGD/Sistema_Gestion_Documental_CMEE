@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
 
 interface LaboratorioFormProps {
     laboratorioId?: number | null; // Si viene ID, es edición. Si es null, es creación.
@@ -10,6 +12,8 @@ interface LaboratorioFormProps {
 }
 
 export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: LaboratorioFormProps) => {
+    const { alert, confirm } = useAlert();
+    const { toast } = useToast();
     const [personas, setPersonas] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
@@ -39,7 +43,7 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
                 }
             } catch (error) {
                 console.error('Error al cargar datos', error);
-                alert('No se pudo cargar la información requerida.');
+                await alert({ title: 'Error', message: 'No se pudo cargar la información requerida.' });
             } finally {
                 setLoading(false);
             }
@@ -62,16 +66,19 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
             };
 
             if (laboratorioId) {
+                const ok = await confirm({ title: 'Actualizar laboratorio', message: '¿Está seguro de guardar los cambios en este laboratorio?' });
+                if (!ok) return;
                 await api.patch(`/laboratorios/${laboratorioId}`, payload);
             } else {
                 await api.post('/laboratorios', payload);
             }
             
+            toast({ message: laboratorioId ? 'Laboratorio actualizado exitosamente.' : 'Laboratorio registrado exitosamente.' });
             onSuccess(); // Actualizar tabla
             onClose(); // Cerrar modal
         } catch (error) {
             console.error('Error al guardar laboratorio', error);
-            alert('Ocurrió un error al guardar los cambios.');
+            await alert({ title: 'Error', message: 'Ocurrió un error al guardar los cambios.' });
         }
     };
 

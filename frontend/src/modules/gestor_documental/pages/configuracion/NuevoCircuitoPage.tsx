@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../../core/api/axios';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const NuevoCircuitoPage = () => {
     const navigate = useNavigate();
+    const { alert } = useAlert();
+    const { toast } = useToast();
     const [nombre, setNombre] = useState('');
     const [activo, setActivo] = useState(true);
     const [loading, setLoading] = useState(false);
@@ -12,22 +16,22 @@ export const NuevoCircuitoPage = () => {
         e.preventDefault();
         
         if (!nombre.trim()) {
-            alert('El nombre del circuito es obligatorio');
+            await alert({ message: 'El nombre del circuito es obligatorio' });
             return;
         }
 
         try {
             setLoading(true);
             await api.post('/circuitos', { 
-                nombre: nombre.toUpperCase(), // Lo guardamos en mayúsculas por convención
+                nombre: nombre.toUpperCase(),
                 activo 
             });
-            
-            // Regresamos a la tabla de circuitos
+
+            toast({ message: 'Circuito creado correctamente' });
             navigate(-1); 
         } catch (error) {
             console.error("Error al crear circuito:", error);
-            alert("Hubo un error al guardar. Es posible que este nombre de circuito ya exista.");
+            await alert({ message: "Hubo un error al guardar. Es posible que este nombre de circuito ya exista." });
         } finally {
             setLoading(false);
         }
