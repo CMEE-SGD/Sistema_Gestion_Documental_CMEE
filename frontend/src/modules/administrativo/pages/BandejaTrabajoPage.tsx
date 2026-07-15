@@ -24,6 +24,7 @@ import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 import { Button } from '../../../shared/components/atoms/button';
 import SubirCertificadoModal from '../components/SubirCertificadoModal';
 import ValidacionCertificadoModal from '../components/ValidacionCertificadoModal';
+import FirmarDigitalModal from '../components/FirmarDigitalModal';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
 import { type OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
 
@@ -549,6 +550,12 @@ export default function BandejaTrabajoPage() {
   const [isValidacionModalOpen, setIsValidacionModalOpen] = useState(false);
   const [selectedValidacionRecepcion, setSelectedValidacionRecepcion] =
     useState<{ id: number; estado: string; titulo: string } | null>(null);
+  const [isFirmaModalOpen, setIsFirmaModalOpen] = useState(false);
+  const [selectedFirma, setSelectedFirma] = useState<{
+    recepcionId: number;
+    certificadoId: number | null;
+    titulo: string;
+  } | null>(null);
 
   const handleVerCertificado = async (certificadoId: number) => {
     const token = localStorage.getItem('token');
@@ -832,12 +839,12 @@ export default function BandejaTrabajoPage() {
                                 variant="default"
                                 size="sm"
                                 onClick={() => {
-                                  setSelectedValidacionRecepcion({
-                                    id: req.id,
-                                    estado: req.estado,
-                                    titulo: 'Firmar Documento',
+                                  setSelectedFirma({
+                                    recepcionId: req.id,
+                                    certificadoId: req.certificados?.[0]?.id ?? null,
+                                    titulo: 'Firma del Técnico',
                                   });
-                                  setIsValidacionModalOpen(true);
+                                  setIsFirmaModalOpen(true);
                                 }}
                                 title="Firmar documento"
                                 className="bg-orange-600 hover:bg-orange-700 text-white"
@@ -853,12 +860,12 @@ export default function BandejaTrabajoPage() {
                               variant="default"
                               size="sm"
                               onClick={() => {
-                                setSelectedValidacionRecepcion({
-                                  id: req.id,
-                                  estado: req.estado,
-                                  titulo: 'Validar Jefatura',
+                                setSelectedFirma({
+                                  recepcionId: req.id,
+                                  certificadoId: req.certificados?.[0]?.id ?? null,
+                                  titulo: 'Firma del Jefe de Laboratorio',
                                 });
-                                setIsValidacionModalOpen(true);
+                                setIsFirmaModalOpen(true);
                               }}
                               title="Validar jefatura"
                               className="bg-indigo-600 hover:bg-indigo-700 text-white"
@@ -874,12 +881,12 @@ export default function BandejaTrabajoPage() {
                               variant="default"
                               size="sm"
                               onClick={() => {
-                                setSelectedValidacionRecepcion({
-                                  id: req.id,
-                                  estado: req.estado,
-                                  titulo: 'Aprobación Final',
+                                setSelectedFirma({
+                                  recepcionId: req.id,
+                                  certificadoId: req.certificados?.[0]?.id ?? null,
+                                  titulo: 'Firma del Director',
                                 });
-                                setIsValidacionModalOpen(true);
+                                setIsFirmaModalOpen(true);
                               }}
                               title="Aprobación final"
                               className="bg-rose-600 hover:bg-rose-700 text-white"
@@ -975,6 +982,20 @@ export default function BandejaTrabajoPage() {
         recepcionId={selectedValidacionRecepcion?.id ?? null}
         estadoActual={selectedValidacionRecepcion?.estado ?? ''}
         tituloAccion={selectedValidacionRecepcion?.titulo ?? ''}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+        }}
+      />
+
+      <FirmarDigitalModal
+        isOpen={isFirmaModalOpen}
+        onClose={() => {
+          setIsFirmaModalOpen(false);
+          setSelectedFirma(null);
+        }}
+        recepcionId={selectedFirma?.recepcionId ?? null}
+        certificadoId={selectedFirma?.certificadoId ?? null}
+        tituloAccion={selectedFirma?.titulo ?? ''}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
         }}

@@ -167,6 +167,7 @@ model Persona {
   ordenes_recibidas        OrdenTrabajo[]     @relation("PersonaRecibeOrden")
   certificados_subidos     Certificado[]      @relation("TecnicoCertificado")
   historial_estados        HistorialEstado[]  @relation("HistorialEstadoPersona")
+  firmas_digitales         FirmaDigital[]     @relation("FirmanteDigital")
 
   @@map("persona")
 }
@@ -744,6 +745,8 @@ model Certificado {
   // Identificador público no adivinable para verificación de autenticidad
   codigo_verificacion   String    @unique @default(uuid())
 
+  firmas                FirmaDigital[]
+
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -755,6 +758,50 @@ model Certificado {
 enum TipoCliente {
   MILITAR
   CIVIL
+}
+
+// ==========================================
+// FIRMA DIGITAL — firma criptográfica real (PAdES) aplicada en el navegador
+// del firmante con su certificado .p12 personal. El servidor nunca recibe
+// la clave privada ni la contraseña del .p12: solo el PDF ya firmado, que
+// se verifica criptográficamente antes de aceptarlo. Este modelo guarda
+// evidencia de la firma (datos públicos del certificado), no el mecanismo.
+// ==========================================
+enum EtapaFirma {
+  TECNICO
+  JEFE
+  DIRECTOR
+}
+
+model FirmaDigital {
+  id                  Int         @id @default(autoincrement())
+
+  certificado_id      Int
+  certificado         Certificado @relation(fields: [certificado_id], references: [id])
+
+  firmante_id         Int
+  firmante            Persona     @relation("FirmanteDigital", fields: [firmante_id], references: [id])
+
+  etapa               EtapaFirma
+
+  // Datos públicos extraídos del certificado .p12 al momento de firmar —
+  // nunca la clave privada ni la contraseña, que no salen del navegador.
+  certificado_titular       String   @db.VarChar(200)
+  certificado_emisor        String   @db.VarChar(200)
+  certificado_numero_serie  String   @db.VarChar(100)
+  certificado_valido_desde  DateTime
+  certificado_valido_hasta  DateTime
+
+  // Hash SHA-256 del PDF resultante en el momento de esta firma —
+  // permite detectar si el archivo fue alterado después de firmarse.
+  hash_documento      String      @db.VarChar(128)
+
+  fecha_firma         DateTime    @default(now())
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([certificado_id])
+  @@index([firmante_id])
+  @@map("firma_digital")
 }
 
 // Historial de transiciones de estado POR EQUIPO (Detalle)

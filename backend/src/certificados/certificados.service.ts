@@ -1,14 +1,17 @@
 import * as path from 'path';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
 import {
   Injectable,
   BadRequestException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { EstadoRecepcion } from '@prisma/client';
+import { EstadoRecepcion, EtapaFirma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { HydratedUser } from '../common/helpers/lab-scope';
 import { formatearNumeroCertificado } from '../common/helpers/certificado-format';
+import { verificarFirmaPdf } from '../common/helpers/pdf-signature';
 
 function conNumeroFormateado<
   T extends { numero_certificado: number; fecha_subida: Date },
@@ -140,6 +143,189 @@ export class CertificadosService {
       });
 
       return creado ? conNumeroFormateado(creado) : creado;
+    });
+  }
+
+  /**
+   * Firma digitalmente un certificado con un PDF ya firmado en el
+   * navegador del firmante (con su .p12 personal) — la clave privada y la
+   * contraseña del .p12 nunca llegan al servidor. Reemplaza el "Aprobar"
+   * genérico para los tres pasos que realmente firman: técnico que calibró,
+   * jefe de laboratorio y director. La firma se verifica criptográficamente
+   * aquí; no se confía en que el cliente diga "ya firmé".
+   */
+  async firmar(
+    certificadoId: number,
+    file: Express.Multer.File,
+    user: HydratedUser,
+  ) {
+    const certificado = await this.prisma.certificado.findUnique({
+      where: { id: certificadoId },
+      include: {
+        equipo_recepcion: {
+          select: {
+            id: true,
+            estado: true,
+            tecnico_id: true,
+          },
+        },
+      },
+    });
+
+    if (!certificado) {
+      throw new NotFoundException(
+        `Certificado con ID ${certificadoId} no encontrado`,
+      );
+    }
+
+    const equipo = certificado.equipo_recepcion;
+
+    let personaId = user.persona_id;
+    let puesto = user.puesto ?? '';
+
+    if (!puesto && user.id) {
+      const usuario = await this.prisma.usuario.findUnique({
+        where: { id: user.id },
+        select: {
+          persona: {
+            select: {
+              id: true,
+              puestos: {
+                where: { activo: true },
+                orderBy: { orden_puesto: 'asc' },
+                take: 1,
+                select: {
+                  puesto: { select: { nombre: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const puestos = usuario?.persona?.puestos ?? [];
+      personaId = usuario?.persona?.id;
+      puesto = puestos[0]?.puesto?.nombre ?? '';
+    }
+
+    if (!user.isGod && !personaId) {
+      throw new ForbiddenException(
+        'No se pudo determinar la persona asociada a este usuario',
+      );
+    }
+
+    const n = Array.from(puesto.toLowerCase().normalize('NFD'))
+      .filter((ch) => {
+        const code = ch.codePointAt(0) ?? 0;
+        return code < 0x0300 || code > 0x036f;
+      })
+      .join('');
+
+    const esTecnico = n.includes('tecnico') && !n.includes('observador');
+    // Excluye "calidad" — "Jefe Departamento Gestión de la Calidad" también
+    // contiene "jefe" y no debe colar como Jefe de Laboratorio.
+    const esJefe = n.includes('jefe') && !n.includes('calidad');
+    const esDirector = n.includes('director');
+
+    let etapa: EtapaFirma;
+    let estadoNuevo: EstadoRecepcion;
+
+    switch (equipo.estado) {
+      case EstadoRecepcion.PENDIENTE_FIRMA_TECNICO:
+        if (!user.isGod) {
+          if (!esTecnico) {
+            throw new ForbiddenException(
+              'Solo el técnico asignado puede firmar en este paso',
+            );
+          }
+          if (equipo.tecnico_id !== personaId) {
+            throw new ForbiddenException(
+              'No eres el técnico asignado a este equipo',
+            );
+          }
+        }
+        etapa = EtapaFirma.TECNICO;
+        estadoNuevo = EstadoRecepcion.REVISION_JEFE;
+        break;
+
+      case EstadoRecepcion.REVISION_JEFE:
+        if (!user.isGod && !esJefe) {
+          throw new ForbiddenException(
+            'Solo el Jefe de Laboratorio puede firmar en este paso',
+          );
+        }
+        etapa = EtapaFirma.JEFE;
+        estadoNuevo = EstadoRecepcion.REVISION_DIRECTOR;
+        break;
+
+      case EstadoRecepcion.REVISION_DIRECTOR:
+        if (!user.isGod && !esDirector) {
+          throw new ForbiddenException(
+            'Solo el Director puede firmar en este paso',
+          );
+        }
+        etapa = EtapaFirma.DIRECTOR;
+        estadoNuevo = EstadoRecepcion.LISTO_PARA_ENTREGA;
+        break;
+
+      default:
+        throw new BadRequestException(
+          'Este equipo no se encuentra en un paso que requiera firma digital',
+        );
+    }
+
+    const pdfBuffer = await fs.promises.readFile(file.path);
+    const resultado = verificarFirmaPdf(pdfBuffer);
+
+    if (!resultado.valido || !resultado.certificado) {
+      throw new BadRequestException(
+        resultado.error || 'La firma digital del PDF no es válida',
+      );
+    }
+
+    const hashDocumento = crypto
+      .createHash('sha256')
+      .update(pdfBuffer)
+      .digest('hex');
+    const firmanteId = user.isGod ? 1 : (personaId as number);
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.certificado.update({
+        where: { id: certificadoId },
+        data: { ruta_archivo: file.path, nombre_original: file.originalname },
+      });
+
+      const firma = await tx.firmaDigital.create({
+        data: {
+          certificado_id: certificadoId,
+          firmante_id: firmanteId,
+          etapa,
+          certificado_titular: resultado.certificado!.titular,
+          certificado_emisor: resultado.certificado!.emisor,
+          certificado_numero_serie: resultado.certificado!.numeroSerie,
+          certificado_valido_desde: resultado.certificado!.validoDesde,
+          certificado_valido_hasta: resultado.certificado!.validoHasta,
+          hash_documento: hashDocumento,
+        },
+      });
+
+      await tx.equipoRecepcion.update({
+        where: { id: equipo.id },
+        data: { estado: estadoNuevo },
+      });
+
+      await tx.historialEstado.create({
+        data: {
+          equipo_recepcion_id: equipo.id,
+          estado_anterior: equipo.estado,
+          estado_nuevo: estadoNuevo,
+          accion: 'APROBAR',
+          observaciones: `Firmado digitalmente por ${resultado.certificado!.titular}`,
+          realizado_por_id: firmanteId,
+        },
+      });
+
+      return { firma, estado_nuevo: estadoNuevo };
     });
   }
 
