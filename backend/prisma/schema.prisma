@@ -167,6 +167,8 @@ model Persona {
   ordenes_recibidas        OrdenTrabajo[]     @relation("PersonaRecibeOrden")
   certificados_subidos     Certificado[]      @relation("TecnicoCertificado")
   historial_estados        HistorialEstado[]  @relation("HistorialEstadoPersona")
+  auditorias_responsable   AuditoriaInterna[] @relation("AuditoriaResponsable")
+  ncs_responsable          NoConformidad[]    @relation("NcResponsable")
 
   @@map("persona")
 }
@@ -804,4 +806,76 @@ model Notificacion {
 
   @@index([usuario_id, leido])
   @@map("notificaciones")
+}
+
+// ==========================================
+// MÓDULO CALIDAD — Auditorías Internas y No Conformidades
+// ==========================================
+
+enum TipoAuditoria {
+  INTERNA
+  EXTERNA
+}
+
+enum EstadoAuditoria {
+  PLANIFICADA
+  EN_CURSO
+  CERRADA
+}
+
+enum ClasificacionNC {
+  MENOR
+  MAYOR
+  CRITICA
+}
+
+enum EstadoNC {
+  ABIERTA
+  EN_CURSO
+  CERRADA
+  VERIFICADA
+}
+
+model AuditoriaInterna {
+  id              Int              @id @default(autoincrement())
+  codigo          String           @unique @db.VarChar(50)
+  tipo            TipoAuditoria    @default(INTERNA)
+  alcance         String           @db.Text
+  fecha_inicio    DateTime         @db.Date
+  fecha_fin       DateTime?        @db.Date
+  responsable_id  Int
+  responsable     Persona          @relation("AuditoriaResponsable", fields: [responsable_id], references: [id], onDelete: Restrict)
+  estado          EstadoAuditoria  @default(PLANIFICADA)
+  observaciones           String?          @db.Text
+  archivo_planificacion   String?          @db.VarChar(500)
+  activo                  Boolean          @default(true)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  no_conformidades NoConformidad[]
+
+  @@index([responsable_id])
+  @@map("auditoria_interna")
+}
+
+model NoConformidad {
+  id                  Int               @id @default(autoincrement())
+  codigo              String            @unique @db.VarChar(50)
+  auditoria_id        Int
+  auditoria           AuditoriaInterna  @relation(fields: [auditoria_id], references: [id], onDelete: Cascade)
+  descripcion         String            @db.Text
+  requisito_incumplido String?          @db.VarChar(500)
+  clasificacion       ClasificacionNC   @default(MENOR)
+  causa_raiz          String?           @db.Text
+  acciones_inmediatas String?           @db.Text
+  estado              EstadoNC          @default(ABIERTA)
+  responsable_id      Int?
+  responsable         Persona?          @relation("NcResponsable", fields: [responsable_id], references: [id], onDelete: Restrict)
+  fecha_cierre        DateTime?         @db.Date
+  activo              Boolean           @default(true)
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([auditoria_id])
+  @@map("no_conformidad")
 }
