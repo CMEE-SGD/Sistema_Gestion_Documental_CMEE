@@ -6,12 +6,14 @@ import { logoCentro } from "../../assets";
 import { laboratorio } from "../../assets";
 import api from "../../core/api/axios";
 import { AlertCircle } from 'lucide-react'; // 👇 1. Importamos el ícono de alerta
+import { useConfiguracionGeneral } from "../../shared/hooks/useConfiguracionGeneral";
 
 export default function LoginPage() {
+  const { nombreInstitucion } = useConfiguracionGeneral();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  
+
   // 👇 2. Cambiamos error (string) por errores (arreglo de strings)
   const [errores, setErrores] = useState<string[]>([]); 
   const [loading, setLoading] = useState(false);
@@ -153,7 +155,7 @@ export default function LoginPage() {
               Sistema de Gestión Documental
             </h2>
             <p className="text-slate-200 text-lg max-w-lg">
-              Centro de Metrología del Ejército Ecuatoriano
+              {nombreInstitucion}
             </p>
           </div>
         </div>

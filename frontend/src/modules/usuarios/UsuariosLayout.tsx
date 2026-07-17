@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Users, UsersRound } from 'lucide-react';
+import { Users, UsersRound, Settings } from 'lucide-react';
 import Navbar from '../../shared/components/organisms/Navbar';
+import { tienePermiso } from '../../shared/utils/auth';
 
 export const UsuariosLayout = () => {
     const navigate = useNavigate();
@@ -10,6 +11,9 @@ export const UsuariosLayout = () => {
     const menuItems = [
         { name: 'Usuarios', path: '/usuarios', icon: <Users className="w-4 h-4" /> },
         { name: 'Grupos', path: '/usuarios/grupos', icon: <UsersRound className="w-4 h-4" /> },
+        ...(tienePermiso('Gestion de Usuarios', 5)
+            ? [{ name: 'Configuración General', path: '/usuarios/configuracion', icon: <Settings className="w-4 h-4" /> }]
+            : []),
     ];
 
     return (

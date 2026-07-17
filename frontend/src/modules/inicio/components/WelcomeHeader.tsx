@@ -1,6 +1,8 @@
 import { logoCentro } from '../../../assets';
+import { useConfiguracionGeneral } from '../../../shared/hooks/useConfiguracionGeneral';
 
 const WelcomeHeader = () => {
+    const { nombreInstitucion } = useConfiguracionGeneral();
     return (
         <div className="bg-card border border-border rounded-2xl shadow-sm flex flex-col md:flex-row items-center md:items-start gap-8 px-10 py-10 mb-6">
             <img 
@@ -12,7 +14,7 @@ const WelcomeHeader = () => {
             <div className="flex flex-col gap-1 text-center md:text-left">
                 {/* Título usando tu variable primary (#1e3a5f) */}
                 <h1 className="text-3xl font-bold text-primary tracking-tight">
-                    Centro de Metrología del Ejército Ecuatoriano
+                    {nombreInstitucion}
                 </h1>
                 
                 {/* Subtítulo discreto pero legible */}

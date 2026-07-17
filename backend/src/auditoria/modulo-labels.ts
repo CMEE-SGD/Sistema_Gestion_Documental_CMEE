@@ -20,6 +20,7 @@ export const MODULO_LABELS: Record<string, string> = {
   AUDITORIA: 'Auditoría',
   NOTIFICACIONES: 'Notificaciones',
   'PERSONA-PUESTO': 'Asignación de Puestos',
+  'CONFIGURACION-GENERAL': 'Configuración General',
 };
 
 export function etiquetaModulo(modulo: string): string {

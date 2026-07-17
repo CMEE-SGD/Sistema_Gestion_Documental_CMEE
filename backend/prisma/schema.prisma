@@ -871,6 +871,25 @@ enum EstadoRecepcion {
 }
 
 // ==========================================
+// CONFIGURACIÓN GENERAL — fila única (id=1) con parámetros del sistema
+// editables por un administrador, para no tener datos institucionales ni
+// parámetros de seguridad fijos ("hardcoded") en el código fuente.
+// ==========================================
+model ConfiguracionGeneral {
+  id Int @id @default(1)
+
+  nombre_institucion String @db.VarChar(200)
+
+  // Intentos fallidos de login consecutivos antes de bloquear la cuenta
+  // automáticamente — ver evaluarBloqueoAutomatico() en usuarios.service.ts.
+  max_intentos_fallidos_login Int @default(5) @db.SmallInt
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("configuracion_general")
+}
+
+// ==========================================
 // NOTIFICACIONES
 // ==========================================
 model Notificacion {

@@ -45,6 +45,8 @@ import { UsuariosLayout } from '../../modules/usuarios/UsuariosLayout';
 import { UsuariosPage } from '../../modules/usuarios/UsuariosPage';
 import { UsuariosGruposPage } from '../../modules/usuarios/UsuariosGrupoPage';
 import { GrupoFormPage } from '../../modules/usuarios/GrupoFormPage';
+import { ConfiguracionGeneralPage } from '../../modules/usuarios/ConfiguracionGeneralPage';
+import { PreferenciasPage } from '../../modules/usuarios/PreferenciasPage';
 
 // --- GESTOR DOCUMENTAL ---
 import { GestorDocumentalPage } from '../../modules/gestor_documental/pages/index';
@@ -89,7 +91,10 @@ const AppRouter = () => {
           <Route path="grupos" element={<UsuariosGruposPage />} />
           <Route path="grupos/nuevo" element={<GrupoFormPage />} />
           <Route path="grupos/editar/:id" element={<GrupoFormPage />} />
+          <Route path="configuracion" element={<ConfiguracionGeneralPage />} />
         </Route>
+
+        <Route path="/preferencias" element={<PreferenciasPage />} />
 
         <Route path="/rrhh" element={<RRHHLayout />}>
           <Route index element={<IndexRRHHPage />} />

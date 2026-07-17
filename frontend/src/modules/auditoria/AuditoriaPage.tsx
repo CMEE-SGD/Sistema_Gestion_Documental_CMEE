@@ -28,6 +28,7 @@ const MODULOS: { value: string; label: string }[] = [
     { value: 'AUDITORIA', label: 'Auditoría' },
     { value: 'NOTIFICACIONES', label: 'Notificaciones' },
     { value: 'PERSONA-PUESTO', label: 'Asignación de Puestos' },
+    { value: 'CONFIGURACION-GENERAL', label: 'Configuración General' },
 ];
 
 const ACCIONES: { value: string; label: string }[] = [
