@@ -37,6 +37,9 @@ export const UsuarioFormPage = () => {
         idioma: 'Español (Ecuador)', acceso_preferencias: false, acceso_chat: false
     });
 
+    const [mostrarCambioClave, setMostrarCambioClave] = useState(false);
+    const [confirmarClave, setConfirmarClave] = useState('');
+
     useEffect(() => {
         const fetchDatos = async () => {
             // 1. Cargar Personas (Recursos)
@@ -73,6 +76,8 @@ export const UsuarioFormPage = () => {
                         acceso_preferencias: usuario.acceso_preferencias ?? false,
                         acceso_chat: usuario.acceso_chat ?? false
                     });
+                    setMostrarCambioClave(false);
+                    setConfirmarClave('');
                 } catch (error) {
                     console.error("Error al cargar usuario", error);
                 }
@@ -124,6 +129,18 @@ export const UsuarioFormPage = () => {
                 await alert({ message: "La contraseña es requerida para crear un usuario" });
                 setLoading(false);
                 return;
+            }
+            if (id && mostrarCambioClave && formData.clave.trim()) {
+                if (formData.clave.trim().length < 6) {
+                    await alert({ message: "La nueva contraseña debe tener al menos 6 caracteres" });
+                    setLoading(false);
+                    return;
+                }
+                if (formData.clave.trim() !== confirmarClave.trim()) {
+                    await alert({ message: "Las contraseñas nuevas no coinciden" });
+                    setLoading(false);
+                    return;
+                }
             }
 
             const payload: any = {
@@ -275,10 +292,35 @@ export const UsuarioFormPage = () => {
                                     <label className="text-sm text-gray-700">Contraseña*</label>
                                     <input type="password" name="clave" required minLength={6} value={formData.clave} onChange={handleChange} className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500" />
                                 </div>
-                            ) : (
-                                <button type="button" className="bg-[#2185d0] text-white px-4 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors">
+                            ) : !mostrarCambioClave ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setMostrarCambioClave(true)}
+                                    className="bg-[#2185d0] text-white px-4 py-1.5 rounded text-sm hover:bg-blue-600 transition-colors"
+                                >
                                     Cambiar contraseña
                                 </button>
+                            ) : (
+                                <div className="flex flex-col gap-3 w-full max-w-sm p-4 bg-muted/30 rounded-lg border border-border">
+                                    <p className="text-xs text-muted-foreground">
+                                        Como administrador puedes fijar una nueva contraseña para este usuario. Se aplicará al guardar los cambios.
+                                    </p>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-sm text-gray-700">Nueva contraseña</label>
+                                        <input type="password" name="clave" minLength={6} value={formData.clave} onChange={handleChange} className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500" />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-sm text-gray-700">Confirmar nueva contraseña</label>
+                                        <input type="password" minLength={6} value={confirmarClave} onChange={(e) => setConfirmarClave(e.target.value)} className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500" />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setMostrarCambioClave(false); setFormData(prev => ({ ...prev, clave: '' })); setConfirmarClave(''); }}
+                                        className="text-xs text-muted-foreground hover:text-foreground self-start"
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
                             )}
 
                             <div className="mt-4">
