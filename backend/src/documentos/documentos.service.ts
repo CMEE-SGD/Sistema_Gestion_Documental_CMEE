@@ -2,8 +2,11 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { CarpetasService } from '../carpetas/carpetas.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import type { HydratedUser } from '../common/helpers/lab-scope';
+import { verificarFirmaPdf } from '../common/helpers/pdf-signature';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class DocumentosService {
@@ -210,8 +213,49 @@ export class DocumentosService {
     return wf;
   }
 
-  async avanzarFase(file: Express.Multer.File, data: any) {
-    const documentoId = parseInt(data.documento_id, 10);
+  /** Resuelve la persona real asociada al usuario autenticado (nunca datos enviados por el cliente). */
+  private async resolverPersonaId(user: HydratedUser): Promise<number> {
+    if (user.isGod) return 1;
+    let personaId = user.persona_id;
+    if (!personaId && user.id) {
+      const usuario = await this.prisma.usuario.findUnique({
+        where: { id: user.id },
+        select: { persona_id: true },
+      });
+      personaId = usuario?.persona_id;
+    }
+    if (!personaId) {
+      throw new ForbiddenException(
+        'No se pudo determinar la persona asociada a este usuario',
+      );
+    }
+    return personaId;
+  }
+
+  /** Lanza ForbiddenException si la persona no es participante asignado de la fase (cuando la fase sí tiene participantes definidos). */
+  private async verificarParticipante(faseId: number, personaId: number, user: HydratedUser) {
+    if (user.isGod) return;
+    const totalParticipantes = await this.prisma.faseParticipante.count({ where: { fase_id: faseId } });
+    if (totalParticipantes === 0) return; // Fase sin participantes definidos: cualquiera con acceso al módulo puede procesarla.
+    const esParticipante = await this.prisma.faseParticipante.findFirst({
+      where: { fase_id: faseId, persona_id: personaId },
+    });
+    if (!esParticipante) {
+      throw new ForbiddenException('No eres uno de los participantes asignados a esta fase');
+    }
+  }
+
+  /**
+   * Firma digitalmente la fase activa del workflow con un PDF ya firmado en
+   * el navegador del firmante (su .p12 personal) — la clave privada nunca
+   * llega al servidor. Reemplaza el "avanzar fase" genérico: el firmante se
+   * resuelve del usuario autenticado (no de lo que mande el cliente), se
+   * valida que sea participante de la fase, y la firma se verifica
+   * criptográficamente antes de aceptarla. El archivo del Documento se
+   * actualiza en cada paso para que el siguiente firmante reciba
+   * automáticamente el PDF con la firma anterior ya incluida.
+   */
+  async firmarFase(documentoId: number, file: Express.Multer.File, user: HydratedUser) {
     const doc = await this.prisma.documento.findUnique({ where: { id: documentoId } });
     if (!doc) throw new NotFoundException('Documento no encontrado');
 
@@ -224,6 +268,16 @@ export class DocumentosService {
     const faseActual = workflow.fases.find((f) => f.estado === 'EN_CURSO');
     if (!faseActual) throw new BadRequestException('No hay una fase activa');
 
+    const personaId = await this.resolverPersonaId(user);
+    await this.verificarParticipante(faseActual.fase_id, personaId, user);
+
+    const pdfBuffer = await fs.promises.readFile(file.path);
+    const resultado = verificarFirmaPdf(pdfBuffer);
+    if (!resultado.valido || !resultado.certificado) {
+      throw new BadRequestException(resultado.error || 'La firma digital del PDF no es válida');
+    }
+    const hashDocumento = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+
     const rutaDestinoRelativa = await this.obtenerRutaFisica(doc.carpeta_id);
     const rutaDestinoAbsoluta = path.resolve(process.cwd(), rutaDestinoRelativa);
     if (!fs.existsSync(rutaDestinoAbsoluta)) fs.mkdirSync(rutaDestinoAbsoluta, { recursive: true });
@@ -231,17 +285,34 @@ export class DocumentosService {
     const nombreArchivo = `firma_${faseActual.id}_${file.filename}`;
     const rutaFisicaFinal = path.join(rutaDestinoAbsoluta, nombreArchivo);
     fs.renameSync(file.path, rutaFisicaFinal);
+    const urlParaBD = path.join(rutaDestinoRelativa, nombreArchivo).replace(/\\/g, '/');
 
     return this.prisma.$transaction(async (tx) => {
       await tx.documentoWorkflowFase.update({
         where: { id: faseActual.id },
         data: {
           estado: 'COMPLETADO',
-          archivo_url: path.join(rutaDestinoRelativa, nombreArchivo).replace(/\\/g, '/'),
-          procesado_por: data.procesado_por || null,
-          comentario: data.comentario || null,
+          archivo_url: urlParaBD,
+          procesado_por: resultado.certificado!.titular,
         },
       });
+
+      await tx.firmaDocumentoFase.create({
+        data: {
+          documento_workflow_fase_id: faseActual.id,
+          firmante_id: personaId,
+          certificado_titular: resultado.certificado!.titular,
+          certificado_emisor: resultado.certificado!.emisor,
+          certificado_numero_serie: resultado.certificado!.numeroSerie,
+          certificado_valido_desde: resultado.certificado!.validoDesde,
+          certificado_valido_hasta: resultado.certificado!.validoHasta,
+          hash_documento: hashDocumento,
+        },
+      });
+
+      // El archivo "actual" del documento avanza con cada firma, para que el
+      // siguiente firmante reciba automáticamente el PDF ya co-firmado.
+      await tx.documento.update({ where: { id: documentoId }, data: { archivo_url: urlParaBD } });
 
       const idxActual = workflow.fases.findIndex((f) => f.id === faseActual.id);
       const siguienteFase = workflow.fases[idxActual + 1];
@@ -259,7 +330,7 @@ export class DocumentosService {
     });
   }
 
-  async rechazarFase(documentoId: number, data: any) {
+  async rechazarFase(documentoId: number, data: any, user: HydratedUser) {
     const workflow = await this.prisma.documentoWorkflow.findUnique({
       where: { documento_id: documentoId },
       include: { fases: { orderBy: { id: 'asc' } } },
@@ -269,10 +340,19 @@ export class DocumentosService {
     const faseActual = workflow.fases.find((f) => f.estado === 'EN_CURSO');
     const faseAnterior = [...workflow.fases].reverse().find((f) => f.estado === 'COMPLETADO');
 
+    const personaId = await this.resolverPersonaId(user);
+    await this.verificarParticipante(faseActual.fase_id, personaId, user);
+
+    const persona = await this.prisma.persona.findUnique({
+      where: { id: personaId },
+      select: { nombre: true, apellidos: true },
+    });
+    const nombreRechazante = persona ? `${persona.nombre} ${persona.apellidos}` : null;
+
     return this.prisma.$transaction(async (tx) => {
       await tx.documentoWorkflowFase.update({
         where: { id: faseActual.id },
-        data: { estado: 'RECHAZADO', procesado_por: data.procesado_por || null, comentario: data.comentario || null },
+        data: { estado: 'RECHAZADO', procesado_por: nombreRechazante, comentario: data.comentario || null },
       });
       if (faseAnterior) await tx.documentoWorkflowFase.update({ where: { id: faseAnterior.id }, data: { estado: 'EN_CURSO' } });
       return tx.documentoWorkflow.findUnique({ where: { id: workflow.id }, include: { circuito: true, fases: { orderBy: { id: 'asc' } } } });

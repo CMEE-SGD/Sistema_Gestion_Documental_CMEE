@@ -1,5 +1,4 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { FileSignature, Loader2, Upload, X, XCircle } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
@@ -14,10 +13,14 @@ const SelectorPosicionFirma = lazy(
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  /** ID del EquipoRecepcion — se usa para el camino de rechazo (transición de estado normal). */
-  recepcionId: number | null;
-  /** ID del Certificado cuyo PDF hay que descargar, firmar y volver a subir. */
-  certificadoId: number | null;
+  /** ID del Documento cuyo workflow se está firmando/rechazando. */
+  documentoId: number | null;
+  /**
+   * Ruta relativa del PDF actual del documento (`documento.archivo_url`) —
+   * ya incluye las firmas de fases anteriores, así que el firmante nunca
+   * tiene que descargar y volver a subir manualmente.
+   */
+  archivoUrl: string | null;
   tituloAccion: string;
   onSuccess: () => void;
 }
@@ -26,6 +29,7 @@ type Accion = 'FIRMAR' | 'RECHAZAR';
 type Paso = 'idle' | 'firmando' | 'subiendo';
 
 const API_BASE = import.meta.env.VITE_API_URL;
+const BACKEND_BASE = (import.meta as any).env.VITE_BACKEND_URL || '';
 
 const PASO_LABEL: Record<Paso, string> = {
   idle: '',
@@ -33,15 +37,14 @@ const PASO_LABEL: Record<Paso, string> = {
   subiendo: 'Subiendo documento firmado…',
 };
 
-export default function FirmarDigitalModal({
+export default function FirmarDocumentoModal({
   isOpen,
   onClose,
-  recepcionId,
-  certificadoId,
+  documentoId,
+  archivoUrl,
   tituloAccion,
   onSuccess,
 }: Props) {
-  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [accion, setAccion] = useState<Accion | null>(null);
@@ -56,20 +59,17 @@ export default function FirmarDigitalModal({
 
   const enviando = paso !== 'idle';
 
-  // Al elegir "Firmar digitalmente" se descarga el PDF actual una sola vez,
+  // Al elegir "Firmar documento" se descarga el PDF actual una sola vez,
   // para poder mostrarlo y que el usuario elija dónde va el sello.
   useEffect(() => {
-    if (accion !== 'FIRMAR' || pdfDescargado || !certificadoId) return;
+    if (accion !== 'FIRMAR' || pdfDescargado || !archivoUrl) return;
     let cancelado = false;
     setCargandoPdf(true);
     setError(null);
     (async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(
-          `${API_BASE}/certificados/download/${certificadoId}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
+        const rutaLimpia = archivoUrl.replace(/\\/g, '/');
+        const res = await fetch(`${BACKEND_BASE}/${rutaLimpia}`);
         if (!res.ok) throw new Error('No se pudo descargar el documento a firmar.');
         const bytes = new Uint8Array(await res.arrayBuffer());
         if (!cancelado) setPdfDescargado(bytes);
@@ -84,7 +84,7 @@ export default function FirmarDigitalModal({
     return () => {
       cancelado = true;
     };
-  }, [accion, certificadoId, pdfDescargado]);
+  }, [accion, archivoUrl, pdfDescargado]);
 
   const resetYcerrar = () => {
     setAccion(null);
@@ -101,20 +101,17 @@ export default function FirmarDigitalModal({
   };
 
   const handleRechazar = async () => {
-    if (!recepcionId) return;
+    if (!documentoId) return;
     const token = localStorage.getItem('token');
     const res = await fetch(
-      `${API_BASE}/recepcion-equipos/${recepcionId}/transicion-estado`,
+      `${API_BASE}/documentos/${documentoId}/workflow/rechazar`,
       {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          accion: 'RECHAZAR',
-          observaciones: observaciones.trim(),
-        }),
+        body: JSON.stringify({ comentario: observaciones.trim() }),
       },
     );
     if (!res.ok) {
@@ -124,7 +121,7 @@ export default function FirmarDigitalModal({
   };
 
   const handleFirmar = async () => {
-    if (!certificadoId || !pdfDescargado || !p12File || !posicionFirma) return;
+    if (!documentoId || !pdfDescargado || !p12File || !posicionFirma) return;
     const token = localStorage.getItem('token');
 
     setPaso('firmando');
@@ -142,12 +139,12 @@ export default function FirmarDigitalModal({
     setPaso('subiendo');
     const formData = new FormData();
     formData.append(
-      'file',
+      'archivo',
       new Blob([pdfFirmado], { type: 'application/pdf' }),
-      'certificado_firmado.pdf',
+      'documento_firmado.pdf',
     );
     const resSubida = await fetch(
-      `${API_BASE}/certificados/${certificadoId}/firmar`,
+      `${API_BASE}/documentos/${documentoId}/workflow/firmar`,
       {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -173,7 +170,6 @@ export default function FirmarDigitalModal({
       } else {
         return;
       }
-      queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
       onSuccess();
       resetYcerrar();
     } catch (err) {
@@ -188,7 +184,7 @@ export default function FirmarDigitalModal({
     }
   };
 
-  if (!isOpen || !recepcionId) return null;
+  if (!isOpen || !documentoId) return null;
 
   const puedeFirmar =
     accion === 'FIRMAR' && p12File && password.length > 0 && !!posicionFirma;
@@ -219,7 +215,7 @@ export default function FirmarDigitalModal({
             <p className="text-sm text-muted-foreground">
               Firme con su certificado personal (.p12). El archivo y la
               contraseña no se envían al servidor — la firma se calcula en
-              este navegador.
+              este navegador, sobre el PDF ya firmado por los pasos anteriores.
             </p>
 
             <div>
@@ -239,7 +235,7 @@ export default function FirmarDigitalModal({
                   )}
                 >
                   <FileSignature className="h-5 w-5" />
-                  Firmar digitalmente
+                  Firmar documento
                 </button>
                 <button
                   type="button"
@@ -286,7 +282,7 @@ export default function FirmarDigitalModal({
                   <div className="space-y-3 border-t border-border pt-4">
                     <div>
                       <label
-                        htmlFor="p12-file"
+                        htmlFor="p12-file-doc"
                         className="mb-1.5 block text-sm font-medium text-foreground"
                       >
                         Certificado (.p12) <span className="text-destructive">*</span>
@@ -307,7 +303,7 @@ export default function FirmarDigitalModal({
                       </div>
                       <input
                         ref={fileInputRef}
-                        id="p12-file"
+                        id="p12-file-doc"
                         type="file"
                         accept=".p12,.pfx"
                         className="hidden"
@@ -318,14 +314,14 @@ export default function FirmarDigitalModal({
 
                     <div>
                       <label
-                        htmlFor="p12-password"
+                        htmlFor="p12-password-doc"
                         className="mb-1.5 block text-sm font-medium text-foreground"
                       >
                         Contraseña del certificado{' '}
                         <span className="text-destructive">*</span>
                       </label>
                       <input
-                        id="p12-password"
+                        id="p12-password-doc"
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -341,13 +337,13 @@ export default function FirmarDigitalModal({
             {accion === 'RECHAZAR' && (
               <div>
                 <label
-                  htmlFor="observaciones-rechazo"
+                  htmlFor="observaciones-rechazo-doc"
                   className="mb-1.5 block text-sm font-medium text-foreground"
                 >
                   Observaciones <span className="text-destructive">*</span>
                 </label>
                 <textarea
-                  id="observaciones-rechazo"
+                  id="observaciones-rechazo-doc"
                   rows={4}
                   placeholder="Indique el motivo del rechazo..."
                   value={observaciones}

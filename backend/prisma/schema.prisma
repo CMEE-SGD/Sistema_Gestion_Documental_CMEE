@@ -157,17 +157,18 @@ model Persona {
   usuario                  Usuario?
   puestos                  PersonaPuesto[]
   documentos               DocumentoPersona[]
-  deptos_responsable       Departamento[]     @relation("DeptoResponsable")
-  roles                    Rol[]              @relation("PersonaRoles")
+  deptos_responsable       Departamento[]       @relation("DeptoResponsable")
+  roles                    Rol[]                @relation("PersonaRoles")
   carpetas_permisos        CarpetaPermiso[]
   laboratorios_responsable Laboratorio[]
-  logs_recibidos           Auditoria[]        @relation("LogPersonaAfectada")
+  logs_recibidos           Auditoria[]          @relation("LogPersonaAfectada")
   fases_participadas       FaseParticipante[]
-  equipos_tecnicos         EquipoRecepcion[]  @relation("TecnicoRecepcion")
-  ordenes_recibidas        OrdenTrabajo[]     @relation("PersonaRecibeOrden")
-  certificados_subidos     Certificado[]      @relation("TecnicoCertificado")
-  historial_estados        HistorialEstado[]  @relation("HistorialEstadoPersona")
-  firmas_digitales         FirmaDigital[]     @relation("FirmanteDigital")
+  equipos_tecnicos         EquipoRecepcion[]    @relation("TecnicoRecepcion")
+  ordenes_recibidas        OrdenTrabajo[]       @relation("PersonaRecibeOrden")
+  certificados_subidos     Certificado[]        @relation("TecnicoCertificado")
+  historial_estados        HistorialEstado[]    @relation("HistorialEstadoPersona")
+  firmas_digitales         FirmaDigital[]       @relation("FirmanteDigital")
+  firmas_documentos        FirmaDocumentoFase[] @relation("FirmanteDocumentoFase")
 
   @@map("persona")
 }
@@ -403,7 +404,38 @@ model DocumentoWorkflowFase {
   created_at    DateTime           @default(now())
   updated_at    DateTime           @updatedAt
 
+  firmas FirmaDocumentoFase[]
+
   @@map("documentos_workflow_fases")
+}
+
+// Evidencia de firma digital real (PAdES) para una fase del workflow de
+// Gestor Documental — mismo mecanismo que FirmaDigital (certificados), pero
+// ligado a DocumentoWorkflowFase en vez de a Certificado. No se unifican en
+// un solo modelo porque son ciclos de vida y entidades padre distintas.
+model FirmaDocumentoFase {
+  id Int @id @default(autoincrement())
+
+  documento_workflow_fase_id Int
+  documento_workflow_fase    DocumentoWorkflowFase @relation(fields: [documento_workflow_fase_id], references: [id], onDelete: Cascade)
+
+  firmante_id Int
+  firmante    Persona @relation("FirmanteDocumentoFase", fields: [firmante_id], references: [id])
+
+  certificado_titular      String   @db.VarChar(200)
+  certificado_emisor       String   @db.VarChar(200)
+  certificado_numero_serie String   @db.VarChar(100)
+  certificado_valido_desde DateTime
+  certificado_valido_hasta DateTime
+
+  hash_documento String @db.VarChar(128)
+
+  fecha_firma DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([documento_workflow_fase_id])
+  @@index([firmante_id])
+  @@map("firma_documento_fase")
 }
 
 model DocumentoRelacion {

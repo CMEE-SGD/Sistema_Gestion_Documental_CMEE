@@ -92,27 +92,27 @@ export class DocumentosController {
     return this.documentosService.getWorkflow(+id);
   }
 
-  @Post(':id/workflow/avanzar')
+  // Firma digital real (PAdES/PKCS#7) — el PDF ya llega firmado desde el
+  // navegador del firmante con su .p12 personal; este endpoint solo
+  // verifica criptográficamente esa firma y avanza el workflow.
+  @Post(':id/workflow/firmar')
   @RequireAccess('Gestor Documental', 4)
   @UseInterceptors(FileInterceptor('archivo'))
-  async avanzarFase(
+  async firmarFase(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
+    @Req() req: any,
   ) {
     if (!file) {
-      throw new BadRequestException('Debe subir el PDF firmado.');
+      throw new BadRequestException('El PDF firmado es obligatorio y debe ser un archivo PDF.');
     }
-    return this.documentosService.avanzarFase(file, {
-      ...body,
-      documento_id: id,
-    });
+    return this.documentosService.firmarFase(+id, file, req.user);
   }
 
   @Post(':id/workflow/rechazar')
   @RequireAccess('Gestor Documental', 4)
-  rechazarFase(@Param('id') id: string, @Body() body: any) {
-    return this.documentosService.rechazarFase(+id, body);
+  rechazarFase(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.documentosService.rechazarFase(+id, body, req.user);
   }
 
   @Get(':id')

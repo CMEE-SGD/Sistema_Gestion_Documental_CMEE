@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Paperclip, RotateCcw, Upload } from 'lucide-react';
+import { Paperclip, RotateCcw, FileSignature } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import FirmarDocumentoModal from '../components/FirmarDocumentoModal';
+
+const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export const DetalleDocumentoPage = () => {
     const { id } = useParams();
@@ -21,13 +24,7 @@ export const DetalleDocumentoPage = () => {
     const [versionComentario, setVersionComentario] = useState('');
     const [subiendoVersion, setSubiendoVersion] = useState(false);
 
-    const [showWorkflowForm, setShowWorkflowForm] = useState(false);
-    const [workflowFile, setWorkflowFile] = useState<File | null>(null);
-    const [workflowComentario, setWorkflowComentario] = useState('');
-    const [subiendoWorkflow, setSubiendoWorkflow] = useState(false);
-
-    const [showRejectForm, setShowRejectForm] = useState(false);
-    const [rejectComentario, setRejectComentario] = useState('');
+    const [isFirmaModalOpen, setIsFirmaModalOpen] = useState(false);
     const [nivelPermiso, setNivelPermiso] = useState<number>(5);
 
     useEffect(() => {
@@ -76,7 +73,7 @@ export const DetalleDocumentoPage = () => {
     const handleDescargar = async () => {
         if (!documento?.archivo_url) return;
         
-        const backendUrl = 'http://localhost:3001';
+        const backendUrl = BACKEND_URL;
         const rutaLimpia = documento.archivo_url.replace(/\\/g, '/');
         const fileUrl = `${backendUrl}/${rutaLimpia}`;
 
@@ -106,7 +103,7 @@ export const DetalleDocumentoPage = () => {
     const handleImprimir = async () => {
         if (!documento?.archivo_url) return;
         
-        const backendUrl = 'http://localhost:3001';
+        const backendUrl = BACKEND_URL;
         const rutaLimpia = documento.archivo_url.replace(/\\/g, '/');
         const fileUrl = `${backendUrl}/${rutaLimpia}`;
 
@@ -146,7 +143,7 @@ export const DetalleDocumentoPage = () => {
         });
     };
     const handleDescargarArchivoWF = async (ruta: string) => {
-        const backendUrl = 'http://localhost:3001';
+        const backendUrl = BACKEND_URL;
         const rutaLimpia = ruta.replace(/\\/g, '/');
         const fileUrl = `${backendUrl}/${rutaLimpia}`;
         try {
@@ -169,7 +166,7 @@ export const DetalleDocumentoPage = () => {
     const handleAbrirFichero = () => {
         if (documento?.archivo_url) {
             // Reemplaza 'http://localhost:3001' si tu backend está en otro puerto o dominio
-            const backendUrl = 'http://localhost:3001';
+            const backendUrl = BACKEND_URL;
             const rutaLimpia = documento.archivo_url.replace(/\\/g, '/');
             window.open(`${backendUrl}/${rutaLimpia}`, '_blank', 'noopener,noreferrer');
         }
@@ -229,53 +226,15 @@ export const DetalleDocumentoPage = () => {
         }
     };
 
-    const getUserName = () => {
-        const userStr = localStorage.getItem('usuario');
-        if (!userStr) return 'Usuario';
+    // El firmante y el rechazante ahora se determinan en el backend a partir
+    // de la sesión autenticada — el modal solo necesita avisar que terminó
+    // para recargar el documento con su workflow actualizado.
+    const handleFirmaSuccess = async () => {
         try {
-            const user = JSON.parse(userStr);
-            return [user.persona?.nombre, user.persona?.apellidos].filter(Boolean).join(' ') || user.nombre_usuario || 'Usuario';
-        } catch { return 'Usuario'; }
-    };
-
-    const handleAvanzarFase = async () => {
-        if (!workflowFile) return;
-        setSubiendoWorkflow(true);
-        try {
-            const formData = new FormData();
-            formData.append('archivo', workflowFile);
-            formData.append('procesado_por', getUserName());
-            formData.append('comentario', workflowComentario);
-
-            const res = await api.post(`/documentos/${id}/workflow/avanzar`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-
-            setDocumento((prev: any) => ({ ...prev, workflow: res.data }));
-            setShowWorkflowForm(false);
-            setWorkflowFile(null);
-            setWorkflowComentario('');
+            const res = await api.get(`/documentos/${id}`);
+            setDocumento(res.data);
         } catch (err) {
-            console.error('Error avanzando fase:', err);
-            await alert({ message: 'Error al procesar la fase.' });
-        } finally {
-            setSubiendoWorkflow(false);
-        }
-    };
-
-    const handleRechazarFase = async () => {
-        if (!rejectComentario.trim()) return;
-        try {
-            const res = await api.post(`/documentos/${id}/workflow/rechazar`, {
-                procesado_por: getUserName(),
-                comentario: rejectComentario.trim(),
-            });
-            setDocumento((prev: any) => ({ ...prev, workflow: res.data }));
-            setShowRejectForm(false);
-            setRejectComentario('');
-        } catch (err) {
-            console.error('Error rechazando fase:', err);
-            await alert({ message: 'Error al rechazar la fase.' });
+            console.error('Error recargando el documento:', err);
         }
     };
 
@@ -516,85 +475,16 @@ export const DetalleDocumentoPage = () => {
                             const faseActual = documento.workflow.fases?.find((f: any) => f.estado === 'EN_CURSO');
                             const asignados = faseActual?.fase?.participantes?.map((p: any) => p.persona.id) || [];
                             const esAsignado = asignados.length === 0 || asignados.includes(currentPersonaId);
-                            const esPrimeraFase = faseActual?.id === documento.workflow.fases?.[0]?.id;
 
                             return esAsignado ? (
                                 <div className="border-t border-gray-200 p-3 bg-gray-50">
-                                    {!showWorkflowForm && !showRejectForm ? (
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => setShowWorkflowForm(true)}
-                                                className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                                            >
-                                                Subir PDF firmado
-                                            </button>
-                                            {!esPrimeraFase && (
-                                                <button
-                                                    onClick={() => setShowRejectForm(true)}
-                                                    className="px-3 py-1.5 bg-white border border-red-300 text-red-600 rounded hover:bg-red-50 text-sm"
-                                                >
-                                                    Rechazar fase
-                                                </button>
-                                            )}
-                                        </div>
-                                    ) : showWorkflowForm ? (
-                                        <div className="flex flex-col gap-2">
-                                            <input
-                                                type="file"
-                                                accept="application/pdf"
-                                                onChange={(e) => setWorkflowFile(e.target.files?.[0] || null)}
-                                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Comentario (opcional)"
-                                                value={workflowComentario}
-                                                onChange={(e) => setWorkflowComentario(e.target.value)}
-                                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
-                                            />
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={handleAvanzarFase}
-                                                    disabled={!workflowFile || subiendoWorkflow}
-                                                    className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm disabled:opacity-50"
-                                                >
-                                                    {subiendoWorkflow ? 'Subiendo...' : 'Confirmar y avanzar'}
-                                                </button>
-                                                <button
-                                                    onClick={() => { setShowWorkflowForm(false); setWorkflowFile(null); setWorkflowComentario(''); }}
-                                                    className="px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm"
-                                                >
-                                                    Cancelar
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col gap-2">
-                                            <p className="text-sm text-gray-600 font-semibold">Motivo del rechazo:</p>
-                                            <textarea
-                                                rows={2}
-                                                placeholder="Describa el motivo del rechazo..."
-                                                value={rejectComentario}
-                                                onChange={(e) => setRejectComentario(e.target.value)}
-                                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-red-500 text-sm"
-                                            />
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={handleRechazarFase}
-                                                    disabled={!rejectComentario.trim()}
-                                                    className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm disabled:opacity-50"
-                                                >
-                                                    Confirmar rechazo
-                                                </button>
-                                                <button
-                                                    onClick={() => { setShowRejectForm(false); setRejectComentario(''); }}
-                                                    className="px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm"
-                                                >
-                                                    Cancelar
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
+                                    <button
+                                        onClick={() => setIsFirmaModalOpen(true)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                                    >
+                                        <FileSignature className="w-4 h-4" />
+                                        Firmar documento
+                                    </button>
                                 </div>
                             ) : null;
                         })()}
@@ -653,6 +543,14 @@ export const DetalleDocumentoPage = () => {
                 </div>
             </div>
 
+            <FirmarDocumentoModal
+                isOpen={isFirmaModalOpen}
+                onClose={() => setIsFirmaModalOpen(false)}
+                documentoId={documento.id}
+                archivoUrl={documento.archivo_url}
+                tituloAccion={`Firmar: ${documento.workflow?.fases?.find((f: any) => f.estado === 'EN_CURSO')?.fase?.nombre || documento.nombre}`}
+                onSuccess={handleFirmaSuccess}
+            />
         </div>
     );
 };
