@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Edit3, Trash2, CircleCheck, CircleX } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CircleCheck, CircleX } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { Modal } from '../../../shared/components/molecules/Modal';
 import { Button } from '../../../shared/components/atoms/button';
@@ -18,9 +18,7 @@ export const AuditoriaDetallePage = () => {
     const [ncs, setNcs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [ncModalOpen, setNcModalOpen] = useState(false);
-    const [editNcId, setEditNcId] = useState<number | null>(null);
 
-    const puedeEditarNC = tienePermiso('Gestion de Calidad', 4);
     const puedeCrearNC = tienePermiso('Gestion de Calidad', 5);
 
     const fetchData = async () => {
@@ -46,25 +44,6 @@ export const AuditoriaDetallePage = () => {
         } catch (error) {
             await alert({ message: 'Error al eliminar la no conformidad.' });
         }
-    };
-
-    const estadoBadge = (estado: string) => {
-        const styles: Record<string, string> = {
-            ABIERTA: 'bg-red-100 text-red-700',
-            EN_CURSO: 'bg-amber-100 text-amber-700',
-            CERRADA: 'bg-emerald-100 text-emerald-700',
-            VERIFICADA: 'bg-blue-100 text-blue-700',
-        };
-        return <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${styles[estado] || 'bg-gray-100 text-gray-700'}`}>{estado}</span>;
-    };
-
-    const clasifBadge = (c: string) => {
-        const styles: Record<string, string> = {
-            MENOR: 'bg-gray-100 text-gray-700',
-            MAYOR: 'bg-amber-100 text-amber-700',
-            CRITICA: 'bg-red-100 text-red-700',
-        };
-        return <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${styles[c] || ''}`}>{c}</span>;
     };
 
     if (loading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
@@ -106,7 +85,7 @@ export const AuditoriaDetallePage = () => {
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
                     <h2 className="font-bold text-gray-800">No Conformidades ({ncs.length})</h2>
                     {puedeCrearNC && (
-                        <Button variant="default" onClick={() => { setEditNcId(null); setNcModalOpen(true); }}>
+                        <Button variant="default" onClick={() => setNcModalOpen(true)}>
                             <Plus className="w-4 h-4 mr-1" /> Nueva NC
                         </Button>
                     )}
@@ -118,11 +97,13 @@ export const AuditoriaDetallePage = () => {
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
                             <tr>
-                                <th className="px-4 py-3 font-semibold">Código</th>
-                                <th className="px-4 py-3 font-semibold">Descripción</th>
-                                <th className="px-4 py-3 font-semibold">Clasif.</th>
-                                <th className="px-4 py-3 font-semibold">Estado</th>
-                                <th className="px-4 py-3 font-semibold">Responsable</th>
+                                <th className="px-4 py-3 font-semibold">N°</th>
+                                <th className="px-4 py-3 font-semibold">Tipo</th>
+                                <th className="px-4 py-3 font-semibold">Requisito</th>
+                                <th className="px-4 py-3 font-semibold">Hallazgo</th>
+                                <th className="px-4 py-3 font-semibold">Evidencia</th>
+                                <th className="px-4 py-3 font-semibold text-center">OEC</th>
+                                <th className="px-4 py-3 font-semibold text-center">Reiterada</th>
                                 <th className="px-4 py-3 font-semibold text-center">Acciones</th>
                             </tr>
                         </thead>
@@ -130,19 +111,18 @@ export const AuditoriaDetallePage = () => {
                             {ncs.map(nc => (
                                 <tr key={nc.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-4 py-3 font-medium text-gray-800">{nc.codigo}</td>
-                                    <td className="px-4 py-3 text-gray-600 max-w-md truncate">{nc.descripcion}</td>
-                                    <td className="px-4 py-3">{clasifBadge(nc.clasificacion)}</td>
-                                    <td className="px-4 py-3">{estadoBadge(nc.estado)}</td>
-                                    <td className="px-4 py-3 text-gray-600">{nc.responsable ? `${nc.responsable.nombre} ${nc.responsable.apellidos}` : '-'}</td>
                                     <td className="px-4 py-3">
-                                        <div className="flex justify-center gap-1">
-                                            {puedeEditarNC && (
-                                                <button onClick={() => { setEditNcId(nc.id); setNcModalOpen(true); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar NC"><Edit3 className="w-4 h-4" /></button>
-                                            )}
-                                            {puedeCrearNC && (
-                                                <button onClick={() => handleEliminarNc(nc.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar NC"><Trash2 className="w-4 h-4" /></button>
-                                            )}
-                                        </div>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${nc.categoria === 'COM' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>{nc.categoria || 'NC'}</span>
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-600 max-w-[180px] truncate">{nc.requisito || '-'}</td>
+                                    <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{nc.hallazgo}</td>
+                                    <td className="px-4 py-3 text-gray-600 max-w-[180px] truncate">{nc.evidencia || '-'}</td>
+                                    <td className="px-4 py-3 text-center">{nc.aceptada_oec ? <CircleCheck className="w-4 h-4 text-emerald-600 inline" /> : <CircleX className="w-4 h-4 text-red-400 inline" />}</td>
+                                    <td className="px-4 py-3 text-center">{nc.reiterada ? <CircleCheck className="w-4 h-4 text-emerald-600 inline" /> : <CircleX className="w-4 h-4 text-red-400 inline" />}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        {puedeCrearNC && (
+                                            <button onClick={() => handleEliminarNc(nc.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar NC"><Trash2 className="w-4 h-4" /></button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -151,9 +131,8 @@ export const AuditoriaDetallePage = () => {
                 )}
             </div>
 
-            <Modal isOpen={ncModalOpen} onClose={() => setNcModalOpen(false)} title={editNcId ? 'Editar No Conformidad' : 'Nueva No Conformidad'}>
+            <Modal isOpen={ncModalOpen} onClose={() => setNcModalOpen(false)} title="Nueva No Conformidad">
                 <NcForm
-                    ncId={editNcId}
                     auditoriaId={Number(id)}
                     onClose={() => setNcModalOpen(false)}
                     onSuccess={() => { setNcModalOpen(false); fetchData(); }}

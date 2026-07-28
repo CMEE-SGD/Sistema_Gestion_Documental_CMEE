@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, IsEnum, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, IsEnum, IsDateString, IsBoolean } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ClasificacionNC, EstadoNC } from '@prisma/client';
 
 export class CreateNcDto {
@@ -11,8 +12,35 @@ export class CreateNcDto {
   auditoria_id: number;
 
   @IsString()
+  @IsOptional()
+  categoria?: string;
+
+  @IsString()
+  @IsOptional()
+  requisito?: string;
+
+  @IsString()
   @IsNotEmpty()
-  descripcion: string;
+  hallazgo: string;
+
+  @IsString()
+  @IsOptional()
+  evidencia?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  aceptada_oec?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  reiterada?: boolean;
+
+  // Legacy campos — se mantienen para futuro módulo de acciones correctivas
+  @IsString()
+  @IsOptional()
+  descripcion?: string;
 
   @IsString()
   @IsOptional()

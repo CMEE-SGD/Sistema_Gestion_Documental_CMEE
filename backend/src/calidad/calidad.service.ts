@@ -89,6 +89,12 @@ export class CalidadService {
       data: {
         codigo: data.codigo,
         auditoria_id: data.auditoria_id,
+        categoria: data.categoria,
+        requisito: data.requisito,
+        hallazgo: data.hallazgo,
+        evidencia: data.evidencia,
+        aceptada_oec: data.aceptada_oec,
+        reiterada: data.reiterada,
         descripcion: data.descripcion,
         requisito_incumplido: data.requisito_incumplido,
         clasificacion: data.clasificacion,

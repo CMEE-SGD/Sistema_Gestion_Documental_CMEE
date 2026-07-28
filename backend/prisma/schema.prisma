@@ -863,7 +863,13 @@ model NoConformidad {
   codigo              String            @unique @db.VarChar(50)
   auditoria_id        Int
   auditoria           AuditoriaInterna  @relation(fields: [auditoria_id], references: [id], onDelete: Cascade)
-  descripcion         String            @db.Text
+  categoria           String            @default("NC") @db.VarChar(10)
+  requisito           String?           @db.VarChar(500)
+  hallazgo            String            @db.Text
+  evidencia           String?           @db.Text
+  aceptada_oec        Boolean           @default(false)
+  reiterada           Boolean           @default(false)
+  descripcion         String?           @db.Text
   requisito_incumplido String?          @db.VarChar(500)
   clasificacion       ClasificacionNC   @default(MENOR)
   causa_raiz          String?           @db.Text

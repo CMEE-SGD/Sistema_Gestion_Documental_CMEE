@@ -241,7 +241,9 @@ export const GrupoFormPage = () => {
                                 <label className="text-sm font-semibold text-foreground">Vincular Aplicación</label>
                                 <select onChange={handleAddApp} className="border border-input rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-transparent">
                                     <option value="">Seleccione una aplicación para añadir...</option>
-                                    {catalogoApps.map(app => (
+                                    {catalogoApps
+                                        .filter(app => !formData.aplicaciones.some(a => a.aplicacion_id === app.id))
+                                        .map(app => (
                                         <option key={app.id} value={app.id}>{app.nombre}</option>
                                     ))}
                                 </select>
