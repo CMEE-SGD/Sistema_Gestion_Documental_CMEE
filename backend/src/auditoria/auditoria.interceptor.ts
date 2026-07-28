@@ -7,6 +7,89 @@ import {
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { AuditoriaService } from './auditoria.service';
+import { etiquetaModulo } from './modulo-labels';
+
+const CAMPOS_SENSIBLES = [
+  'password',
+  'clave',
+  'contrasena',
+  'contraseña',
+  'pass',
+  'token',
+];
+const CAMPOS_DESTACADOS = [
+  'nombre',
+  'titulo',
+  'estado',
+  'accion',
+  'orden_trabajo_fisica',
+  'nombre_usuario',
+  'email',
+  'email_1',
+  'codigo',
+];
+const LARGO_MAXIMO_DETALLE = 4000;
+
+/** Oculta valores de campos sensibles (contraseñas, tokens) antes de guardarlos en la bitácora. */
+function sanitizarBody(body: unknown): Record<string, unknown> | null {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+
+  const limpio: Record<string, unknown> = {};
+  for (const [clave, valor] of Object.entries(
+    body as Record<string, unknown>,
+  )) {
+    const esSensible = CAMPOS_SENSIBLES.some((c) =>
+      clave.toLowerCase().includes(c),
+    );
+    limpio[clave] = esSensible ? '••••••' : valor;
+  }
+  return limpio;
+}
+
+function serializarDetalle(body: unknown): string | null {
+  const limpio = sanitizarBody(body);
+  if (!limpio || Object.keys(limpio).length === 0) return null;
+
+  try {
+    const json = JSON.stringify(limpio);
+    return json.length > LARGO_MAXIMO_DETALLE
+      ? `${json.slice(0, LARGO_MAXIMO_DETALLE)}…`
+      : json;
+  } catch {
+    return null;
+  }
+}
+
+/** Elige un campo representativo del payload para mostrar en la descripción. */
+function campoDestacado(body: unknown): string | null {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  const registro = body as Record<string, unknown>;
+
+  for (const campo of CAMPOS_DESTACADOS) {
+    const valor = registro[campo];
+    if (valor !== undefined && valor !== null && valor !== '') {
+      return String(valor);
+    }
+  }
+  return null;
+}
+
+function construirDescripcion(params: {
+  accionLabel: string;
+  modulo: string;
+  tieneId: boolean;
+  id: number;
+  body: unknown;
+}): string {
+  const { accionLabel, modulo, tieneId, id, body } = params;
+  let descripcion = `${accionLabel} en ${etiquetaModulo(modulo)}`;
+  if (tieneId) descripcion += ` #${id}`;
+
+  const destacado = campoDestacado(body);
+  if (destacado) descripcion += ` — ${destacado}`;
+
+  return descripcion;
+}
 
 /** Módulo controlador o servicio para gestionar la entidad AuditoriaInterceptor. */
 @Injectable()
@@ -24,7 +107,7 @@ export class AuditoriaInterceptor implements NestInterceptor {
    */
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const req = context.switchToHttp().getRequest();
-    const { method, url, user } = req;
+    const { method, url, user, body } = req;
 
     return next.handle().pipe(
       tap(() => {
@@ -70,16 +153,26 @@ export class AuditoriaInterceptor implements NestInterceptor {
                 documento_id = ultimoParametro;
             }
 
+            const esMutacion = ['POST', 'PATCH', 'PUT'].includes(method);
+
             this.auditoriaService
               .registrarLog({
                 usuario_id: user.id,
                 modulo,
                 accion: `${accion} de recurso`,
-                descripcion: `Endpoint: ${method} ${url}`,
+                descripcion: construirDescripcion({
+                  accionLabel: accion,
+                  modulo,
+                  tieneId,
+                  id: ultimoParametro,
+                  body,
+                }),
+                detalle: esMutacion ? serializarDetalle(body) : null,
                 persona_afectada_id,
                 documento_id,
                 rol_afectado_id,
                 puesto_afectado_id,
+                entidad_id: tieneId ? ultimoParametro : null,
               })
               .catch((err) => console.error('Error guardando auditoría:', err));
           }

@@ -30,6 +30,11 @@ if (!fs.existsSync(tempFolder)) {
           cb(null, nombreLimpio);
         },
       }),
+      // Solo PDF — antes esto solo se sugería en el frontend (accept=), lo
+      // cual es fácil de evadir llamando al API directo.
+      fileFilter: (req, file, cb) => {
+        cb(null, file.mimetype === 'application/pdf');
+      },
     }),
   ],
   controllers: [DocumentosController],

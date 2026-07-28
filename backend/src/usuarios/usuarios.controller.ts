@@ -13,6 +13,7 @@ import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdatePerfilDto } from './dto/update-perfil.dto';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -32,8 +33,12 @@ export class UsuariosController {
    */
   @Post('login')
   @ApiOperation({ summary: 'Login con nombre de usuario y contraseña' })
-  login(@Body() loginDto: LoginDto) {
-    return this.usuariosService.login(loginDto.nombre_usuario, loginDto.clave);
+  login(@Body() loginDto: LoginDto, @Req() req: any) {
+    return this.usuariosService.login(
+      loginDto.nombre_usuario,
+      loginDto.clave,
+      req.ip,
+    );
   }
 
   /**
@@ -67,6 +72,8 @@ export class UsuariosController {
    * @returns Objeto complejo / PrismaResponse
    */
   @Get(':id')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Gestion de Usuarios', 1)
   @ApiOperation({ summary: 'Obtener usuario por ID' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usuariosService.findOne(id);
@@ -79,6 +86,8 @@ export class UsuariosController {
    * @returns Objeto complejo / PrismaResponse
    */
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Gestion de Usuarios', 5)
   @ApiOperation({ summary: 'Actualizar usuario o cambiar clave' })
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -93,6 +102,8 @@ export class UsuariosController {
    * @returns Objeto complejo / PrismaResponse
    */
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Gestion de Usuarios', 5)
   @ApiOperation({ summary: 'Desactivar usuario' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.usuariosService.remove(id);
@@ -111,5 +122,16 @@ export class UsuariosController {
   getPerfilActual(@Req() req: any) {
     // req.user.id viene del token interceptado por JwtAuthGuard
     return this.usuariosService.getPerfilActual(req.user.id);
+  }
+
+  /**
+   * Permite a cualquier usuario autenticado editar su propio idioma y/o
+   * contraseña — nunca otro campo ni otro usuario (opera sobre req.user.id).
+   */
+  @Patch('perfil/actual')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Actualizar idioma y/o contraseña propios' })
+  actualizarPerfilPropio(@Req() req: any, @Body() dto: UpdatePerfilDto) {
+    return this.usuariosService.actualizarPerfilPropio(req.user.id, dto);
   }
 }

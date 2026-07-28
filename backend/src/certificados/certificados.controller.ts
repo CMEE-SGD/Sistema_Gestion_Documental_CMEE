@@ -39,6 +39,24 @@ export class CertificadosController {
     return this.certificadosService.upload(file, recepcionEquipoId, req.user);
   }
 
+  // Firma digital real (PAdES/PKCS#7) — el PDF ya llega firmado desde el
+  // navegador del firmante con su .p12 personal; este endpoint solo
+  // verifica criptográficamente esa firma y transiciona el estado.
+  @Post(':id/firmar')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Recepcion Equipos', 4)
+  @UseInterceptors(FileInterceptor('file'))
+  async firmar(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('El PDF firmado es obligatorio.');
+    }
+    return this.certificadosService.firmar(id, file, req.user);
+  }
+
   @Get()
   @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Recepcion Equipos', 1)

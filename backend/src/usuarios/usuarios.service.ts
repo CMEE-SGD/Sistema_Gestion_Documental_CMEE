@@ -2,10 +2,13 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
+import { UpdatePerfilDto } from './dto/update-perfil.dto';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
@@ -188,12 +191,71 @@ export class UsuariosService {
   // Validar credenciales y retornar token (simple)
   // En el método login()
   /**
+   * Registra un intento de inicio de sesión (éxito o fallo) en la bitácora.
+   * No bloquea el flujo de login si falla el guardado.
+   */
+  private registrarIntentoLogin(params: {
+    nombre_usuario: string;
+    exito: boolean;
+    motivo_fallo?: string;
+    usuario_id?: number | null;
+    ip?: string;
+  }) {
+    return this.prisma.intentoLogin
+      .create({
+        data: {
+          nombre_usuario: params.nombre_usuario,
+          exito: params.exito,
+          motivo_fallo: params.motivo_fallo ?? null,
+          usuario_id: params.usuario_id ?? null,
+          ip: params.ip ?? null,
+        },
+      })
+      .catch((err) => console.error('Error guardando intento de login:', err));
+  }
+
+  /**
+   * Evalúa si un usuario acumuló suficientes intentos fallidos CONSECUTIVOS
+   * (desde su último login exitoso) como para bloquear la cuenta
+   * automáticamente, según `ConfiguracionGeneral.max_intentos_fallidos_login`.
+   * @returns true si la cuenta quedó bloqueada por esta evaluación.
+   */
+  private async evaluarBloqueoAutomatico(usuarioId: number): Promise<boolean> {
+    const config = await this.prisma.configuracionGeneral.findUnique({
+      where: { id: 1 },
+    });
+    const maxIntentos = config?.max_intentos_fallidos_login ?? 5;
+
+    const ultimosIntentos = await this.prisma.intentoLogin.findMany({
+      where: { usuario_id: usuarioId },
+      orderBy: { fecha_hora: 'desc' },
+      take: maxIntentos,
+    });
+
+    let fallosConsecutivos = 0;
+    for (const intento of ultimosIntentos) {
+      if (intento.exito) break;
+      fallosConsecutivos++;
+    }
+
+    if (fallosConsecutivos >= maxIntentos) {
+      await this.prisma.usuario.update({
+        where: { id: usuarioId },
+        data: { bloqueado: true },
+      });
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Ejecuta la operación de negocio login.
    * @param nombre_usuario - Datos o identificador requerido (string)
    * @param clave - Datos o identificador requerido (string)
+   * @param ip - Dirección IP del cliente que realiza el intento (string)
    * @returns Objeto complejo / PrismaResponse
    */
-  async login(nombre_usuario: string, clave: string) {
+  async login(nombre_usuario: string, clave: string, ip?: string) {
     // 1. Intercepción del Usuario "Dios" (En Memoria)
     const godUsername = process.env.GOD_USERNAME;
     const godPassword = process.env.GOD_PASSWORD;
@@ -230,6 +292,8 @@ export class UsuariosService {
           },
         ],
       };
+
+      this.registrarIntentoLogin({ nombre_usuario, exito: true, ip });
 
       return {
         ...godPayload,
@@ -269,15 +333,62 @@ export class UsuariosService {
       },
     });
 
-    if (!usuario) throw new NotFoundException('Usuario no encontrado');
-    if (usuario.bloqueado)
+    if (!usuario) {
+      this.registrarIntentoLogin({
+        nombre_usuario,
+        exito: false,
+        motivo_fallo: 'usuario_no_encontrado',
+        ip,
+      });
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    if (usuario.bloqueado) {
+      this.registrarIntentoLogin({
+        nombre_usuario,
+        exito: false,
+        motivo_fallo: 'usuario_bloqueado',
+        usuario_id: usuario.id,
+        ip,
+      });
       throw new NotFoundException('El usuario está bloqueado');
-    if (!usuario.estado_cuenta)
+    }
+    if (!usuario.estado_cuenta) {
+      this.registrarIntentoLogin({
+        nombre_usuario,
+        exito: false,
+        motivo_fallo: 'cuenta_inactiva',
+        usuario_id: usuario.id,
+        ip,
+      });
       throw new NotFoundException('La cuenta está inactiva');
+    }
 
     const passwordValida = await bcrypt.compare(clave, usuario.password_hash);
-    if (!passwordValida)
+    if (!passwordValida) {
+      // Se espera a que quede registrado antes de evaluar el bloqueo, para
+      // que este mismo intento cuente en el conteo de fallos consecutivos.
+      await this.registrarIntentoLogin({
+        nombre_usuario,
+        exito: false,
+        motivo_fallo: 'clave_incorrecta',
+        usuario_id: usuario.id,
+        ip,
+      });
+      const bloqueadoAhora = await this.evaluarBloqueoAutomatico(usuario.id);
+      if (bloqueadoAhora) {
+        throw new NotFoundException(
+          'Demasiados intentos fallidos. La cuenta ha sido bloqueada, contacte al administrador.',
+        );
+      }
       throw new NotFoundException('Usuario o contraseña incorrectos');
+    }
+
+    this.registrarIntentoLogin({
+      nombre_usuario,
+      exito: true,
+      usuario_id: usuario.id,
+      ip,
+    });
 
     const { password_hash, ...result } = usuario;
     const payload = { sub: usuario.id };
@@ -354,5 +465,48 @@ export class UsuariosService {
       usuario.persona?.puestos?.[0]?.departamento?.laboratorio?.id ?? null;
 
     return { ...result, laboratorio_id: laboratorioId };
+  }
+
+  /**
+   * Permite a un usuario autenticado actualizar su propio idioma y/o
+   * contraseña — nunca opera sobre otro usuario ni sobre campos
+   * administrativos (grupos, bloqueado, estado_cuenta).
+   */
+  async actualizarPerfilPropio(usuarioId: number, dto: UpdatePerfilDto) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+    });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    const dataToUpdate: Prisma.UsuarioUpdateInput = {};
+
+    if (dto.idioma !== undefined) {
+      dataToUpdate.idioma = dto.idioma;
+    }
+
+    if (dto.clave_nueva) {
+      if (!dto.clave_actual) {
+        throw new BadRequestException(
+          'Debe indicar su contraseña actual para establecer una nueva',
+        );
+      }
+      const claveActualValida = await bcrypt.compare(
+        dto.clave_actual,
+        usuario.password_hash,
+      );
+      if (!claveActualValida) {
+        throw new BadRequestException('La contraseña actual no es correcta');
+      }
+      dataToUpdate.password_hash = await bcrypt.hash(dto.clave_nueva, 10);
+      dataToUpdate.cambiar_clave_proxima_sesion = false;
+    }
+
+    const actualizado = await this.prisma.usuario.update({
+      where: { id: usuarioId },
+      data: dataToUpdate,
+    });
+
+    const { password_hash, ...result } = actualizado;
+    return result;
   }
 }

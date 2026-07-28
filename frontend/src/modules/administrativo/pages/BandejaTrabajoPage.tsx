@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   UserCheck,
   Handshake,
-  Award,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import api from '../../../core/api/axios';
@@ -27,6 +26,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import { Button } from '../../../shared/components/atoms/button';
 import SubirCertificadoModal from '../components/SubirCertificadoModal';
 import ValidacionCertificadoModal from '../components/ValidacionCertificadoModal';
+import FirmarDigitalModal from '../components/FirmarDigitalModal';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
 import { type OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
 
@@ -40,7 +40,6 @@ type EstadoKey =
   | 'REVISION_OBT'
   | 'PENDIENTE_FIRMA_TECNICO'
   | 'REVISION_JEFE'
-  | 'REVISION_CALIDAD'
   | 'REVISION_DIRECTOR'
   | 'LISTO_PARA_ENTREGA'
   | 'FINALIZADO';
@@ -117,8 +116,6 @@ const ESTADO_STYLES: Record<EstadoKey, string> = {
     'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   REVISION_JEFE:
     'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
-  REVISION_CALIDAD:
-    'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
   REVISION_DIRECTOR:
     'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
   LISTO_PARA_ENTREGA:
@@ -502,23 +499,38 @@ export default function BandejaTrabajoPage() {
   const nPuesto = normalize(puesto);
   const esObservador = nPuesto.includes('observador');
   const esTecnico = nPuesto.includes('tecnico') && !nPuesto.includes('observador');
-  const esCalidad = nPuesto.includes('calidad');
-  // Excluye "calidad" — "Jefe Departamento Gestión de la Calidad" también
-  // contiene "jefe" y no debe colar en la revisión de Jefe de Laboratorio.
-  const esJefe = nPuesto.includes('jefe') && !esCalidad;
+  // "Jefe Departamento Gestión de la Calidad" no participa de este flujo,
+  // pero su puesto también contiene "jefe" — se excluye para que no cuele
+  // como Jefe de Laboratorio en REVISION_JEFE.
+  const esJefe = nPuesto.includes('jefe') && !nPuesto.includes('calidad');
   const esDirector = nPuesto.includes('director');
   const esRSEC = nPuesto.includes('responsable servicio al cliente');
 
   const { data: recepciones, isLoading, error } = useBandejaData();
 
   const [busqueda, setBusqueda] = useState('');
+  const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
+
+  const laboratorios = useMemo(() => {
+    const mapa = new Map<number, string>();
+    for (const r of recepciones ?? []) {
+      if (r.laboratorio) mapa.set(r.laboratorio.id, r.laboratorio.nombre);
+    }
+    return Array.from(mapa.entries())
+      .map(([id, nombre]): LaboratorioOption => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [recepciones]);
 
   const recepcionesFiltradas = useMemo(() => {
     const lista = recepciones ?? [];
     const termino = normalize(busqueda.trim());
-    if (!termino) return lista;
 
     return lista.filter((r) => {
+      if (laboratorioFiltro && String(r.laboratorio?.id) !== laboratorioFiltro) {
+        return false;
+      }
+      if (!termino) return true;
+
       const haystack = normalize(
         [
           r.orden_trabajo_fisica,
@@ -530,7 +542,7 @@ export default function BandejaTrabajoPage() {
       );
       return haystack.includes(termino);
     });
-  }, [recepciones, busqueda]);
+  }, [recepciones, busqueda, laboratorioFiltro]);
 
   // Modal state
   const [isRegistroModalOpen, setIsRegistroModalOpen] = useState(false);
@@ -544,6 +556,12 @@ export default function BandejaTrabajoPage() {
   const [isValidacionModalOpen, setIsValidacionModalOpen] = useState(false);
   const [selectedValidacionRecepcion, setSelectedValidacionRecepcion] =
     useState<{ id: number; estado: string; titulo: string } | null>(null);
+  const [isFirmaModalOpen, setIsFirmaModalOpen] = useState(false);
+  const [selectedFirma, setSelectedFirma] = useState<{
+    recepcionId: number;
+    certificadoId: number | null;
+    titulo: string;
+  } | null>(null);
 
   const handleVerCertificado = async (certificadoId: number) => {
     const token = localStorage.getItem('token');
@@ -653,16 +671,31 @@ export default function BandejaTrabajoPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Table toolbar */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por orden, equipo o cliente…"
-            className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <select
+            value={laboratorioFiltro}
+            onChange={(e) => setLaboratorioFiltro(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">Todos los laboratorios</option>
+            {laboratorios.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.nombre}
+              </option>
+            ))}
+          </select>
+
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por orden, equipo o cliente…"
+              className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
         </div>
 
         {canCreate && (
@@ -747,7 +780,7 @@ export default function BandejaTrabajoPage() {
                         </span>
                       )}
                     </td>
-                    {(canAssign || canExecute || esObservador || esJefe || esCalidad || esDirector || esRSEC) && (
+                    {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC) && (
                       <td className="whitespace-nowrap px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           {/* EN_ESPERA: Asignar técnico */}
@@ -812,12 +845,12 @@ export default function BandejaTrabajoPage() {
                                 variant="default"
                                 size="sm"
                                 onClick={() => {
-                                  setSelectedValidacionRecepcion({
-                                    id: req.id,
-                                    estado: req.estado,
-                                    titulo: 'Firmar Documento',
+                                  setSelectedFirma({
+                                    recepcionId: req.id,
+                                    certificadoId: req.certificados?.[0]?.id ?? null,
+                                    titulo: 'Firma del Técnico',
                                   });
-                                  setIsValidacionModalOpen(true);
+                                  setIsFirmaModalOpen(true);
                                 }}
                                 title="Firmar documento"
                                 className="bg-orange-600 hover:bg-orange-700 text-white"
@@ -833,12 +866,12 @@ export default function BandejaTrabajoPage() {
                               variant="default"
                               size="sm"
                               onClick={() => {
-                                setSelectedValidacionRecepcion({
-                                  id: req.id,
-                                  estado: req.estado,
-                                  titulo: 'Validar Jefatura',
+                                setSelectedFirma({
+                                  recepcionId: req.id,
+                                  certificadoId: req.certificados?.[0]?.id ?? null,
+                                  titulo: 'Firma del Jefe de Laboratorio',
                                 });
-                                setIsValidacionModalOpen(true);
+                                setIsFirmaModalOpen(true);
                               }}
                               title="Validar jefatura"
                               className="bg-indigo-600 hover:bg-indigo-700 text-white"
@@ -848,39 +881,18 @@ export default function BandejaTrabajoPage() {
                             </Button>
                           )}
 
-                          {/* REVISION_CALIDAD: Aprobación de Calidad */}
-                          {req.estado === 'REVISION_CALIDAD' && esCalidad && (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedValidacionRecepcion({
-                                  id: req.id,
-                                  estado: req.estado,
-                                  titulo: 'Aprobación de Calidad',
-                                });
-                                setIsValidacionModalOpen(true);
-                              }}
-                              title="Aprobación de calidad"
-                              className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                            >
-                              <Award className="h-4 w-4" />
-                              Aprobación de Calidad
-                            </Button>
-                          )}
-
                           {/* REVISION_DIRECTOR: Aprobación Final (Director) */}
                           {req.estado === 'REVISION_DIRECTOR' && esDirector && (
                             <Button
                               variant="default"
                               size="sm"
                               onClick={() => {
-                                setSelectedValidacionRecepcion({
-                                  id: req.id,
-                                  estado: req.estado,
-                                  titulo: 'Aprobación Final',
+                                setSelectedFirma({
+                                  recepcionId: req.id,
+                                  certificadoId: req.certificados?.[0]?.id ?? null,
+                                  titulo: 'Firma del Director',
                                 });
-                                setIsValidacionModalOpen(true);
+                                setIsFirmaModalOpen(true);
                               }}
                               title="Aprobación final"
                               className="bg-rose-600 hover:bg-rose-700 text-white"
@@ -931,7 +943,9 @@ export default function BandejaTrabajoPage() {
                   </tr>
                 ))
               ) : (
-                <EmptyState hasFilter={busqueda.trim().length > 0} />
+                <EmptyState
+                  hasFilter={busqueda.trim().length > 0 || !!laboratorioFiltro}
+                />
               )}
             </tbody>
           </table>
@@ -974,6 +988,20 @@ export default function BandejaTrabajoPage() {
         recepcionId={selectedValidacionRecepcion?.id ?? null}
         estadoActual={selectedValidacionRecepcion?.estado ?? ''}
         tituloAccion={selectedValidacionRecepcion?.titulo ?? ''}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+        }}
+      />
+
+      <FirmarDigitalModal
+        isOpen={isFirmaModalOpen}
+        onClose={() => {
+          setIsFirmaModalOpen(false);
+          setSelectedFirma(null);
+        }}
+        recepcionId={selectedFirma?.recepcionId ?? null}
+        certificadoId={selectedFirma?.certificadoId ?? null}
+        tituloAccion={selectedFirma?.titulo ?? ''}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
         }}

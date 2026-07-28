@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { FindAuditoriaDto } from './dto/find-auditoria.dto';
+import { FindIntentosLoginDto } from './dto/find-intentos-login.dto';
 
 /** Módulo controlador o servicio para gestionar la entidad Auditoria. */
 @Injectable()
@@ -16,31 +19,117 @@ export class AuditoriaService {
     modulo: string;
     accion: string;
     descripcion?: string;
+    detalle?: string | null;
     documento_id?: number;
     persona_afectada_id?: number;
     rol_afectado_id?: number;
     puesto_afectado_id?: number;
+    entidad_id?: number | null;
   }) {
     return this.prisma.auditoria.create({
       data,
     });
   }
 
-  // NUEVO: Método para enviar los logs al frontend
   /**
-   * Ejecuta la operación de negocio findAll.
-   * @returns Objeto complejo / PrismaResponse
+   * Lista la bitácora global con filtros y paginación reales — la tabla
+   * crece sin límite, así que traerla completa en cada consulta no escala.
    */
-  async findAll() {
-    return this.prisma.auditoria.findMany({
-      orderBy: { fecha_hora: 'desc' }, // Los más recientes primero
-      include: {
-        // Incluimos el nombre del usuario para la tabla del frontend
-        usuario: {
-          select: { nombre_usuario: true },
+  async findAll(filtros: FindAuditoriaDto) {
+    const pagina = filtros.pagina ?? 1;
+    const porPagina = filtros.porPagina ?? 20;
+
+    const where: Prisma.AuditoriaWhereInput = {
+      ...(filtros.modulo ? { modulo: filtros.modulo } : {}),
+      ...(filtros.entidadId ? { entidad_id: filtros.entidadId } : {}),
+      ...(filtros.accion ? { accion: { contains: filtros.accion } } : {}),
+      ...(filtros.usuario
+        ? {
+            usuario: {
+              nombre_usuario: {
+                contains: filtros.usuario,
+                mode: 'insensitive',
+              },
+            },
+          }
+        : {}),
+      ...(filtros.desde || filtros.hasta
+        ? {
+            fecha_hora: {
+              ...(filtros.desde ? { gte: new Date(filtros.desde) } : {}),
+              ...(filtros.hasta ? { lte: new Date(filtros.hasta) } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.auditoria.findMany({
+        where,
+        orderBy: { fecha_hora: 'desc' },
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+        include: {
+          usuario: { select: { nombre_usuario: true } },
         },
-      },
-    });
+      }),
+      this.prisma.auditoria.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      pagina,
+      porPagina,
+      totalPaginas: Math.max(1, Math.ceil(total / porPagina)),
+    };
+  }
+
+  /**
+   * Lista la bitácora de intentos de inicio de sesión (éxitos y fallos),
+   * con filtros y paginación reales — igual que findAll.
+   */
+  async findIntentosLogin(filtros: FindIntentosLoginDto) {
+    const pagina = filtros.pagina ?? 1;
+    const porPagina = filtros.porPagina ?? 20;
+
+    const where: Prisma.IntentoLoginWhereInput = {
+      ...(filtros.usuario
+        ? {
+            nombre_usuario: {
+              contains: filtros.usuario,
+              mode: 'insensitive',
+            },
+          }
+        : {}),
+      ...(filtros.exito !== undefined ? { exito: filtros.exito } : {}),
+      ...(filtros.desde || filtros.hasta
+        ? {
+            fecha_hora: {
+              ...(filtros.desde ? { gte: new Date(filtros.desde) } : {}),
+              ...(filtros.hasta ? { lte: new Date(filtros.hasta) } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.intentoLogin.findMany({
+        where,
+        orderBy: { fecha_hora: 'desc' },
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+      }),
+      this.prisma.intentoLogin.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      pagina,
+      porPagina,
+      totalPaginas: Math.max(1, Math.ceil(total / porPagina)),
+    };
   }
 
   /**

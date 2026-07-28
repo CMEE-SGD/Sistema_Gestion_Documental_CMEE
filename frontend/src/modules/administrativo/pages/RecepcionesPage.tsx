@@ -124,23 +124,54 @@ export default function RecepcionesPage() {
   const { data: ordenes, isLoading, isError, error } = useOrdenesTrabajo();
 
   const [busqueda, setBusqueda] = useState('');
+  const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
   const [ordenSeleccionada, setOrdenSeleccionada] =
     useState<OrdenTrabajoDetalle | null>(null);
 
   // ------------------------------------------------------------------
-  // Filtro local por Nº Orden Física o Cliente
+  // Laboratorios disponibles — derivados de los equipos ya cargados,
+  // no del endpoint /laboratorios (que exige un permiso RBAC distinto).
+  // ------------------------------------------------------------------
+  const laboratorios = useMemo(() => {
+    const mapa = new Map<number, string>();
+    for (const orden of ordenes ?? []) {
+      for (const equipo of orden.equipos ?? []) {
+        if (equipo.laboratorio) {
+          mapa.set(equipo.laboratorio.id, equipo.laboratorio.nombre);
+        }
+      }
+    }
+    return Array.from(mapa.entries())
+      .map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [ordenes]);
+
+  // ------------------------------------------------------------------
+  // Filtro local por Nº Orden Física, Cliente y Laboratorio — una orden
+  // pasa el filtro de laboratorio si al menos uno de sus equipos
+  // pertenece al laboratorio elegido (una orden puede repartirse entre
+  // varios laboratorios).
   // ------------------------------------------------------------------
   const ordenesFiltradas = useMemo(() => {
     const lista = ordenes ?? [];
     const termino = normalize(busqueda.trim());
-    if (!termino) return lista;
 
     return lista.filter((orden) => {
+      if (
+        laboratorioFiltro &&
+        !orden.equipos?.some(
+          (equipo) => String(equipo.laboratorio?.id) === laboratorioFiltro,
+        )
+      ) {
+        return false;
+      }
+      if (!termino) return true;
+
       const numeroOrden = normalize(orden.orden_trabajo_fisica ?? '');
       const cliente = normalize(orden.cliente?.nombre ?? '');
       return numeroOrden.includes(termino) || cliente.includes(termino);
     });
-  }, [ordenes, busqueda]);
+  }, [ordenes, busqueda, laboratorioFiltro]);
 
   return (
     <div className="space-y-6 p-6">
@@ -162,15 +193,30 @@ export default function RecepcionesPage() {
           </div>
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por Nº orden o cliente…"
-            className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <select
+            value={laboratorioFiltro}
+            onChange={(e) => setLaboratorioFiltro(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">Todos los laboratorios</option>
+            {laboratorios.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.nombre}
+              </option>
+            ))}
+          </select>
+
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por Nº orden o cliente…"
+              className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
         </div>
       </div>
 
@@ -247,7 +293,10 @@ export default function RecepcionesPage() {
                   </tr>
                 ))
               ) : (
-                <EmptyState cols={COLS} hasFilter={busqueda.trim().length > 0} />
+                <EmptyState
+                  cols={COLS}
+                  hasFilter={busqueda.trim().length > 0 || !!laboratorioFiltro}
+                />
               )}
             </tbody>
           </table>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useConfiguracionGeneral } from '../../hooks/useConfiguracionGeneral';
 
 interface PrintHeaderProps {
     tituloPrincipal?: string;
@@ -6,16 +7,17 @@ interface PrintHeaderProps {
     filtroAplicado?: string;
 }
 
-const PrintHeader: React.FC<PrintHeaderProps> = ({ 
-    tituloPrincipal = 'Centro de Metrología del Ejército Ecuatoriano', 
-    subtitulo, 
-    filtroAplicado 
+const PrintHeader: React.FC<PrintHeaderProps> = ({
+    tituloPrincipal,
+    subtitulo,
+    filtroAplicado
 }) => {
+    const { nombreInstitucion } = useConfiguracionGeneral();
     return (
         <div className="hidden print:block mb-6 w-full">
             <div className="border-b-2 border-[#006600] pb-4 mb-4 flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">{tituloPrincipal}</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">{tituloPrincipal ?? nombreInstitucion}</h1>
                     <h2 className="text-lg text-gray-700 font-semibold mt-1">
                         {subtitulo}
                     </h2>

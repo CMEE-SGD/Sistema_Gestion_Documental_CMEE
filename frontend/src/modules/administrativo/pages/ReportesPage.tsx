@@ -123,7 +123,6 @@ const ESTADO_LABEL: Record<string, string> = {
   REVISION_OBT: 'Revisión OBT',
   PENDIENTE_FIRMA_TECNICO: 'Pendiente firma técnico',
   REVISION_JEFE: 'Revisión jefe',
-  REVISION_CALIDAD: 'Revisión calidad',
   REVISION_DIRECTOR: 'Revisión director',
   LISTO_PARA_ENTREGA: 'Listo para entrega',
   FINALIZADO: 'Finalizado',
