@@ -83,9 +83,10 @@ export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) =>
             toast({ message: equipoId ? 'Equipo actualizado exitosamente.' : 'Equipo registrado exitosamente.' });
             onSuccess(); // Actualizamos la tabla
             onClose(); // Cerramos el modal
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error al guardar el equipo', error);
-            await alert({ title: 'Error', message: 'Error al guardar las modificaciones.' });
+            const mensaje = error.response?.data?.message || 'Error al guardar las modificaciones.';
+            await alert({ title: 'Error', message: Array.isArray(mensaje) ? mensaje.join(' ') : mensaje });
         }
     };
 

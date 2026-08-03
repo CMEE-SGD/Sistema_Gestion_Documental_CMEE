@@ -25,7 +25,10 @@ export class PersonasService {
    * @param createPersonaDto - Datos o identificador requerido (Entidad | PrismaResponse)
    * @returns Array<Entidad>
    */
-  async create(createPersonaDto: CreatePersonaDto) {
+  async create(
+    createPersonaDto: CreatePersonaDto,
+    documentos?: { nombre_archivo: string; ruta: string; tipo_documento: string }[],
+  ) {
     const { roles, puestos_asignados, activo, ...personaData } = createPersonaDto as any;
 
     personaData.cedula_identidad = emptyToNull(personaData.cedula_identidad);
@@ -41,33 +44,46 @@ export class PersonasService {
     }
 
     try {
-      return await this.prisma.persona.create({
-        data: {
-          ...personaData,
-          fecha_nacimiento: personaData.fecha_nacimiento
-            ? new Date(personaData.fecha_nacimiento)
-            : null,
-          roles:
-            roles?.length > 0
-              ? { connect: roles.map((id) => ({ id })) }
-              : undefined,
-          puestos:
-            puestos_asignados?.filter((p) => p.departamento_id && p.puesto_id)
-              .length > 0
-              ? {
-                  create: puestos_asignados
-                    .filter((p) => p.departamento_id && p.puesto_id)
-                    .map((puesto, index) => ({
-                      orden_puesto: index + 1,
-                      departamento: {
-                        connect: { id: Number(puesto.departamento_id) },
-                      },
-                      puesto: { connect: { id: Number(puesto.puesto_id) } },
-                    })),
-                }
-              : undefined,
-        },
-        include: { roles: true, puestos: true },
+      // PATCH: la persona y sus documentos adjuntos se crean en la misma
+      // transacción — si guardar los documentos falla, la persona tampoco
+      // queda creada (antes eran dos llamadas separadas desde el controller).
+      return await this.prisma.$transaction(async (tx) => {
+        const persona = await tx.persona.create({
+          data: {
+            ...personaData,
+            fecha_nacimiento: personaData.fecha_nacimiento
+              ? new Date(personaData.fecha_nacimiento)
+              : null,
+            roles:
+              roles?.length > 0
+                ? { connect: roles.map((id) => ({ id })) }
+                : undefined,
+            puestos:
+              puestos_asignados?.filter((p) => p.departamento_id && p.puesto_id)
+                .length > 0
+                ? {
+                    create: puestos_asignados
+                      .filter((p) => p.departamento_id && p.puesto_id)
+                      .map((puesto, index) => ({
+                        orden_puesto: index + 1,
+                        departamento: {
+                          connect: { id: Number(puesto.departamento_id) },
+                        },
+                        puesto: { connect: { id: Number(puesto.puesto_id) } },
+                      })),
+                  }
+                : undefined,
+          },
+          include: { roles: true, puestos: true },
+        });
+
+        if (documentos && documentos.length > 0) {
+          await tx.documentoPersona.createMany({
+            data: documentos.map((d) => ({ ...d, persona_id: persona.id })),
+          });
+        }
+
+        return persona;
       });
       // PATCH: captura P2002 entre findUnique y create (race condition)
     } catch (error) {
@@ -248,17 +264,6 @@ export class PersonasService {
           },
         },
       });
-    });
-  }
-
-  /**
-   * Ejecuta la operación de negocio guardarDocumentos.
-   * @param documentos - Datos o identificador requerido (any[])
-   * @returns Entidad | PrismaResponse
-   */
-  async guardarDocumentos(documentos: any[]) {
-    return await this.prisma.documentoPersona.createMany({
-      data: documentos,
     });
   }
 

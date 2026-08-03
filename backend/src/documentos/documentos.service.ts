@@ -368,6 +368,7 @@ export class DocumentosService {
       where: { carpeta_id: carpetaId },
       orderBy: { created_at: 'desc' },
       include: { circuito: true },
+      take: 500, // límite de seguridad: una carpeta no debería listar más que esto de golpe
     });
   }
 

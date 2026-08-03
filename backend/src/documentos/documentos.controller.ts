@@ -43,9 +43,13 @@ export class DocumentosController {
   @Get()
   @RequireAccess('Gestor Documental', 2) // Nivel 2: Ver documentos
   findAll(@Query('carpeta_id') carpetaId?: string) {
-    return this.documentosService.findAll(
-      carpetaId ? parseInt(carpetaId, 10) : undefined,
-    );
+    // carpeta_id es obligatorio: sin filtro, Prisma interpreta
+    // `where: { carpeta_id: undefined }` como "sin filtro" y devolvería
+    // TODOS los documentos del sistema sin paginación.
+    if (!carpetaId) {
+      throw new BadRequestException('carpeta_id es requerido.');
+    }
+    return this.documentosService.findAll(parseInt(carpetaId, 10));
   }
 
   @Get('circuitos')
