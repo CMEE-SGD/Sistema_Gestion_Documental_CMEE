@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, X } from 'lucide-react';
 import api from '../../../core/api/axios';
@@ -32,6 +32,8 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSuccess?: (cliente: ClienteInstitucionalCreado) => void;
+  /** Si se provee, el modal edita este cliente en vez de crear uno nuevo. */
+  cliente?: ClienteInstitucionalCreado | null;
 }
 
 const EMPTY_FORM: ClienteFormState = {
@@ -47,32 +49,56 @@ const EMPTY_FORM: ClienteFormState = {
 // Component
 // ---------------------------------------------------------------------------
 
-export default function ClienteFormModal({ open, onClose, onSuccess }: Props) {
+export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: Props) {
   const queryClient = useQueryClient();
+  const esEdicion = !!cliente;
 
   const [form, setForm] = useState<ClienteFormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    if (!open) return;
+    setForm(
+      cliente
+        ? {
+            nombre: cliente.nombre,
+            ruc: cliente.ruc ?? '',
+            representante: cliente.representante,
+            direccion: cliente.direccion,
+            telefono: cliente.telefono,
+            email: cliente.email ?? '',
+          }
+        : EMPTY_FORM,
+    );
+    setErrors({});
+  }, [open, cliente]);
+
   const mutation = useMutation({
     mutationFn: async (data: ClienteFormState) => {
-      const res = await api.post<ClienteInstitucionalCreado>(
-        '/clientes-institucionales',
-        {
-          nombre: data.nombre.trim(),
-          ruc: data.ruc.trim() || undefined,
-          representante: data.representante.trim(),
-          direccion: data.direccion.trim(),
-          telefono: data.telefono.trim(),
-          email: data.email.trim() || undefined,
-        },
-      );
+      const payload = {
+        nombre: data.nombre.trim(),
+        ruc: data.ruc.trim() || undefined,
+        representante: data.representante.trim(),
+        direccion: data.direccion.trim(),
+        telefono: data.telefono.trim(),
+        email: data.email.trim() || undefined,
+      };
+      const res = esEdicion
+        ? await api.patch<ClienteInstitucionalCreado>(
+            `/clientes-institucionales/${cliente!.id}`,
+            payload,
+          )
+        : await api.post<ClienteInstitucionalCreado>(
+            '/clientes-institucionales',
+            payload,
+          );
       return res.data;
     },
-    onSuccess: (cliente) => {
+    onSuccess: (clienteGuardado) => {
       queryClient.invalidateQueries({ queryKey: ['clientes-institucionales'] });
       setForm(EMPTY_FORM);
       setErrors({});
-      onSuccess?.(cliente);
+      onSuccess?.(clienteGuardado);
       onClose();
     },
   });
@@ -128,7 +154,9 @@ export default function ClienteFormModal({ open, onClose, onSuccess }: Props) {
       <div className="relative mx-4 flex w-full max-w-2xl flex-col rounded-xl border border-border bg-popover text-popover-foreground shadow-lg">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="text-lg font-semibold">Nuevo Cliente</h2>
+          <h2 className="text-lg font-semibold">
+            {esEdicion ? 'Editar Cliente' : 'Nuevo Cliente'}
+          </h2>
           <button
             type="button"
             onClick={handleClose}
@@ -283,6 +311,8 @@ export default function ClienteFormModal({ open, onClose, onSuccess }: Props) {
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Guardando…
                 </>
+              ) : esEdicion ? (
+                'Guardar Cambios'
               ) : (
                 'Guardar Cliente'
               )}

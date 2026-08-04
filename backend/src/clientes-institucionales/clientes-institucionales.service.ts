@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CreateClienteInstitucionalDto } from './dto/create-clientes-institucionale.dto';
 import { UpdateClientesInstitucionaleDto } from './dto/update-clientes-institucionale.dto';
 
@@ -56,10 +57,45 @@ export class ClientesInstitucionalesService {
 
   async update(id: number, updateDto: UpdateClientesInstitucionaleDto) {
     await this.findOne(id); // Verifica que exista
-    return this.prisma.clienteInstitucional.update({
-      where: { id },
-      data: updateDto,
-    });
+
+    if (updateDto.nombre) {
+      const existeNombre = await this.prisma.clienteInstitucional.findUnique({
+        where: { nombre: updateDto.nombre },
+      });
+      if (existeNombre && existeNombre.id !== id) {
+        throw new ConflictException(
+          'Ya existe un cliente o institución con este nombre',
+        );
+      }
+    }
+
+    if (updateDto.ruc) {
+      const existeRuc = await this.prisma.clienteInstitucional.findUnique({
+        where: { ruc: updateDto.ruc },
+      });
+      if (existeRuc && existeRuc.id !== id) {
+        throw new ConflictException(
+          'Ya existe un cliente registrado con este RUC',
+        );
+      }
+    }
+
+    try {
+      return await this.prisma.clienteInstitucional.update({
+        where: { id },
+        data: updateDto,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Ya existe un cliente con ese nombre o RUC',
+        );
+      }
+      throw error;
+    }
   }
 
   async remove(id: number) {
