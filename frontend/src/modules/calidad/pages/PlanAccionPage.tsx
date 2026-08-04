@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Eye } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import '@sd-vk/spa-quill-table-better';
@@ -40,6 +40,8 @@ export const PlanAccionPage = () => {
     const { alert } = useAlert();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
+    const [fetching, setFetching] = useState(true);
+    const [planAccionExists, setPlanAccionExists] = useState(false);
 
     const [analisisExtension, setAnalisisExtension] = useState('');
     const [obExtension, setObExtension] = useState('');
@@ -55,6 +57,31 @@ export const PlanAccionPage = () => {
     const [accionesCorrectivas, setAccionesCorrectivas] = useState([
         { accion: '', evidencia: '', fecha: '', observaciones: '', ob: '' },
     ]);
+
+    useEffect(() => {
+        const fetchPlanAccion = async () => {
+            try {
+                const res = await api.get(`/calidad/no-conformidades/${ncId}`);
+                const nc = res.data;
+                const pa = nc.plan_accion;
+                if (pa) {
+                    setPlanAccionExists(true);
+                    setAnalisisExtension(pa.analisisExtension || '');
+                    setObExtension(pa.obExtension || '');
+                    setAnalisisCausa(pa.analisisCausa || '');
+                    setObCausa(pa.obCausa || '');
+                    setCausaRaiz(pa.causaRaiz || '');
+                    if (pa.correcciones && pa.correcciones.length > 0) setCorrecciones(pa.correcciones);
+                    if (pa.accionesCorrectivas && pa.accionesCorrectivas.length > 0) setAccionesCorrectivas(pa.accionesCorrectivas);
+                }
+            } catch (error) {
+                console.error('Error cargando plan de acción', error);
+            } finally {
+                setFetching(false);
+            }
+        };
+        fetchPlanAccion();
+    }, [ncId]);
 
     const addCorreccion = () => setCorrecciones([...correcciones, { correccion: '', evidencia: '', fecha: '', observaciones: '', ob: '' }]);
     const removeCorreccion = (i: number) => setCorrecciones(correcciones.filter((_, idx) => idx !== i));
@@ -82,6 +109,8 @@ export const PlanAccionPage = () => {
         }
     };
 
+    const readOnly = planAccionExists;
+
     return (
         <div className="p-6 max-w-5xl mx-auto">
             <div className="mb-6">
@@ -92,7 +121,14 @@ export const PlanAccionPage = () => {
                 <p className="text-sm text-gray-500">Correcciones y Acciones Correctivas propuestas por el OEC</p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            {readOnly && (
+                <div className="mb-4 flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <Eye className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm text-blue-800 font-medium">Este plan de acción ya fue guardado y se muestra en modo solo lectura.</span>
+                </div>
+            )}
+
+            <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${readOnly ? 'read-only' : ''}`}>
                 <p className="font-bold text-sm text-gray-800 mb-4">
                     a. <u>Plan de Acción: Correcciones y Acciones Correctivas propuestas por el OEC y revisadas por el Equipo Evaluador del SAE. (ver instrucciones del literal a)</u>
                 </p>
@@ -119,10 +155,11 @@ export const PlanAccionPage = () => {
                                 placeholder="Describa el análisis de extensión..."
                                 className="text-sm plan-accion-editor"
                                 style={{ minHeight: 100 }}
+                                readOnly={readOnly}
                             />
                         </div>
                         <div className="col-span-2 p-3 border-l border-gray-200">
-                            <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={obExtension} onChange={e => setObExtension(e.target.value)} onInput={autoResize} placeholder="Ob." />
+                            <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={obExtension} onChange={e => setObExtension(e.target.value)} onInput={autoResize} placeholder="Ob." readOnly={readOnly} />
                         </div>
                     </div>
                 </div>
@@ -144,10 +181,11 @@ export const PlanAccionPage = () => {
                                 placeholder="Escriba el análisis de causa..."
                                 className="text-sm plan-accion-editor"
                                 style={{ minHeight: 100 }}
+                                readOnly={readOnly}
                             />
                         </div>
                         <div className="col-span-2 p-3 border-l border-gray-200">
-                            <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={obCausa} onChange={e => setObCausa(e.target.value)} onInput={autoResize} placeholder="Ob." />
+                            <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={obCausa} onChange={e => setObCausa(e.target.value)} onInput={autoResize} placeholder="Ob." readOnly={readOnly} />
                         </div>
                     </div>
                 </div>
@@ -165,6 +203,7 @@ export const PlanAccionPage = () => {
                             placeholder="Describa la causa raíz..."
                             className="text-sm plan-accion-editor"
                             style={{ minHeight: 100 }}
+                            readOnly={readOnly}
                         />
                     </div>
                 </div>
@@ -181,27 +220,27 @@ export const PlanAccionPage = () => {
                     {correcciones.map((c, i) => (
                         <div key={i} className="grid grid-cols-12 border-b border-gray-200 last:border-b-0">
                             <div className="col-span-3 p-2 border-r border-gray-200">
-                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={c.correccion} onChange={e => updateCorreccion(i, 'correccion', e.target.value)} onInput={autoResize} placeholder="Describa la corrección..." />
+                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={c.correccion} onChange={e => updateCorreccion(i, 'correccion', e.target.value)} onInput={autoResize} placeholder="Describa la corrección..." readOnly={readOnly} />
                             </div>
                             <div className="col-span-3 p-2 border-r border-gray-200">
-                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={c.evidencia} onChange={e => updateCorreccion(i, 'evidencia', e.target.value)} onInput={autoResize} placeholder="Evidencia a presentar..." />
+                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={c.evidencia} onChange={e => updateCorreccion(i, 'evidencia', e.target.value)} onInput={autoResize} placeholder="Evidencia a presentar..." readOnly={readOnly} />
                             </div>
                             <div className="col-span-2 p-2 border-r border-gray-200">
-                                <input type="date" className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={c.fecha} onChange={e => updateCorreccion(i, 'fecha', e.target.value)} />
+                                <input type="date" className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={c.fecha} onChange={e => updateCorreccion(i, 'fecha', e.target.value)} readOnly={readOnly} />
                             </div>
                             <div className="col-span-2 p-2 border-r border-gray-200">
-                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={c.observaciones} onChange={e => updateCorreccion(i, 'observaciones', e.target.value)} onInput={autoResize} placeholder="Sin observaciones" />
+                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={c.observaciones} onChange={e => updateCorreccion(i, 'observaciones', e.target.value)} onInput={autoResize} placeholder="Sin observaciones" readOnly={readOnly} />
                             </div>
                             <div className="col-span-2 p-2 border-l border-gray-200">
-                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={c.ob} onChange={e => updateCorreccion(i, 'ob', e.target.value)} onInput={autoResize} placeholder="Ob." />
-                                {correcciones.length > 1 && (
+                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={c.ob} onChange={e => updateCorreccion(i, 'ob', e.target.value)} onInput={autoResize} placeholder="Ob." readOnly={readOnly} />
+                                {!readOnly && correcciones.length > 1 && (
                                     <button type="button" onClick={() => removeCorreccion(i)} className="text-red-500 hover:text-red-700 mt-1"><Trash2 className="w-3 h-3" /></button>
                                 )}
                             </div>
                         </div>
                     ))}
                     <div className="p-2 text-center bg-gray-50">
-                        <button type="button" onClick={addCorreccion} className="text-xs text-blue-600 hover:text-blue-800 font-medium"><Plus className="w-3 h-3 inline mr-1" />Agregar Corrección</button>
+                        {!readOnly && <button type="button" onClick={addCorreccion} className="text-xs text-blue-600 hover:text-blue-800 font-medium"><Plus className="w-3 h-3 inline mr-1" />Agregar Corrección</button>}
                     </div>
                 </div>
 
@@ -217,41 +256,45 @@ export const PlanAccionPage = () => {
                     {accionesCorrectivas.map((a, i) => (
                         <div key={i} className="grid grid-cols-12 border-b border-gray-200 last:border-b-0">
                             <div className="col-span-3 p-2 border-r border-gray-200">
-                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={a.accion} onChange={e => updateAccion(i, 'accion', e.target.value)} onInput={autoResize} placeholder="Describa la acción correctiva..." />
+                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={a.accion} onChange={e => updateAccion(i, 'accion', e.target.value)} onInput={autoResize} placeholder="Describa la acción correctiva..." readOnly={readOnly} />
                             </div>
                             <div className="col-span-3 p-2 border-r border-gray-200">
-                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={a.evidencia} onChange={e => updateAccion(i, 'evidencia', e.target.value)} onInput={autoResize} placeholder="Evidencia a presentar..." />
+                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={a.evidencia} onChange={e => updateAccion(i, 'evidencia', e.target.value)} onInput={autoResize} placeholder="Evidencia a presentar..." readOnly={readOnly} />
                             </div>
                             <div className="col-span-2 p-2 border-r border-gray-200">
-                                <input type="date" className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={a.fecha} onChange={e => updateAccion(i, 'fecha', e.target.value)} />
+                                <input type="date" className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={a.fecha} onChange={e => updateAccion(i, 'fecha', e.target.value)} readOnly={readOnly} />
                             </div>
                             <div className="col-span-2 p-2 border-r border-gray-200">
-                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={a.observaciones} onChange={e => updateAccion(i, 'observaciones', e.target.value)} onInput={autoResize} placeholder="Sin observaciones" />
+                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={a.observaciones} onChange={e => updateAccion(i, 'observaciones', e.target.value)} onInput={autoResize} placeholder="Sin observaciones" readOnly={readOnly} />
                             </div>
                             <div className="col-span-2 p-2 border-l border-gray-200">
-                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={a.ob} onChange={e => updateAccion(i, 'ob', e.target.value)} onInput={autoResize} placeholder="Ob." />
-                                {accionesCorrectivas.length > 1 && (
+                                <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={a.ob} onChange={e => updateAccion(i, 'ob', e.target.value)} onInput={autoResize} placeholder="Ob." readOnly={readOnly} />
+                                {!readOnly && accionesCorrectivas.length > 1 && (
                                     <button type="button" onClick={() => removeAccion(i)} className="text-red-500 hover:text-red-700 mt-1"><Trash2 className="w-3 h-3" /></button>
                                 )}
                             </div>
                         </div>
                     ))}
                     <div className="p-2 text-center bg-gray-50">
-                        <button type="button" onClick={addAccion} className="text-xs text-blue-600 hover:text-blue-800 font-medium"><Plus className="w-3 h-3 inline mr-1" />Agregar Acción Correctiva</button>
+                        {!readOnly && <button type="button" onClick={addAccion} className="text-xs text-blue-600 hover:text-blue-800 font-medium"><Plus className="w-3 h-3 inline mr-1" />Agregar Acción Correctiva</button>}
                     </div>
                 </div>
 
                 {/* Archivo adjunto */}
-                <div className="mt-4 p-3 bg-gray-50 border border-gray-300 rounded">
-                    <label className="text-xs font-semibold text-gray-700 block mb-1">Adjuntar archivo (Correcciones):</label>
-                    <input type="file" accept=".xlsx,.xls,.pdf,.doc,.docx" className="text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-4 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={e => setCorreccionFile(e.target.files?.[0] || null)} />
-                    {correccionFile && <p className="text-xs text-gray-500 mt-1">Seleccionado: {correccionFile.name}</p>}
-                </div>
+                {!readOnly && (
+                    <div className="mt-4 p-3 bg-gray-50 border border-gray-300 rounded">
+                        <label className="text-xs font-semibold text-gray-700 block mb-1">Adjuntar archivo (Correcciones):</label>
+                        <input type="file" accept=".xlsx,.xls,.pdf,.doc,.docx" className="text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-4 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={e => setCorreccionFile(e.target.files?.[0] || null)} />
+                        {correccionFile && <p className="text-xs text-gray-500 mt-1">Seleccionado: {correccionFile.name}</p>}
+                    </div>
+                )}
 
                 <div className="mt-6 flex justify-end border-t border-gray-200 pt-4">
-                    <button type="button" onClick={handleSave} disabled={loading} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50">
-                        <Save className="w-4 h-4" /> {loading ? 'Guardando...' : 'Guardar Plan de Acción'}
-                    </button>
+                    {!readOnly && (
+                        <button type="button" onClick={handleSave} disabled={loading} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50">
+                            <Save className="w-4 h-4" /> {loading ? 'Guardando...' : 'Guardar Plan de Acción'}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

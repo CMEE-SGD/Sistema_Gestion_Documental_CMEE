@@ -37,7 +37,7 @@ export const AlertProvider = ({ children }: { children: React.ReactNode }) => {
       setMode('alert');
       setTitle(options.title || 'Alerta');
       setMessage(options.message);
-      setResolve(() => res());
+      setResolve(() => res);
       setIsOpen(true);
     });
   }, []);

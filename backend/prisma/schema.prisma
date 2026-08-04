@@ -1009,6 +1009,7 @@ model NoConformidad {
   clasificacion        ClasificacionNC  @default(MENOR)
   causa_raiz           String?          @db.Text
   acciones_inmediatas  String?          @db.Text
+  plan_accion          Json?
   estado               EstadoNC         @default(ABIERTA)
   responsable_id       Int?
   responsable          Persona?         @relation("NcResponsable", fields: [responsable_id], references: [id], onDelete: Restrict)

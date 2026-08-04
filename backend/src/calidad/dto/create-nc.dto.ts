@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, IsEnum, IsDateString, IsBoolean } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, IsEnum, IsDateString, IsBoolean, IsObject } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ClasificacionNC, EstadoNC } from '@prisma/client';
 
@@ -57,6 +57,10 @@ export class CreateNcDto {
   @IsString()
   @IsOptional()
   acciones_inmediatas?: string;
+
+  @IsObject()
+  @IsOptional()
+  plan_accion?: any;
 
   @IsEnum(EstadoNC)
   @IsOptional()
