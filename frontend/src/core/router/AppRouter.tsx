@@ -67,6 +67,15 @@ import { EditarFasePage } from '../../modules/gestor_documental/pages/configurac
 
 import { AuditoriaPage } from '../../modules/auditoria/AuditoriaPage';
 
+// --- IMPORTACIONES CALIDAD ---
+import { CalidadLayout } from '../../modules/calidad/CalidadLayout';
+import { AuditoriasPage } from '../../modules/calidad/pages/AuditoriasPage';
+import { AuditoriaFormPage } from '../../modules/calidad/pages/AuditoriaFormPage';
+import { AuditoriaDetallePage } from '../../modules/calidad/pages/AuditoriaDetallePage';
+import { NuevaNcPage } from '../../modules/calidad/pages/NuevaNcPage';
+import { DetalleNcPage } from '../../modules/calidad/pages/DetalleNcPage';
+import { PlanAccionPage } from '../../modules/calidad/pages/PlanAccionPage';
+
 // --- IMPORTACIONES ADMINISTRATIVO (NUEVO) ---
 import { AdministrativoLayout } from '../../modules/administrativo/components/AdministrativoLayout';
 import BandejaTrabajoPage from '../../modules/administrativo/pages/BandejaTrabajoPage';
@@ -147,6 +156,19 @@ const AppRouter = () => {
         </Route>
 
         <Route path="/auditoria" element={<AuditoriaPage />} />
+
+        {/* --- MÓDULO CALIDAD --- */}
+        <Route path="/calidad" element={<CalidadLayout />}>
+          <Route index element={<AuditoriasPage />} />
+          <Route path="auditorias" element={<AuditoriasPage />} />
+          <Route path="auditorias/nueva" element={<AuditoriaFormPage />} />
+          <Route path="auditorias/editar/:id" element={<AuditoriaFormPage />} />
+          <Route path="auditorias/:id" element={<AuditoriaDetallePage />} />
+          <Route path="auditorias/:auditoriaId/nc/nueva" element={<NuevaNcPage />} />
+          <Route path="auditorias/:auditoriaId/nc/editar/:ncId" element={<NuevaNcPage />} />
+          <Route path="auditorias/:auditoriaId/nc/:ncId" element={<DetalleNcPage />} />
+          <Route path="auditorias/:auditoriaId/nc/:ncId/plan-accion" element={<PlanAccionPage />} />
+        </Route>
 
         {/* --- NUEVO MÓDULO ADMINISTRATIVO --- */}
         <Route path="/administrativo" element={<AdministrativoLayout />}>

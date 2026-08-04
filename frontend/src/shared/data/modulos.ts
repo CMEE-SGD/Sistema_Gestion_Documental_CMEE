@@ -32,6 +32,8 @@ export const modules: Module[] = [
   { id: 18, name: "Certificados", category: "Recepcion de Equipos", path: "/administrativo/certificados" },
   { id: 19, name: "Reportes", category: "Recepcion de Equipos", path: "/administrativo/reportes" },
 
-  { id: 20, name: "Inicio", category: "General", path: "/welcome" },
-  { id: 21, name: "Preferencias", category: "General", path: "/preferencias" },
+  { id: 20, name: "Gestion de Calidad", category: "Calidad", path: "/calidad/auditorias" },
+
+  { id: 21, name: "Inicio", category: "General", path: "/welcome" },
+  { id: 22, name: "Preferencias", category: "General", path: "/preferencias" },
 ];

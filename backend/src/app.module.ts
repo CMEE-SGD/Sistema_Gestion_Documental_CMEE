@@ -24,6 +24,7 @@ import { RecepcionEquiposModule } from './recepcion-equipos/recepcion-equipos.mo
 import { CertificadosModule } from './certificados/certificados.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { ReportesModule } from './reportes/reportes.module';
+import { CalidadModule } from './calidad/calidad.module';
 import { ConfiguracionGeneralModule } from './configuracion-general/configuracion-general.module';
 
 /** Módulo controlador o servicio para gestionar la entidad AppModule. */
@@ -62,6 +63,7 @@ import { ConfiguracionGeneralModule } from './configuracion-general/configuracio
     CertificadosModule,
     NotificacionesModule,
     ReportesModule,
+    CalidadModule,
     ConfiguracionGeneralModule,
   ],
   controllers: [],

@@ -162,10 +162,10 @@ const FormPersona = ({
           </div>
         </div>
 
-        {/* GRID DE DATOS (Orden Lógico Aplicado) */}
+        {/* GRID DE DATOS — Distribución uniforme (4 campos por columna) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 pt-6 border-t border-gray-200 mt-4">
           
-          {/* COLUMNA 1: Ubicación */}
+          {/* COLUMNA 1: Ubicación + Sexo */}
           <div>
             <LabelRow label="Provincia: " mb="mb-4">
                 <select name="provincia" value={formData.provincia} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-[250px] bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm">
@@ -179,10 +179,6 @@ const FormPersona = ({
             <LabelRow label="Domicilio: " mb="mb-4">
               <input type="text" name="domicilio" value={formData.domicilio} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
             </LabelRow>
-          </div>
-
-          {/* COLUMNA 2: Contacto y Personal */}
-          <div>
             <LabelRow label="Sexo: " mb="mb-4">
               <div className="flex items-center gap-5 mt-1.5">
                 <label className="flex items-center gap-1.5 cursor-pointer">
@@ -196,29 +192,31 @@ const FormPersona = ({
                 </label>
               </div>
             </LabelRow>
+          </div>
+
+          {/* COLUMNA 2: Contacto y Personal */}
+          <div>
             <LabelRow label="Fecha Nacimiento: " mb="mb-4">
               <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-40 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
             </LabelRow>
             <LabelRow label="Teléfonos: " mb="mb-4">
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-14 text-gray-600 font-medium">Celular 1: </span>
+                  <span className="text-gray-600 font-medium whitespace-nowrap">Celular 1: </span>
                   <input type="text" name="celular_1" value={formData.celular_1} onChange={handleCelularChange} placeholder="099-999-9999" className="border border-gray-300 px-2 py-1 w-32 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm placeholder:text-gray-300" />
-                  
-                  <span className="w-14 text-gray-600 font-medium ml-3">Celular 2: </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-600 font-medium whitespace-nowrap">Celular 2: </span>
                   <input type="text" name="celular_2" value={formData.celular_2} onChange={handleCelularChange} placeholder="099-999-9999" className="border border-gray-300 px-2 py-1 w-32 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm placeholder:text-gray-300" />
                 </div>
               </div>
             </LabelRow>
-
-            <div className="mt-5">
-              <LabelRow label="E-mail 1: " mb="mb-4">
-                <input type="email" name="email_1" value={formData.email_1} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-[320px] bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
-              </LabelRow>
-              <LabelRow label="E-mail 2: " mb="mb-4">
-                <input type="email" name="email_2" value={formData.email_2} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-[320px] bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
-              </LabelRow>
-            </div>
+            <LabelRow label="E-mail 1: " mb="mb-4">
+              <input type="email" name="email_1" value={formData.email_1} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-[320px] bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
+            </LabelRow>
+            <LabelRow label="E-mail 2: " mb="mb-4">
+              <input type="email" name="email_2" value={formData.email_2} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-full max-w-[320px] bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
+            </LabelRow>
           </div>
         </div>
 

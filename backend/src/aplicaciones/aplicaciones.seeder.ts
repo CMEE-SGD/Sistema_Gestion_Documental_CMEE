@@ -41,6 +41,10 @@ export class AplicacionesSeeder implements OnModuleInit {
         nombre: 'Recepcion Equipos',
         descripcion: 'Módulo de recepción y seguimiento de equipos',
       },
+      {
+        nombre: 'Gestion de Calidad',
+        descripcion: 'Auditorías internas, no conformidades y acciones correctivas',
+      },
     ];
 
     for (const app of aplicacionesBase) {
