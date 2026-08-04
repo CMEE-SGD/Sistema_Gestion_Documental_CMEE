@@ -59,7 +59,7 @@ export const NcForm = ({ auditoriaId, onClose, onSuccess }: NcFormProps) => {
                     <input type="text" name="codigo" required value={formData.codigo} onChange={handleChange} className="border border-gray-300 rounded px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej: NC-2026-001" />
                 </div>
                 <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-gray-700">Tipo</label>
+                    <label className="text-xs font-semibold text-gray-700">Categoría</label>
                     <div className="flex items-center gap-4 border border-gray-300 rounded px-3 py-1.5 h-[34px]">
                         <label className="flex items-center gap-1.5 cursor-pointer text-sm">
                             <input type="radio" name="categoria" value="NC" checked={formData.categoria === 'NC'} onChange={handleChange} className="w-3.5 h-3.5 text-blue-600" /> NC
@@ -77,7 +77,7 @@ export const NcForm = ({ auditoriaId, onClose, onSuccess }: NcFormProps) => {
             </div>
 
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-gray-700">Hallazgo <span className="text-red-500">*</span></label>
+                <label className="text-xs font-semibold text-gray-700">Hallazgo (No Conformidad/Comentario) <span className="text-red-500">*</span></label>
                 <textarea name="hallazgo" required value={formData.hallazgo} onChange={handleChange} rows={3} className="border border-gray-300 rounded px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Describa el hallazgo detectado..." />
             </div>
 

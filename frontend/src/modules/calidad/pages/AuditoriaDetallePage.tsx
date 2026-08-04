@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, CircleCheck, CircleX } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit3, Eye, CircleCheck, CircleX } from 'lucide-react';
 import api from '../../../core/api/axios';
-import { Modal } from '../../../shared/components/molecules/Modal';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { tienePermiso } from '../../../shared/utils/auth';
-import { NcForm } from '../components/NcForm';
 
 export const AuditoriaDetallePage = () => {
     const { id } = useParams();
@@ -17,9 +15,9 @@ export const AuditoriaDetallePage = () => {
     const [auditoria, setAuditoria] = useState<any>(null);
     const [ncs, setNcs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [ncModalOpen, setNcModalOpen] = useState(false);
 
     const puedeCrearNC = tienePermiso('Gestion de Calidad', 5);
+    const puedeEditarNC = tienePermiso('Gestion de Calidad', 4);
 
     const fetchData = async () => {
         try {
@@ -85,7 +83,7 @@ export const AuditoriaDetallePage = () => {
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
                     <h2 className="font-bold text-gray-800">No Conformidades ({ncs.length})</h2>
                     {puedeCrearNC && (
-                        <Button variant="default" onClick={() => setNcModalOpen(true)}>
+                        <Button variant="default" onClick={() => navigate(`/calidad/auditorias/${id}/nc/nueva`)}>
                             <Plus className="w-4 h-4 mr-1" /> Nueva NC
                         </Button>
                     )}
@@ -120,9 +118,15 @@ export const AuditoriaDetallePage = () => {
                                     <td className="px-4 py-3 text-center">{nc.aceptada_oec ? <CircleCheck className="w-4 h-4 text-emerald-600 inline" /> : <CircleX className="w-4 h-4 text-red-400 inline" />}</td>
                                     <td className="px-4 py-3 text-center">{nc.reiterada ? <CircleCheck className="w-4 h-4 text-emerald-600 inline" /> : <CircleX className="w-4 h-4 text-red-400 inline" />}</td>
                                     <td className="px-4 py-3 text-center">
-                                        {puedeCrearNC && (
-                                            <button onClick={() => handleEliminarNc(nc.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar NC"><Trash2 className="w-4 h-4" /></button>
-                                        )}
+                                        <div className="flex justify-center gap-1">
+                                            <button onClick={() => navigate(`/calidad/auditorias/${id}/nc/${nc.id}`)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver NC"><Eye className="w-4 h-4" /></button>
+                                            {puedeEditarNC && (
+                                                <button onClick={() => navigate(`/calidad/auditorias/${id}/nc/editar/${nc.id}`)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar NC"><Edit3 className="w-4 h-4" /></button>
+                                            )}
+                                            {puedeCrearNC && (
+                                                <button onClick={() => handleEliminarNc(nc.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar NC"><Trash2 className="w-4 h-4" /></button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -130,14 +134,6 @@ export const AuditoriaDetallePage = () => {
                     </table>
                 )}
             </div>
-
-            <Modal isOpen={ncModalOpen} onClose={() => setNcModalOpen(false)} title="Nueva No Conformidad">
-                <NcForm
-                    auditoriaId={Number(id)}
-                    onClose={() => setNcModalOpen(false)}
-                    onSuccess={() => { setNcModalOpen(false); fetchData(); }}
-                />
-            </Modal>
         </div>
     );
 };

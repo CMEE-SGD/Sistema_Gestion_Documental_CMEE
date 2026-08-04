@@ -72,6 +72,9 @@ import { CalidadLayout } from '../../modules/calidad/CalidadLayout';
 import { AuditoriasPage } from '../../modules/calidad/pages/AuditoriasPage';
 import { AuditoriaFormPage } from '../../modules/calidad/pages/AuditoriaFormPage';
 import { AuditoriaDetallePage } from '../../modules/calidad/pages/AuditoriaDetallePage';
+import { NuevaNcPage } from '../../modules/calidad/pages/NuevaNcPage';
+import { DetalleNcPage } from '../../modules/calidad/pages/DetalleNcPage';
+import { PlanAccionPage } from '../../modules/calidad/pages/PlanAccionPage';
 
 // --- IMPORTACIONES ADMINISTRATIVO (NUEVO) ---
 import { AdministrativoLayout } from '../../modules/administrativo/components/AdministrativoLayout';
@@ -161,6 +164,10 @@ const AppRouter = () => {
           <Route path="auditorias/nueva" element={<AuditoriaFormPage />} />
           <Route path="auditorias/editar/:id" element={<AuditoriaFormPage />} />
           <Route path="auditorias/:id" element={<AuditoriaDetallePage />} />
+          <Route path="auditorias/:auditoriaId/nc/nueva" element={<NuevaNcPage />} />
+          <Route path="auditorias/:auditoriaId/nc/editar/:ncId" element={<NuevaNcPage />} />
+          <Route path="auditorias/:auditoriaId/nc/:ncId" element={<DetalleNcPage />} />
+          <Route path="auditorias/:auditoriaId/nc/:ncId/plan-accion" element={<PlanAccionPage />} />
         </Route>
 
         {/* --- NUEVO MÓDULO ADMINISTRATIVO --- */}

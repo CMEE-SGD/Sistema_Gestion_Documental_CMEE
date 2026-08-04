@@ -7,8 +7,6 @@ export default defineConfig({
     plugins: [
         react(),
         tailwindcss(),
-        // Solo Buffer: lo usan @signpdf/* y node-forge para la firma digital en
-        // el navegador. Sin esto, `Buffer` no existe como global fuera de Node.
         nodePolyfills({ include: ["buffer"] }),
     ],
     resolve: {
