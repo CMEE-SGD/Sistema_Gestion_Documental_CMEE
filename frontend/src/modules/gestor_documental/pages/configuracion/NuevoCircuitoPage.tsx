@@ -1,20 +1,25 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const NuevoCircuitoPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { alert } = useAlert();
     const { toast } = useToast();
-    const [nombre, setNombre] = useState('');
-    const [activo, setActivo] = useState(true);
+
+    const circuitoId = location.state?.circuitoId;
+    const esEdicion = !!circuitoId;
+
+    const [nombre, setNombre] = useState(location.state?.nombreActual || '');
+    const [activo, setActivo] = useState(location.state?.activoActual ?? true);
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!nombre.trim()) {
             await alert({ message: 'El nombre del circuito es obligatorio' });
             return;
@@ -22,15 +27,22 @@ export const NuevoCircuitoPage = () => {
 
         try {
             setLoading(true);
-            await api.post('/circuitos', { 
-                nombre: nombre.toUpperCase(),
-                activo 
-            });
-
-            toast({ message: 'Circuito creado correctamente' });
-            navigate(-1); 
+            if (esEdicion) {
+                await api.patch(`/circuitos/${circuitoId}`, {
+                    nombre: nombre.toUpperCase(),
+                    activo
+                });
+                toast({ message: 'Circuito actualizado correctamente' });
+            } else {
+                await api.post('/circuitos', {
+                    nombre: nombre.toUpperCase(),
+                    activo
+                });
+                toast({ message: 'Circuito creado correctamente' });
+            }
+            navigate(-1);
         } catch (error) {
-            console.error("Error al crear circuito:", error);
+            console.error("Error al guardar circuito:", error);
             await alert({ message: "Hubo un error al guardar. Es posible que este nombre de circuito ya exista." });
         } finally {
             setLoading(false);
@@ -40,7 +52,7 @@ export const NuevoCircuitoPage = () => {
     return (
         <div className="bg-white p-8 rounded-lg border border-gray-200 shadow-sm max-w-2xl">
             <h2 className="text-[18px] font-bold text-gray-800 mb-6 border-b border-gray-200 pb-3">
-                Nuevo Circuito
+                {esEdicion ? 'Editar Circuito' : 'Nuevo Circuito'}
             </h2>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -76,7 +88,7 @@ export const NuevoCircuitoPage = () => {
                         disabled={loading}
                         className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded shadow hover:bg-blue-700 transition-colors disabled:opacity-50"
                     >
-                        {loading ? 'Guardando...' : 'Aceptar'}
+                        {loading ? 'Guardando...' : esEdicion ? 'Guardar cambios' : 'Aceptar'}
                     </button>
                     <button 
                         type="button" 

@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   ParseIntPipe,
+  Query,
   Req,
 } from '@nestjs/common';
 import { LaboratoriosService } from './laboratorios.service';
@@ -44,6 +45,14 @@ export class LaboratoriosController {
     return this.laboratoriosService.findAll(req.user);
   }
 
+  @Get('candidatos-responsable')
+  @RequireAccess('Laboratorios', 2)
+  getCandidatosResponsable(@Query('laboratorioId') laboratorioId?: string) {
+    return this.laboratoriosService.getCandidatosResponsable(
+      laboratorioId ? +laboratorioId : undefined,
+    );
+  }
+
   /**
    * Obtiene información de un registro específico.
    * @param id - Datos o identificador requerido (number)
@@ -75,5 +84,11 @@ export class LaboratoriosController {
   @RequireAccess('Laboratorios', 5)
   remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.laboratoriosService.remove(id, req.user);
+  }
+
+  @Patch(':id/reactivar')
+  @RequireAccess('Laboratorios', 5)
+  reactivar(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.laboratoriosService.reactivar(id, req.user);
   }
 }

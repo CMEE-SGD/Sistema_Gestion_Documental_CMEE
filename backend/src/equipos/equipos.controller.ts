@@ -44,6 +44,12 @@ export class EquiposController {
     return this.equiposService.findAll(req.user);
   }
 
+  @Get('estados')
+  @RequireAccess('Laboratorios', 2)
+  getEstados() {
+    return this.equiposService.getEstados();
+  }
+
   /**
    * Obtiene información de un registro específico.
    * @param id - Datos o identificador requerido (number)
@@ -66,8 +72,9 @@ export class EquiposController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateEquipoDto: UpdateEquipoDto,
+    @Req() req: any,
   ) {
-    return this.equiposService.update(id, updateEquipoDto);
+    return this.equiposService.update(id, updateEquipoDto, req.user);
   }
 
   /**
@@ -77,7 +84,13 @@ export class EquiposController {
    */
   @Delete(':id')
   @RequireAccess('Laboratorios', 5)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.equiposService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.equiposService.remove(id, req.user);
+  }
+
+  @Patch(':id/reactivar')
+  @RequireAccess('Laboratorios', 5)
+  reactivar(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.equiposService.reactivar(id, req.user);
   }
 }

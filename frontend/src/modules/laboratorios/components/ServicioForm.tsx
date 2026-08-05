@@ -41,7 +41,9 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
                 }
             } catch (error) {
                 console.error('Error al cargar datos', error);
-                await alert({ title: 'Error', message: 'No se pudo cargar la información.' });
+                await alert({ title: 'Error', message: 'No se pudo cargar la información. Intente nuevamente.' });
+                onClose();
+                return;
             } finally {
                 setLoading(false);
             }

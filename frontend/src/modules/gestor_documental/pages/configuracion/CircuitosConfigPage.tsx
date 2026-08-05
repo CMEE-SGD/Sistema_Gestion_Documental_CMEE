@@ -35,9 +35,6 @@ export const CircuitosConfigPage = () => {
                 >
                     Nuevo circuito
                 </button>
-                <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">
-                    Matriz de responsables
-                </button>
             </div>
             
             {loading ? (
@@ -59,13 +56,13 @@ export const CircuitosConfigPage = () => {
                                         {circuito.nombre}
                                     </td>
                                     <td className="px-3 py-2 text-right">
-                                        <button className="px-3 py-1 mr-2 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm text-gray-700">
+                                        <button
+                                            onClick={() => navigate('/gestordocumental/configuracion/circuitos/nuevo', { state: { circuitoId: circuito.id, nombreActual: circuito.nombre, activoActual: circuito.activo } })}
+                                            className="px-3 py-1 mr-2 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm text-gray-700"
+                                        >
                                             Editar
                                         </button>
-                                        <button className="px-3 py-1 mr-2 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm text-gray-700">
-                                            Permisos
-                                        </button>
-                                        <button 
+                                        <button
                                             // 👉 Al dar clic, navegamos a la vista de fases de ESTE circuito
                                             onClick={() => navigate(`/gestordocumental/configuracion/circuitos/${circuito.id}/fases`, { state: { nombreCircuito: circuito.nombre }})}
                                             className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm text-gray-700 font-medium"

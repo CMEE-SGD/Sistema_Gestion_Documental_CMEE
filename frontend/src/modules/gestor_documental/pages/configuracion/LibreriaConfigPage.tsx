@@ -43,11 +43,6 @@ export const LibreriasConfigPage = () => {
                 >
                     Nueva librería
                 </button>
-                <button 
-                    className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
-                >
-                    Copiar librería
-                </button>
             </div>
             
             {loading ? (

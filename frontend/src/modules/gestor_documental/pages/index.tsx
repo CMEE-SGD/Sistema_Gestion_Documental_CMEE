@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { HelpCircle, Folder, Edit2 } from 'lucide-react';
+import { HelpCircle, Folder } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+
+const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export const GestorDocumentalPage = () => {
     const navigate = useNavigate();
@@ -133,6 +135,41 @@ export const GestorDocumentalPage = () => {
             navigate('/gestordocumental');
         }
     };
+    // 👉 Función para el botón Imprimir: envía los archivos seleccionados a la impresora del navegador
+    const handleImprimirDocumentos = async () => {
+        if (documentosSeleccionados.length === 0) {
+            await alert({ message: "Por favor, seleccione al menos un documento para imprimir." });
+            return;
+        }
+
+        const docsAImprimir = documentos.filter(doc => documentosSeleccionados.includes(doc.id) && doc.archivo_url);
+
+        for (const doc of docsAImprimir) {
+            try {
+                const rutaLimpia = doc.archivo_url.replace(/\\/g, '/');
+                const fileUrl = `${BACKEND_URL}/${rutaLimpia}`;
+                const response = await fetch(fileUrl);
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = blobUrl;
+                document.body.appendChild(iframe);
+
+                iframe.onload = () => {
+                    setTimeout(() => {
+                        iframe.contentWindow?.focus();
+                        iframe.contentWindow?.print();
+                        setTimeout(() => document.body.removeChild(iframe), 10000);
+                    }, 500);
+                };
+            } catch (error) {
+                console.error('Error al imprimir documento:', doc.id, error);
+            }
+        }
+    };
+
     // 👉 Función para el botón Mover
     const handleMoverDocumentos = async () => {
         if (documentosSeleccionados.length === 0) {
@@ -252,7 +289,6 @@ export const GestorDocumentalPage = () => {
                             <button onClick={handleAtras} className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">
                                 Atrás
                             </button>
-                            <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Nuevo documento</button>
                             <button
                                 disabled={!misPermisos.permiso_docs}
                                 onClick={() => navigate('/gestordocumental/nuevo-fichero', {
@@ -265,7 +301,6 @@ export const GestorDocumentalPage = () => {
                             >
                                 Nuevo fichero
                             </button>
-                            <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Nuevo enlace</button>
                             <button
                                 onClick={handleMoverDocumentos}
                                 className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
@@ -276,7 +311,8 @@ export const GestorDocumentalPage = () => {
                                 className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
                             >
                                 Eliminar {documentosSeleccionados.length > 0 && `(${documentosSeleccionados.length})`}
-                            </button>                            <button className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Imprimir</button>
+                            </button>
+                            <button onClick={handleImprimirDocumentos} className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Imprimir</button>
                             <button
                                 disabled={!misPermisos.permiso_carpetas}
                                 onClick={() => navigate('/gestordocumental/nueva-carpeta', {
@@ -310,7 +346,6 @@ export const GestorDocumentalPage = () => {
                                                 />
                                             </th>
                                             <th className="px-2 py-2 w-8 text-center border-r border-[#004d00]"></th>
-                                            <th className="px-2 py-2 w-8 text-center border-r border-[#004d00]"></th>
                                             <th className="px-3 py-2 border-r border-[#004d00]">Título ▼</th>
                                             <th className="px-3 py-2 border-r border-[#004d00]">Fase</th>
                                             <th className="px-3 py-2 border-r border-[#004d00]">Propietario</th>
@@ -322,7 +357,7 @@ export const GestorDocumentalPage = () => {
                                         {documentos.length === 0 ? (
                                             <tr>
                                                 {/* EL TD ES OBLIGATORIO PARA EVITAR EL ERROR DE DOMNesting */}
-                                                <td colSpan={8} className="text-center py-6 text-gray-400 italic bg-gray-50">
+                                                <td colSpan={7} className="text-center py-6 text-gray-400 italic bg-gray-50">
                                                     No hay documentos en esta carpeta.
                                                 </td>
                                             </tr>
@@ -337,9 +372,6 @@ export const GestorDocumentalPage = () => {
                                                             checked={documentosSeleccionados.includes(doc.id)}
                                                             onChange={() => toggleSeleccion(doc.id)}
                                                         />
-                                                    </td>
-                                                    <td className="px-2 py-1.5 text-center align-middle">
-                                                        <Edit2 className="w-3.5 h-3.5 mx-auto text-gray-600 cursor-pointer" />
                                                     </td>
                                                     <td className="px-2 py-1.5 text-center align-middle">
                                                         <div className="bg-gray-500 text-white text-[8px] font-bold px-1 rounded flex items-center justify-center mx-auto w-max">

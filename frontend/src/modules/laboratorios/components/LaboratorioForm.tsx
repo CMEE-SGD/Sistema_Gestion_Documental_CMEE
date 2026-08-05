@@ -12,7 +12,7 @@ interface LaboratorioFormProps {
 }
 
 export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: LaboratorioFormProps) => {
-    const { alert, confirm } = useAlert();
+    const { alert } = useAlert();
     const { toast } = useToast();
     const [personas, setPersonas] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -27,7 +27,9 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
         const cargarDatos = async () => {
             setLoading(true);
             try {
-                const resPersonas = await api.get('/personas');
+                const resPersonas = await api.get('/laboratorios/candidatos-responsable', {
+                    params: laboratorioId ? { laboratorioId } : undefined,
+                });
                 setPersonas(resPersonas.data);
 
                 // Si hay ID, cargamos los datos para editar
@@ -66,8 +68,6 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
             };
 
             if (laboratorioId) {
-                const ok = await confirm({ title: 'Actualizar laboratorio', message: '¿Está seguro de guardar los cambios en este laboratorio?' });
-                if (!ok) return;
                 await api.patch(`/laboratorios/${laboratorioId}`, payload);
             } else {
                 await api.post('/laboratorios', payload);

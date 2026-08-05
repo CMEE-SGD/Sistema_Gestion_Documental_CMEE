@@ -75,15 +75,6 @@ function resolveOrdenWhere(
   return undefined;
 }
 
-function hydrateUserJobInfo(usuario: any) {
-  const puestos = usuario?.persona?.puestos ?? [];
-  return {
-    personaId: usuario?.persona?.id ?? null,
-    puesto: puestos[0]?.puesto?.nombre ?? '',
-    labId: puestos[0]?.departamento?.laboratorio?.id ?? null,
-  };
-}
-
 @Injectable()
 export class RecepcionEquiposService {
   constructor(private readonly prisma: PrismaService) {}
@@ -130,38 +121,9 @@ export class RecepcionEquiposService {
       });
     }
 
-    let personaId = user?.persona_id ?? null;
-    let puesto = user?.puesto ?? '';
-    let labId: number | null = user?.laboratorio_id ?? null;
-
-    if (!puesto && user?.id) {
-      const usuario = await this.prisma.usuario.findUnique({
-        where: { id: user.id },
-        select: {
-          persona: {
-            select: {
-              id: true,
-              puestos: {
-                where: { activo: true },
-                orderBy: { orden_puesto: 'asc' },
-                take: 1,
-                select: {
-                  puesto: { select: { nombre: true } },
-                  departamento: {
-                    select: { laboratorio: { select: { id: true } } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      const info = hydrateUserJobInfo(usuario);
-      personaId = info.personaId;
-      puesto = info.puesto;
-      labId = info.labId;
-    }
+    const personaId = user?.persona_id ?? null;
+    const puesto = user?.puesto ?? '';
+    const labId: number | null = user?.laboratorio_id ?? null;
 
     const where = resolveOrdenWhere(puesto, personaId, labId, user?.isGod);
 
@@ -195,38 +157,9 @@ export class RecepcionEquiposService {
       return orden;
     }
 
-    let personaId = user?.persona_id ?? null;
-    let puesto = user?.puesto ?? '';
-    let labId: number | null = user?.laboratorio_id ?? null;
-
-    if (!puesto && user?.id) {
-      const usuario = await this.prisma.usuario.findUnique({
-        where: { id: user.id },
-        select: {
-          persona: {
-            select: {
-              id: true,
-              puestos: {
-                where: { activo: true },
-                orderBy: { orden_puesto: 'asc' },
-                take: 1,
-                select: {
-                  puesto: { select: { nombre: true } },
-                  departamento: {
-                    select: { laboratorio: { select: { id: true } } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      const info = hydrateUserJobInfo(usuario);
-      personaId = info.personaId;
-      puesto = info.puesto;
-      labId = info.labId;
-    }
+    const personaId = user?.persona_id ?? null;
+    const puesto = user?.puesto ?? '';
+    const labId: number | null = user?.laboratorio_id ?? null;
 
     const scopeWhere =
       resolveOrdenWhere(puesto, personaId, labId, user?.isGod) ?? {};
@@ -315,38 +248,8 @@ export class RecepcionEquiposService {
       throw new NotFoundException(`Equipo con ID ${equipoId} no encontrado`);
     }
 
-    let personaId = user.persona_id;
-    let puesto = user.puesto ?? '';
-    let labId: number | null = user.laboratorio_id ?? null;
-
-    if (!puesto && user.id) {
-      const usuario = await this.prisma.usuario.findUnique({
-        where: { id: user.id },
-        select: {
-          persona: {
-            select: {
-              id: true,
-              puestos: {
-                where: { activo: true },
-                orderBy: { orden_puesto: 'asc' },
-                take: 1,
-                select: {
-                  puesto: { select: { nombre: true } },
-                  departamento: {
-                    select: { laboratorio: { select: { id: true } } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      const info = hydrateUserJobInfo(usuario);
-      personaId = info.personaId;
-      puesto = info.puesto;
-      labId = info.labId;
-    }
+    const personaId = user.persona_id;
+    const puesto = user.puesto ?? '';
 
     const n = normalizePuesto(puesto);
     const estadoActual = equipo.estado;

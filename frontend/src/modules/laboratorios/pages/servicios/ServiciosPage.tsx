@@ -14,6 +14,7 @@ export const ServiciosPage = () => {
     const { toast } = useToast();
     const [servicios, setServicios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo');
 
@@ -24,10 +25,12 @@ export const ServiciosPage = () => {
     const fetchServicios = async () => {
         try {
             setLoading(true);
+            setError(false);
             const response = await api.get('/servicios');
             setServicios(response.data);
-        } catch (error) {
-            console.error('Error cargando servicios', error);
+        } catch (err) {
+            console.error('Error cargando servicios', err);
+            setError(true);
         } finally {
             setLoading(false);
         }
@@ -59,7 +62,7 @@ export const ServiciosPage = () => {
     const handleReactivar = async (id: number) => {
         if (!await confirm({ title: 'Confirmar', message: '¿Desea volver a activar este servicio?' })) return;
         try {
-            await api.patch(`/servicios/${id}`, { activo: true });
+            await api.patch(`/servicios/${id}/reactivar`);
             fetchServicios();
             toast({ message: 'Servicio reactivado exitosamente.' });
         } catch (error) {
@@ -123,6 +126,11 @@ export const ServiciosPage = () => {
                     <tbody className="divide-y divide-gray-100">
                         {loading ? (
                             <tr><td colSpan={5} className="p-8 text-center text-gray-400">Cargando datos...</td></tr>
+                        ) : error ? (
+                            <tr><td colSpan={5} className="p-8 text-center text-red-500">
+                                No se pudo cargar el catálogo de servicios.{' '}
+                                <button onClick={fetchServicios} className="underline font-medium hover:text-red-700">Reintentar</button>
+                            </td></tr>
                         ) : filtrados.length === 0 ? (
                             <tr><td colSpan={5} className="p-8 text-center text-gray-400">No se encontraron servicios.</td></tr>
                         ) : (
@@ -148,7 +156,7 @@ export const ServiciosPage = () => {
                                             {srv.activo && tienePermiso('Laboratorios', 5) && (
                                                 <button onClick={() => handleEliminar(srv.id)} className="text-red-600 hover:text-red-800 font-medium text-xs px-2 py-1">Desactivar</button>
                                             )}
-                                            {!srv.activo && tienePermiso('Laboratorios', 4) && (
+                                            {!srv.activo && tienePermiso('Laboratorios', 5) && (
                                                 <button onClick={() => handleReactivar(srv.id)} className="text-green-600 hover:text-green-800 font-medium text-xs px-2 py-1">Reactivar</button>
                                             )}
                                         </div>

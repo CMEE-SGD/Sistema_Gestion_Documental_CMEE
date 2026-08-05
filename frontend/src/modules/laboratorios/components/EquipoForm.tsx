@@ -14,6 +14,7 @@ export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) =>
     const { alert } = useAlert();
     const { toast } = useToast();
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
+    const [estados, setEstados] = useState<{ value: string, label: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
         codigo: '',
@@ -29,9 +30,13 @@ export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) =>
         const cargarDatos = async () => {
             setLoading(true);
             try {
-                // Siempre cargamos la lista de laboratorios
-                const resLabs = await api.get('/laboratorios');
+                // Siempre cargamos la lista de laboratorios y el catálogo de estados
+                const [resLabs, resEstados] = await Promise.all([
+                    api.get('/laboratorios'),
+                    api.get('/equipos/estados'),
+                ]);
                 setLaboratorios(resLabs.data);
+                setEstados(resEstados.data);
 
                 // Si hay ID, cargamos los datos del equipo para editar
                 if (equipoId) {
@@ -114,9 +119,9 @@ export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) =>
                         name="estado" value={formData.estado} onChange={handleChange}
                         className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     >
-                        <option value="OPERATIVO">Operativo</option>
-                        <option value="EN_CALIBRACION">En Calibración</option>
-                        <option value="FUERA_DE_SERVICIO">Fuera de Servicio</option>
+                        {estados.map(e => (
+                            <option key={e.value} value={e.value}>{e.label}</option>
+                        ))}
                     </select>
                 </div>
 

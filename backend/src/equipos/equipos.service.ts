@@ -4,15 +4,31 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, EstadoEquipo } from '@prisma/client';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
 import type { HydratedUser } from '../common/helpers/lab-scope';
 import { isRestrictedToLab } from '../common/helpers/lab-scope';
 
+const ESTADO_EQUIPO_LABELS: Record<EstadoEquipo, string> = {
+  OPERATIVO: 'Operativo',
+  EN_CALIBRACION: 'En Calibración',
+  FUERA_DE_SERVICIO: 'Fuera de Servicio',
+};
+
 @Injectable()
 export class EquiposService {
   constructor(private prisma: PrismaService) {}
+
+  // Catálogo del enum EstadoEquipo para que el frontend no tenga que
+  // hardcodear las opciones del select — si se agrega un estado nuevo en el
+  // schema, este endpoint lo refleja automáticamente.
+  getEstados() {
+    return Object.values(EstadoEquipo).map((value) => ({
+      value,
+      label: ESTADO_EQUIPO_LABELS[value],
+    }));
+  }
 
   async create(data: CreateEquipoDto) {
     const existeCodigo = await this.prisma.equipo.findUnique({
@@ -88,8 +104,8 @@ export class EquiposService {
     return equipo;
   }
 
-  async update(id: number, data: UpdateEquipoDto) {
-    await this.findOne(id);
+  async update(id: number, data: UpdateEquipoDto, user?: HydratedUser) {
+    await this.findOne(id, user);
 
     if (data.codigo) {
       const existeCodigo = await this.prisma.equipo.findUnique({
@@ -100,10 +116,15 @@ export class EquiposService {
       }
     }
 
+    // El campo `activo` solo se cambia a través de remove()/reactivar(),
+    // que exigen nivel 5 — así edición (nivel 4) nunca puede usarse como
+    // puerta trasera para desactivar o reactivar.
+    const { activo: _activo, ...resto } = data;
+
     try {
       return await this.prisma.equipo.update({
         where: { id },
-        data,
+        data: resto,
       });
     } catch (error) {
       if (
@@ -116,11 +137,19 @@ export class EquiposService {
     }
   }
 
-  async remove(id: number) {
-    await this.findOne(id);
+  async remove(id: number, user?: HydratedUser) {
+    await this.findOne(id, user);
     return this.prisma.equipo.update({
       where: { id },
       data: { activo: false },
+    });
+  }
+
+  async reactivar(id: number, user?: HydratedUser) {
+    await this.findOne(id, user);
+    return this.prisma.equipo.update({
+      where: { id },
+      data: { activo: true },
     });
   }
 }

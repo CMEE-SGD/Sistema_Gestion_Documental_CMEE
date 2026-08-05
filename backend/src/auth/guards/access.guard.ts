@@ -53,12 +53,38 @@ export class AccessGuard implements CanActivate {
             },
           },
         },
+        persona: {
+          select: {
+            id: true,
+            puestos: {
+              where: { activo: true },
+              orderBy: { orden_puesto: 'asc' },
+              take: 1,
+              include: {
+                puesto: { select: { nombre: true } },
+                departamento: {
+                  select: { laboratorio_id: true },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
     if (!usuario || !usuario.estado_cuenta || usuario.bloqueado) {
       throw new ForbiddenException('El usuario no existe o está inactivo');
     }
+
+    // 4.1 Hidratamos request.user con persona_id/puesto/laboratorio_id —
+    // el JWT solo lleva { sub, isGod }, así que sin esto cualquier chequeo
+    // de "isRestrictedToLab" en los servicios recibía siempre undefined y
+    // nunca se activaba, para ningún usuario.
+    const puestoActivo = usuario.persona?.puestos?.[0];
+    request.user.persona_id = usuario.persona?.id ?? null;
+    request.user.puesto = puestoActivo?.puesto?.nombre ?? null;
+    request.user.laboratorio_id =
+      puestoActivo?.departamento?.laboratorio_id ?? null;
 
     // 5. Verificamos los niveles
     const tienePermiso = usuario.grupos.some((grupo) =>
