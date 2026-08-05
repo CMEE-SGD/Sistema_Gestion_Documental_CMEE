@@ -94,31 +94,29 @@ export const AuditoriasPage = () => {
                             <th className="px-4 py-3 font-semibold">Responsable</th>
                             <th className="px-4 py-3 font-semibold">Fecha inicio</th>
                             <th className="px-4 py-3 font-semibold">Estado</th>
-                            <th className="px-4 py-3 font-semibold text-center">NCs</th>
                             <th className="px-4 py-3 font-semibold text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {loading ? (
-                            <tr><td colSpan={7} className="text-center py-10 text-gray-400">Cargando...</td></tr>
+                            <tr><td colSpan={6} className="text-center py-10 text-gray-400">Cargando...</td></tr>
                         ) : filtradas.length === 0 ? (
-                            <tr><td colSpan={7} className="text-center py-10 text-gray-400">No se encontraron auditorías</td></tr>
+                            <tr><td colSpan={6} className="text-center py-10 text-gray-400">No se encontraron auditorías</td></tr>
                         ) : filtradas.map(a => (
-                            <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                            <tr key={a.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/calidad/auditorias/${a.id}`)}>
                                 <td className="px-4 py-3 font-medium text-gray-800">{a.codigo}</td>
                                 <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{a.alcance}</td>
                                 <td className="px-4 py-3 text-gray-600">{a.responsable?.nombre} {a.responsable?.apellidos}</td>
                                 <td className="px-4 py-3 text-gray-600">{new Date(a.fecha_inicio).toLocaleDateString()}</td>
                                 <td className="px-4 py-3">{estadoBadge(a.estado)}</td>
-                                <td className="px-4 py-3 text-center font-semibold">{a._count?.no_conformidades || 0}</td>
                                 <td className="px-4 py-3">
                                     <div className="flex justify-center gap-1">
                                         <button onClick={() => navigate(`/calidad/auditorias/${a.id}`)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver detalle"><Eye className="w-4 h-4" /></button>
                                         {puedeEditar && (
-                                            <button onClick={() => navigate(`/calidad/auditorias/editar/${a.id}`)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar"><Edit3 className="w-4 h-4" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/auditorias/editar/${a.id}`); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar"><Edit3 className="w-4 h-4" /></button>
                                         )}
                                         {puedeEliminar && (
-                                            <button onClick={() => handleEliminar(a.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleEliminar(a.id); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
                                         )}
                                     </div>
                                 </td>

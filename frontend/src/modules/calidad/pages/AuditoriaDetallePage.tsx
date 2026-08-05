@@ -7,6 +7,8 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { tienePermiso } from '../../../shared/utils/auth';
 
+const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+
 export const AuditoriaDetallePage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -74,6 +76,11 @@ export const AuditoriaDetallePage = () => {
                         {auditoria.observaciones && (
                             <p className="text-sm text-gray-500 mt-3"><strong>Observaciones:</strong> {auditoria.observaciones}</p>
                         )}
+                        {auditoria.archivo_planificacion && (
+                            <div className="mt-3">
+                                <a href={`${BACKEND_URL}${auditoria.archivo_planificacion}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">Ver/descargar planificación</a>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -107,7 +114,7 @@ export const AuditoriaDetallePage = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {ncs.map(nc => (
-                                <tr key={nc.id} className="hover:bg-gray-50 transition-colors">
+                                <tr key={nc.id} onClick={() => navigate(`/calidad/auditorias/${id}/nc/${nc.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                                     <td className="px-4 py-3 font-medium text-gray-800">{nc.codigo}</td>
                                     <td className="px-4 py-3">
                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${nc.categoria === 'COM' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>{nc.categoria || 'NC'}</span>
@@ -119,12 +126,12 @@ export const AuditoriaDetallePage = () => {
                                     <td className="px-4 py-3 text-center">{nc.reiterada ? <CircleCheck className="w-4 h-4 text-emerald-600 inline" /> : <CircleX className="w-4 h-4 text-red-400 inline" />}</td>
                                     <td className="px-4 py-3 text-center">
                                         <div className="flex justify-center gap-1">
-                                            <button onClick={() => navigate(`/calidad/auditorias/${id}/nc/${nc.id}`)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver NC"><Eye className="w-4 h-4" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/auditorias/${id}/nc/${nc.id}`); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver NC"><Eye className="w-4 h-4" /></button>
                                             {puedeEditarNC && (
-                                                <button onClick={() => navigate(`/calidad/auditorias/${id}/nc/editar/${nc.id}`)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar NC"><Edit3 className="w-4 h-4" /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/auditorias/${id}/nc/editar/${nc.id}`); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar NC"><Edit3 className="w-4 h-4" /></button>
                                             )}
                                             {puedeCrearNC && (
-                                                <button onClick={() => handleEliminarNc(nc.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar NC"><Trash2 className="w-4 h-4" /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleEliminarNc(nc.id); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar NC"><Trash2 className="w-4 h-4" /></button>
                                             )}
                                         </div>
                                     </td>

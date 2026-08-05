@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CreateAuditoriaDto } from './dto/create-auditoria.dto';
 import { UpdateAuditoriaDto } from './dto/update-auditoria.dto';
 import { CreateNcDto } from './dto/create-nc.dto';
@@ -35,7 +36,6 @@ export class CalidadService {
       where: { activo: true },
       include: {
         responsable: { select: { id: true, nombre: true, apellidos: true } },
-        _count: { select: { no_conformidades: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -84,6 +84,23 @@ export class CalidadService {
 
   // ==================== NO CONFORMIDADES ====================
 
+  private async calcularSiguienteNumeroNc(tx?: Prisma.TransactionClient) {
+    const client = tx || this.prisma;
+    const ncs = await client.noConformidad.findMany({
+      select: { codigo: true },
+    });
+    let max = 0;
+    for (const nc of ncs) {
+      const n = parseInt(nc.codigo, 10);
+      if (!isNaN(n) && n > max) max = n;
+    }
+    return max + 1;
+  }
+
+  async siguienteNumeroNc() {
+    return this.calcularSiguienteNumeroNc();
+  }
+
   async createNc(data: CreateNcDto) {
     return this.prisma.noConformidad.create({
       data: {
@@ -93,6 +110,7 @@ export class CalidadService {
         requisito: data.requisito,
         hallazgo: data.hallazgo,
         evidencia: data.evidencia,
+        archivo: data.archivo,
         aceptada_oec: data.aceptada_oec,
         reiterada: data.reiterada,
         descripcion: data.descripcion,
@@ -107,6 +125,16 @@ export class CalidadService {
       include: {
         responsable: { select: { id: true, nombre: true, apellidos: true } },
       },
+    });
+  }
+
+  async findAllNcs() {
+    return this.prisma.noConformidad.findMany({
+      where: { activo: true, auditoria_id: null },
+      include: {
+        responsable: { select: { id: true, nombre: true, apellidos: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
