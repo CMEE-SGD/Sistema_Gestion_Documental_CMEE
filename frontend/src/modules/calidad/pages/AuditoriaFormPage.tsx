@@ -5,6 +5,8 @@ import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 
+const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+
 export const AuditoriaFormPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -13,6 +15,7 @@ export const AuditoriaFormPage = () => {
     const [loading, setLoading] = useState(false);
     const [personas, setPersonas] = useState<any[]>([]);
     const [archivo, setArchivo] = useState<File | null>(null);
+    const [archivoActual, setArchivoActual] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         codigo: '',
@@ -41,6 +44,7 @@ export const AuditoriaFormPage = () => {
                         responsable_id: a.responsable_id?.toString() || '',
                         observaciones: a.observaciones || '',
                     });
+                    setArchivoActual(a.archivo_planificacion || null);
                 }
             } catch (error) {
                 console.error('Error cargando datos', error);
@@ -146,6 +150,9 @@ export const AuditoriaFormPage = () => {
                         </label>
                         {archivo && (
                             <button type="button" onClick={() => setArchivo(null)} className="text-xs text-red-600 hover:text-red-800">Quitar</button>
+                        )}
+                        {!archivo && archivoActual && (
+                            <a href={`${BACKEND_URL}${archivoActual}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:text-blue-800 underline">Ver archivo actual</a>
                         )}
                     </div>
                 </div>

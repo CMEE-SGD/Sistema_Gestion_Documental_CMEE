@@ -996,12 +996,13 @@ model AuditoriaInterna {
 model NoConformidad {
   id                   Int              @id @default(autoincrement())
   codigo               String           @unique @db.VarChar(50)
-  auditoria_id         Int
-  auditoria            AuditoriaInterna @relation(fields: [auditoria_id], references: [id], onDelete: Cascade)
+  auditoria_id         Int?
+  auditoria            AuditoriaInterna? @relation(fields: [auditoria_id], references: [id], onDelete: SetNull)
   categoria            String           @default("NC") @db.VarChar(10)
   requisito            String?          @db.VarChar(500)
   hallazgo             String           @db.Text
   evidencia            String?          @db.Text
+  archivo              String?          @db.VarChar(500)
   aceptada_oec         Boolean          @default(false)
   reiterada            Boolean          @default(false)
   descripcion          String?          @db.Text
@@ -1018,6 +1019,5 @@ model NoConformidad {
   createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@index([auditoria_id])
   @@map("no_conformidad")
 }

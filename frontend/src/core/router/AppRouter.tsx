@@ -72,6 +72,7 @@ import { CalidadLayout } from '../../modules/calidad/CalidadLayout';
 import { AuditoriasPage } from '../../modules/calidad/pages/AuditoriasPage';
 import { AuditoriaFormPage } from '../../modules/calidad/pages/AuditoriaFormPage';
 import { AuditoriaDetallePage } from '../../modules/calidad/pages/AuditoriaDetallePage';
+import { NoConformidadesPage } from '../../modules/calidad/pages/NoConformidadesPage';
 import { NuevaNcPage } from '../../modules/calidad/pages/NuevaNcPage';
 import { DetalleNcPage } from '../../modules/calidad/pages/DetalleNcPage';
 import { PlanAccionPage } from '../../modules/calidad/pages/PlanAccionPage';
@@ -168,6 +169,11 @@ const AppRouter = () => {
           <Route path="auditorias/:auditoriaId/nc/editar/:ncId" element={<NuevaNcPage />} />
           <Route path="auditorias/:auditoriaId/nc/:ncId" element={<DetalleNcPage />} />
           <Route path="auditorias/:auditoriaId/nc/:ncId/plan-accion" element={<PlanAccionPage />} />
+          <Route path="no-conformidades" element={<NoConformidadesPage />} />
+          <Route path="no-conformidades/nueva" element={<NuevaNcPage />} />
+          <Route path="no-conformidades/editar/:ncId" element={<NuevaNcPage />} />
+          <Route path="no-conformidades/:ncId" element={<DetalleNcPage />} />
+          <Route path="no-conformidades/:ncId/plan-accion" element={<PlanAccionPage />} />
         </Route>
 
         {/* --- NUEVO MÓDULO ADMINISTRATIVO --- */}

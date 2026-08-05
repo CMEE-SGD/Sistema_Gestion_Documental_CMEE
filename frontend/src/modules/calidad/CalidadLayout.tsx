@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { ClipboardCheck, ShieldAlert } from 'lucide-react';
+import { ClipboardCheck, ShieldAlert, AlertCircle } from 'lucide-react';
 import Navbar from '../../shared/components/organisms/Navbar';
 
 export const CalidadLayout = () => {
@@ -8,6 +8,7 @@ export const CalidadLayout = () => {
 
     const menuItems = [
         { name: 'Auditorías', path: '/calidad/auditorias', icon: <ClipboardCheck className="w-4 h-4" /> },
+        { name: 'No Conformidades', path: '/calidad/no-conformidades', icon: <AlertCircle className="w-4 h-4" /> },
     ];
 
     return (

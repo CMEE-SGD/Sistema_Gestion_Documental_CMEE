@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save, Eye } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Plus, Trash2, Save, Eye, Pencil, X } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import '@sd-vk/spa-quill-table-better';
@@ -8,6 +8,8 @@ import '@sd-vk/spa-quill-table-better/dist/quill-table-better.css';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+
+const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const autoResize = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const el = e.target;
@@ -37,11 +39,13 @@ const formats = [
 export const PlanAccionPage = () => {
     const { auditoriaId, ncId } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { alert } = useAlert();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [planAccionExists, setPlanAccionExists] = useState(false);
+    const [editing, setEditing] = useState(searchParams.get('editar') === '1');
 
     const [analisisExtension, setAnalisisExtension] = useState('');
     const [obExtension, setObExtension] = useState('');
@@ -54,6 +58,7 @@ export const PlanAccionPage = () => {
         { correccion: '', evidencia: '', fecha: '', observaciones: '', ob: '' },
     ]);
     const [correccionFile, setCorreccionFile] = useState<File | null>(null);
+    const [planArchivoActual, setPlanArchivoActual] = useState<string | null>(null);
     const [accionesCorrectivas, setAccionesCorrectivas] = useState([
         { accion: '', evidencia: '', fecha: '', observaciones: '', ob: '' },
     ]);
@@ -73,6 +78,7 @@ export const PlanAccionPage = () => {
                     setCausaRaiz(pa.causaRaiz || '');
                     if (pa.correcciones && pa.correcciones.length > 0) setCorrecciones(pa.correcciones);
                     if (pa.accionesCorrectivas && pa.accionesCorrectivas.length > 0) setAccionesCorrectivas(pa.accionesCorrectivas);
+                    if (pa.archivo) setPlanArchivoActual(pa.archivo);
                 }
             } catch (error) {
                 console.error('Error cargando plan de acción', error);
@@ -98,9 +104,12 @@ export const PlanAccionPage = () => {
     const handleSave = async () => {
         setLoading(true);
         try {
-            await api.patch(`/calidad/no-conformidades/${ncId}`, { plan_accion: { analisisExtension, obExtension, analisisCausa, obCausa, causaRaiz, correcciones, accionesCorrectivas } });
+            const fd = new FormData();
+            fd.append('plan_accion', JSON.stringify({ analisisExtension, obExtension, analisisCausa, obCausa, causaRaiz, correcciones, accionesCorrectivas }));
+            if (correccionFile) fd.append('plan_accion_archivo', correccionFile);
+            await api.patch(`/calidad/no-conformidades/${ncId}`, fd);
             toast({ message: 'Plan de acción guardado correctamente.' });
-            navigate(`/calidad/auditorias/${auditoriaId}/nc/${ncId}`);
+            navigate(auditoriaId ? `/calidad/auditorias/${auditoriaId}/nc/${ncId}` : `/calidad/no-conformidades/${ncId}`);
         } catch (error: any) {
             const msg = error.response?.data?.message || 'Error al guardar el plan de acción';
             await alert({ message: msg });
@@ -109,12 +118,12 @@ export const PlanAccionPage = () => {
         }
     };
 
-    const readOnly = planAccionExists;
+    const readOnly = planAccionExists && !editing;
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
             <div className="mb-6">
-                <button onClick={() => navigate(`/calidad/auditorias/${auditoriaId}/nc/${ncId}`)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-2">
+                <button onClick={() => navigate(auditoriaId ? `/calidad/auditorias/${auditoriaId}/nc/${ncId}` : `/calidad/no-conformidades/${ncId}`)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-2">
                     <ArrowLeft className="w-4 h-4" /> Volver a la NC
                 </button>
                 <h1 className="text-2xl font-bold text-gray-800">Plan de Acción</h1>
@@ -123,8 +132,11 @@ export const PlanAccionPage = () => {
 
             {readOnly && (
                 <div className="mb-4 flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                    <Eye className="w-4 h-4 text-blue-600" />
+                    <Eye className="w-4 h-4 text-blue-600 shrink-0" />
                     <span className="text-sm text-blue-800 font-medium">Este plan de acción ya fue guardado y se muestra en modo solo lectura.</span>
+                    <button type="button" onClick={() => setEditing(true)} className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors">
+                        <Pencil className="w-3 h-3" /> Editar
+                    </button>
                 </div>
             )}
 
@@ -285,15 +297,33 @@ export const PlanAccionPage = () => {
                     <div className="mt-4 p-3 bg-gray-50 border border-gray-300 rounded">
                         <label className="text-xs font-semibold text-gray-700 block mb-1">Adjuntar archivo (Correcciones):</label>
                         <input type="file" accept=".xlsx,.xls,.pdf,.doc,.docx" className="text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-4 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={e => setCorreccionFile(e.target.files?.[0] || null)} />
-                        {correccionFile && <p className="text-xs text-gray-500 mt-1">Seleccionado: {correccionFile.name}</p>}
+                        {correccionFile ? (
+                            <p className="text-xs text-gray-500 mt-1">Seleccionado: {correccionFile.name}</p>
+                        ) : planArchivoActual ? (
+                            <a href={`${BACKEND_URL}${planArchivoActual}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:text-blue-800 underline mt-1 inline-block">Ver archivo actual</a>
+                        ) : null}
+                    </div>
+                )}
+
+                {readOnly && planArchivoActual && (
+                    <div className="mt-4 p-3 bg-gray-50 border border-gray-300 rounded">
+                        <div className="text-xs font-semibold text-gray-700 mb-1">Archivo adjunto (Plan de Acción):</div>
+                        <a href={`${BACKEND_URL}${planArchivoActual}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">Ver/descargar archivo</a>
                     </div>
                 )}
 
                 <div className="mt-6 flex justify-end border-t border-gray-200 pt-4">
                     {!readOnly && (
-                        <button type="button" onClick={handleSave} disabled={loading} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50">
-                            <Save className="w-4 h-4" /> {loading ? 'Guardando...' : 'Guardar Plan de Acción'}
-                        </button>
+                        <>
+                            {planAccionExists && (
+                                <button type="button" onClick={() => setEditing(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-md shadow-sm transition-colors flex items-center gap-2 mr-2">
+                                    <X className="w-4 h-4" /> Cancelar
+                                </button>
+                            )}
+                            <button type="button" onClick={handleSave} disabled={loading} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50">
+                                <Save className="w-4 h-4" /> {loading ? 'Guardando...' : 'Guardar Plan de Acción'}
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
