@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save, Eye, Pencil, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Eye, Pencil, X, CheckCircle2 } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import '@sd-vk/spa-quill-table-better';
@@ -63,12 +63,27 @@ export const PlanAccionPage = () => {
         { accion: '', evidencia: '', fecha: '', observaciones: '', ob: '' },
     ]);
 
+    const [personas, setPersonas] = useState<any[]>([]);
+    const [estadoNc, setEstadoNc] = useState('');
+    const [verificacion, setVerificacion] = useState<any>(null);
+    const [verificadorId, setVerificadorId] = useState('');
+    const [fechaVerif, setFechaVerif] = useState('');
+    const [resultadoVerif, setResultadoVerif] = useState('EFICAZ');
+    const [observacionesVerif, setObservacionesVerif] = useState('');
+
+    useEffect(() => {
+        api.get('/personas')
+            .then(res => setPersonas(res.data))
+            .catch(() => setPersonas([]));
+    }, []);
+
     useEffect(() => {
         const fetchPlanAccion = async () => {
             try {
                 const res = await api.get(`/calidad/no-conformidades/${ncId}`);
                 const nc = res.data;
                 const pa = nc.plan_accion;
+                setEstadoNc(nc.estado || '');
                 if (pa) {
                     setPlanAccionExists(true);
                     setAnalisisExtension(pa.analisisExtension || '');
@@ -79,6 +94,13 @@ export const PlanAccionPage = () => {
                     if (pa.correcciones && pa.correcciones.length > 0) setCorrecciones(pa.correcciones);
                     if (pa.accionesCorrectivas && pa.accionesCorrectivas.length > 0) setAccionesCorrectivas(pa.accionesCorrectivas);
                     if (pa.archivo) setPlanArchivoActual(pa.archivo);
+                }
+                if (nc.verificacion_eficacia) {
+                    setVerificacion(nc.verificacion_eficacia);
+                    setVerificadorId(nc.verificacion_eficacia.aprobado_por_id ? String(nc.verificacion_eficacia.aprobado_por_id) : '');
+                    setFechaVerif(nc.verificacion_eficacia.fecha || '');
+                    setResultadoVerif(nc.verificacion_eficacia.resultado || 'EFICAZ');
+                    setObservacionesVerif(nc.verificacion_eficacia.observaciones || '');
                 }
             } catch (error) {
                 console.error('Error cargando plan de acción', error);
@@ -108,6 +130,10 @@ export const PlanAccionPage = () => {
             fd.append('plan_accion', JSON.stringify({ analisisExtension, obExtension, analisisCausa, obCausa, causaRaiz, correcciones, accionesCorrectivas }));
             if (correccionFile) fd.append('plan_accion_archivo', correccionFile);
             await api.patch(`/calidad/no-conformidades/${ncId}`, fd);
+            if (!planAccionExists) {
+                await api.patch(`/calidad/no-conformidades/${ncId}/estado`, { estado: 'EN_CURSO', observaciones: 'Plan de acción registrado' });
+                setEstadoNc('EN_CURSO');
+            }
             toast({ message: 'Plan de acción guardado correctamente.' });
             navigate(auditoriaId ? `/calidad/auditorias/${auditoriaId}/nc/${ncId}` : `/calidad/no-conformidades/${ncId}`);
         } catch (error: any) {
@@ -118,7 +144,63 @@ export const PlanAccionPage = () => {
         }
     };
 
+    const handleVerificar = async () => {
+        if (!verificadorId) {
+            await alert({ message: 'Seleccione el Jefe de Calidad que aprueba la verificación.' });
+            return;
+        }
+        if (!fechaVerif) {
+            await alert({ message: 'Ingrese la fecha de verificación.' });
+            return;
+        }
+        setLoading(true);
+        try {
+            const persona = personas.find(p => p.id === Number(verificadorId));
+            const verif = {
+                aprobado_por: persona ? `${persona.nombre} ${persona.apellidos}` : '',
+                aprobado_por_id: Number(verificadorId),
+                fecha: fechaVerif,
+                resultado: resultadoVerif,
+                observaciones: observacionesVerif,
+            };
+            const fd = new FormData();
+            fd.append('verificacion_eficacia', JSON.stringify(verif));
+            await api.patch(`/calidad/no-conformidades/${ncId}`, fd);
+            if (resultadoVerif === 'EFICAZ') {
+                if (estadoNc !== 'EN_CURSO' && estadoNc !== 'VERIFICADA') {
+                    await api.patch(`/calidad/no-conformidades/${ncId}/estado`, { estado: 'EN_CURSO', observaciones: 'Inicio de acciones' });
+                }
+                if (estadoNc !== 'VERIFICADA') {
+                    await api.patch(`/calidad/no-conformidades/${ncId}/estado`, { estado: 'VERIFICADA', observaciones: observacionesVerif || 'Eficacia de las acciones verificada' });
+                }
+            } else {
+                if (estadoNc !== 'EN_CURSO') {
+                    await api.patch(`/calidad/no-conformidades/${ncId}/estado`, { estado: 'EN_CURSO', observaciones: 'Verificación no eficaz: se mantienen/ajustan las acciones' });
+                }
+            }
+            toast({ message: resultadoVerif === 'EFICAZ' ? 'Verificación registrada. La NC quedó como VERIFICADA.' : 'Verificación registrada. La NC continúa EN CURSO.' });
+            navigate(auditoriaId ? `/calidad/auditorias/${auditoriaId}/nc/${ncId}` : `/calidad/no-conformidades/${ncId}`);
+        } catch (error: any) {
+            const msg = error.response?.data?.message || 'Error al registrar la verificación';
+            await alert({ message: msg });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const readOnly = planAccionExists && !editing;
+
+    const jefesCalidad = personas.filter((p: any) => p.puestos?.some((pp: any) => pp.activo && pp.puesto?.codigo === 'JDC'));
+    const listaJefes = jefesCalidad.length > 0 ? jefesCalidad : personas;
+
+    const resultadoBadge = (r: string) => {
+        const styles: Record<string, string> = {
+            EFICAZ: 'bg-emerald-100 text-emerald-700',
+            PARCIAL: 'bg-amber-100 text-amber-700',
+            NO_EFICAZ: 'bg-red-100 text-red-700',
+        };
+        return <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${styles[r] || 'bg-gray-100 text-gray-700'}`}>{r || '—'}</span>;
+    };
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
@@ -327,6 +409,76 @@ export const PlanAccionPage = () => {
                     )}
                 </div>
             </div>
+
+            {planAccionExists && (
+                <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-lg font-bold text-gray-800">Verificación de eficacia de las acciones</h2>
+                    <p className="text-sm text-gray-500 mb-4">Aprobación del Jefe de Calidad para el cierre de la no conformidad (ISO 17025 §8.7.2 / ISO 9001 §10.2.2.e)</p>
+
+                    {verificacion ? (
+                        <div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-semibold text-gray-500">Aprobado por</span>
+                                    <span className="text-sm font-medium text-gray-800">{verificacion.aprobado_por || '—'}</span>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-semibold text-gray-500">Fecha</span>
+                                    <span className="text-sm font-medium text-gray-800">{verificacion.fecha || '—'}</span>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-semibold text-gray-500">Resultado</span>
+                                    <span className="text-sm font-medium">{resultadoBadge(verificacion.resultado)}</span>
+                                </div>
+                            </div>
+                            <div className="mb-4">
+                                <span className="text-xs font-semibold text-gray-500">Observaciones</span>
+                                <div className="text-sm text-gray-700 whitespace-pre-wrap mt-1 p-3 bg-gray-50 border border-gray-200 rounded">
+                                    {verificacion.observaciones || '—'}
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => setVerificacion(null)} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors">
+                                <Pencil className="w-3 h-3" /> Registrar nueva verificación
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-gray-700">Aprobado por (Jefe de Calidad) <span className="text-red-500">*</span></label>
+                                    <select value={verificadorId} onChange={e => setVerificadorId(e.target.value)} className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full bg-white">
+                                        <option value="">Seleccione el Jefe de Calidad...</option>
+                                        {listaJefes.map((p: any) => (
+                                            <option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-gray-700">Fecha de verificación <span className="text-red-500">*</span></label>
+                                    <input type="date" value={fechaVerif} onChange={e => setFechaVerif(e.target.value)} className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full" />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-gray-700">Resultado</label>
+                                    <select value={resultadoVerif} onChange={e => setResultadoVerif(e.target.value)} className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full bg-white">
+                                        <option value="EFICAZ">Eficaz — se cierra la NC</option>
+                                        <option value="PARCIAL">Parcial — se requieren acciones adicionales</option>
+                                        <option value="NO_EFICAZ">No eficaz — la NC continúa en proceso</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-semibold text-gray-700">Observaciones</label>
+                                <textarea value={observacionesVerif} onChange={e => setObservacionesVerif(e.target.value)} onInput={autoResize} rows={2} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" placeholder="Resultado de la verificación de las acciones implementadas..." />
+                            </div>
+                            <div className="flex justify-end">
+                                <button type="button" onClick={handleVerificar} disabled={loading} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50">
+                                    <CheckCircle2 className="w-4 h-4" /> {loading ? 'Guardando...' : 'Registrar verificación'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

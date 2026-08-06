@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useRef, Fragment, type TextareaHTMLAttributes } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, Upload, Plus, Trash2 } from 'lucide-react';
 import api from '../../../core/api/axios';
@@ -6,6 +6,28 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 
 const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+
+const AutoGrowTextarea = (props: TextareaHTMLAttributes<HTMLTextAreaElement>) => {
+    const ref = useRef<HTMLTextAreaElement>(null);
+    const autoGrow = () => {
+        const el = ref.current;
+        if (!el) return;
+        const fila = el.closest('.cronograma-fila') as HTMLElement | null;
+        if (fila) {
+            const tas = Array.from(fila.querySelectorAll('textarea')) as HTMLTextAreaElement[];
+            tas.forEach(ta => { ta.style.height = 'auto'; });
+            const maxH = Math.max(...tas.map(ta => ta.scrollHeight), 1);
+            tas.forEach(ta => { ta.style.height = `${maxH}px`; });
+        } else {
+            el.style.height = 'auto';
+            el.style.height = `${el.scrollHeight}px`;
+        }
+    };
+    useEffect(() => {
+        autoGrow();
+    });
+    return <textarea ref={ref} onInput={autoGrow} {...props} />;
+};
 
 const SECCIONES_EQUIPO = [
     { value: 'EVALUADOR_LIDER', label: 'Evaluador líder' },
@@ -47,7 +69,7 @@ const asegurarFilasFijas = (lista: any[]) => {
 };
 
 const inputCls = 'border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full';
-const textareaCls = 'border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none w-full';
+const textareaCls = 'border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden w-full';
 const seccionCls = 'bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t';
 
 const parseJson = (valor: any, fallback: any) => {
@@ -80,6 +102,8 @@ const normalizarCronograma = (lista: any[]) => {
     }
     return grupos;
 };
+
+const renumerarTestificaciones = (lista: any[]) => lista.map((t, idx) => ({ ...t, test: (idx + 1).toString() }));
 
 export const AuditoriaFormPage = () => {
     const { id } = useParams();
@@ -143,7 +167,7 @@ export const AuditoriaFormPage = () => {
                     setDocumentosReferenciaTexto(parseJson(a.documentos_referencia, []).join('\n'));
                     setEquipoAuditor(asegurarFilasFijas(parseJson(a.equipo_auditor, [])));
                     setCronograma(normalizarCronograma(parseJson(a.cronograma, [])));
-                    setTestificaciones(parseJson(a.testificaciones, []));
+                    setTestificaciones(renumerarTestificaciones(parseJson(a.testificaciones, [])));
                     setArchivoActual(a.archivo_planificacion || null);
                 } else {
                     const resCodigo = await api.get('/calidad/auditorias/siguiente-codigo');
@@ -256,7 +280,7 @@ export const AuditoriaFormPage = () => {
                 <div>
                     <div className={seccionCls}>DESCRIPCIÓN</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
-                        <textarea name="descripcion" value={formData.descripcion} onChange={handleChange} rows={2} className={textareaCls} placeholder="Ej: Auditoría Interna 2025" />
+                        <AutoGrowTextarea name="descripcion" value={formData.descripcion} onChange={handleChange} rows={2} className={textareaCls} placeholder="Ej: Auditoría Interna 2025" />
                     </div>
                 </div>
 
@@ -264,7 +288,7 @@ export const AuditoriaFormPage = () => {
                 <div>
                     <div className={seccionCls}>OBJETO</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
-                        <textarea name="objeto" value={formData.objeto} onChange={handleChange} rows={3} className={textareaCls} placeholder="Determinar si la gestión y las actividades del CMEE están conformes con los requisitos de la Norma NTE INEN ISO-IEC 17025..." />
+                        <AutoGrowTextarea name="objeto" value={formData.objeto} onChange={handleChange} rows={3} className={textareaCls} placeholder="Determinar si la gestión y las actividades del CMEE están conformes con los requisitos de la Norma NTE INEN ISO-IEC 17025..." />
                     </div>
                 </div>
 
@@ -272,7 +296,7 @@ export const AuditoriaFormPage = () => {
                 <div>
                     <div className={seccionCls}>ALCANCE</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
-                        <textarea name="alcance" value={formData.alcance} onChange={handleChange} rows={3} className={textareaCls} placeholder="Aplica al sistema de gestión del Dpto. de Calidad y Dpto. Técnico del CMEE..." />
+                        <AutoGrowTextarea name="alcance" value={formData.alcance} onChange={handleChange} rows={3} className={textareaCls} placeholder="Aplica al sistema de gestión del Dpto. de Calidad y Dpto. Técnico del CMEE..." />
                     </div>
                 </div>
 
@@ -280,7 +304,7 @@ export const AuditoriaFormPage = () => {
                 <div>
                     <div className={seccionCls}>DOCUMENTOS DE REFERENCIA</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
-                        <textarea value={documentosReferenciaTexto} onChange={e => setDocumentosReferenciaTexto(e.target.value)} rows={6} className={textareaCls} placeholder="Manual de calidad&#10;Norma NTE INEN ISO/IEC 17025...&#10;(un documento por línea)" />
+                        <AutoGrowTextarea value={documentosReferenciaTexto} onChange={e => setDocumentosReferenciaTexto(e.target.value)} rows={6} className={textareaCls} placeholder="Manual de calidad&#10;Norma NTE INEN ISO/IEC 17025...&#10;(un documento por línea)" />
                     </div>
                 </div>
 
@@ -444,7 +468,7 @@ export const AuditoriaFormPage = () => {
                                     </div>
                                 </div>
                                 {g.actividades.map((a, ai) => (
-                                    <div key={ai} className="grid grid-cols-1 md:grid-cols-12 border-b border-gray-200 last:border-b-0 gap-2 p-2 md:gap-0 md:p-0">
+                                    <div key={ai} className="cronograma-fila grid grid-cols-1 md:grid-cols-12 border-b border-gray-200 last:border-b-0 gap-2 p-2 md:gap-0 md:p-0">
                                         <div className="col-span-3 p-1">
                                             <input type="text" value={a.hora} onChange={e => {
                                                 const copy = [...cronograma];
@@ -453,25 +477,25 @@ export const AuditoriaFormPage = () => {
                                             }} className={inputCls} placeholder="09:00-09:30" />
                                         </div>
                                         <div className="col-span-3 p-1">
-                                            <textarea value={a.actividad} onChange={e => {
+                                            <AutoGrowTextarea value={a.actividad} onChange={e => {
                                                 const copy = [...cronograma];
                                                 copy[gi].actividades[ai].actividad = e.target.value;
                                                 setCronograma(copy);
                                             }} rows={2} className={textareaCls} placeholder="Actividad a evaluar" />
                                         </div>
                                         <div className="col-span-3 p-1">
-                                            <input type="text" value={a.evaluador} onChange={e => {
+                                            <AutoGrowTextarea value={a.evaluador} onChange={e => {
                                                 const copy = [...cronograma];
                                                 copy[gi].actividades[ai].evaluador = e.target.value;
                                                 setCronograma(copy);
-                                            }} className={inputCls} placeholder="EL, EG, ET..." />
+                                            }} rows={1} className={textareaCls} placeholder="EL, EG, ET..." />
                                         </div>
                                         <div className="col-span-3 p-1 flex gap-1 items-center">
-                                            <input type="text" value={a.referencia} onChange={e => {
+                                            <AutoGrowTextarea value={a.referencia} onChange={e => {
                                                 const copy = [...cronograma];
                                                 copy[gi].actividades[ai].referencia = e.target.value;
                                                 setCronograma(copy);
-                                            }} className={inputCls} placeholder="8.1" />
+                                            }} rows={1} className={textareaCls} placeholder="8.1" />
                                             <button type="button" onClick={() => {
                                                 const copy = [...cronograma];
                                                 copy[gi].actividades = copy[gi].actividades.filter((_, idx) => idx !== ai);
@@ -514,13 +538,13 @@ export const AuditoriaFormPage = () => {
                         {testificaciones.map((t, i) => (
                             <div key={i} className="grid grid-cols-1 md:grid-cols-12 border-b border-gray-200 last:border-b-0 gap-2 p-2 md:gap-0 md:p-0">
                                 <div className="col-span-1 p-1">
-                                    <input type="text" value={t.test} onChange={e => { const copy = [...testificaciones]; copy[i].test = e.target.value; setTestificaciones(copy); }} className={inputCls} placeholder="1" />
+                                    <input type="text" value={t.test} readOnly className={`${inputCls} bg-gray-100 text-gray-700 cursor-not-allowed`} />
                                 </div>
                                 <div className="col-span-3 p-1">
                                     <input type="text" value={t.metodo_ensayo} onChange={e => { const copy = [...testificaciones]; copy[i].metodo_ensayo = e.target.value; setTestificaciones(copy); }} className={inputCls} placeholder="CA7.P1" />
                                 </div>
                                 <div className="col-span-3 p-1">
-                                    <textarea value={t.metodo_magnitud} onChange={e => { const copy = [...testificaciones]; copy[i].metodo_magnitud = e.target.value; setTestificaciones(copy); }} rows={2} className={textareaCls} placeholder="Tiempo y Frecuencia: Intervalo de Tiempo" />
+                                    <AutoGrowTextarea value={t.metodo_magnitud} onChange={e => { const copy = [...testificaciones]; copy[i].metodo_magnitud = e.target.value; setTestificaciones(copy); }} rows={2} className={textareaCls} placeholder="Tiempo y Frecuencia: Intervalo de Tiempo" />
                                 </div>
                                 <div className="col-span-3 p-1">
                                     <input type="text" value={t.muestra} onChange={e => { const copy = [...testificaciones]; copy[i].muestra = e.target.value; setTestificaciones(copy); }} className={inputCls} placeholder="Cronómetro" />
@@ -529,12 +553,12 @@ export const AuditoriaFormPage = () => {
                                     <input type="text" value={t.evaluador} onChange={e => { const copy = [...testificaciones]; copy[i].evaluador = e.target.value; setTestificaciones(copy); }} className={inputCls} placeholder="ET1" />
                                 </div>
                                 <div className="col-span-1 p-1 flex items-center justify-center">
-                                    <button type="button" onClick={() => setTestificaciones(testificaciones.filter((_, idx) => idx !== i))} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                                    <button type="button" onClick={() => setTestificaciones(renumerarTestificaciones(testificaciones.filter((_, idx) => idx !== i)))} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         ))}
                         <div className="p-2 text-center bg-gray-50">
-                            <button type="button" onClick={() => setTestificaciones([...testificaciones, { test: '', metodo_ensayo: '', metodo_magnitud: '', muestra: '', evaluador: '' }])} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                            <button type="button" onClick={() => setTestificaciones(renumerarTestificaciones([...testificaciones, { test: '', metodo_ensayo: '', metodo_magnitud: '', muestra: '', evaluador: '' }]))} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
                                 <Plus className="w-3 h-3 inline mr-1" />Agregar testificación
                             </button>
                         </div>
@@ -545,7 +569,7 @@ export const AuditoriaFormPage = () => {
                 <div>
                     <div className={seccionCls}>OBSERVACIONES</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
-                        <textarea name="observaciones" value={formData.observaciones} onChange={handleChange} rows={3} className={textareaCls} />
+                        <AutoGrowTextarea name="observaciones" value={formData.observaciones} onChange={handleChange} rows={3} className={textareaCls} />
                     </div>
                 </div>
 

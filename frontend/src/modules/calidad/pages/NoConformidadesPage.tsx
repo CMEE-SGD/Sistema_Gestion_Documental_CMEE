@@ -56,7 +56,8 @@ export const NoConformidadesPage = () => {
     const estadoBadge = (estado: string) => {
         const styles: Record<string, string> = {
             ABIERTA: 'bg-red-100 text-red-700',
-            EN_PROCESO: 'bg-amber-100 text-amber-700',
+            EN_CURSO: 'bg-amber-100 text-amber-700',
+            VERIFICADA: 'bg-sky-100 text-sky-700',
             CERRADA: 'bg-emerald-100 text-emerald-700',
         };
         return <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${styles[estado] || 'bg-gray-100 text-gray-700'}`}>{estado || 'ABIERTA'}</span>;
@@ -82,7 +83,8 @@ export const NoConformidadesPage = () => {
                 <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} className="text-sm border border-gray-200 rounded px-2 py-1 outline-none">
                     <option value="todas">Todos los estados</option>
                     <option value="ABIERTA">Abiertas</option>
-                    <option value="EN_PROCESO">En proceso</option>
+                    <option value="EN_CURSO">En proceso</option>
+                    <option value="VERIFICADA">Verificadas</option>
                     <option value="CERRADA">Cerradas</option>
                 </select>
             </div>

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, UploadedFiles, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, UploadedFiles, InternalServerErrorException, BadRequestException, NotFoundException, Query, Request } from '@nestjs/common';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { extname, join } from 'path';
@@ -8,6 +8,7 @@ import { CreateAuditoriaDto } from './dto/create-auditoria.dto';
 import { UpdateAuditoriaDto } from './dto/update-auditoria.dto';
 import { CreateNcDto } from './dto/create-nc.dto';
 import { UpdateNcDto } from './dto/update-nc.dto';
+import { CambiarEstadoNcDto } from './dto/cambiar-estado-nc.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
@@ -67,7 +68,7 @@ export class CalidadController {
     const mes = meses[now.getMonth()];
     const dd = String(now.getDate()).padStart(2, '0');
     const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const filename = `NC-${numero}-${dd}${mm}${now.getFullYear()}${ext}`;
+    const filename = `NC-${numero}-${dd}${mm}${now.getFullYear()}-${Date.now()}${ext}`;
     const p = join('.', 'uploads', 'calidad', 'noconformidades', año, mes);
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
     fs.writeFileSync(join(p, filename), file.buffer);
@@ -161,13 +162,13 @@ export class CalidadController {
   @Post('no-conformidades')
   @RequireAccess('Gestion de Calidad', 5)
   @UseInterceptors(FileInterceptor('archivo', { storage: memoryStorage() }))
-  async createNc(@Body() dto: CreateNcDto, @UploadedFile() file?: Express.Multer.File) {
+  async createNc(@Body() dto: CreateNcDto, @UploadedFile() file?: Express.Multer.File, @Request() req?: any) {
     const data: any = { ...dto };
-    const numero = await this.calidadService.siguienteNumeroNc();
+    const numero = await this.calidadService.siguienteNumeroNc(data.auditoria_id);
     data.codigo = String(numero);
     if (file) data.archivo = this.guardarArchivoNc(file, numero);
     try {
-      return await this.calidadService.createNc(data);
+      return await this.calidadService.createNc(data, req?.user?.persona_id ?? null);
     } catch (error: any) {
       console.error('Error creando no conformidad:', error);
       if (error.code === 'P2002') throw new BadRequestException(`La no conformidad con número "${data.codigo}" ya existe`);
@@ -184,8 +185,8 @@ export class CalidadController {
 
   @Get('no-conformidades/siguiente-numero')
   @RequireAccess('Gestion de Calidad', 2)
-  siguienteNumeroNc() {
-    return this.calidadService.siguienteNumeroNc();
+  siguienteNumeroNc(@Query('auditoria_id') auditoriaId?: string) {
+    return this.calidadService.siguienteNumeroNc(auditoriaId ? Number(auditoriaId) : undefined);
   }
 
   @Get('auditorias/:auditoriaId/no-conformidades')
@@ -237,6 +238,16 @@ export class CalidadController {
       if (error.code === 'P2003') throw new BadRequestException('El responsable seleccionado no existe');
       throw new InternalServerErrorException(error?.message || 'Error al actualizar la no conformidad');
     }
+  }
+
+  @Patch('no-conformidades/:id/estado')
+  @RequireAccess('Gestion de Calidad', 4)
+  async cambiarEstadoNc(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CambiarEstadoNcDto,
+    @Request() req: any,
+  ) {
+    return this.calidadService.transicionarEstadoNc(id, dto, req.user?.persona_id ?? null);
   }
 
   @Delete('no-conformidades/:id')

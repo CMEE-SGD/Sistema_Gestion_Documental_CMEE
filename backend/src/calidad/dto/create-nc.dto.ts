@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, IsOptional, IsInt, IsEnum, IsDateString, IsBoolean, IsObject } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { ClasificacionNC, EstadoNC } from '@prisma/client';
+import { ClasificacionNC } from '@prisma/client';
 
 export class CreateNcDto {
   // El número de la NC se asigna automáticamente por el backend (secuencial global)
@@ -79,9 +79,22 @@ export class CreateNcDto {
   })
   plan_accion?: any;
 
-  @IsEnum(EstadoNC)
+  // Verificación de eficacia de las acciones — la registra el Jefe de Calidad
+  // (aprueba el cierre de la NC). Formato: { aprobado_por, aprobado_por_id,
+  // fecha, resultado (EFICAZ|PARCIAL|NO_EFICAZ), observaciones }
+  @IsObject()
   @IsOptional()
-  estado?: EstadoNC;
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  })
+  verificacion_eficacia?: any;
 
   @IsInt()
   @IsOptional()
@@ -90,5 +103,6 @@ export class CreateNcDto {
 
   @IsDateString()
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
   fecha_cierre?: string;
 }

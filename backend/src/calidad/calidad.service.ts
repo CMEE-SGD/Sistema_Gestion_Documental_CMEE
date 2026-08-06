@@ -1,10 +1,29 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { EstadoNC } from '@prisma/client';
 import { CreateAuditoriaDto } from './dto/create-auditoria.dto';
 import { UpdateAuditoriaDto } from './dto/update-auditoria.dto';
 import { CreateNcDto } from './dto/create-nc.dto';
 import { UpdateNcDto } from './dto/update-nc.dto';
+import { CambiarEstadoNcDto } from './dto/cambiar-estado-nc.dto';
+
+/**
+ * Máquina de estados de una No Conformidad.
+ * ABIERTA  → se registra la NC (sin acciones todavía)
+ * EN_CURSO → el OEC entrega/implementa el plan de acciones
+ * VERIFICADA → el Jefe de Calidad verificó la eficacia (resultado EFICAZ)
+ * CERRADA  → cierre formal (terminal)
+ *
+ * Se permite EN_CURSO → CERRADA (cierre directo) para el flujo simplificado
+ * sin verificación. Para quitar VERIFICADA a futuro basta con eliminar el
+ * estado del enum y de este mapa.
+ */
+const TRANSICIONES_NC: Record<EstadoNC, EstadoNC[]> = {
+  ABIERTA: [EstadoNC.EN_CURSO],
+  EN_CURSO: [EstadoNC.VERIFICADA, EstadoNC.CERRADA, EstadoNC.ABIERTA],
+  VERIFICADA: [EstadoNC.CERRADA, EstadoNC.EN_CURSO],
+  CERRADA: [],
+};
 
 @Injectable()
 export class CalidadService {
@@ -107,9 +126,9 @@ export class CalidadService {
 
   // ==================== NO CONFORMIDADES ====================
 
-  private async calcularSiguienteNumeroNc(tx?: Prisma.TransactionClient) {
-    const client = tx || this.prisma;
-    const ncs = await client.noConformidad.findMany({
+  private async calcularSiguienteNumeroNc(auditoriaId?: number) {
+    const ncs = await this.prisma.noConformidad.findMany({
+      where: auditoriaId ? { auditoria_id: auditoriaId } : { auditoria_id: null },
       select: { codigo: true },
     });
     let max = 0;
@@ -120,34 +139,52 @@ export class CalidadService {
     return max + 1;
   }
 
-  async siguienteNumeroNc() {
-    return this.calcularSiguienteNumeroNc();
+  async siguienteNumeroNc(auditoriaId?: number) {
+    return this.calcularSiguienteNumeroNc(auditoriaId);
   }
 
-  async createNc(data: CreateNcDto) {
-    return this.prisma.noConformidad.create({
-      data: {
-        codigo: data.codigo,
-        auditoria_id: data.auditoria_id,
-        categoria: data.categoria,
-        requisito: data.requisito,
-        hallazgo: data.hallazgo,
-        evidencia: data.evidencia,
-        archivo: data.archivo,
-        aceptada_oec: data.aceptada_oec,
-        reiterada: data.reiterada,
-        descripcion: data.descripcion,
-        requisito_incumplido: data.requisito_incumplido,
-        clasificacion: data.clasificacion,
-        causa_raiz: data.causa_raiz,
-        acciones_inmediatas: data.acciones_inmediatas,
-        estado: data.estado,
-        responsable_id: data.responsable_id,
-        fecha_cierre: data.fecha_cierre ? new Date(data.fecha_cierre) : null,
-      },
-      include: {
-        responsable: { select: { id: true, nombre: true, apellidos: true } },
-      },
+  async createNc(data: CreateNcDto, personaId?: number | null) {
+    const estado = EstadoNC.ABIERTA;
+    return this.prisma.$transaction(async (tx) => {
+      const nc = await tx.noConformidad.create({
+        data: {
+          codigo: data.codigo,
+          auditoria_id: data.auditoria_id,
+          categoria: data.categoria,
+          requisito: data.requisito,
+          hallazgo: data.hallazgo,
+          evidencia: data.evidencia,
+          archivo: data.archivo,
+          aceptada_oec: data.aceptada_oec,
+          reiterada: data.reiterada,
+          descripcion: data.descripcion,
+          requisito_incumplido: data.requisito_incumplido,
+          clasificacion: data.clasificacion,
+          causa_raiz: data.causa_raiz,
+          acciones_inmediatas: data.acciones_inmediatas,
+          plan_accion: data.plan_accion,
+          verificacion_eficacia: data.verificacion_eficacia,
+          estado,
+          responsable_id: data.responsable_id,
+          fecha_cierre: data.fecha_cierre ? new Date(data.fecha_cierre) : null,
+        },
+        include: {
+          responsable: { select: { id: true, nombre: true, apellidos: true } },
+        },
+      });
+
+      await tx.noConformidadHistorial.create({
+        data: {
+          nc_id: nc.id,
+          estado_anterior: null,
+          estado_nuevo: estado,
+          accion: 'CREACION',
+          observaciones: 'No conformidad registrada',
+          realizado_por_id: personaId ?? null,
+        },
+      });
+
+      return nc;
     });
   }
 
@@ -177,6 +214,12 @@ export class CalidadService {
       include: {
         auditoria: { select: { id: true, codigo: true, alcance: true } },
         responsable: { select: { id: true, nombre: true, apellidos: true } },
+        historial: {
+          include: {
+            realizado_por: { select: { id: true, nombre: true, apellidos: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
     if (!nc) throw new NotFoundException(`No conformidad con ID ${id} no encontrada`);
@@ -185,15 +228,97 @@ export class CalidadService {
 
   async updateNc(id: number, data: UpdateNcDto) {
     await this.findOneNc(id);
+    const clean = { ...(data as any) };
+    // El estado solo se modifica vía el endpoint de transición (máquina de estados)
+    delete clean.estado;
     return this.prisma.noConformidad.update({
       where: { id },
       data: {
-        ...data,
-        fecha_cierre: data.fecha_cierre ? new Date(data.fecha_cierre) : undefined,
+        ...clean,
+        fecha_cierre: clean.fecha_cierre
+          ? new Date(clean.fecha_cierre)
+          : clean.fecha_cierre === null
+            ? null
+            : undefined,
       },
       include: {
         responsable: { select: { id: true, nombre: true, apellidos: true } },
       },
+    });
+  }
+
+  /**
+   * Transición de estado validada por la máquina de estados.
+   * Registra el historial (estado anterior → nuevo, usuario, fecha, observaciones)
+   * y administra fecha_cierre (se fija al CERRADA y se limpia al reabrir).
+   */
+  async transicionarEstadoNc(id: number, dto: CambiarEstadoNcDto, personaId?: number | null) {
+    const nc = await this.prisma.noConformidad.findUnique({ where: { id } });
+    if (!nc || !nc.activo) throw new NotFoundException(`No conformidad con ID ${id} no encontrada`);
+
+    const estadoAnterior = nc.estado;
+    const estadoNuevo = dto.estado;
+
+    if (estadoNuevo === estadoAnterior) {
+      throw new BadRequestException(`La NC ya se encuentra en estado ${estadoAnterior}`);
+    }
+
+    const permitidas = TRANSICIONES_NC[estadoAnterior] || [];
+    if (!permitidas.includes(estadoNuevo)) {
+      throw new BadRequestException(
+        `Transición no permitida: ${estadoAnterior} → ${estadoNuevo}. Permitidas: ${permitidas.length ? permitidas.join(', ') : 'ninguna'}`,
+      );
+    }
+
+    // Guardas de integridad del ciclo
+    if (estadoNuevo === EstadoNC.EN_CURSO && !nc.plan_accion) {
+      throw new BadRequestException('No se puede iniciar la ejecución sin un plan de acción registrado');
+    }
+    if (estadoNuevo === EstadoNC.VERIFICADA) {
+      const verif: any = nc.verificacion_eficacia;
+      if (!verif || verif.resultado !== 'EFICAZ') {
+        throw new BadRequestException('No se puede marcar la NC como VERIFICADA sin una verificación de eficacia con resultado EFICAZ');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const fechaHoy = new Date();
+      fechaHoy.setHours(0, 0, 0, 0);
+
+      await tx.noConformidad.update({
+        where: { id },
+        data: {
+          estado: estadoNuevo,
+          fecha_cierre:
+            estadoNuevo === EstadoNC.CERRADA
+              ? (nc.fecha_cierre ?? fechaHoy)
+              : null,
+        },
+      });
+
+      await tx.noConformidadHistorial.create({
+        data: {
+          nc_id: id,
+          estado_anterior: estadoAnterior,
+          estado_nuevo: estadoNuevo,
+          accion: 'ESTADO',
+          observaciones: dto.observaciones ?? null,
+          realizado_por_id: personaId ?? null,
+        },
+      });
+
+      return tx.noConformidad.findUnique({
+        where: { id },
+        include: {
+          responsable: { select: { id: true, nombre: true, apellidos: true } },
+          historial: {
+            include: {
+              realizado_por: { select: { id: true, nombre: true, apellidos: true } },
+            },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
     });
   }
 

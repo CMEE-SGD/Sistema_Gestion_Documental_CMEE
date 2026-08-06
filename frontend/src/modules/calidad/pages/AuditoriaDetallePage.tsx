@@ -91,7 +91,7 @@ export const AuditoriaDetallePage = () => {
                         </div>
                         <p className="text-gray-600 text-sm mb-3">{auditoria.alcance}</p>
                         <div className="flex gap-6 text-sm text-gray-500">
-                            <span><strong>Responsable:</strong> {auditoria.responsable?.nombre} {auditoria.responsable?.apellidos}</span>
+                            <span><strong>Responsable:</strong> {[auditoria.responsable?.nombre, auditoria.responsable?.apellidos].filter(Boolean).join(' ')}{auditoria.responsable_auditoria ? ` (${auditoria.responsable_auditoria})` : ''}</span>
                             <span><strong>Inicio:</strong> {new Date(auditoria.fecha_inicio).toLocaleDateString()}</span>
                             {auditoria.fecha_fin && <span><strong>Fin:</strong> {new Date(auditoria.fecha_fin).toLocaleDateString()}</span>}
                             <span><strong>Tipo:</strong> {auditoria.tipo}</span>
@@ -147,10 +147,13 @@ export const AuditoriaDetallePage = () => {
                             </div>
                         </div>
                     )}
-                    {auditoria.responsable_auditoria && (
+                    {(auditoria.responsable || auditoria.responsable_auditoria) && (
                         <div>
                             <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">RESPONSABLE DE AUDITORÍA</div>
-                            <div className="border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700">{auditoria.responsable_auditoria}</div>
+                            <div className="border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700">
+                                {[auditoria.responsable?.nombre, auditoria.responsable?.apellidos].filter(Boolean).join(' ')}
+                                {auditoria.responsable_auditoria ? ` (${auditoria.responsable_auditoria})` : ''}
+                            </div>
                         </div>
                     )}
                     {auditoria.equipo_auditor && auditoria.equipo_auditor.length > 0 && (
@@ -278,6 +281,7 @@ export const AuditoriaDetallePage = () => {
                                 <th className="px-4 py-3 font-semibold">Requisito</th>
                                 <th className="px-4 py-3 font-semibold">Hallazgo</th>
                                 <th className="px-4 py-3 font-semibold">Evidencia</th>
+                                <th className="px-4 py-3 font-semibold">Estado</th>
                                 <th className="px-4 py-3 font-semibold text-center">OEC</th>
                                 <th className="px-4 py-3 font-semibold text-center">Reiterada</th>
                                 <th className="px-4 py-3 font-semibold text-center">Acciones</th>
@@ -293,6 +297,9 @@ export const AuditoriaDetallePage = () => {
                                     <td className="px-4 py-3 text-gray-600 max-w-[180px] truncate">{nc.requisito || '-'}</td>
                                     <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{nc.hallazgo}</td>
                                     <td className="px-4 py-3 text-gray-600 max-w-[180px] truncate">{nc.evidencia || '-'}</td>
+                                    <td className="px-4 py-3">
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${nc.estado === 'ABIERTA' ? 'bg-red-100 text-red-700' : nc.estado === 'EN_CURSO' ? 'bg-amber-100 text-amber-700' : nc.estado === 'VERIFICADA' ? 'bg-sky-100 text-sky-700' : nc.estado === 'CERRADA' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'}`}>{nc.estado || 'ABIERTA'}</span>
+                                    </td>
                                     <td className="px-4 py-3 text-center">{nc.aceptada_oec ? <CircleCheck className="w-4 h-4 text-emerald-600 inline" /> : <CircleX className="w-4 h-4 text-red-400 inline" />}</td>
                                     <td className="px-4 py-3 text-center">{nc.reiterada ? <CircleCheck className="w-4 h-4 text-emerald-600 inline" /> : <CircleX className="w-4 h-4 text-red-400 inline" />}</td>
                                     <td className="px-4 py-3 text-center">

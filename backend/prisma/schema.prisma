@@ -167,8 +167,10 @@ model Persona {
   ordenes_recibidas        OrdenTrabajo[]       @relation("PersonaRecibeOrden")
   certificados_subidos     Certificado[]        @relation("TecnicoCertificado")
   historial_estados        HistorialEstado[]    @relation("HistorialEstadoPersona")
-  firmas_digitales         FirmaDigital[]       @relation("FirmanteDigital")
-  firmas_documentos        FirmaDocumentoFase[] @relation("FirmanteDocumentoFase")
+    firmas_digitales         FirmaDigital[]       @relation("FirmanteDigital")
+    firmas_documentos        FirmaDocumentoFase[] @relation("FirmanteDocumentoFase")
+    nc_historial             NoConformidadHistorial[] @relation("NcHistorialPersona")
+    auditoria_historial      AuditoriaHistorial[] @relation("AuditoriaHistorialPersona")
 
   auditorias_responsables      AuditoriaInterna[] @relation("AuditoriaResponsable")
   no_conformidades_responsable NoConformidad[]    @relation("NcResponsable")
@@ -995,14 +997,33 @@ model AuditoriaInterna {
   updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
   no_conformidades NoConformidad[]
+  historial         AuditoriaHistorial[]
 
   @@index([responsable_id])
   @@map("auditoria_interna")
 }
 
+// Historial de transiciones de estado POR AUDITORÍA INTERNA
+model AuditoriaHistorial {
+  id               Int              @id @default(autoincrement())
+  auditoria_id     Int
+  auditoria        AuditoriaInterna @relation(fields: [auditoria_id], references: [id], onDelete: Cascade)
+  estado_anterior  EstadoAuditoria?
+  estado_nuevo     EstadoAuditoria
+  accion           String           @db.VarChar(50)
+  observaciones    String?          @db.Text
+  realizado_por_id Int?
+  realizado_por    Persona?         @relation("AuditoriaHistorialPersona", fields: [realizado_por_id], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([auditoria_id])
+  @@map("auditoria_historial")
+}
+
 model NoConformidad {
   id                   Int              @id @default(autoincrement())
-  codigo               String           @unique @db.VarChar(50)
+  codigo               String           @db.VarChar(50)
   auditoria_id         Int?
   auditoria            AuditoriaInterna? @relation(fields: [auditoria_id], references: [id], onDelete: SetNull)
   categoria            String           @default("NC") @db.VarChar(10)
@@ -1018,6 +1039,7 @@ model NoConformidad {
   causa_raiz           String?          @db.Text
   acciones_inmediatas  String?          @db.Text
   plan_accion          Json?
+  verificacion_eficacia Json?
   estado               EstadoNC         @default(ABIERTA)
   responsable_id       Int?
   responsable          Persona?         @relation("NcResponsable", fields: [responsable_id], references: [id], onDelete: Restrict)
@@ -1026,5 +1048,27 @@ model NoConformidad {
   createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
+  historial NoConformidadHistorial[]
+
+  @@index([auditoria_id])
+  @@unique([auditoria_id, codigo], name: "uq_no_conformidad_auditoria_codigo")
   @@map("no_conformidad")
+}
+
+// Historial de transiciones de estado POR NO CONFORMIDAD
+model NoConformidadHistorial {
+  id               Int        @id @default(autoincrement())
+  nc_id            Int
+  nc               NoConformidad @relation(fields: [nc_id], references: [id], onDelete: Cascade)
+  estado_anterior  EstadoNC?
+  estado_nuevo     EstadoNC
+  accion           String     @db.VarChar(50)
+  observaciones    String?    @db.Text
+  realizado_por_id Int?
+  realizado_por    Persona?   @relation("NcHistorialPersona", fields: [realizado_por_id], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([nc_id])
+  @@map("no_conformidad_historial")
 }

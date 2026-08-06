@@ -37,10 +37,12 @@ export const NuevaNcPage = () => {
 
     useEffect(() => {
         if (ncId) return;
-        api.get('/calidad/no-conformidades/siguiente-numero')
+        api.get('/calidad/no-conformidades/siguiente-numero', {
+            params: auditoriaId ? { auditoria_id: auditoriaId } : {},
+        })
             .then(res => setSiguienteNumero(res.data))
             .catch(() => setSiguienteNumero(null));
-    }, [ncId]);
+    }, [ncId, auditoriaId]);
 
     useEffect(() => {
         if (!ncId) return;
