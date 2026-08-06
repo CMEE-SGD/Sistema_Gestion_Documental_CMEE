@@ -4,13 +4,13 @@
 // criptográficamente antes de aceptarlo — ver backend/src/common/helpers/pdf-signature.ts).
 // Compartido entre certificados (administrativo) y Gestor Documental.
 import { SignPdf } from '@signpdf/signpdf';
-import { plainAddPlaceholder } from '@signpdf/placeholder-plain';
 import { P12Signer } from '@signpdf/signer-p12';
 // Namespace import a propósito: con `import forge from 'node-forge'` el
 // bundle compila pero `forge.pki`/`forge.pkcs12` quedan `undefined` en
 // tiempo de ejecución (ver el mismo problema ya resuelto en el backend).
 import * as forge from 'node-forge';
 import { FirmaPdfError } from './FirmaPdfError';
+import { agregarSelloYPlaceholder } from './firma-pdf/agregarSelloYPlaceholder';
 import type { PosicionFirma } from '../components/organisms/SelectorPosicionFirma';
 
 export { FirmaPdfError };
@@ -39,81 +39,6 @@ function extraerTitularCertificado(
 }
 
 /**
- * Dibuja un sello visual (texto sobre un recuadro) en la posición elegida
- * por el usuario. Se hace ANTES de firmar criptográficamente, así que el
- * sello queda cubierto por la firma como cualquier otro contenido del PDF —
- * alterarlo después invalidaría la firma igual que alterar el texto.
- */
-async function agregarSelloVisual(
-  pdfBytes: Uint8Array,
-  posicion: PosicionFirma,
-  lineas: string[],
-): Promise<Uint8Array> {
-  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
-
-  let pdfDoc;
-  try {
-    pdfDoc = await PDFDocument.load(pdfBytes);
-  } catch {
-    throw new FirmaPdfError(
-      'No se pudo preparar el PDF para colocar el sello de firma.',
-    );
-  }
-
-  const paginas = pdfDoc.getPages();
-  const pagina = paginas[posicion.pagina];
-  if (!pagina) {
-    throw new FirmaPdfError(
-      'La página elegida para el sello ya no existe en el documento.',
-    );
-  }
-
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const fontSize = 8;
-  const interlineado = fontSize + 3;
-  const relleno = 6;
-
-  const anchoTexto = Math.max(
-    ...lineas.map((linea) => font.widthOfTextAtSize(linea, fontSize)),
-  );
-  const ancho = anchoTexto + relleno * 2;
-  const alto = lineas.length * interlineado + relleno * 2 - (interlineado - fontSize);
-
-  // El punto elegido por el usuario es la esquina superior izquierda del
-  // sello — se ajusta para que el recuadro no se salga de la página.
-  const x = Math.min(Math.max(posicion.x, 0), pagina.getWidth() - ancho);
-  const yTope = Math.min(Math.max(posicion.y, alto), pagina.getHeight());
-  const yBase = yTope - alto;
-
-  pagina.drawRectangle({
-    x,
-    y: yBase,
-    width: ancho,
-    height: alto,
-    color: rgb(1, 0.98, 0.85),
-    opacity: 0.9,
-    borderColor: rgb(0.6, 0.5, 0),
-    borderWidth: 0.75,
-  });
-
-  lineas.forEach((linea, i) => {
-    pagina.drawText(linea, {
-      x: x + relleno,
-      y: yTope - relleno - fontSize - i * interlineado,
-      size: fontSize,
-      font,
-      color: rgb(0.15, 0.15, 0.15),
-    });
-  });
-
-  // useObjectStreams: false — @signpdf/placeholder-plain lee la tabla xref
-  // "a mano" y no entiende los cross-reference streams comprimidos que
-  // pdf-lib genera por defecto; con esta opción produce el formato clásico
-  // que sí puede leer (confirmado con una firma real de extremo a extremo).
-  return pdfDoc.save({ useObjectStreams: false });
-}
-
-/**
  * Firma un PDF con un certificado .p12 en el navegador.
  * @param pdfBytes El PDF a firmar (el original, o uno que ya trae firmas previas).
  * @param p12File El archivo .p12 seleccionado por el usuario.
@@ -132,7 +57,7 @@ export async function firmarPdfConP12(
   const p12Bytes = new Uint8Array(await p12File.arrayBuffer());
   const p12Buffer = Buffer.from(p12Bytes);
 
-  let pdfParaFirmar = pdfBytes;
+  let selloParaPlaceholder: { posicion: PosicionFirma; lineas: string[] } | undefined;
   if (sello) {
     const titular = extraerTitularCertificado(p12Buffer, password) ?? 'Titular del certificado';
     const fecha = new Date().toLocaleString('es-EC', {
@@ -142,25 +67,33 @@ export async function firmarPdfConP12(
       hour: '2-digit',
       minute: '2-digit',
     });
-    pdfParaFirmar = await agregarSelloVisual(pdfBytes, sello.posicion, [
-      'Firmado digitalmente',
-      `Por: ${titular}`,
-      `Fecha: ${fecha}`,
-      `Motivo: ${razon}`,
-    ]);
+    selloParaPlaceholder = {
+      posicion: sello.posicion,
+      lineas: [
+        'Firmado digitalmente',
+        `Por: ${titular}`,
+        `Fecha: ${fecha}`,
+        `Motivo: ${razon}`,
+      ],
+    };
   }
 
-  const pdfBuffer = Buffer.from(pdfParaFirmar);
+  const pdfBuffer = Buffer.from(pdfBytes);
 
+  // El sello visual y el espacio de la firma se agregan en un solo paso de
+  // actualización incremental (ver agregarSelloYPlaceholder.ts) — nunca se
+  // reparsea ni reescriben los bytes existentes, así que firmas previas de
+  // otros firmantes en el mismo documento quedan intactas.
   let pdfConPlaceholder: Buffer;
   try {
-    pdfConPlaceholder = plainAddPlaceholder({
+    pdfConPlaceholder = agregarSelloYPlaceholder({
       pdfBuffer,
       reason: razon,
       contactInfo: '',
       name: '',
       location: 'Centro de Metrología del Ejército Ecuatoriano',
       signatureLength: 8192,
+      sello: selloParaPlaceholder,
     });
   } catch {
     throw new FirmaPdfError(

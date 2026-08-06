@@ -145,7 +145,14 @@ export class AuditoriaInterceptor implements NestInterceptor {
             let rol_afectado_id = null;
             let puesto_afectado_id = null;
 
-            if (tieneId) {
+            // En DELETE no se llenan las FK dedicadas: para módulos con
+            // borrado físico (ej. documentos) el registro ya no existe para
+            // cuando este interceptor corre (se ejecuta después del handler),
+            // así que insertar una fila que apunte a un id inexistente viola
+            // la foreign key (P2003). `entidad_id` (sin FK) ya identifica el
+            // recurso eliminado sin ese riesgo, sin importar si el borrado
+            // fue lógico o físico.
+            if (tieneId && method !== 'DELETE') {
               if (modulo === 'PERSONAS') persona_afectada_id = ultimoParametro;
               if (modulo === 'ROLES') rol_afectado_id = ultimoParametro;
               if (modulo === 'PUESTOS') puesto_afectado_id = ultimoParametro;
