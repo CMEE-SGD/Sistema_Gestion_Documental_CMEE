@@ -170,7 +170,8 @@ export const NuevaNcPage = () => {
                     </label>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-200">
+                    <span className="mr-auto text-xs font-medium text-gray-500">GD4.1.F1-1</span>
                     <button type="button" onClick={() => navigate(auditoriaId ? `/calidad/auditorias/${auditoriaId}` : '/calidad/no-conformidades')} className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
                     <button type="submit" disabled={loading} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50">
                         {loading ? 'Guardando...' : (ncId ? 'Actualizar NC' : 'Crear NC')}

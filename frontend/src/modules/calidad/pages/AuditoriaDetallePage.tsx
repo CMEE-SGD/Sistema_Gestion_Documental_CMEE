@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Edit3, Eye, CircleCheck, CircleX } from 'lucide-react';
 import api from '../../../core/api/axios';
@@ -8,6 +8,29 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import { tienePermiso } from '../../../shared/utils/auth';
 
 const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+
+const GRUPOS_EQUIPO = [
+    { label: null, secciones: ['EVALUADOR_LIDER', 'EVALUADOR_CALIDAD'] },
+    { label: 'Evaluadores Técnicos', secciones: ['EVALUADOR_TECNICO'] },
+    { label: 'Evaluadores en entrenamiento', secciones: ['EVALUADOR_ENTRENAMIENTO'] },
+    { label: 'Observadores', secciones: ['OBSERVADOR'] },
+];
+
+const normalizarCronograma = (lista: any[]) => {
+    if (!Array.isArray(lista) || lista.length === 0) return [];
+    if (lista[0] && Array.isArray(lista[0].actividades)) return lista;
+    const grupos: any[] = [];
+    for (const row of lista) {
+        const actividad = { hora: row.hora || '', actividad: row.actividad || '', evaluador: row.evaluador || '', referencia: row.referencia || '' };
+        const ultimo = grupos[grupos.length - 1];
+        if (ultimo && ultimo.fecha === (row.fecha || '')) {
+            ultimo.actividades.push(actividad);
+        } else {
+            grupos.push({ fecha: row.fecha || '', actividades: [actividad] });
+        }
+    }
+    return grupos;
+};
 
 export const AuditoriaDetallePage = () => {
     const { id } = useParams();
@@ -82,6 +105,154 @@ export const AuditoriaDetallePage = () => {
                             </div>
                         )}
                     </div>
+                </div>
+            </div>
+
+            {/* Programa de Auditoría */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+                    <h2 className="font-bold text-gray-800">Programa de Auditoría</h2>
+                    {tienePermiso('Gestion de Calidad', 4) && (
+                        <Button variant="default" onClick={() => navigate(`/calidad/auditorias/editar/${id}`)}>
+                            <Edit3 className="w-4 h-4 mr-1" /> Editar programa
+                        </Button>
+                    )}
+                </div>
+                <div className="p-4 flex flex-col gap-5">
+                    {auditoria.descripcion && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">DESCRIPCIÓN</div>
+                            <div className="border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700 whitespace-pre-wrap">{auditoria.descripcion}</div>
+                        </div>
+                    )}
+                    {auditoria.objeto && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">OBJETO</div>
+                            <div className="border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700 whitespace-pre-wrap">{auditoria.objeto}</div>
+                        </div>
+                    )}
+                    {auditoria.alcance && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">ALCANCE</div>
+                            <div className="border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700 whitespace-pre-wrap">{auditoria.alcance}</div>
+                        </div>
+                    )}
+                    {auditoria.documentos_referencia && auditoria.documentos_referencia.length > 0 && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">DOCUMENTOS DE REFERENCIA</div>
+                            <div className="border border-t-0 border-gray-300 rounded-b p-3">
+                                <ul className="list-disc pl-5 text-sm text-gray-700 flex flex-col gap-1">
+                                    {auditoria.documentos_referencia.map((d: string, i: number) => <li key={i}>{d}</li>)}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+                    {auditoria.responsable_auditoria && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">RESPONSABLE DE AUDITORÍA</div>
+                            <div className="border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700">{auditoria.responsable_auditoria}</div>
+                        </div>
+                    )}
+                    {auditoria.equipo_auditor && auditoria.equipo_auditor.length > 0 && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">EQUIPO AUDITOR</div>
+                            <div className="border border-t-0 border-gray-300 rounded-b overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left font-semibold">Función</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Nombre</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Designación</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {GRUPOS_EQUIPO.map(grupo => {
+                                            const filas = auditoria.equipo_auditor.filter((m: any) => grupo.secciones.includes(m.seccion));
+                                            if (filas.length === 0) return null;
+                                            return [
+                                                grupo.label && (
+                                                    <tr key={`h-${grupo.label}`}>
+                                                        <td colSpan={3} className="px-3 py-2 bg-gray-50 font-bold text-gray-700">{grupo.label}</td>
+                                                    </tr>
+                                                ),
+                                                filas.map((m: any, i: number) => (
+                                                    <tr key={`${grupo.label}-${i}`}>
+                                                        <td className="px-3 py-2">{m.funcion || '-'}</td>
+                                                        <td className="px-3 py-2">{m.nombre || '-'}</td>
+                                                        <td className="px-3 py-2 font-medium">{m.designacion || '-'}</td>
+                                                    </tr>
+                                                )),
+                                            ];
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                    {auditoria.cronograma && auditoria.cronograma.length > 0 && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">CRONOGRAMA DE AUDITORÍA</div>
+                            <div className="border border-t-0 border-gray-300 rounded-b overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left font-semibold">Fecha/Hora</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Función o actividad</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Evaluador</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Ref. normativa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {normalizarCronograma(auditoria.cronograma).map((g: any, gi: number) => (
+                                            <Fragment key={gi}>
+                                                <tr className="bg-gray-50">
+                                                    <td className="px-3 py-2 font-semibold text-gray-700 text-center">{g.fecha || '-'}</td>
+                                                    <td colSpan={3}></td>
+                                                </tr>
+                                                {g.actividades.map((a: any, ai: number) => (
+                                                    <tr key={ai}>
+                                                        <td className="px-3 py-2 text-center">{a.hora || '-'}</td>
+                                                        <td className="px-3 py-2 whitespace-pre-wrap">{a.actividad || '-'}</td>
+                                                        <td className="px-3 py-2">{a.evaluador || '-'}</td>
+                                                        <td className="px-3 py-2">{a.referencia || '-'}</td>
+                                                    </tr>
+                                                ))}
+                                            </Fragment>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                    {auditoria.testificaciones && auditoria.testificaciones.length > 0 && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">TESTIFICACIONES A REALIZARSE</div>
+                            <div className="border border-t-0 border-gray-300 rounded-b overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left font-semibold">Test</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Método de ensayo</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Método/Magnitud</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Muestra instrumental</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Evaluador</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {auditoria.testificaciones.map((t: any, i: number) => (
+                                            <tr key={i}>
+                                                <td className="px-3 py-2">{t.test || '-'}</td>
+                                                <td className="px-3 py-2">{t.metodo_ensayo || '-'}</td>
+                                                <td className="px-3 py-2 whitespace-pre-wrap">{t.metodo_magnitud || '-'}</td>
+                                                <td className="px-3 py-2">{t.muestra || '-'}</td>
+                                                <td className="px-3 py-2">{t.evaluador || '-'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
