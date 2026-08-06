@@ -12,6 +12,22 @@ export class CalidadService {
 
   // ==================== AUDITORÍAS INTERNAS ====================
 
+  async generarCodigoAuditoria(): Promise<string> {
+    const auditorias = await this.prisma.auditoriaInterna.findMany({
+      select: { codigo: true },
+    });
+    const patron = /^\d{2} \d{6}$/;
+    let max = 0;
+    for (const a of auditorias) {
+      if (patron.test(a.codigo)) {
+        const n = parseInt(a.codigo.slice(3), 10);
+        if (!isNaN(n) && n > max) max = n;
+      }
+    }
+    const year = new Date().getFullYear() % 100;
+    return `${String(year).padStart(2, '0')} ${String(max + 1).padStart(6, '0')}`;
+  }
+
   async createAuditoria(data: any) {
     return this.prisma.auditoriaInterna.create({
       data: {
@@ -22,6 +38,13 @@ export class CalidadService {
         fecha_fin: data.fecha_fin ? new Date(data.fecha_fin) : null,
         responsable_id: data.responsable_id,
         estado: data.estado,
+        descripcion: data.descripcion,
+        objeto: data.objeto,
+        documentos_referencia: data.documentos_referencia,
+        responsable_auditoria: data.responsable_auditoria,
+        equipo_auditor: data.equipo_auditor,
+        cronograma: data.cronograma,
+        testificaciones: data.testificaciones,
         observaciones: data.observaciones,
         archivo_planificacion: data.archivo_planificacion,
       },

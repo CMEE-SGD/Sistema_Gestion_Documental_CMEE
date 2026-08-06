@@ -981,6 +981,13 @@ model AuditoriaInterna {
   responsable_id        Int
   responsable           Persona         @relation("AuditoriaResponsable", fields: [responsable_id], references: [id], onDelete: Restrict)
   estado                EstadoAuditoria @default(PLANIFICADA)
+  descripcion           String?         @db.Text
+  objeto                String?         @db.Text
+  documentos_referencia Json?
+  responsable_auditoria String?         @db.Text
+  equipo_auditor        Json?
+  cronograma            Json?
+  testificaciones       Json?
   observaciones         String?         @db.Text
   archivo_planificacion String?         @db.VarChar(500)
   activo                Boolean         @default(true)

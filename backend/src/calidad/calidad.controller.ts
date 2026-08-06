@@ -37,6 +37,24 @@ export class CalidadController {
   }
 
   /**
+   * Convierte los campos JSON enviados como string (vía FormData) en objetos.
+   */
+  private parsearJson(dto: any): any {
+    const jsonCampos = ['documentos_referencia', 'equipo_auditor', 'cronograma', 'testificaciones'];
+    const data: any = { ...dto };
+    for (const campo of jsonCampos) {
+      if (typeof data[campo] === 'string') {
+        try {
+          data[campo] = JSON.parse(data[campo]);
+        } catch {
+          data[campo] = undefined;
+        }
+      }
+    }
+    return data;
+  }
+
+  /**
    * Guarda un archivo de NC en uploads/calidad/noconformidades/{año}/{mes}
    * con el nombre NC-{numero}-{DDMMYYYY}{ext} y devuelve su URL pública.
    */
@@ -81,7 +99,8 @@ export class CalidadController {
   @RequireAccess('Gestion de Calidad', 5)
   @UseInterceptors(FileInterceptor('archivo_planificacion', { storage: memoryStorage() }))
   async createAuditoria(@Body() dto: CreateAuditoriaDto, @UploadedFile() file?: Express.Multer.File) {
-    const data: any = { ...dto };
+    const data: any = this.parsearJson(dto);
+    data.codigo = await this.calidadService.generarCodigoAuditoria();
     if (file) data.archivo_planificacion = this.guardarArchivo(file, data.codigo, 'planificaciones');
     try {
       return await this.calidadService.createAuditoria(data);
@@ -99,6 +118,12 @@ export class CalidadController {
     return this.calidadService.findAllAuditorias();
   }
 
+  @Get('auditorias/siguiente-codigo')
+  @RequireAccess('Gestion de Calidad', 2)
+  siguienteCodigoAuditoria() {
+    return this.calidadService.generarCodigoAuditoria();
+  }
+
   @Get('auditorias/:id')
   @RequireAccess('Gestion de Calidad', 2)
   findOneAuditoria(@Param('id', ParseIntPipe) id: number) {
@@ -109,7 +134,7 @@ export class CalidadController {
   @RequireAccess('Gestion de Calidad', 4)
   @UseInterceptors(FileInterceptor('archivo_planificacion', { storage: memoryStorage() }))
   async updateAuditoria(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateAuditoriaDto, @UploadedFile() file?: Express.Multer.File) {
-    const data: any = { ...dto };
+    const data: any = this.parsearJson(dto);
     if (file) {
       const auditoria = await this.prisma.auditoriaInterna.findUnique({ where: { id }, select: { codigo: true } });
       const codigo = data.codigo || auditoria?.codigo || 'SIN_CODIGO';
