@@ -36,8 +36,6 @@ import { LaboratoriosPage } from '../../modules/laboratorios/pages/LaboratoriosP
 import { LaboratoriosLayout } from '../../modules/laboratorios/LaboratoriosLayout';
 import { EquiposPage } from '../../modules/laboratorios/pages/equipos/EquiposPages';
 import { ServiciosPage } from '../../modules/laboratorios/pages/servicios/ServiciosPage';
-import { NuevoServicioPage } from '../../modules/laboratorios/pages/servicios/NuevoServicioPage';
-import { EditarServicioPage } from '../../modules/laboratorios/pages/servicios/EditarServicioPage';
 
 // --- IMPORTACIONES DE USUARIOS ---
 import { UsuarioFormPage } from '../../modules/usuarios/UsuarioFormPage';
@@ -132,8 +130,6 @@ const AppRouter = () => {
           <Route index element={<LaboratoriosPage />} />
           <Route path="equipos" element={<EquiposPage />} />
           <Route path="servicios" element={<ServiciosPage />} />
-          <Route path="servicios/nuevo" element={<NuevoServicioPage />} />
-          <Route path="servicios/editar/:id" element={<EditarServicioPage />} />
         </Route>
         
         <Route path="/gestordocumental" element={<GestorDocumentalLayout />}>

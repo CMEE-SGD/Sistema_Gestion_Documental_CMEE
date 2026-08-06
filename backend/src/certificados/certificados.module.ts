@@ -23,6 +23,11 @@ if (!fs.existsSync(UPLOAD_DIR)) {
           cb(null, `${timestamp}_${safeName}`);
         },
       }),
+      // Los certificados siempre se sirven como application/pdf (ver
+      // certificados.controller.ts download()) y los mensajes de error del
+      // controller ya prometen "PDF" al usuario — esto lo hace real.
+      fileFilter: (_req, file, cb) => cb(null, file.mimetype === 'application/pdf'),
+      limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
     }),
   ],
   controllers: [CertificadosController],

@@ -14,6 +14,7 @@ export const LaboratoriosPage = () => {
     const { toast } = useToast();
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo');
 
@@ -26,10 +27,12 @@ export const LaboratoriosPage = () => {
     const fetchLaboratorios = async () => {
         try {
             setLoading(true);
+            setError(false);
             const response = await api.get('/laboratorios');
             setLaboratorios(response.data);
-        } catch (error) {
-            console.error('Error cargando laboratorios', error);
+        } catch (err) {
+            console.error('Error cargando laboratorios', err);
+            setError(true);
         } finally {
             setLoading(false);
         }
@@ -62,7 +65,7 @@ export const LaboratoriosPage = () => {
     const handleReactivar = async (id: number) => {
         if (!await confirm({ title: 'Confirmar', message: '¿Desea volver a activar este laboratorio?' })) return;
         try {
-            await api.patch(`/laboratorios/${id}`, { activo: true });
+            await api.patch(`/laboratorios/${id}/reactivar`);
             fetchLaboratorios();
             toast({ message: 'Laboratorio reactivado exitosamente.' });
         } catch (error) {
@@ -165,6 +168,11 @@ export const LaboratoriosPage = () => {
                     <tbody className="divide-y divide-gray-100">
                         {loading ? (
                             <tr><td colSpan={5} className="p-8 text-center text-gray-400">Cargando datos...</td></tr>
+                        ) : error ? (
+                            <tr><td colSpan={5} className="p-8 text-center text-red-500">
+                                No se pudo cargar la lista de laboratorios.{' '}
+                                <button onClick={fetchLaboratorios} className="underline font-medium hover:text-red-700">Reintentar</button>
+                            </td></tr>
                         ) : filtrados.length === 0 ? (
                             <tr><td colSpan={5} className="p-8 text-center text-gray-400">No se encontraron laboratorios.</td></tr>
                         ) : (
@@ -209,7 +217,7 @@ export const LaboratoriosPage = () => {
                                                 </button>
                                             )}
                                             
-                                            {!lab.activo && tienePermiso('Laboratorios', 4) && (
+                                            {!lab.activo && tienePermiso('Laboratorios', 5) && (
                                                 <button 
                                                     onClick={() => handleReactivar(lab.id)}
                                                     className="text-green-600 hover:text-green-800 font-medium text-xs px-2 py-1"

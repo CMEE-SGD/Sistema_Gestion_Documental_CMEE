@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Paperclip, RotateCcw, FileSignature } from 'lucide-react';
+import { Paperclip, RotateCcw, FileSignature, X } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
@@ -27,17 +27,30 @@ export const DetalleDocumentoPage = () => {
     const [isFirmaModalOpen, setIsFirmaModalOpen] = useState(false);
     const [nivelPermiso, setNivelPermiso] = useState<number>(5);
 
+    const [listaCircuitos, setListaCircuitos] = useState<{ id: number, nombre: string }[]>([]);
+    const [showEditForm, setShowEditForm] = useState(false);
+    const [editFormData, setEditFormData] = useState({
+        nombre: '', codigo: '', propietario: '', empresa: '', fecha_documento: '', circuito_id: '', activo: true,
+    });
+    const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+
+    const [showLogModal, setShowLogModal] = useState(false);
+    const [logs, setLogs] = useState<any[]>([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const [resDoc, resCarpetas] = await Promise.all([
+                const [resDoc, resCarpetas, resCircuitos] = await Promise.all([
                     api.get(`/documentos/${id}`),
-                    api.get('/carpetas')
+                    api.get('/carpetas'),
+                    api.get('/documentos/circuitos')
                 ]);
 
                 setDocumento(resDoc.data);
                 setCarpetas(Array.isArray(resCarpetas.data) ? resCarpetas.data : []);
+                setListaCircuitos(Array.isArray(resCircuitos.data) ? resCircuitos.data : []);
 
                 const doc = resDoc.data;
                 if (doc?.carpeta_id) {
@@ -257,6 +270,70 @@ export const DetalleDocumentoPage = () => {
         }
     };
 
+    // 👉 NUEVA FUNCIÓN: Abre el formulario de edición precargado con los datos actuales
+    const handleAbrirEdicion = () => {
+        if (!documento) return;
+        setEditFormData({
+            nombre: documento.nombre || '',
+            codigo: documento.codigo || '',
+            propietario: documento.propietario || '',
+            empresa: documento.empresa || 'Centro de Metrología del Ejército Ecuatoriano',
+            fecha_documento: documento.fecha_documento ? documento.fecha_documento.split('T')[0] : '',
+            circuito_id: documento.circuito_id ? String(documento.circuito_id) : '',
+            activo: documento.activo,
+        });
+        setShowVersionForm(false);
+        setShowEditForm(true);
+    };
+
+    const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        setEditFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+        }));
+    };
+
+    const handleGuardarEdicion = async () => {
+        if (!documento) return;
+        setGuardandoEdicion(true);
+        try {
+            const res = await api.patch(`/documentos/${documento.id}`, {
+                nombre: editFormData.nombre,
+                codigo: editFormData.codigo,
+                propietario: editFormData.propietario,
+                empresa: editFormData.empresa,
+                fecha_documento: editFormData.fecha_documento || null,
+                circuito_id: editFormData.circuito_id || null,
+                activo: editFormData.activo,
+            });
+            setDocumento((prev: any) => ({ ...prev, ...res.data }));
+            setShowEditForm(false);
+            toast({ message: 'Documento actualizado correctamente' });
+            window.dispatchEvent(new Event('refreshDocumentos'));
+        } catch (err) {
+            console.error('Error al editar el documento:', err);
+            await alert({ message: 'Error al guardar los cambios del documento.' });
+        } finally {
+            setGuardandoEdicion(false);
+        }
+    };
+
+    // 👉 NUEVA FUNCIÓN: Carga y muestra la bitácora de auditoría del documento
+    const handleVerLog = async () => {
+        setShowLogModal(true);
+        setLoadingLogs(true);
+        try {
+            const res = await api.get(`/auditoria/documento/${id}`);
+            setLogs(Array.isArray(res.data) ? res.data : []);
+        } catch (err) {
+            console.error('Error al cargar el log de auditoría:', err);
+            setLogs([]);
+        } finally {
+            setLoadingLogs(false);
+        }
+    };
+
     if (loading) return <div className="p-10 text-gray-500">Cargando información...</div>;
     if (error) return <div className="p-10 text-red-500">{error}</div>;
     if (!documento) return <div className="p-10">Documento no encontrado.</div>;
@@ -278,13 +355,14 @@ export const DetalleDocumentoPage = () => {
             <div className="flex flex-wrap items-center gap-1.5 mb-6">
                 <button
                     disabled={nivelPermiso < 3}
+                    onClick={handleAbrirEdicion}
                     className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 3 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Editar
                 </button>
                 <button
                     disabled={nivelPermiso < 3}
-                    onClick={() => setShowVersionForm(!showVersionForm)}
+                    onClick={() => { setShowVersionForm(!showVersionForm); setShowEditForm(false); }}
                     className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 3 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Nueva versión
@@ -295,7 +373,8 @@ export const DetalleDocumentoPage = () => {
                     className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 5 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Eliminar
-                </button>                <button className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Log</button>
+                </button>
+                <button onClick={handleVerLog} className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Log</button>
 
                 {/* Botón Mover conectado */}
                 <button
@@ -319,14 +398,86 @@ export const DetalleDocumentoPage = () => {
                 >
                     Imprimir
                 </button>
-                <button className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Lista distribución</button>
-                <button className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Documentos relacionados</button>
-                <button className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Objeto</button>
                 <button onClick={() => navigate(-1)} className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Cancelar</button>
-                <select className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm outline-none">
-                    <option>Valorar...</option>
-                </select>
             </div>
+
+            {/* Formulario Editar documento */}
+            {showEditForm && (
+                <div className="mb-6 p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                    <h3 className="font-bold text-sm text-gray-800 mb-3">Editar documento</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-gray-600">Título</label>
+                            <input
+                                type="text" name="nombre" value={editFormData.nombre} onChange={handleEditFormChange}
+                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm uppercase"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-gray-600">Código</label>
+                            <input
+                                type="text" name="codigo" value={editFormData.codigo} onChange={handleEditFormChange}
+                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-gray-600">Propietario</label>
+                            <input
+                                type="text" name="propietario" value={editFormData.propietario} onChange={handleEditFormChange}
+                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-gray-600">Empresa</label>
+                            <input
+                                type="text" name="empresa" value={editFormData.empresa} onChange={handleEditFormChange}
+                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-gray-600">Fecha del documento</label>
+                            <input
+                                type="date" name="fecha_documento" value={editFormData.fecha_documento} onChange={handleEditFormChange}
+                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-gray-600">Circuito</label>
+                            <select
+                                name="circuito_id" value={editFormData.circuito_id} onChange={handleEditFormChange}
+                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
+                            >
+                                <option value="">Sin clasificar</option>
+                                {listaCircuitos.map(c => (
+                                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-2 md:col-span-2">
+                            <input
+                                type="checkbox" name="activo" checked={editFormData.activo} onChange={handleEditFormChange}
+                                className="w-4 h-4 text-blue-600 rounded"
+                            />
+                            <label className="text-sm text-gray-700">Activo</label>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                        <button
+                            onClick={handleGuardarEdicion}
+                            disabled={guardandoEdicion || !editFormData.nombre.trim()}
+                            className="px-4 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm disabled:opacity-50"
+                        >
+                            {guardandoEdicion ? 'Guardando...' : 'Guardar cambios'}
+                        </button>
+                        <button
+                            onClick={() => setShowEditForm(false)}
+                            className="px-4 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm"
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Formulario Nueva Versión */}
             {showVersionForm && (
@@ -551,6 +702,47 @@ export const DetalleDocumentoPage = () => {
                 tituloAccion={`Firmar: ${documento.workflow?.fases?.find((f: any) => f.estado === 'EN_CURSO')?.fase?.nombre || documento.nombre}`}
                 onSuccess={handleFirmaSuccess}
             />
+
+            {showLogModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+                            <h3 className="font-bold text-sm text-gray-800">Log de auditoría del documento</h3>
+                            <button onClick={() => setShowLogModal(false)} className="text-gray-500 hover:text-gray-800">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="p-5 overflow-y-auto text-sm">
+                            {loadingLogs ? (
+                                <p className="text-gray-500">Cargando historial...</p>
+                            ) : logs.length === 0 ? (
+                                <p className="text-gray-500">No hay registros de auditoría para este documento.</p>
+                            ) : (
+                                <table className="w-full text-left text-xs">
+                                    <thead>
+                                        <tr className="font-bold text-gray-800 border-b border-gray-200">
+                                            <th className="p-2">Fecha</th>
+                                            <th className="p-2">Usuario</th>
+                                            <th className="p-2">Acción</th>
+                                            <th className="p-2">Descripción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {logs.map((log: any) => (
+                                            <tr key={log.id} className="border-b border-gray-100">
+                                                <td className="p-2 whitespace-nowrap">{new Date(log.fecha_hora).toLocaleString('es-ES')}</td>
+                                                <td className="p-2">{log.usuario?.nombre_usuario || '-'}</td>
+                                                <td className="p-2">{log.accion}</td>
+                                                <td className="p-2 text-gray-500">{log.descripcion || '-'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

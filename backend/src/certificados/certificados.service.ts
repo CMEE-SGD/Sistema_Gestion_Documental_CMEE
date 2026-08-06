@@ -50,38 +50,9 @@ export class CertificadosService {
       );
     }
 
-    let personaId = user.persona_id;
-    let puesto = user.puesto ?? '';
-    let labId: number | null = user.laboratorio_id ?? null;
-
-    if (!puesto && user.id) {
-      const usuario = await this.prisma.usuario.findUnique({
-        where: { id: user.id },
-        select: {
-          persona: {
-            select: {
-              id: true,
-              puestos: {
-                where: { activo: true },
-                orderBy: { orden_puesto: 'asc' },
-                take: 1,
-                select: {
-                  puesto: { select: { nombre: true } },
-                  departamento: {
-                    select: { laboratorio: { select: { id: true } } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      const puestos = usuario?.persona?.puestos ?? [];
-      personaId = usuario?.persona?.id;
-      puesto = puestos[0]?.puesto?.nombre ?? '';
-      labId = puestos[0]?.departamento?.laboratorio?.id ?? null;
-    }
+    const personaId = user.persona_id;
+    const puesto = user.puesto ?? '';
+    const labId: number | null = user.laboratorio_id ?? null;
 
     if (!user.isGod) {
       const n = puesto
@@ -180,33 +151,8 @@ export class CertificadosService {
 
     const equipo = certificado.equipo_recepcion;
 
-    let personaId = user.persona_id;
-    let puesto = user.puesto ?? '';
-
-    if (!puesto && user.id) {
-      const usuario = await this.prisma.usuario.findUnique({
-        where: { id: user.id },
-        select: {
-          persona: {
-            select: {
-              id: true,
-              puestos: {
-                where: { activo: true },
-                orderBy: { orden_puesto: 'asc' },
-                take: 1,
-                select: {
-                  puesto: { select: { nombre: true } },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      const puestos = usuario?.persona?.puestos ?? [];
-      personaId = usuario?.persona?.id;
-      puesto = puestos[0]?.puesto?.nombre ?? '';
-    }
+    const personaId = user.persona_id;
+    const puesto = user.puesto ?? '';
 
     if (!user.isGod && !personaId) {
       throw new ForbiddenException(
@@ -349,38 +295,9 @@ export class CertificadosService {
 
     const equipo = certificado.equipo_recepcion;
 
-    let personaId = user.persona_id;
-    let puesto = user.puesto ?? '';
-    let labId: number | null = user.laboratorio_id ?? null;
-
-    if (!puesto && user.id) {
-      const usuario = await this.prisma.usuario.findUnique({
-        where: { id: user.id },
-        select: {
-          persona: {
-            select: {
-              id: true,
-              puestos: {
-                where: { activo: true },
-                orderBy: { orden_puesto: 'asc' },
-                take: 1,
-                select: {
-                  puesto: { select: { nombre: true } },
-                  departamento: {
-                    select: { laboratorio: { select: { id: true } } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      const puestos = usuario?.persona?.puestos ?? [];
-      personaId = usuario?.persona?.id;
-      puesto = puestos[0]?.puesto?.nombre ?? '';
-      labId = puestos[0]?.departamento?.laboratorio?.id ?? null;
-    }
+    const personaId = user.persona_id;
+    const puesto = user.puesto ?? '';
+    const labId: number | null = user.laboratorio_id ?? null;
 
     if (!user.isGod) {
       const n = puesto

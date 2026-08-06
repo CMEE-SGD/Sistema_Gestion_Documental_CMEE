@@ -17,6 +17,7 @@ export const EquiposPage = () => {
 
     const [equipos, setEquipos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo'); 
 
@@ -27,10 +28,12 @@ export const EquiposPage = () => {
     const fetchEquipos = async () => {
         try {
             setLoading(true);
+            setError(false);
             const response = await api.get('/equipos');
             setEquipos(response.data);
-        } catch (error) {
-            console.error('Error cargando equipos', error);
+        } catch (err) {
+            console.error('Error cargando equipos', err);
+            setError(true);
         } finally {
             setLoading(false);
         }
@@ -74,7 +77,7 @@ export const EquiposPage = () => {
     const handleReactivar = async (id: number) => {
         if (!await confirm({ title: 'Confirmar', message: '¿Desea volver a activar este equipo?' })) return;
         try {
-            await api.patch(`/equipos/${id}`, { activo: true });
+            await api.patch(`/equipos/${id}/reactivar`);
             fetchEquipos();
             toast({ message: 'Equipo reactivado exitosamente.' });
         } catch (error) {
@@ -152,6 +155,11 @@ export const EquiposPage = () => {
                     <tbody className="divide-y divide-gray-100">
                         {loading ? (
                             <tr><td colSpan={5} className="p-8 text-center text-gray-400">Cargando datos...</td></tr>
+                        ) : error ? (
+                            <tr><td colSpan={5} className="p-8 text-center text-red-500">
+                                No se pudo cargar el inventario de equipos.{' '}
+                                <button onClick={fetchEquipos} className="underline font-medium hover:text-red-700">Reintentar</button>
+                            </td></tr>
                         ) : filtrados.length === 0 ? (
                             <tr><td colSpan={5} className="p-8 text-center text-gray-400">No se encontraron equipos.</td></tr>
                         ) : (
@@ -182,7 +190,7 @@ export const EquiposPage = () => {
                                                 <button onClick={() => handleEliminar(eq.id)} className="text-red-600 hover:text-red-800 font-medium text-xs px-2 py-1">Desactivar</button>
                                             )}
                                             
-                                            {!eq.activo && tienePermiso('Laboratorios', 4) && (
+                                            {!eq.activo && tienePermiso('Laboratorios', 5) && (
                                                 <button onClick={() => handleReactivar(eq.id)} className="text-green-600 hover:text-green-800 font-medium text-xs px-2 py-1">Reactivar</button>
                                             )}
                                         </div>

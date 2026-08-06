@@ -97,9 +97,6 @@ export const FasesConfigPage = () => {
                                             >
                                                 Editar
                                             </button>
-                                            <button className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm text-gray-700">
-                                                Avisos
-                                            </button>
                                         </td>
                                     </tr>
                                 ))

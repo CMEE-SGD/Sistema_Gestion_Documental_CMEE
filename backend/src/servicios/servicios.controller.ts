@@ -68,8 +68,9 @@ export class ServiciosController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateServicioDto: UpdateServicioDto,
+    @Req() req: any,
   ) {
-    return this.serviciosService.update(id, updateServicioDto);
+    return this.serviciosService.update(id, updateServicioDto, req.user);
   }
 
   /**
@@ -79,7 +80,13 @@ export class ServiciosController {
    */
   @Delete(':id')
   @RequireAccess('Laboratorios', 5) // Nivel 5: Eliminación/Desactivación
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.serviciosService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.serviciosService.remove(id, req.user);
+  }
+
+  @Patch(':id/reactivar')
+  @RequireAccess('Laboratorios', 5) // Nivel 5: coherente con desactivar
+  reactivar(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.serviciosService.reactivar(id, req.user);
   }
 }

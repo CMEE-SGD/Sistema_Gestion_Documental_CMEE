@@ -5,28 +5,35 @@ export interface Module {
   path: string;
 }
 
+// Debe reflejar exactamente las rutas reales de AppRouter.tsx — si se agrega
+// o quita una pantalla ahí, actualizar esta lista también.
 export const modules: Module[] = [
-  { id: 1, name: "Dashboard", category: "General", path: "/dashboard" },
-  { id: 2, name: "Gestion de Usuarios", category: "Administracion", path: "/usuarios" },
-  { id: 3, name: "Roles y Permisos", category: "Administracion", path: "/roles" },
-  { id: 4, name: 'Gestor Documental', category: "Administracion", path: '/gestordocumental'},
-  { id: 5, name: "Facturacion", category: "Finanzas", path: "/facturacion" },
-  { id: 6, name: "Inventario", category: "Almacen", path: "/inventario" },
-  { id: 7, name: "Proveedores", category: "Compras", path: "/proveedores" },
-  { id: 8, name: "Clientes", category: "Ventas", path: "/clientes" },
-  { id: 9, name: "Ordenes de Compra", category: "Compras", path: "/ordenes-compra" },
-  { id: 10, name: "Ordenes de Venta", category: "Ventas", path: "/ordenes-venta" },
-  { id: 11, name: "Recursos Humanos", category: "RRHH", path: "/rrhh" },
-  { id: 12, name: "Nomina", category: "RRHH", path: "/nomina" },
-  { id: 13, name: "Contabilidad", category: "Finanzas", path: "/contabilidad" },
-  { id: 14, name: "Activos Fijos", category: "Finanzas", path: "/activos" },
-  { id: 15, name: "Proyectos", category: "Operaciones", path: "/proyectos" },
-  { id: 16, name: "Soporte Tecnico", category: "IT", path: "/soporte" },
-  { id: 17, name: "Configuracion", category: "General", path: "/configuracion" },
-  { id: 18, name: "Auditoria Global", category: "Administracion", path: "/auditoria" }, // <- Ajustado
-  { id: 19, name: "Notificaciones", category: "General", path: "/notificaciones" },
-  { id: 20, name: "Integraciones", category: "IT", path: "/integraciones" },
-  { id: 21, name: "Laboratorios", category: "Operaciones", path: "/laboratorios" }, // <- Nuevo
-  { id: 22, name: "Administrativo", category: "Administracion", path: "/administrativo/recepciones" },
-  { id: 23, name: "Gestion de Calidad", category: "Calidad", path: "/calidad/auditorias" }
+  { id: 1, name: "Gestion de Usuarios", category: "Administracion", path: "/usuarios" },
+  { id: 2, name: "Grupos y Permisos", category: "Administracion", path: "/usuarios/grupos" },
+  { id: 3, name: "Configuracion General", category: "Administracion", path: "/usuarios/configuracion" },
+  { id: 4, name: "Auditoria Global", category: "Administracion", path: "/auditoria" },
+
+  { id: 5, name: "Recursos Humanos", category: "RRHH", path: "/rrhh" },
+  { id: 6, name: "Grupos de Organizacion", category: "RRHH", path: "/rrhh/grupos" },
+  { id: 7, name: "Puestos", category: "RRHH", path: "/rrhh/puestos" },
+  { id: 8, name: "Roles", category: "RRHH", path: "/rrhh/roles" },
+  { id: 9, name: "Personas", category: "RRHH", path: "/rrhh/personas" },
+
+  { id: 10, name: "Laboratorios", category: "Laboratorios", path: "/laboratorios" },
+  { id: 11, name: "Equipos", category: "Laboratorios", path: "/laboratorios/equipos" },
+  { id: 12, name: "Servicios", category: "Laboratorios", path: "/laboratorios/servicios" },
+
+  { id: 13, name: "Gestor Documental", category: "Gestor Documental", path: "/gestordocumental" },
+  { id: 14, name: "Configuracion de Gestor Documental", category: "Gestor Documental", path: "/gestordocumental/configuracion" },
+
+  { id: 15, name: "Bandeja de Trabajo", category: "Recepcion de Equipos", path: "/administrativo/recepciones" },
+  { id: 16, name: "Ordenes de Trabajo", category: "Recepcion de Equipos", path: "/administrativo/ordenes" },
+  { id: 17, name: "Clientes Institucionales", category: "Recepcion de Equipos", path: "/administrativo/clientes" },
+  { id: 18, name: "Certificados", category: "Recepcion de Equipos", path: "/administrativo/certificados" },
+  { id: 19, name: "Reportes", category: "Recepcion de Equipos", path: "/administrativo/reportes" },
+
+  { id: 20, name: "Gestion de Calidad", category: "Calidad", path: "/calidad/auditorias" },
+
+  { id: 21, name: "Inicio", category: "General", path: "/welcome" },
+  { id: 22, name: "Preferencias", category: "General", path: "/preferencias" },
 ];

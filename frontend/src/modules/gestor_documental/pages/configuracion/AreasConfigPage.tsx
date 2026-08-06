@@ -79,12 +79,6 @@ export const AreasConfigPage = () => {
                 >
                     Nueva área
                 </button>
-                <button 
-                    disabled={!libreriaId}
-                    className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    Copiar área
-                </button>
             </div>
             
             {loading ? (

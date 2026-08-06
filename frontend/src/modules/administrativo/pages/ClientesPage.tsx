@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Building2, Inbox, Plus } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, Building2, Inbox, Pencil, Plus, Power, PowerOff } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import ClienteFormModal from '../components/ClienteFormModal';
 
 // ---------------------------------------------------------------------------
@@ -102,13 +103,54 @@ function EmptyState({ cols }: { cols: number }) {
 // Page component
 // ---------------------------------------------------------------------------
 
-const COLS = 5;
+const COLS = 6;
 
 export default function ClientesPage() {
   const { data: clientes, isLoading, isError, error } =
     useClientesInstitucionales();
+  const queryClient = useQueryClient();
+  const { confirm, alert } = useAlert();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [clienteEditando, setClienteEditando] =
+    useState<ClienteInstitucional | null>(null);
+
+  const toggleActivoMutation = useMutation({
+    mutationFn: async (cliente: ClienteInstitucional) => {
+      const res = await api.patch<ClienteInstitucional>(
+        `/clientes-institucionales/${cliente.id}`,
+        { activo: !cliente.activo },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientes-institucionales'] });
+    },
+    onError: () => {
+      alert({ message: 'No se pudo actualizar el estado del cliente.' });
+    },
+  });
+
+  const handleEditar = (cliente: ClienteInstitucional) => {
+    setClienteEditando(cliente);
+    setIsFormOpen(true);
+  };
+
+  const handleNuevo = () => {
+    setClienteEditando(null);
+    setIsFormOpen(true);
+  };
+
+  const handleToggleActivo = async (cliente: ClienteInstitucional) => {
+    if (cliente.activo) {
+      const ok = await confirm({
+        title: 'Desactivar cliente',
+        message: `¿Desactivar a "${cliente.nombre}"? Ya no aparecerá disponible para generar nuevas órdenes de trabajo.`,
+      });
+      if (!ok) return;
+    }
+    toggleActivoMutation.mutate(cliente);
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -131,7 +173,7 @@ export default function ClientesPage() {
           </div>
         </div>
 
-        <Button onClick={() => setIsFormOpen(true)}>
+        <Button onClick={handleNuevo}>
           <Plus className="h-4 w-4" />
           Nuevo Cliente
         </Button>
@@ -162,6 +204,7 @@ export default function ClientesPage() {
                 <TH>Representante</TH>
                 <TH>Teléfono</TH>
                 <TH className="text-center">Estado</TH>
+                <TH className="text-center">Acciones</TH>
               </tr>
             </thead>
             <tbody>
@@ -201,6 +244,38 @@ export default function ClientesPage() {
                         {cliente.activo ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEditar(cliente)}
+                          title="Editar cliente"
+                          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActivo(cliente)}
+                          disabled={toggleActivoMutation.isPending}
+                          title={cliente.activo ? 'Desactivar cliente' : 'Reactivar cliente'}
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
+                            cliente.activo
+                              ? 'border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20'
+                              : 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300',
+                          )}
+                        >
+                          {cliente.activo ? (
+                            <PowerOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Power className="h-3.5 w-3.5" />
+                          )}
+                          {cliente.activo ? 'Desactivar' : 'Reactivar'}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               ) : (
@@ -214,7 +289,14 @@ export default function ClientesPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Modal — Nuevo Cliente */}
       {/* ------------------------------------------------------------------ */}
-      <ClienteFormModal open={isFormOpen} onClose={() => setIsFormOpen(false)} />
+      <ClienteFormModal
+        open={isFormOpen}
+        cliente={clienteEditando}
+        onClose={() => {
+          setIsFormOpen(false);
+          setClienteEditando(null);
+        }}
+      />
     </div>
   );
 }

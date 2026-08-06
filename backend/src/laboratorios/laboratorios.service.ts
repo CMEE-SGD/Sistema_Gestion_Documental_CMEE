@@ -20,6 +20,31 @@ export class LaboratoriosService {
     });
   }
 
+  // Candidatos válidos para "Responsable Técnico": personas activas con un
+  // puesto activo de Observador Técnico (OBT). Si se pasa laboratorioId
+  // (edición de un laboratorio existente), se restringe a los OBT cuyo
+  // departamento pertenece a ese laboratorio; al crear un laboratorio nuevo
+  // todavía no hay departamentos ligados a él, así que se listan todos los
+  // OBT del sistema.
+  async getCandidatosResponsable(laboratorioId?: number) {
+    return this.prisma.persona.findMany({
+      where: {
+        estado: 'ACTIVO',
+        puestos: {
+          some: {
+            activo: true,
+            puesto: { nombre: { contains: 'Observador Técnico' } },
+            ...(laboratorioId
+              ? { departamento: { laboratorio_id: laboratorioId } }
+              : {}),
+          },
+        },
+      },
+      select: { id: true, nombre: true, apellidos: true },
+      orderBy: [{ nombre: 'asc' }, { apellidos: 'asc' }],
+    });
+  }
+
   async findAll(user?: HydratedUser) {
     if (user?.isGod) {
       return this.prisma.laboratorio.findMany({
@@ -91,9 +116,13 @@ export class LaboratoriosService {
         'No tienes permiso para modificar este laboratorio',
       );
     }
+    // El campo `activo` solo se cambia a través de remove()/reactivar(),
+    // que exigen nivel 5 — así edición (nivel 4) nunca puede usarse como
+    // puerta trasera para desactivar o reactivar.
+    const { activo: _activo, ...resto } = data;
     return this.prisma.laboratorio.update({
       where: { id },
-      data,
+      data: resto,
     });
   }
 
@@ -111,6 +140,23 @@ export class LaboratoriosService {
     return this.prisma.laboratorio.update({
       where: { id },
       data: { activo: false },
+    });
+  }
+
+  async reactivar(id: number, user?: HydratedUser) {
+    await this.findOne(id);
+    if (
+      user &&
+      isRestrictedToLab(user.puesto ?? '') &&
+      user.laboratorio_id !== id
+    ) {
+      throw new ForbiddenException(
+        'No tienes permiso para reactivar este laboratorio',
+      );
+    }
+    return this.prisma.laboratorio.update({
+      where: { id },
+      data: { activo: true },
     });
   }
 }

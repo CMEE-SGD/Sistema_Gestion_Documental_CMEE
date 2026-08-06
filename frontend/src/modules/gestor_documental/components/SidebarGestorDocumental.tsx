@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Settings, FolderPlus, Search, LayoutGrid, Folder, ChevronRight, ChevronDown } from 'lucide-react';
+import { Settings, FolderPlus, Folder, ChevronRight, ChevronDown } from 'lucide-react';
 import api from '../../../core/api/axios';
 
 const SidebarGestorDocumental = () => {
@@ -152,13 +152,7 @@ const SidebarGestorDocumental = () => {
                         >
                             <Settings className="w-4 h-4 text-gray-600" />
                         </button>                        <button onClick={() => navigate('/gestordocumental/nueva-carpeta')} className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><FolderPlus className="w-4 h-4 text-gray-600" /></button>
-                        <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><Search className="w-4 h-4 text-gray-600" /></button>
-                        <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><LayoutGrid className="w-4 h-4 text-gray-600" /></button>
                     </div>
-
-                    <button className="w-full py-1.5 px-3 text-xs bg-gray-50 border border-gray-300 rounded hover:bg-gray-100 text-gray-700 font-medium transition-all shadow-sm">
-                        Relaciones de documentos
-                    </button>
 
                     <input
                         type="text" placeholder="Filtrar..."

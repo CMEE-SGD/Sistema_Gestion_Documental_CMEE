@@ -65,19 +65,31 @@ export class ServiciosService {
     return servicio;
   }
 
-  async update(id: number, data: UpdateServicioDto) {
-    await this.findOne(id);
+  async update(id: number, data: UpdateServicioDto, user?: HydratedUser) {
+    await this.findOne(id, user);
+    // El campo `activo` solo se cambia a través de remove()/reactivar(),
+    // que exigen nivel 5 — así edición (nivel 4) nunca puede usarse como
+    // puerta trasera para desactivar o reactivar.
+    const { activo: _activo, ...resto } = data;
     return this.prisma.servicio.update({
       where: { id },
-      data,
+      data: resto,
     });
   }
 
-  async remove(id: number) {
-    await this.findOne(id);
+  async remove(id: number, user?: HydratedUser) {
+    await this.findOne(id, user);
     return this.prisma.servicio.update({
       where: { id },
       data: { activo: false },
+    });
+  }
+
+  async reactivar(id: number, user?: HydratedUser) {
+    await this.findOne(id, user);
+    return this.prisma.servicio.update({
+      where: { id },
+      data: { activo: true },
     });
   }
 }
