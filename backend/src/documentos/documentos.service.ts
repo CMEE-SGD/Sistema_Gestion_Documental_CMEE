@@ -375,7 +375,19 @@ export class DocumentosService {
   async findOne(id: number, usuarioId?: number) {
     const doc = await this.prisma.documento.findUnique({
       where: { id },
-      include: { circuito: true, versiones: { orderBy: { created_at: 'desc' } }, workflow: { include: { circuito: true, fases: { orderBy: { id: 'asc' } } } } },
+      include: {
+        circuito: true,
+        versiones: { orderBy: { created_at: 'desc' } },
+        workflow: {
+          include: {
+            circuito: true,
+            fases: {
+              orderBy: { id: 'asc' },
+              include: { fase: { include: { participantes: { include: { persona: { select: { id: true, nombre: true, apellidos: true } } } } } } },
+            },
+          },
+        },
+      },
     });
     if (!doc) throw new NotFoundException('Documento no encontrado');
     if (usuarioId) {
