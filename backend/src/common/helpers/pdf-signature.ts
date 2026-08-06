@@ -1,5 +1,5 @@
 import * as forge from 'node-forge';
-import { extractSignature } from '@signpdf/utils';
+import { extractSignature, findByteRange } from '@signpdf/utils';
 
 export interface DatosCertificadoFirmante {
   titular: string;
@@ -41,10 +41,15 @@ function nombreComun(entidad: forge.pki.Certificate['subject']): string {
 }
 
 /**
- * Verifica criptográficamente la firma digital PAdES/PKCS#7 embebida en un
+ * Verifica criptográficamente UNA firma digital PAdES/PKCS#7 embebida en un
  * PDF (producida en el navegador del firmante con @signpdf + su .p12
  * personal). No confía en que el cliente diga "ya firmé": recalcula el hash
  * del documento y valida la firma RSA contra el certificado embebido.
+ *
+ * `indiceFirma` selecciona CUÁL firma verificar cuando el PDF tiene varias
+ * (flujo de varios firmantes, cada uno agrega la suya al final del archivo):
+ * 1 = la más antigua, 2 = la siguiente, etc. — ver `verificarFirmaPdf` más
+ * abajo, que itera todas.
  *
  * node-forge no implementa `verify()` para PKCS#7 (lanza "not yet
  * implemented"), así que la verificación se arma a mano sobre las
@@ -53,12 +58,13 @@ function nombreComun(entidad: forge.pki.Certificate['subject']): string {
  * del documento directamente — el hash del documento solo se compara
  * contra el atributo `messageDigest` dentro de ese set.
  */
-export function verificarFirmaPdf(
+function verificarFirmaEnIndice(
   pdfBuffer: Buffer,
+  indiceFirma: number,
 ): ResultadoVerificacionFirma {
   let extraido: ReturnType<typeof extractSignature>;
   try {
-    extraido = extractSignature(pdfBuffer);
+    extraido = extractSignature(pdfBuffer, indiceFirma);
   } catch {
     return {
       valido: false,
@@ -182,4 +188,44 @@ export function verificarFirmaPdf(
       error: `No se pudo procesar la firma: ${err instanceof Error ? err.message : 'error desconocido'}`,
     };
   }
+}
+
+/**
+ * Verifica TODAS las firmas presentes en el PDF, no solo una. Necesario
+ * porque en un workflow de varios firmantes cada uno agrega su firma al
+ * final del archivo (actualización incremental) — `extractSignature` sin
+ * índice siempre encuentra la más antigua, así que verificar solo "la"
+ * firma re-validaba de nuevo al primer firmante en cada fase siguiente y
+ * nunca comprobaba la firma que el firmante actual acababa de producir.
+ *
+ * Si cualquier firma (incluidas las de fases anteriores) queda inválida —
+ * por ejemplo, si el documento se corrompió al agregar una firma nueva —
+ * se rechaza el PDF entero en vez de aceptarlo silenciosamente. El
+ * resultado que se devuelve (y el que se graba en BD) es el de la firma
+ * más reciente, la del firmante actual.
+ */
+export function verificarFirmaPdf(pdfBuffer: Buffer): ResultadoVerificacionFirma {
+  const totalFirmas = findByteRange(pdfBuffer).byteRangeStrings.length;
+  if (totalFirmas === 0) {
+    return {
+      valido: false,
+      error: 'El PDF no contiene una firma digital reconocible.',
+    };
+  }
+
+  let resultado: ResultadoVerificacionFirma | null = null;
+  for (let indice = 1; indice <= totalFirmas; indice += 1) {
+    resultado = verificarFirmaEnIndice(pdfBuffer, indice);
+    if (!resultado.valido) {
+      return {
+        valido: false,
+        error:
+          totalFirmas > 1
+            ? `Firma #${indice} de ${totalFirmas} inválida: ${resultado.error}`
+            : resultado.error,
+      };
+    }
+  }
+
+  return resultado as ResultadoVerificacionFirma;
 }
