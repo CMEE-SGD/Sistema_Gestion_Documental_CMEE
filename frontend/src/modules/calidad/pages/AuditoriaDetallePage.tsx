@@ -41,6 +41,7 @@ export const AuditoriaDetallePage = () => {
     const [ncs, setNcs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const esExterna = auditoria?.tipo === 'EXTERNA';
     const puedeCrearNC = tienePermiso('Gestion de Calidad', 5);
     const puedeEditarNC = tienePermiso('Gestion de Calidad', 4);
 
@@ -88,10 +89,19 @@ export const AuditoriaDetallePage = () => {
                                 auditoria.estado === 'PLANIFICADA' ? 'bg-blue-100 text-blue-700' :
                                 auditoria.estado === 'EN_CURSO' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
                             }`}>{auditoria.estado}</span>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${esExterna ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-700'}`}>{esExterna ? 'EXTERNA' : 'INTERNA'}</span>
                         </div>
-                        <p className="text-gray-600 text-sm mb-3">{auditoria.alcance}</p>
+                        {esExterna ? (
+                            <p className="text-gray-600 text-sm mb-3">{auditoria.nombre_oec || 'Evaluación externa de OEC'}</p>
+                        ) : (
+                            <p className="text-gray-600 text-sm mb-3">{auditoria.alcance}</p>
+                        )}
                         <div className="flex gap-6 text-sm text-gray-500">
-                            <span><strong>Responsable:</strong> {[auditoria.responsable?.nombre, auditoria.responsable?.apellidos].filter(Boolean).join(' ')}{auditoria.responsable_auditoria ? ` (${auditoria.responsable_auditoria})` : ''}</span>
+                            {auditoria.responsable ? (
+                                <span><strong>Responsable:</strong> {[auditoria.responsable?.nombre, auditoria.responsable?.apellidos].filter(Boolean).join(' ')}{auditoria.responsable_auditoria ? ` (${auditoria.responsable_auditoria})` : ''}</span>
+                            ) : esExterna ? (
+                                <span><strong>Persona de contacto:</strong> {auditoria.persona_contacto || '-'}</span>
+                            ) : null}
                             <span><strong>Inicio:</strong> {new Date(auditoria.fecha_inicio).toLocaleDateString()}</span>
                             {auditoria.fecha_fin && <span><strong>Fin:</strong> {new Date(auditoria.fecha_fin).toLocaleDateString()}</span>}
                             <span><strong>Tipo:</strong> {auditoria.tipo}</span>
@@ -111,27 +121,60 @@ export const AuditoriaDetallePage = () => {
             {/* Programa de Auditoría */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
-                    <h2 className="font-bold text-gray-800">Programa de Auditoría</h2>
+                    <h2 className="font-bold text-gray-800">{esExterna ? 'Plan de Evaluación' : 'Programa de Auditoría'}</h2>
                     {tienePermiso('Gestion de Calidad', 4) && (
                         <Button variant="default" onClick={() => navigate(`/calidad/auditorias/editar/${id}`)}>
-                            <Edit3 className="w-4 h-4 mr-1" /> Editar programa
+                            <Edit3 className="w-4 h-4 mr-1" /> {esExterna ? 'Editar plan' : 'Editar programa'}
                         </Button>
                     )}
                 </div>
                 <div className="p-4 flex flex-col gap-5">
-                    {auditoria.descripcion && (
+                    {esExterna && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">1. RESUMEN GENERAL</div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700">
+                                <div><strong>Nombre del OEC:</strong> {auditoria.nombre_oec || '-'}</div>
+                                <div><strong>Expediente N°:</strong> {auditoria.expediente_nro || '-'}</div>
+                                <div><strong>Tipo de OEC:</strong> {auditoria.tipo_oec || '-'}</div>
+                                <div><strong>E-mail:</strong> {auditoria.email_oec || '-'}</div>
+                                <div><strong>Ciudad, País:</strong> {auditoria.ciudad_pais || '-'}</div>
+                                <div><strong>Teléfono:</strong> {auditoria.telefono_oec || '-'}</div>
+                                <div><strong>Persona de contacto:</strong> {auditoria.persona_contacto || '-'}</div>
+                                <div className="md:col-span-2"><strong>Dirección Oficina Principal:</strong> {auditoria.direccion_oficina || '-'}</div>
+                                {auditoria.localizaciones_criticas && <div className="md:col-span-2"><strong>Localizaciones críticas / Unidades técnicas / Sucursales:</strong> {auditoria.localizaciones_criticas}</div>}
+                            </div>
+                        </div>
+                    )}
+                    {esExterna && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">ALCANCE DE EVALUACIÓN</div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700">
+                                {auditoria.alcance && <div className="md:col-span-2"><strong>Alcance de Evaluación:</strong> {auditoria.alcance}</div>}
+                                {auditoria.norma_acreditacion && <div className="md:col-span-2"><strong>Norma de Acreditación:</strong> {auditoria.norma_acreditacion}</div>}
+                                {auditoria.actividades_evaluacion && <div><strong>Actividades de Evaluación:</strong> {auditoria.actividades_evaluacion}</div>}
+                                {auditoria.idioma_evaluacion && <div><strong>Idioma de Evaluación:</strong> {auditoria.idioma_evaluacion}</div>}
+                                {Array.isArray(auditoria.tipo_evaluacion) && auditoria.tipo_evaluacion.length > 0 && (
+                                    <div><strong>Tipo de Evaluación:</strong> {auditoria.tipo_evaluacion.join(', ')}</div>
+                                )}
+                                {auditoria.fecha_evaluacion_anterior && <div><strong>Fecha evaluación anterior:</strong> {auditoria.fecha_evaluacion_anterior}</div>}
+                                {auditoria.fecha_testificacion && <div><strong>Fecha testificación:</strong> {auditoria.fecha_testificacion}</div>}
+                                {auditoria.localizaciones_evaluacion && <div className="md:col-span-2"><strong>Localizaciones, unidades técnicas o sucursales:</strong> {auditoria.localizaciones_evaluacion}</div>}
+                            </div>
+                        </div>
+                    )}
+                    {!esExterna && auditoria.descripcion && (
                         <div>
                             <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">DESCRIPCIÓN</div>
                             <div className="border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700 whitespace-pre-wrap">{auditoria.descripcion}</div>
                         </div>
                     )}
-                    {auditoria.objeto && (
+                    {!esExterna && auditoria.objeto && (
                         <div>
                             <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">OBJETO</div>
                             <div className="border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700 whitespace-pre-wrap">{auditoria.objeto}</div>
                         </div>
                     )}
-                    {auditoria.alcance && (
+                    {!esExterna && auditoria.alcance && (
                         <div>
                             <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">ALCANCE</div>
                             <div className="border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700 whitespace-pre-wrap">{auditoria.alcance}</div>
@@ -139,7 +182,7 @@ export const AuditoriaDetallePage = () => {
                     )}
                     {auditoria.documentos_referencia && auditoria.documentos_referencia.length > 0 && (
                         <div>
-                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">DOCUMENTOS DE REFERENCIA</div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">{esExterna ? '2. DOCUMENTOS DE REFERENCIA' : 'DOCUMENTOS DE REFERENCIA'}</div>
                             <div className="border border-t-0 border-gray-300 rounded-b p-3">
                                 <ul className="list-disc pl-5 text-sm text-gray-700 flex flex-col gap-1">
                                     {auditoria.documentos_referencia.map((d: string, i: number) => <li key={i}>{d}</li>)}
@@ -147,7 +190,7 @@ export const AuditoriaDetallePage = () => {
                             </div>
                         </div>
                     )}
-                    {(auditoria.responsable || auditoria.responsable_auditoria) && (
+                    {!esExterna && (auditoria.responsable || auditoria.responsable_auditoria) && (
                         <div>
                             <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">RESPONSABLE DE AUDITORÍA</div>
                             <div className="border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700">
@@ -158,43 +201,85 @@ export const AuditoriaDetallePage = () => {
                     )}
                     {auditoria.equipo_auditor && auditoria.equipo_auditor.length > 0 && (
                         <div>
-                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">EQUIPO AUDITOR</div>
-                            <div className="border border-t-0 border-gray-300 rounded-b overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
-                                        <tr>
-                                            <th className="px-3 py-2 text-left font-semibold">Función</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Nombre</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Designación</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {GRUPOS_EQUIPO.map(grupo => {
-                                            const filas = auditoria.equipo_auditor.filter((m: any) => grupo.secciones.includes(m.seccion));
-                                            if (filas.length === 0) return null;
-                                            return [
-                                                grupo.label && (
-                                                    <tr key={`h-${grupo.label}`}>
-                                                        <td colSpan={3} className="px-3 py-2 bg-gray-50 font-bold text-gray-700">{grupo.label}</td>
-                                                    </tr>
-                                                ),
-                                                filas.map((m: any, i: number) => (
-                                                    <tr key={`${grupo.label}-${i}`}>
-                                                        <td className="px-3 py-2">{m.funcion || '-'}</td>
-                                                        <td className="px-3 py-2">{m.nombre || '-'}</td>
-                                                        <td className="px-3 py-2 font-medium">{m.designacion || '-'}</td>
-                                                    </tr>
-                                                )),
-                                            ];
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">{esExterna ? '3. EQUIPO EVALUADOR' : 'EQUIPO AUDITOR'}</div>
+                            {esExterna ? (
+                                <div className="border border-t-0 border-gray-300 rounded-b overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left font-semibold">Modalidad</th>
+                                                <th className="px-3 py-2 text-left font-semibold">Función / Rol</th>
+                                                <th className="px-3 py-2 text-left font-semibold">Nombre</th>
+                                                <th className="px-3 py-2 text-left font-semibold">Teléfono</th>
+                                                <th className="px-3 py-2 text-left font-semibold">E-mail</th>
+                                                <th className="px-3 py-2 text-left font-semibold">Entidad</th>
+                                                <th className="px-3 py-2 text-left font-semibold">Alcance / Campo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {(['IN_SITU', 'REMOTO'] as const).map(g => {
+                                                const miembros = (auditoria.equipo_auditor as any[]).filter(m => (m.modalidad || 'IN_SITU') === g);
+                                                if (miembros.length === 0) return null;
+                                                return [
+                                                    <tr key={`h-${g}`}>
+                                                        <td colSpan={7} className="px-3 py-2 bg-gray-50 font-bold text-gray-700">
+                                                            {g === 'IN_SITU' ? 'IN SITU' : 'REMOTO'}
+                                                        </td>
+                                                    </tr>,
+                                                    ...miembros.map((m, i) => (
+                                                        <tr key={`${g}-${i}`}>
+                                                            <td className="px-3 py-2">{g === 'REMOTO' ? 'Remoto' : 'In Situ'}</td>
+                                                            <td className="px-3 py-2">{m.rol || m.funcion || '-'}</td>
+                                                            <td className="px-3 py-2">{m.nombre || '-'}</td>
+                                                            <td className="px-3 py-2">{m.telefono || '-'}</td>
+                                                            <td className="px-3 py-2">{m.email || '-'}</td>
+                                                            <td className="px-3 py-2">{m.entidad || '-'}</td>
+                                                            <td className="px-3 py-2 whitespace-pre-wrap">{m.alcance || '-'}</td>
+                                                        </tr>
+                                                    )),
+                                                ];
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="border border-t-0 border-gray-300 rounded-b overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left font-semibold">Función</th>
+                                                <th className="px-3 py-2 text-left font-semibold">Nombre</th>
+                                                <th className="px-3 py-2 text-left font-semibold">Designación</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {GRUPOS_EQUIPO.map(grupo => {
+                                                const filas = auditoria.equipo_auditor.filter((m: any) => grupo.secciones.includes(m.seccion));
+                                                if (filas.length === 0) return null;
+                                                return [
+                                                    grupo.label && (
+                                                        <tr key={`h-${grupo.label}`}>
+                                                            <td colSpan={3} className="px-3 py-2 bg-gray-50 font-bold text-gray-700">{grupo.label}</td>
+                                                        </tr>
+                                                    ),
+                                                    ...filas.map((m: any, i: number) => (
+                                                        <tr key={`${grupo.label}-${i}`}>
+                                                            <td className="px-3 py-2">{m.funcion || '-'}</td>
+                                                            <td className="px-3 py-2">{m.nombre || '-'}</td>
+                                                            <td className="px-3 py-2 font-medium">{m.designacion || '-'}</td>
+                                                        </tr>
+                                                    )),
+                                                ];
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     )}
                     {auditoria.cronograma && auditoria.cronograma.length > 0 && (
                         <div>
-                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">CRONOGRAMA DE AUDITORÍA</div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">{esExterna ? '5. HORARIO DE EVALUACIÓN (CRONOGRAMA)' : 'CRONOGRAMA DE AUDITORÍA'}</div>
                             <div className="border border-t-0 border-gray-300 rounded-b overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
@@ -229,16 +314,16 @@ export const AuditoriaDetallePage = () => {
                     )}
                     {auditoria.testificaciones && auditoria.testificaciones.length > 0 && (
                         <div>
-                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">TESTIFICACIONES A REALIZARSE</div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">{esExterna ? '4. TESTIFICACIONES A REALIZARSE' : 'TESTIFICACIONES A REALIZARSE'}</div>
                             <div className="border border-t-0 border-gray-300 rounded-b overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
                                         <tr>
-                                            <th className="px-3 py-2 text-left font-semibold">Test</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Método de ensayo</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Método/Magnitud</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Muestra instrumental</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Evaluador</th>
+                                            <th className="px-3 py-2 text-left font-semibold">No.</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Método de ensayo / medida</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Técnica / Magnitud</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Matriz / Instrumento de medida</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Evaluador / Experto</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -253,6 +338,15 @@ export const AuditoriaDetallePage = () => {
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+                    )}
+                    {esExterna && (auditoria.fecha_elaboracion || auditoria.elaborado_por) && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">ELABORACIÓN DEL PLAN</div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border border-t-0 border-gray-300 rounded-b p-3 text-sm text-gray-700">
+                                <div><strong>Fecha de elaboración:</strong> {auditoria.fecha_elaboracion ? new Date(auditoria.fecha_elaboracion).toLocaleDateString() : '-'}</div>
+                                <div><strong>Elaborado por:</strong> {auditoria.elaborado_por || '-'}</div>
                             </div>
                         </div>
                     )}

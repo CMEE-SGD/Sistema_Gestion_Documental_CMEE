@@ -105,6 +105,51 @@ const normalizarCronograma = (lista: any[]) => {
 
 const renumerarTestificaciones = (lista: any[]) => lista.map((t, idx) => ({ ...t, test: (idx + 1).toString() }));
 
+const normalizarEquipoEvaluador = (lista: any[]) => {
+    if (!Array.isArray(lista) || lista.length === 0) return [{ modalidad: 'IN_SITU', rol: 'Evaluador Líder', nombre: '', telefono: '', email: '', entidad: '', alcance: '' }];
+    return lista.map((m: any) => ({
+        modalidad: m?.modalidad || 'IN_SITU',
+        rol: m?.rol || m?.funcion || '',
+        nombre: m?.nombre || '',
+        telefono: m?.telefono || '',
+        email: m?.email || '',
+        entidad: m?.entidad || '',
+        alcance: m?.alcance || '',
+    }));
+};
+
+const ROLES_EVALUADOR = [
+    'Evaluador Líder',
+    'Evaluador de gestión de la calidad',
+    'Evaluador Técnico',
+    'Evaluador en entrenamiento',
+    'Observador',
+];
+
+const ACTIVIDADES_EVALUACION = [
+    { key: 'REMOTA', label: 'Remota' },
+    { key: 'PRESENCIAL', label: 'Presencial' },
+    { key: 'EVAL_REMOTA', label: 'Evaluación: Remota' },
+    { key: 'IN_SITU', label: 'In Situ' },
+    { key: 'TESTIFICACION', label: 'Testificación' },
+];
+
+const TIPOS_EVALUACION = [
+    { key: 'EVAL_INICIAL', label: 'Eval. Inicial' },
+    { key: 'VIGILANCIA', label: 'Vigilancia N°' },
+    { key: 'REEVALUACION', label: 'Re-evaluación' },
+    { key: 'AMPLIACION', label: 'Ampliación alcance' },
+    { key: 'OTRO', label: 'Otro' },
+    { key: 'PRE_EVALUACION', label: 'Pre-evaluación' },
+    { key: 'EXTRAORDINARIA', label: 'Extraordinaria' },
+    { key: 'SEGUIMIENTO', label: 'Seguimiento' },
+];
+
+const MODALIDADES_EQUIPO = [
+    { value: 'IN_SITU', label: 'In Situ' },
+    { value: 'REMOTO', label: 'Remoto' },
+];
+
 export const AuditoriaFormPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -128,14 +173,40 @@ export const AuditoriaFormPage = () => {
         responsable_id: '',
         responsable_auditoria: '',
         observaciones: '',
+        nombre_oec: '',
+        expediente_nro: '',
+        tipo_oec: '',
+        email_oec: '',
+        ciudad_pais: '',
+        telefono_oec: '',
+        direccion_oficina: '',
+        localizaciones_criticas: '',
+        persona_contacto: '',
+        norma_acreditacion: '',
+        actividades_evaluacion: '',
+        tipo_evaluacion: '',
+        fecha_evaluacion_anterior: '',
+        fecha_testificacion: '',
+        localizaciones_evaluacion: '',
+        idioma_evaluacion: '',
+        fecha_elaboracion: '',
+        elaborado_por: '',
     });
 
+    const [actividadesSeleccion, setActividadesSeleccion] = useState<string[]>([]);
+    const [tiposSeleccion, setTiposSeleccion] = useState<string[]>([]);
+    const [vigilanciaNro, setVigilanciaNro] = useState('');
     const [documentosReferenciaTexto, setDocumentosReferenciaTexto] = useState('');
     const [equipoAuditor, setEquipoAuditor] = useState<{ seccion: string; funcion: string; nombre: string; designacion: string }[]>(FIJAS_EQUIPO.map(f => ({ ...f })));
+    const [equipoEvaluador, setEquipoEvaluador] = useState<{ modalidad: string; rol: string; nombre: string; telefono: string; email: string; entidad: string; alcance: string }[]>([
+        { modalidad: 'IN_SITU', rol: 'Evaluador Líder', nombre: '', telefono: '', email: '', entidad: '', alcance: '' },
+    ]);
     const [cronograma, setCronograma] = useState<{ fecha: string; actividades: { hora: string; actividad: string; evaluador: string; referencia: string }[] }[]>([
         { fecha: '', actividades: [{ hora: '', actividad: '', evaluador: '', referencia: '' }] },
     ]);
     const [testificaciones, setTestificaciones] = useState<{ test: string; metodo_ensayo: string; metodo_magnitud: string; muestra: string; evaluador: string }[]>([]);
+
+    const esExterna = formData.tipo === 'EXTERNA';
 
     useEffect(() => {
         const cargar = async () => {
@@ -163,12 +234,40 @@ export const AuditoriaFormPage = () => {
                         responsable_id: a.responsable_id?.toString() || '',
                         responsable_auditoria: a.responsable_auditoria || '',
                         observaciones: a.observaciones || '',
+                        nombre_oec: a.nombre_oec || '',
+                        expediente_nro: a.expediente_nro || '',
+                        tipo_oec: a.tipo_oec || '',
+                        email_oec: a.email_oec || '',
+                        ciudad_pais: a.ciudad_pais || '',
+                        telefono_oec: a.telefono_oec || '',
+                        direccion_oficina: a.direccion_oficina || '',
+                        localizaciones_criticas: a.localizaciones_criticas || '',
+                        persona_contacto: a.persona_contacto || '',
+                        norma_acreditacion: a.norma_acreditacion || '',
+                        actividades_evaluacion: a.actividades_evaluacion || '',
+                        tipo_evaluacion: a.tipo_evaluacion || '',
+                        fecha_evaluacion_anterior: a.fecha_evaluacion_anterior || '',
+                        fecha_testificacion: a.fecha_testificacion || '',
+                        localizaciones_evaluacion: a.localizaciones_evaluacion || '',
+                        idioma_evaluacion: a.idioma_evaluacion || '',
+                        fecha_elaboracion: a.fecha_elaboracion ? a.fecha_elaboracion.split('T')[0] : '',
+                        elaborado_por: a.elaborado_por || '',
                     });
-                    setDocumentosReferenciaTexto(parseJson(a.documentos_referencia, []).join('\n'));
+                    const docs = parseJson(a.documentos_referencia, []);
+                    setDocumentosReferenciaTexto(docs.join('\n'));
                     setEquipoAuditor(asegurarFilasFijas(parseJson(a.equipo_auditor, [])));
+                    setEquipoEvaluador(normalizarEquipoEvaluador(parseJson(a.equipo_auditor, [])));
                     setCronograma(normalizarCronograma(parseJson(a.cronograma, [])));
                     setTestificaciones(renumerarTestificaciones(parseJson(a.testificaciones, [])));
                     setArchivoActual(a.archivo_planificacion || null);
+                    const tipos = Array.isArray(a.tipo_evaluacion) ? a.tipo_evaluacion : [];
+                    const tieneVigilancia = tipos.some((t: any) => String(t).startsWith('Vigilancia N°'));
+                    setTiposSeleccion([
+                        ...tipos.filter((t: any) => !String(t).startsWith('Vigilancia N°')).map(String),
+                        ...(tieneVigilancia ? ['Vigilancia N°'] : []),
+                    ]);
+                    setVigilanciaNro((tipos.find((t: any) => String(t).startsWith('Vigilancia N°')) || '').toString().replace('Vigilancia N°', '').trim());
+                    setActividadesSeleccion((a.actividades_evaluacion || '').split(',').map((s: string) => s.trim()).filter(Boolean));
                 } else {
                     const resCodigo = await api.get('/calidad/auditorias/siguiente-codigo');
                     setFormData(prev => ({ ...prev, codigo: resCodigo.data }));
@@ -192,6 +291,36 @@ export const AuditoriaFormPage = () => {
         setFormData(prev => ({ ...prev, responsable_id: value, responsable_auditoria: puestos.join(', ') }));
     };
 
+    const nombreCompleto = (p: any) => `${p?.nombre || ''} ${p?.apellidos || ''}`.trim();
+    const personasCandidatas = personas.filter(p => p.id !== Number(formData.responsable_id));
+
+    // Excluye de cada lista a las personas ya elegidas en OTRA función del equipo
+    // (la elegida en la fila actual se mantiene para no dejar el select vacío).
+    const personasDisponiblesPara = (nombreActual: string, lista: any[] = equipoAuditor) => {
+        const actual = nombreActual?.trim() || '';
+        const usados = new Set(
+            lista
+                .filter(x => x.nombre && x.nombre.trim() !== actual)
+                .map(x => x.nombre.trim()),
+        );
+        return personasCandidatas.filter(p => !usados.has(nombreCompleto(p)));
+    };
+
+    const conflictosIndependencia = (esExterna ? equipoEvaluador : equipoAuditor)
+        .map((m: any) => {
+            const persona = m.nombre ? personas.find(p => nombreCompleto(p) === m.nombre) : null;
+            if (!persona) return null;
+            if (persona.id === Number(formData.responsable_id)) {
+                return `${m.nombre} es el responsable del área auditada y no puede formar parte del equipo auditor.`;
+            }
+            const lab = laboratorios.find(l => l.nombre === m.funcion);
+            if (lab?.responsable && nombreCompleto(lab.responsable) === m.nombre) {
+                return `${m.nombre} es responsable del laboratorio "${m.funcion}" y no puede auditarlo.`;
+            }
+            return null;
+        })
+        .filter(Boolean) as string[];
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -202,16 +331,45 @@ export const AuditoriaFormPage = () => {
             fd.append('estado', formData.estado);
             fd.append('fecha_inicio', formData.fecha_inicio);
             if (formData.fecha_fin) fd.append('fecha_fin', formData.fecha_fin);
-            if (formData.descripcion) fd.append('descripcion', formData.descripcion);
-            if (formData.objeto) fd.append('objeto', formData.objeto);
-            if (formData.alcance) fd.append('alcance', formData.alcance);
-            fd.append('responsable_id', parseInt(formData.responsable_id).toString());
-            if (formData.responsable_auditoria) fd.append('responsable_auditoria', formData.responsable_auditoria);
-            if (formData.observaciones) fd.append('observaciones', formData.observaciones);
             fd.append('documentos_referencia', JSON.stringify(documentosReferenciaTexto.split('\n').map(s => s.trim()).filter(Boolean)));
-            fd.append('equipo_auditor', JSON.stringify(equipoAuditor));
             fd.append('cronograma', JSON.stringify(cronograma));
             fd.append('testificaciones', JSON.stringify(testificaciones));
+            if (formData.observaciones) fd.append('observaciones', formData.observaciones);
+            if (esExterna) {
+                const tiposFinal = [...tiposSeleccion];
+                const vi = tiposFinal.findIndex(t => String(t).startsWith('Vigilancia N°'));
+                if (vi >= 0) {
+                    if (vigilanciaNro.trim()) tiposFinal[vi] = `Vigilancia N° ${vigilanciaNro.trim()}`;
+                    else tiposFinal.splice(vi, 1);
+                }
+                fd.append('tipo_evaluacion', JSON.stringify(tiposFinal));
+                fd.append('actividades_evaluacion', actividadesSeleccion.join(', '));
+                if (formData.alcance) fd.append('alcance', formData.alcance);
+                fd.append('nombre_oec', formData.nombre_oec);
+                fd.append('expediente_nro', formData.expediente_nro);
+                fd.append('tipo_oec', formData.tipo_oec);
+                fd.append('email_oec', formData.email_oec);
+                fd.append('ciudad_pais', formData.ciudad_pais);
+                fd.append('telefono_oec', formData.telefono_oec);
+                fd.append('direccion_oficina', formData.direccion_oficina);
+                fd.append('localizaciones_criticas', formData.localizaciones_criticas);
+                fd.append('persona_contacto', formData.persona_contacto);
+                fd.append('norma_acreditacion', formData.norma_acreditacion);
+                fd.append('fecha_evaluacion_anterior', formData.fecha_evaluacion_anterior);
+                fd.append('fecha_testificacion', formData.fecha_testificacion);
+                fd.append('localizaciones_evaluacion', formData.localizaciones_evaluacion);
+                fd.append('idioma_evaluacion', formData.idioma_evaluacion);
+                if (formData.fecha_elaboracion) fd.append('fecha_elaboracion', formData.fecha_elaboracion);
+                fd.append('elaborado_por', formData.elaborado_por);
+                fd.append('equipo_auditor', JSON.stringify(equipoEvaluador));
+            } else {
+                if (formData.descripcion) fd.append('descripcion', formData.descripcion);
+                if (formData.objeto) fd.append('objeto', formData.objeto);
+                if (formData.alcance) fd.append('alcance', formData.alcance);
+                if (formData.responsable_id) fd.append('responsable_id', parseInt(formData.responsable_id).toString());
+                if (formData.responsable_auditoria) fd.append('responsable_auditoria', formData.responsable_auditoria);
+                fd.append('equipo_auditor', JSON.stringify(equipoAuditor));
+            }
             if (archivo) fd.append('archivo_planificacion', archivo);
 
             const config = { headers: { 'Content-Type': 'multipart/form-data' } };
@@ -237,14 +395,14 @@ export const AuditoriaFormPage = () => {
                 <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-2">
                     <ArrowLeft className="w-4 h-4" /> Volver
                 </button>
-                <h1 className="text-2xl font-bold text-gray-800">{id ? 'Editar Programa de Auditoría' : 'Programa de Auditoría'}</h1>
-                <p className="text-sm text-gray-500">{id ? 'Modifique los datos del programa de auditoría' : 'Registre un nuevo programa de auditoría'}</p>
+                <h1 className="text-2xl font-bold text-gray-800">{esExterna ? (id ? 'Editar Evaluación Externa' : 'Plan de Evaluación Externa') : (id ? 'Editar Programa de Auditoría' : 'Programa de Auditoría')}</h1>
+                <p className="text-sm text-gray-500">{esExterna ? 'Formulario de evaluación de Organismo de Evaluación de la Conformidad (OEC) — SAE' : (id ? 'Modifique los datos del programa de auditoría' : 'Registre un nuevo programa de auditoría')}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col gap-6">
                 {/* Cabecera */}
                 <div>
-                    <div className={seccionCls}>DATOS GENERALES</div>
+                    <div className={seccionCls}>{esExterna ? 'RESUMEN GENERAL' : 'DATOS GENERALES'}</div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border border-t-0 border-gray-300 rounded-b p-4">
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-medium text-gray-700">Código</label>
@@ -276,39 +434,155 @@ export const AuditoriaFormPage = () => {
                     </div>
                 </div>
 
+                {/* Resumen general — Auditoría externa (SAE) */}
+                {esExterna && (
+                    <div>
+                        <div className={seccionCls}>1. RESUMEN GENERAL</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-t-0 border-gray-300 rounded-b p-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Nombre del OEC</label>
+                                <AutoGrowTextarea name="nombre_oec" value={formData.nombre_oec} onChange={handleChange} rows={2} className={textareaCls} placeholder="Ej: Laboratorio de Ensayos y Calibraciones (LABCAL)" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Expediente N°</label>
+                                <input type="text" name="expediente_nro" value={formData.expediente_nro} onChange={handleChange} className={inputCls} placeholder="Ej: OAE LC-08-004" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Tipo de OEC</label>
+                                <input type="text" name="tipo_oec" value={formData.tipo_oec} onChange={handleChange} className={inputCls} placeholder="Ej: Laboratorio de Calibración" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">E-mail</label>
+                                <input type="text" name="email_oec" value={formData.email_oec} onChange={handleChange} className={inputCls} placeholder="Ej: cmte_cmee@crmee.mil.ec" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Ciudad, País</label>
+                                <input type="text" name="ciudad_pais" value={formData.ciudad_pais} onChange={handleChange} className={inputCls} placeholder="Ej: Quito, Ecuador" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Teléfono</label>
+                                <input type="text" name="telefono_oec" value={formData.telefono_oec} onChange={handleChange} className={inputCls} placeholder="Ej: 2414432; 2411850; EXT 105/102" />
+                            </div>
+                            <div className="flex flex-col gap-1.5 md:col-span-2">
+                                <label className="text-sm font-medium text-gray-700">Persona de contacto</label>
+                                <input type="text" name="persona_contacto" value={formData.persona_contacto} onChange={handleChange} className={inputCls} placeholder="Ej: May. Garzón Muñoz Marcelo Javier" />
+                            </div>
+                            <div className="flex flex-col gap-1.5 md:col-span-2">
+                                <label className="text-sm font-medium text-gray-700">Dirección Oficina Principal</label>
+                                <AutoGrowTextarea name="direccion_oficina" value={formData.direccion_oficina} onChange={handleChange} rows={2} className={textareaCls} placeholder="Ej: Av. Los Pinos N7-105 y Av. 6 de Diciembre / Urb. Kennedy - FUERTE MILITAR RUMIÑAHUI" />
+                            </div>
+                            <div className="flex flex-col gap-1.5 md:col-span-2">
+                                <label className="text-sm font-medium text-gray-700">País, ciudad, dirección localizaciones críticas / Unidades técnicas / Sucursales</label>
+                                <AutoGrowTextarea name="localizaciones_criticas" value={formData.localizaciones_criticas} onChange={handleChange} rows={2} className={textareaCls} placeholder="Ej: N/A" />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Alcance de Evaluación — Auditoría externa (SAE) */}
+                {esExterna && (
+                    <div>
+                        <div className={seccionCls}>ALCANCE DE EVALUACIÓN</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-t-0 border-gray-300 rounded-b p-4">
+                            <div className="flex flex-col gap-1.5 md:col-span-2">
+                                <label className="text-sm font-medium text-gray-700">Alcance de Evaluación</label>
+                                <AutoGrowTextarea name="alcance" value={formData.alcance} onChange={handleChange} rows={3} className={textareaCls} placeholder="Alcance de la evaluación descrito en la norma de acreditación..." />
+                            </div>
+                            <div className="flex flex-col gap-1.5 md:col-span-2">
+                                <label className="text-sm font-medium text-gray-700">Norma de Acreditación</label>
+                                <AutoGrowTextarea name="norma_acreditacion" value={formData.norma_acreditacion} onChange={handleChange} rows={2} className={textareaCls} placeholder="Ej: NTE INEN-ISO/IEC 17025:2018 Requisitos generales para la competencia de los laboratorios..." />
+                            </div>
+                            <div className="flex flex-col gap-1.5 md:col-span-2">
+                                <label className="text-sm font-medium text-gray-700">Actividades de Evaluación</label>
+                                <div className="flex flex-wrap gap-x-5 gap-y-2 border border-gray-300 rounded-md px-3 py-2.5 bg-gray-50">
+                                    {ACTIVIDADES_EVALUACION.map(act => (
+                                        <label key={act.key} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                            <input type="checkbox" checked={actividadesSeleccion.includes(act.label)} onChange={e => {
+                                                setActividadesSeleccion(prev => e.target.checked ? [...prev, act.label] : prev.filter(x => x !== act.label));
+                                            }} className="w-4 h-4 accent-blue-600" />
+                                            {act.label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5 md:col-span-2">
+                                <label className="text-sm font-medium text-gray-700">Tipo de Evaluación</label>
+                                <div className="flex flex-wrap gap-x-5 gap-y-2 border border-gray-300 rounded-md px-3 py-2.5 bg-gray-50">
+                                    {TIPOS_EVALUACION.map(tip => (
+                                        <label key={tip.key} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                            <input type="checkbox" checked={tiposSeleccion.includes(tip.label)} onChange={e => {
+                                                setTiposSeleccion(prev => e.target.checked ? [...prev, tip.label] : prev.filter(x => x !== tip.label));
+                                            }} className="w-4 h-4 accent-blue-600" />
+                                            {tip.label === 'Vigilancia N°' ? (
+                                                <span className="flex items-center gap-1.5">
+                                                    Vigilancia N°
+                                                    <input type="text" value={vigilanciaNro} onChange={e => setVigilanciaNro(e.target.value.replace(/[^0-9]/g, ''))} className="w-12 border border-gray-300 rounded-md px-2 py-0.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="N°" />
+                                                </span>
+                                            ) : tip.label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Fecha de evaluación anterior</label>
+                                <input type="text" name="fecha_evaluacion_anterior" value={formData.fecha_evaluacion_anterior} onChange={handleChange} className={inputCls} placeholder="Ej: 2021-07-22 y 23" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Fecha de testificación</label>
+                                <input type="text" name="fecha_testificacion" value={formData.fecha_testificacion} onChange={handleChange} className={inputCls} placeholder="Ej: N/A" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Localizaciones, unidades técnicas o sucursales</label>
+                                <AutoGrowTextarea name="localizaciones_evaluacion" value={formData.localizaciones_evaluacion} onChange={handleChange} rows={2} className={textareaCls} placeholder="Ej: OFICINA MATRIZ - REMOTO" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Idioma de Evaluación</label>
+                                <input type="text" name="idioma_evaluacion" value={formData.idioma_evaluacion} onChange={handleChange} className={inputCls} placeholder="Ej: ESPAÑOL" />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Descripción */}
+                {!esExterna && (
                 <div>
                     <div className={seccionCls}>DESCRIPCIÓN</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
                         <AutoGrowTextarea name="descripcion" value={formData.descripcion} onChange={handleChange} rows={2} className={textareaCls} placeholder="Ej: Auditoría Interna 2025" />
                     </div>
                 </div>
+                )}
 
                 {/* Objeto */}
+                {!esExterna && (
                 <div>
                     <div className={seccionCls}>OBJETO</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
                         <AutoGrowTextarea name="objeto" value={formData.objeto} onChange={handleChange} rows={3} className={textareaCls} placeholder="Determinar si la gestión y las actividades del CMEE están conformes con los requisitos de la Norma NTE INEN ISO-IEC 17025..." />
                     </div>
                 </div>
+                )}
 
                 {/* Alcance */}
+                {!esExterna && (
                 <div>
                     <div className={seccionCls}>ALCANCE</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
                         <AutoGrowTextarea name="alcance" value={formData.alcance} onChange={handleChange} rows={3} className={textareaCls} placeholder="Aplica al sistema de gestión del Dpto. de Calidad y Dpto. Técnico del CMEE..." />
                     </div>
                 </div>
+                )}
 
                 {/* Documentos de Referencia */}
                 <div>
-                    <div className={seccionCls}>DOCUMENTOS DE REFERENCIA</div>
+                    <div className={seccionCls}>{esExterna ? '2. DOCUMENTOS DE REFERENCIA' : 'DOCUMENTOS DE REFERENCIA'}</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
                         <AutoGrowTextarea value={documentosReferenciaTexto} onChange={e => setDocumentosReferenciaTexto(e.target.value)} rows={6} className={textareaCls} placeholder="Manual de calidad&#10;Norma NTE INEN ISO/IEC 17025...&#10;(un documento por línea)" />
                     </div>
                 </div>
 
                 {/* Responsable de Auditoría */}
+                {!esExterna && (
                 <div>
                     <div className={seccionCls}>RESPONSABLE DE AUDITORÍA</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-t-0 border-gray-300 rounded-b p-4">
@@ -327,10 +601,124 @@ export const AuditoriaFormPage = () => {
                         </div>
                     </div>
                 </div>
+                )}
+
+                {/* Equipo Evaluador — Auditoría externa (SAE) */}
+                {esExterna && (
+                <div>
+                    <div className={seccionCls}>3. EQUIPO EVALUADOR</div>
+                    {conflictosIndependencia.length > 0 && (
+                        <div className="border border-t-0 border-red-300 bg-red-50 text-red-700 text-sm px-3 py-2 flex flex-col gap-1">
+                            {conflictosIndependencia.map((c, i) => <span key={i}>• {c}</span>)}
+                        </div>
+                    )}
+                    <div className="border border-t-0 border-gray-300 rounded-b overflow-hidden">
+                        <div className="hidden md:grid grid-cols-12 bg-gray-100 border-b border-gray-300 text-xs font-bold text-gray-700">
+                            <div className="col-span-1 px-3 py-2">Modalidad</div>
+                            <div className="col-span-2 px-3 py-2">Función / Rol</div>
+                            <div className="col-span-2 px-3 py-2">Nombre</div>
+                            <div className="col-span-1 px-3 py-2">Teléfono</div>
+                            <div className="col-span-2 px-3 py-2">E-mail</div>
+                            <div className="col-span-1 px-3 py-2">Entidad</div>
+                            <div className="col-span-2 px-3 py-2">Alcance / Campo</div>
+                            <div className="col-span-1 px-3 py-2 text-center"></div>
+                        </div>
+                        {equipoEvaluador.map((m, idx) => {
+                            const personaSel = m.nombre ? personas.find(p => `${p.nombre} ${p.apellidos}` === m.nombre) : null;
+                            return (
+                                <div key={idx} className="grid grid-cols-1 md:grid-cols-12 border-b border-gray-200 last:border-b-0 gap-2 p-2 md:gap-0 md:p-0">
+                                    <div className="col-span-1 p-1">
+                                        <select value={m.modalidad} onChange={e => {
+                                            const copy = [...equipoEvaluador];
+                                            copy[idx].modalidad = e.target.value;
+                                            setEquipoEvaluador(copy);
+                                        }} className={`${inputCls} bg-white`}>
+                                            {MODALIDADES_EQUIPO.map(mod => (
+                                                <option key={mod.value} value={mod.value}>{mod.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="col-span-2 p-1">
+                                        <input
+                                            list="roles-evaluador"
+                                            value={m.rol}
+                                            onChange={e => {
+                                                const copy = [...equipoEvaluador];
+                                                copy[idx].rol = e.target.value;
+                                                setEquipoEvaluador(copy);
+                                            }}
+                                            className={inputCls}
+                                            placeholder="Rol"
+                                        />
+                                        <datalist id="roles-evaluador">
+                                            {ROLES_EVALUADOR.map(r => <option key={r} value={r} />)}
+                                        </datalist>
+                                    </div>
+                                    <div className="col-span-2 p-1">
+                                        <select value={personaSel?.id || ''} onChange={e => {
+                                            const p = personas.find(x => x.id === Number(e.target.value));
+                                            const copy = [...equipoEvaluador];
+                                            copy[idx].nombre = p ? `${p.nombre} ${p.apellidos}` : '';
+                                            setEquipoEvaluador(copy);
+                                        }} className={`${inputCls} bg-white`}>
+                                            <option value="">Persona...</option>
+                                            {personasDisponiblesPara(m.nombre || '', equipoEvaluador).map(p => (
+                                                <option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="col-span-1 p-1">
+                                        <input type="text" value={m.telefono} onChange={e => {
+                                            const copy = [...equipoEvaluador];
+                                            copy[idx].telefono = e.target.value;
+                                            setEquipoEvaluador(copy);
+                                        }} className={inputCls} placeholder="Ext." />
+                                    </div>
+                                    <div className="col-span-2 p-1">
+                                        <input type="text" value={m.email} onChange={e => {
+                                            const copy = [...equipoEvaluador];
+                                            copy[idx].email = e.target.value;
+                                            setEquipoEvaluador(copy);
+                                        }} className={inputCls} placeholder="@" />
+                                    </div>
+                                    <div className="col-span-1 p-1">
+                                        <input type="text" value={m.entidad} onChange={e => {
+                                            const copy = [...equipoEvaluador];
+                                            copy[idx].entidad = e.target.value;
+                                            setEquipoEvaluador(copy);
+                                        }} className={inputCls} placeholder="SAE" />
+                                    </div>
+                                    <div className="col-span-2 p-1">
+                                        <AutoGrowTextarea value={m.alcance} onChange={e => {
+                                            const copy = [...equipoEvaluador];
+                                            copy[idx].alcance = e.target.value;
+                                            setEquipoEvaluador(copy);
+                                        }} rows={1} className={textareaCls} placeholder="Alcance / campo" />
+                                    </div>
+                                    <div className="col-span-1 p-1 flex items-center justify-center">
+                                        <button type="button" onClick={() => setEquipoEvaluador(equipoEvaluador.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        <div className="p-2 text-center bg-gray-50">
+                            <button type="button" onClick={() => setEquipoEvaluador([...equipoEvaluador, { modalidad: 'IN_SITU', rol: '', nombre: '', telefono: '', email: '', entidad: '', alcance: '' }])} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                                <Plus className="w-3 h-3 inline mr-1" />Agregar evaluador
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                )}
 
                 {/* Equipo Auditor */}
+                {!esExterna && (
                 <div>
                     <div className={seccionCls}>EQUIPO AUDITOR</div>
+                    {conflictosIndependencia.length > 0 && (
+                        <div className="border border-t-0 border-red-300 bg-red-50 text-red-700 text-sm px-3 py-2 flex flex-col gap-1">
+                            {conflictosIndependencia.map((c, i) => <span key={i}>• {c}</span>)}
+                        </div>
+                    )}
                     <div className="border border-t-0 border-gray-300 rounded-b overflow-hidden">
                         <div className="hidden md:grid grid-cols-12 bg-gray-100 border-b border-gray-300 text-xs font-bold text-gray-700">
                             <div className="col-span-4 px-3 py-2">Laboratorio</div>
@@ -367,7 +755,7 @@ export const AuditoriaFormPage = () => {
                                                                     setEquipoAuditor(c);
                                                                 }} className={`${inputCls} bg-white`}>
                                                                     <option value="">Seleccione la persona...</option>
-                                                                    {personas.map(p => (
+                                                                    {personasDisponiblesPara(row.nombre || '').map(p => (
                                                                         <option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>
                                                                     ))}
                                                                 </select>
@@ -401,7 +789,7 @@ export const AuditoriaFormPage = () => {
                                                             setEquipoAuditor(c);
                                                         }} className={`${inputCls} bg-white`}>
                                                             <option value="">Seleccione la persona...</option>
-                                                            {personas.map(p => (
+                                                            {personasDisponiblesPara(m.nombre || '').map(p => (
                                                                 <option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>
                                                             ))}
                                                         </select>
@@ -435,10 +823,11 @@ export const AuditoriaFormPage = () => {
                         })}
                     </div>
                 </div>
+                )}
 
                 {/* Cronograma */}
                 <div>
-                    <div className={seccionCls}>CRONOGRAMA DE AUDITORÍA</div>
+                    <div className={seccionCls}>{esExterna ? '5. HORARIO DE EVALUACIÓN (CRONOGRAMA)' : 'CRONOGRAMA DE AUDITORÍA'}</div>
                     <div className="border border-t-0 border-gray-300 rounded-b overflow-hidden">
                         <div className="hidden md:grid grid-cols-12 bg-gray-100 border-b border-gray-300 text-xs font-bold text-gray-700">
                             <div className="col-span-3 px-3 py-2">Fecha/Hora</div>
@@ -525,14 +914,14 @@ export const AuditoriaFormPage = () => {
 
                 {/* Testificaciones */}
                 <div>
-                    <div className={seccionCls}>TESTIFICACIONES A REALIZARSE</div>
+                    <div className={seccionCls}>{esExterna ? '4. TESTIFICACIONES A REALIZARSE' : 'TESTIFICACIONES A REALIZARSE'}</div>
                     <div className="border border-t-0 border-gray-300 rounded-b overflow-hidden">
                         <div className="hidden md:grid grid-cols-12 bg-gray-100 border-b border-gray-300 text-xs font-bold text-gray-700">
-                            <div className="col-span-1 px-3 py-2">Test</div>
-                            <div className="col-span-3 px-3 py-2">Método de ensayo</div>
-                            <div className="col-span-3 px-3 py-2">Método/Magnitud</div>
-                            <div className="col-span-3 px-3 py-2">Muestra instrumental</div>
-                            <div className="col-span-1 px-3 py-2">Evaluador</div>
+                            <div className="col-span-1 px-3 py-2">No.</div>
+                            <div className="col-span-3 px-3 py-2">Método de ensayo / medida</div>
+                            <div className="col-span-3 px-3 py-2">Técnica / Magnitud</div>
+                            <div className="col-span-3 px-3 py-2">Matriz / Instrumento de medida</div>
+                            <div className="col-span-1 px-3 py-2">Evaluador / Experto</div>
                             <div className="col-span-1 px-3 py-2 text-center"></div>
                         </div>
                         {testificaciones.map((t, i) => (
@@ -567,11 +956,28 @@ export const AuditoriaFormPage = () => {
 
                 {/* Observaciones */}
                 <div>
-                    <div className={seccionCls}>OBSERVACIONES</div>
+                    <div className={seccionCls}>{esExterna ? 'NOTAS ADICIONALES' : 'OBSERVACIONES'}</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
                         <AutoGrowTextarea name="observaciones" value={formData.observaciones} onChange={handleChange} rows={3} className={textareaCls} />
                     </div>
                 </div>
+
+                {/* Elaboración — Auditoría externa (SAE) */}
+                {esExterna && (
+                    <div>
+                        <div className={seccionCls}>ELABORACIÓN DEL PLAN</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-t-0 border-gray-300 rounded-b p-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Fecha de elaboración</label>
+                                <input type="date" name="fecha_elaboracion" value={formData.fecha_elaboracion} onChange={handleChange} className={inputCls} />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">Elaborado por</label>
+                                <input type="text" name="elaborado_por" value={formData.elaborado_por} onChange={handleChange} className={inputCls} placeholder="Ej: Israel Carrión" />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Planificación */}
                 <div>
@@ -596,7 +1002,7 @@ export const AuditoriaFormPage = () => {
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                     <button type="button" onClick={() => navigate('/calidad/auditorias')} className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
                     <button type="submit" disabled={loading} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50">
-                        <Save className="w-4 h-4" /> {loading ? 'Guardando...' : (id ? 'Actualizar' : 'Crear Programa de Auditoría')}
+                        <Save className="w-4 h-4" /> {loading ? 'Guardando...' : (id ? 'Actualizar' : (esExterna ? 'Crear Plan de Evaluación' : 'Crear Programa de Auditoría'))}
                     </button>
                 </div>
             </form>

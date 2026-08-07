@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLaboratorioDto } from './dto/create-laboratorio.dto';
@@ -14,7 +15,32 @@ import { isRestrictedToLab } from '../common/helpers/lab-scope';
 export class LaboratoriosService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Una persona solo puede ser responsable de un laboratorio activo a la vez.
+   * Al editar (laboratorioId) se permite conservar al responsable actual.
+   */
+  private async validarResponsableUnico(
+    responsableId: number | undefined,
+    laboratorioId?: number,
+  ) {
+    if (!responsableId) return;
+    const otroLaboratorio = await this.prisma.laboratorio.findFirst({
+      where: {
+        responsable_id: responsableId,
+        activo: true,
+        ...(laboratorioId ? { id: { not: laboratorioId } } : {}),
+      },
+      select: { id: true, nombre: true },
+    });
+    if (otroLaboratorio) {
+      throw new BadRequestException(
+        `La persona seleccionada ya es responsable del laboratorio "${otroLaboratorio.nombre}" y no puede asignarse a otro laboratorio.`,
+      );
+    }
+  }
+
   async create(data: CreateLaboratorioDto) {
+    await this.validarResponsableUnico(data.responsable_id);
     return this.prisma.laboratorio.create({
       data,
     });
@@ -26,6 +52,8 @@ export class LaboratoriosService {
   // departamento pertenece a ese laboratorio; al crear un laboratorio nuevo
   // todavía no hay departamentos ligados a él, así que se listan todos los
   // OBT del sistema.
+  // Se excluyen las personas que ya son responsables de otro laboratorio
+  // activo, para que la misma persona no quede en dos laboratorios.
   async getCandidatosResponsable(laboratorioId?: number) {
     return this.prisma.persona.findMany({
       where: {
@@ -37,6 +65,14 @@ export class LaboratoriosService {
             ...(laboratorioId
               ? { departamento: { laboratorio_id: laboratorioId } }
               : {}),
+          },
+        },
+        NOT: {
+          laboratorios_responsable: {
+            some: {
+              activo: true,
+              ...(laboratorioId ? { id: { not: laboratorioId } } : {}),
+            },
           },
         },
       },
@@ -120,6 +156,7 @@ export class LaboratoriosService {
     // que exigen nivel 5 — así edición (nivel 4) nunca puede usarse como
     // puerta trasera para desactivar o reactivar.
     const { activo: _activo, ...resto } = data;
+    await this.validarResponsableUnico(data.responsable_id, id);
     return this.prisma.laboratorio.update({
       where: { id },
       data: resto,

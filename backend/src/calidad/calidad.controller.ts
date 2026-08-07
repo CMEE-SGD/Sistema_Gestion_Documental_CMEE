@@ -41,7 +41,7 @@ export class CalidadController {
    * Convierte los campos JSON enviados como string (vía FormData) en objetos.
    */
   private parsearJson(dto: any): any {
-    const jsonCampos = ['documentos_referencia', 'equipo_auditor', 'cronograma', 'testificaciones'];
+    const jsonCampos = ['documentos_referencia', 'equipo_auditor', 'cronograma', 'testificaciones', 'tipo_evaluacion'];
     const data: any = { ...dto };
     for (const campo of jsonCampos) {
       if (typeof data[campo] === 'string') {
@@ -107,6 +107,7 @@ export class CalidadController {
       return await this.calidadService.createAuditoria(data);
     } catch (error: any) {
       console.error('Error creando auditoría:', error);
+      if (error instanceof BadRequestException) throw error;
       if (error.code === 'P2002') throw new BadRequestException(`El código "${data.codigo}" ya existe`);
       if (error.code === 'P2003') throw new BadRequestException('El responsable seleccionado no existe');
       throw new InternalServerErrorException(error?.message || 'Error al crear la auditoría');
@@ -145,6 +146,7 @@ export class CalidadController {
       return await this.calidadService.updateAuditoria(id, data);
     } catch (error: any) {
       console.error('Error actualizando auditoría:', error);
+      if (error instanceof BadRequestException) throw error;
       if (error.code === 'P2002') throw new BadRequestException(`El código "${data.codigo}" ya existe`);
       if (error.code === 'P2003') throw new BadRequestException('El responsable seleccionado no existe');
       throw new InternalServerErrorException(error?.message || 'Error al actualizar la auditoría');

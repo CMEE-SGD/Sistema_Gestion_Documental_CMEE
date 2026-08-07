@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Lock, History } from 'lucide-react';
+import { ArrowLeft, Pencil, Lock, History, CheckCircle2 } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { VerificarEficaciaModal } from '../components/VerificarEficaciaModal';
 
 const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -20,8 +21,18 @@ export const DetalleNcPage = () => {
     const { alert, confirm } = useAlert();
     const { toast } = useToast();
     const [nc, setNc] = useState<any>(null);
+    const [verifOpen, setVerifOpen] = useState(false);
 
     const volverA = auditoriaId ? `/calidad/auditorias/${auditoriaId}` : '/calidad/no-conformidades';
+
+    const fetchNc = async () => {
+        try {
+            const res = await api.get(`/calidad/no-conformidades/${ncId}`);
+            setNc(res.data);
+        } catch (error) {
+            console.error('Error recargando NC', error);
+        }
+    };
 
     useEffect(() => {
         api.get(`/calidad/no-conformidades/${ncId}`)
@@ -141,9 +152,14 @@ export const DetalleNcPage = () => {
                 <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-bold text-gray-800">Plan de Acción</h2>
-                        <button onClick={() => navigate(rutaPlan(true))} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors">
-                            <Pencil className="w-3 h-3" /> Editar Plan de Acción
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setVerifOpen(true)} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors">
+                                <CheckCircle2 className="w-3 h-3" /> Verificar Eficacia
+                            </button>
+                            <button onClick={() => navigate(rutaPlan(true))} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors">
+                                <Pencil className="w-3 h-3" /> Editar Plan de Acción
+                            </button>
+                        </div>
                     </div>
 
                     {nc.verificacion_eficacia && (
@@ -308,6 +324,13 @@ export const DetalleNcPage = () => {
                     </button>
                 </div>
             )}
+
+            <VerificarEficaciaModal
+                nc={nc}
+                isOpen={verifOpen}
+                onClose={() => setVerifOpen(false)}
+                onSuccess={fetchNc}
+            />
         </div>
     );
 };

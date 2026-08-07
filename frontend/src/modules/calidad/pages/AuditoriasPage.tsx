@@ -37,7 +37,9 @@ export const AuditoriasPage = () => {
     const filtradas = auditorias.filter(a => {
         if (filtroEstado !== 'todas' && a.estado !== filtroEstado) return false;
         const q = busqueda.toLowerCase();
-        return a.codigo.toLowerCase().includes(q) || a.alcance.toLowerCase().includes(q);
+        return (a.codigo || '').toLowerCase().includes(q)
+            || (a.alcance || a.nombre_oec || '').toLowerCase().includes(q)
+            || (a.nombre_oec || '').toLowerCase().includes(q);
     });
 
     const handleEliminar = async (id: number) => {
@@ -64,8 +66,8 @@ export const AuditoriasPage = () => {
         <div className="p-6">
             <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Auditorías Internas</h1>
-                    <p className="text-sm text-gray-500">Planificación, ejecución y seguimiento de auditorías de calidad</p>
+                    <h1 className="text-2xl font-bold text-gray-800">Auditorías</h1>
+                    <p className="text-sm text-gray-500">Planificación, ejecución y seguimiento de auditorías internas y evaluaciones externas</p>
                 </div>
                 {puedeCrear && (
                     <Button variant="default" onClick={() => navigate('/calidad/auditorias/nueva')}>
@@ -90,7 +92,8 @@ export const AuditoriasPage = () => {
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
                         <tr>
                             <th className="px-4 py-3 font-semibold">Código</th>
-                            <th className="px-4 py-3 font-semibold">Alcance</th>
+                            <th className="px-4 py-3 font-semibold">Tipo</th>
+                            <th className="px-4 py-3 font-semibold">Alcance / OEC</th>
                             <th className="px-4 py-3 font-semibold">Responsable</th>
                             <th className="px-4 py-3 font-semibold">Fecha inicio</th>
                             <th className="px-4 py-3 font-semibold">Estado</th>
@@ -99,14 +102,17 @@ export const AuditoriasPage = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {loading ? (
-                            <tr><td colSpan={6} className="text-center py-10 text-gray-400">Cargando...</td></tr>
+                            <tr><td colSpan={7} className="text-center py-10 text-gray-400">Cargando...</td></tr>
                         ) : filtradas.length === 0 ? (
-                            <tr><td colSpan={6} className="text-center py-10 text-gray-400">No se encontraron auditorías</td></tr>
+                            <tr><td colSpan={7} className="text-center py-10 text-gray-400">No se encontraron auditorías</td></tr>
                         ) : filtradas.map(a => (
                             <tr key={a.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/calidad/auditorias/${a.id}`)}>
                                 <td className="px-4 py-3 font-medium text-gray-800">{a.codigo}</td>
-                                <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{a.alcance}</td>
-                                <td className="px-4 py-3 text-gray-600">{a.responsable?.nombre} {a.responsable?.apellidos}</td>
+                                <td className="px-4 py-3">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${a.tipo === 'EXTERNA' ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-700'}`}>{a.tipo === 'EXTERNA' ? 'EXTERNA' : 'INTERNA'}</span>
+                                </td>
+                                <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{a.alcance || a.nombre_oec || '-'}</td>
+                                <td className="px-4 py-3 text-gray-600">{a.responsable ? `${a.responsable.nombre} ${a.responsable.apellidos}` : (a.persona_contacto || '-')}</td>
                                 <td className="px-4 py-3 text-gray-600">{new Date(a.fecha_inicio).toLocaleDateString()}</td>
                                 <td className="px-4 py-3">{estadoBadge(a.estado)}</td>
                                 <td className="px-4 py-3">

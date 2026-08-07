@@ -977,11 +977,11 @@ model AuditoriaInterna {
   id                    Int             @id @default(autoincrement())
   codigo                String          @unique @db.VarChar(50)
   tipo                  TipoAuditoria   @default(INTERNA)
-  alcance               String          @db.Text
+  alcance               String?         @db.Text
   fecha_inicio          DateTime        @db.Date
   fecha_fin             DateTime?       @db.Date
-  responsable_id        Int
-  responsable           Persona         @relation("AuditoriaResponsable", fields: [responsable_id], references: [id], onDelete: Restrict)
+  responsable_id        Int?
+  responsable           Persona?        @relation("AuditoriaResponsable", fields: [responsable_id], references: [id], onDelete: Restrict)
   estado                EstadoAuditoria @default(PLANIFICADA)
   descripcion           String?         @db.Text
   objeto                String?         @db.Text
@@ -992,6 +992,24 @@ model AuditoriaInterna {
   testificaciones       Json?
   observaciones         String?         @db.Text
   archivo_planificacion String?         @db.VarChar(500)
+  nombre_oec            String?         @db.Text
+  expediente_nro        String?         @db.VarChar(100)
+  tipo_oec              String?         @db.VarChar(100)
+  email_oec             String?         @db.VarChar(200)
+  ciudad_pais           String?         @db.VarChar(200)
+  telefono_oec          String?         @db.VarChar(200)
+  direccion_oficina     String?         @db.Text
+  localizaciones_criticas String?       @db.Text
+  persona_contacto      String?         @db.VarChar(150)
+  norma_acreditacion    String?         @db.Text
+  actividades_evaluacion String?        @db.Text
+  tipo_evaluacion       Json?
+  fecha_evaluacion_anterior String?     @db.VarChar(100)
+  fecha_testificacion   String?         @db.VarChar(100)
+  localizaciones_evaluacion String?     @db.Text
+  idioma_evaluacion     String?         @db.VarChar(50)
+  fecha_elaboracion     DateTime?       @db.Date
+  elaborado_por         String?         @db.VarChar(150)
   activo                Boolean         @default(true)
   createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz

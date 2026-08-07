@@ -47,7 +47,63 @@ export class CalidadService {
     return `${String(year).padStart(2, '0')} ${String(max + 1).padStart(6, '0')}`;
   }
 
+  /**
+   * Valida la independencia del equipo auditor (ISO/IEC 17025:2017, 8.8.2):
+   * - El responsable del área auditada no puede auditar su propia área.
+   * - Un auditor no puede auditar un laboratorio del que es responsable.
+   * Lanza BadRequestException con los conflictos encontrados.
+   */
+  private async validarIndependenciaAuditores(responsableId: number | undefined, equipoAuditor: any[]) {
+    if (!Array.isArray(equipoAuditor) || equipoAuditor.length === 0) return;
+
+    const nombres = equipoAuditor
+      .map((m: any) => (typeof m?.nombre === 'string' ? m.nombre.trim() : ''))
+      .filter(Boolean);
+    if (nombres.length === 0) return;
+
+    const personas = await this.prisma.persona.findMany({
+      where: { estado: 'ACTIVO' },
+      select: {
+        id: true,
+        nombre: true,
+        apellidos: true,
+        laboratorios_responsable: { select: { nombre: true } },
+      },
+    });
+
+    const porNombre = new Map<string, { id: number; labs: string[] }>();
+    for (const p of personas) {
+      const clave = `${p.nombre} ${p.apellidos}`.trim();
+      if (!porNombre.has(clave)) {
+        porNombre.set(clave, { id: p.id, labs: p.laboratorios_responsable.map(l => l.nombre) });
+      }
+    }
+
+    const conflictos: string[] = [];
+    for (const m of equipoAuditor) {
+      const nombre = typeof m?.nombre === 'string' ? m.nombre.trim() : '';
+      if (!nombre) continue;
+      const persona = porNombre.get(nombre);
+      if (!persona) continue;
+
+      if (responsableId !== undefined && persona.id === responsableId) {
+        conflictos.push(`${nombre} es el responsable del área auditada y no puede formar parte del equipo auditor.`);
+        continue;
+      }
+
+      const lab = typeof m?.funcion === 'string' ? m.funcion.trim() : '';
+      if (lab && persona.labs.includes(lab)) {
+        conflictos.push(`${nombre} es responsable del laboratorio "${lab}" y no puede auditarlo.`);
+      }
+    }
+
+    if (conflictos.length > 0) {
+      throw new BadRequestException(conflictos.join(' '));
+    }
+  }
+
   async createAuditoria(data: any) {
+    await this.validarIndependenciaAuditores(data.responsable_id, data.equipo_auditor);
     return this.prisma.auditoriaInterna.create({
       data: {
         codigo: data.codigo,
@@ -66,6 +122,24 @@ export class CalidadService {
         testificaciones: data.testificaciones,
         observaciones: data.observaciones,
         archivo_planificacion: data.archivo_planificacion,
+        nombre_oec: data.nombre_oec,
+        expediente_nro: data.expediente_nro,
+        tipo_oec: data.tipo_oec,
+        email_oec: data.email_oec,
+        ciudad_pais: data.ciudad_pais,
+        telefono_oec: data.telefono_oec,
+        direccion_oficina: data.direccion_oficina,
+        localizaciones_criticas: data.localizaciones_criticas,
+        persona_contacto: data.persona_contacto,
+        norma_acreditacion: data.norma_acreditacion,
+        actividades_evaluacion: data.actividades_evaluacion,
+        tipo_evaluacion: data.tipo_evaluacion,
+        fecha_evaluacion_anterior: data.fecha_evaluacion_anterior,
+        fecha_testificacion: data.fecha_testificacion,
+        localizaciones_evaluacion: data.localizaciones_evaluacion,
+        idioma_evaluacion: data.idioma_evaluacion,
+        fecha_elaboracion: data.fecha_elaboracion ? new Date(data.fecha_elaboracion) : null,
+        elaborado_por: data.elaborado_por,
       },
       include: {
         responsable: { select: { id: true, nombre: true, apellidos: true } },
@@ -102,13 +176,18 @@ export class CalidadService {
   }
 
   async updateAuditoria(id: number, data: UpdateAuditoriaDto) {
-    await this.findOneAuditoria(id);
+    const existente = await this.findOneAuditoria(id);
+    await this.validarIndependenciaAuditores(
+      data.responsable_id ?? existente.responsable_id,
+      data.equipo_auditor ?? (existente.equipo_auditor as any[]),
+    );
     return this.prisma.auditoriaInterna.update({
       where: { id },
       data: {
         ...data,
         fecha_inicio: data.fecha_inicio ? new Date(data.fecha_inicio) : undefined,
         fecha_fin: data.fecha_fin ? new Date(data.fecha_fin) : undefined,
+        fecha_elaboracion: data.fecha_elaboracion ? new Date(data.fecha_elaboracion) : data.fecha_elaboracion === '' ? null : undefined,
       },
       include: {
         responsable: { select: { id: true, nombre: true, apellidos: true } },

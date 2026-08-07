@@ -12,8 +12,8 @@ export class CreateAuditoriaDto {
   tipo?: TipoAuditoria;
 
   @IsString()
-  @IsNotEmpty()
-  alcance: string;
+  @IsOptional()
+  alcance?: string;
 
   @IsDateString()
   @IsNotEmpty()
@@ -24,9 +24,9 @@ export class CreateAuditoriaDto {
   fecha_fin?: string;
 
   @IsInt()
-  @IsNotEmpty()
+  @IsOptional()
   @Transform(({ value }) => (value ? Number(value) : value))
-  responsable_id: number;
+  responsable_id?: number;
 
   @IsEnum(EstadoAuditoria)
   @IsOptional()
@@ -59,6 +59,77 @@ export class CreateAuditoriaDto {
   @IsString()
   @IsOptional()
   observaciones?: string;
+
+  @IsString()
+  @IsOptional()
+  nombre_oec?: string;
+
+  @IsString()
+  @IsOptional()
+  expediente_nro?: string;
+
+  @IsString()
+  @IsOptional()
+  tipo_oec?: string;
+
+  @IsString()
+  @IsOptional()
+  email_oec?: string;
+
+  @IsString()
+  @IsOptional()
+  ciudad_pais?: string;
+
+  @IsString()
+  @IsOptional()
+  telefono_oec?: string;
+
+  @IsString()
+  @IsOptional()
+  direccion_oficina?: string;
+
+  @IsString()
+  @IsOptional()
+  localizaciones_criticas?: string;
+
+  @IsString()
+  @IsOptional()
+  persona_contacto?: string;
+
+  @IsString()
+  @IsOptional()
+  norma_acreditacion?: string;
+
+  @IsString()
+  @IsOptional()
+  actividades_evaluacion?: string;
+
+  @IsOptional()
+  tipo_evaluacion?: any;
+
+  @IsString()
+  @IsOptional()
+  fecha_evaluacion_anterior?: string;
+
+  @IsString()
+  @IsOptional()
+  fecha_testificacion?: string;
+
+  @IsString()
+  @IsOptional()
+  localizaciones_evaluacion?: string;
+
+  @IsString()
+  @IsOptional()
+  idioma_evaluacion?: string;
+
+  @IsDateString()
+  @IsOptional()
+  fecha_elaboracion?: string;
+
+  @IsString()
+  @IsOptional()
+  elaborado_por?: string;
 
   @IsString()
   @IsOptional()
