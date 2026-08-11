@@ -216,9 +216,12 @@ export class RecepcionEquiposService {
     return equipo;
   }
 
+  // También se usa para REASIGNAR: si el OBT eligió mal al técnico, puede
+  // volver a llamar este mismo método con otro tecnico_id — el nuevo
+  // técnico queda notificado igual que en la asignación inicial.
   async asignarTecnico(equipoId: number, dto: AsignarTecnicoDto) {
     await this.findOneEquipo(equipoId);
-    return this.prisma.equipoRecepcion.update({
+    const equipoActualizado = await this.prisma.equipoRecepcion.update({
       where: { id: equipoId },
       data: {
         tecnico_id: dto.tecnico_id,
@@ -226,6 +229,15 @@ export class RecepcionEquiposService {
       },
       include: EQUIPO_INCLUDE,
     });
+
+    await notificarResponsablesEquipo(
+      this.prisma,
+      this.notificacionesService,
+      equipoActualizado,
+      EstadoRecepcion.EN_CALIBRACION,
+    );
+
+    return equipoActualizado;
   }
 
   async updateEquipoStatus(
