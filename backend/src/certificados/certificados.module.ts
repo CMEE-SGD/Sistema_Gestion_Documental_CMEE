@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { CertificadosController } from './certificados.controller';
 import { CertificadosService } from './certificados.service';
+import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 
 const UPLOAD_DIR = path.resolve('./uploads/certificados');
 
@@ -14,6 +15,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 
 @Module({
   imports: [
+    NotificacionesModule,
     MulterModule.register({
       storage: diskStorage({
         destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),

@@ -12,6 +12,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { HydratedUser } from '../common/helpers/lab-scope';
 import { formatearNumeroCertificado } from '../common/helpers/certificado-format';
 import { verificarFirmaPdf } from '../common/helpers/pdf-signature';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { notificarResponsablesEquipo } from '../common/helpers/notificar-responsables-equipo';
 
 function conNumeroFormateado<
   T extends { numero_certificado: number; fecha_subida: Date },
@@ -27,7 +29,10 @@ function conNumeroFormateado<
 
 @Injectable()
 export class CertificadosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificacionesService: NotificacionesService,
+  ) {}
 
   async upload(
     file: Express.Multer.File,
@@ -138,6 +143,8 @@ export class CertificadosService {
             id: true,
             estado: true,
             tecnico_id: true,
+            equipo_descripcion: true,
+            laboratorio_id: true,
           },
         },
       },
@@ -235,7 +242,7 @@ export class CertificadosService {
       .digest('hex');
     const firmanteId = user.isGod ? 1 : (personaId as number);
 
-    return this.prisma.$transaction(async (tx) => {
+    const resultadoFirma = await this.prisma.$transaction(async (tx) => {
       await tx.certificado.update({
         where: { id: certificadoId },
         data: { ruta_archivo: file.path, nombre_original: file.originalname },
@@ -273,6 +280,24 @@ export class CertificadosService {
 
       return { firma, estado_nuevo: estadoNuevo };
     });
+
+    // Se notifica después de que la transacción de la firma ya quedó
+    // confirmada en BD — un fallo al notificar nunca debe revertir ni
+    // bloquear la firma que ya se registró (ver notificarResponsablesEquipo,
+    // que además nunca lanza).
+    await notificarResponsablesEquipo(
+      this.prisma,
+      this.notificacionesService,
+      {
+        id: equipo.id,
+        equipo_descripcion: equipo.equipo_descripcion,
+        laboratorio_id: equipo.laboratorio_id,
+        tecnico_id: equipo.tecnico_id,
+      },
+      estadoNuevo,
+    );
+
+    return resultadoFirma;
   }
 
   async download(id: number, user: HydratedUser) {

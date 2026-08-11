@@ -14,6 +14,7 @@ import {
 import { LaboratoriosService } from './laboratorios.service';
 import { CreateLaboratorioDto } from './dto/create-laboratorio.dto';
 import { UpdateLaboratorioDto } from './dto/update-laboratorio.dto';
+import { CrearDepartamentoVinculadoDto } from './dto/crear-departamento-vinculado.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
@@ -53,6 +54,16 @@ export class LaboratoriosController {
     );
   }
 
+  // Departamentos del organigrama (RRHH > Grupos) que todavía no están
+  // enlazados a ningún laboratorio — para ofrecerlos en un desplegable en
+  // vez de escribir el nombre a ciegas. Debe ir antes de @Get(':id') para
+  // que Nest no interprete "departamentos-disponibles" como un :id.
+  @Get('departamentos-disponibles')
+  @RequireAccess('Laboratorios', 2)
+  getDepartamentosDisponibles() {
+    return this.laboratoriosService.getDepartamentosDisponibles();
+  }
+
   /**
    * Obtiene información de un registro específico.
    * @param id - Datos o identificador requerido (number)
@@ -90,5 +101,34 @@ export class LaboratoriosController {
   @RequireAccess('Laboratorios', 5)
   reactivar(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.laboratoriosService.reactivar(id, req.user);
+  }
+
+  @Get(':id/departamentos')
+  @RequireAccess('Laboratorios', 2)
+  getDepartamentosVinculados(@Param('id', ParseIntPipe) id: number) {
+    return this.laboratoriosService.getDepartamentosVinculados(id);
+  }
+
+  // Mismo nivel que update() — vincular un Departamento es, en la práctica,
+  // completar la configuración del laboratorio, no crear uno nuevo.
+  @Patch(':id/departamentos/:departamentoId')
+  @RequireAccess('Laboratorios', 4)
+  vincularDepartamentoExistente(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('departamentoId', ParseIntPipe) departamentoId: number,
+  ) {
+    return this.laboratoriosService.vincularDepartamentoExistente(
+      id,
+      departamentoId,
+    );
+  }
+
+  @Post(':id/departamentos')
+  @RequireAccess('Laboratorios', 4)
+  crearDepartamentoVinculado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CrearDepartamentoVinculadoDto,
+  ) {
+    return this.laboratoriosService.crearDepartamentoVinculado(id, dto);
   }
 }

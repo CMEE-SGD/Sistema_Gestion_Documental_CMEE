@@ -11,6 +11,8 @@ import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
 import { EstadoRecepcion } from '@prisma/client';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { notificarResponsablesEquipo } from '../common/helpers/notificar-responsables-equipo';
 
 const ORDEN_INCLUDE = {
   cliente: { select: { id: true, nombre: true, tipo: true } },
@@ -77,7 +79,10 @@ function resolveOrdenWhere(
 
 @Injectable()
 export class RecepcionEquiposService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificacionesService: NotificacionesService,
+  ) {}
 
   async create(dto: CreateOrdenTrabajoDto) {
     const existe = await this.prisma.ordenTrabajo.findUnique({
@@ -370,7 +375,7 @@ export class RecepcionEquiposService {
         );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const equipoActualizado = await this.prisma.$transaction(async (tx) => {
       await tx.equipoRecepcion.update({
         where: { id: equipoId },
         data: { estado: estadoNuevo! },
@@ -392,5 +397,19 @@ export class RecepcionEquiposService {
         include: EQUIPO_INCLUDE,
       });
     });
+
+    // Se notifica después de que la transición ya quedó confirmada en BD —
+    // un fallo al notificar nunca debe revertir ni bloquear el cambio de
+    // estado (ver notificarResponsablesEquipo, que además nunca lanza).
+    if (equipoActualizado) {
+      await notificarResponsablesEquipo(
+        this.prisma,
+        this.notificacionesService,
+        equipoActualizado,
+        estadoNuevo!,
+      );
+    }
+
+    return equipoActualizado;
   }
 }
