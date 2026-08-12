@@ -152,7 +152,7 @@ export default function LoginPage() {
           />
           <div className="relative z-10 flex flex-col justify-end p-12 text-white">
             <h2 className="text-4xl font-bold mb-4">
-              Sistema de Gestión Documental
+              Sistema Informático
             </h2>
             <p className="text-slate-200 text-lg max-w-lg">
               {nombreInstitucion}
