@@ -39,19 +39,27 @@ El CMEE gestiona la emisión, revisión, validación y firma de certificados té
 
 Vista general de los componentes del sistema y cómo se comunican entre sí:
 
-```mermaid
-flowchart LR
-    SPA["Aplicación web\n(React)"]
-    API["API central\n(NestJS)"]
-    DB[("Base de datos\nPostgreSQL")]
-    FIRMA["Firma digital\nde certificados"]
-    RT["Notificaciones\nen tiempo real"]
-
-    SPA <--> API
-    SPA <-.-> RT
-    API --> FIRMA
-    API --> DB
-    RT --> API
+```
+┌───────────────────────────────┐
+│     Aplicación web (SPA)      │
+│             React             │
+└───────────────────────────────┘
+                │
+      API REST + WebSocket
+                ▼
+┌───────────────────────────────┐
+│     API central (NestJS)      │
+│                               │
+│   Autenticación y permisos    │
+│     Firma digital de PDF      │
+│ Notificaciones en tiempo real │
+└───────────────────────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│         Base de datos         │
+│          PostgreSQL           │
+└───────────────────────────────┘
 ```
 
 La aplicación web consume una API central que concentra la lógica de negocio, el control de acceso y la persistencia en PostgreSQL. Los certificados se firman digitalmente antes de quedar disponibles, y los cambios relevantes se notifican en tiempo real a los usuarios conectados.
