@@ -39,15 +39,43 @@ Aplicación web para la gestión administrativa, gestión de calidad, y validaci
 
 ## Estructura del repositorio
 
+Monorepo simple, sin workspace ni `package.json` en la raíz: cada paquete es autónomo con su propio `package.json` y `package-lock.json`.
+
 ```
 CMEE_SGD/
-├── backend/     # API REST (NestJS + Prisma), puerto 3001
-├── frontend/    # SPA (React + Vite), puerto 5173
-├── AGENTS.md    # Guía para agentes de IA (instrucciones equivalentes a este archivo)
-└── CLAUDE.md    # Guía para Claude Code
+├── backend/
+│   ├── prisma/
+│   │   └── schema.prisma        # esquema de la base de datos (PostgreSQL)
+│   ├── src/
+│   │   ├── auth/                 # login, JWT, guards de acceso (RBAC)
+│   │   ├── usuarios/ roles/ grupos/ aplicaciones/
+│   │   ├── personas/ puestos/ persona-puesto/ departamentos/
+│   │   ├── laboratorios/ equipos/ recepcion-equipos/ circuitos/
+│   │   ├── certificados/ documentos/ carpetas/          # gestor documental
+│   │   ├── clientes-institucionales/ servicios/
+│   │   ├── calidad/ reportes/ configuracion-general/
+│   │   ├── auditoria/                                   # interceptor global de auditoría
+│   │   ├── notificaciones/
+│   │   └── main.ts                                      # bootstrap, prefijo /api, Swagger, CORS
+│   └── uploads/                  # archivos subidos (fotos, PDFs)
+│
+└── frontend/
+    └── src/
+        ├── core/
+        │   ├── router/            # rutas centralizadas (AppRouter.tsx)
+        │   └── api/                # instancia Axios con inyección de JWT
+        ├── modules/
+        │   ├── auth/ usuarios/
+        │   ├── administrativo/    # personas, puestos, departamentos
+        │   ├── laboratorios/ verificacion/
+        │   ├── gestor_documental/
+        │   ├── calidad/ rrhh/
+        │   ├── auditoria/
+        │   └── inicio/
+        └── shared/
+            ├── components/        # diseño atómico (atoms/molecules/organisms)
+            ├── hooks/ interfaces/ utils/ data/
 ```
-
-Cada paquete mantiene su propio `package.json` y `package-lock.json`; no hay `package.json` en la raíz.
 
 ## Requisitos previos
 
