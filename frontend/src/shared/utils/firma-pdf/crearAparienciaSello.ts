@@ -1,12 +1,20 @@
-// Código nuevo (no vendorizado): construye el "content stream" del sello visual
-// (recuadro + texto) como bytes PDF crudos, para insertarlo como la apariencia
-// (/AP /N) del widget de firma — reemplaza lo que antes hacía pdf-lib dibujando
-// sobre la página completa. Mismas medidas/estilo que el sello anterior
-// (ver historial de agregarSelloVisual en firmarPdf.ts).
+// Construye el "content stream" del sello visual (QR opcional + etiqueta +
+// nombre del firmante) como bytes PDF crudos, para insertarlo como la
+// apariencia (/AP /N) del widget de firma — igual que antes, sin pdf-lib ni
+// pdfkit, dibujando los operadores PDF a mano.
+import { construirBloqueQr } from './crearBloqueQr';
 
-const FONT_SIZE = 8;
-const INTERLINEADO = FONT_SIZE + 3;
-const RELLENO = 6;
+const RELLENO = 8;
+const GAP_QR_TEXTO = 10;
+const QR_MODULO_PT = 2.2;
+const QR_ZONA_SILENCIO_MODULOS = 4; // recomendado por ISO/IEC 18004 para códigos impresos/fotocopiados
+
+const LABEL_FONT_SIZE = 8;
+const NAME_FONT_SIZE = 12;
+const NAME_LINE_HEIGHT = 14;
+const LABEL_NAME_GAP = 5;
+const MAX_ANCHO_COLUMNA_TEXTO = 230;
+const COLOR_ETIQUETA = '0.42 0.42 0.42'; // gris — contraste "delgado" contra el nombre en negro
 
 /** Convierte cada carácter a su byte WinAnsi/Latin-1 y escapa los caracteres
  * especiales de las cadenas PDF ( ) \ — necesario para tildes/ñ en nombres reales. */
@@ -24,15 +32,40 @@ function codificarLineaPdf(texto: string): Buffer {
   return Buffer.from(bytesEscapados);
 }
 
-/** Mide el ancho de una línea con la misma fuente que se usará en el PDF (aproximado
- * vía Canvas — Helvetica no siempre está instalada, pero Arial es metricamente muy
- * similar y el recuadro se calcula con margen suficiente). */
-function medirAnchoTexto(texto: string, fontSize: number): number {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return texto.length * fontSize * 0.6; // respaldo burdo si el navegador no soporta canvas
-  ctx.font = `${fontSize}px Helvetica, Arial, sans-serif`;
-  return ctx.measureText(texto).width;
+/** Courier/Courier-Bold son de paso fijo: en las métricas estándar PDF-14 cada
+ * carácter mide exactamente 0.6 × fontSize, para las 4 variantes por igual.
+ * Exacto, a diferencia del canvas+Arial que aproximaba Helvetica antes. */
+function medirAnchoCourier(texto: string, fontSize: number): number {
+  return texto.length * fontSize * 0.6;
+}
+
+/** Envuelve el texto en tantas líneas como haga falta para no superar
+ * `anchoMaximo` — nunca corta una palabra ni trunca el texto: si una sola
+ * palabra ya excede el ancho máximo, se deja igual en su propia línea. */
+function envolverTexto(texto: string, fontSize: number, anchoMaximo: number): string[] {
+  const palabras = texto.trim().split(/\s+/).filter(Boolean);
+  const lineas: string[] = [];
+  let actual = '';
+  for (const palabra of palabras) {
+    const candidata = actual ? `${actual} ${palabra}` : palabra;
+    if (medirAnchoCourier(candidata, fontSize) <= anchoMaximo || !actual) {
+      actual = candidata;
+    } else {
+      lineas.push(actual);
+      actual = palabra;
+    }
+  }
+  if (actual) lineas.push(actual);
+  return lineas;
+}
+
+export interface DatosSello {
+  /** Texto pequeño sobre el nombre, ej. "Firmado electrónicamente por:". */
+  etiqueta: string;
+  /** Nombre real del titular del certificado — se muestra en mayúsculas. */
+  nombre: string;
+  /** Si se provee, dibuja un QR a la izquierda que codifica esta URL. */
+  qrUrl?: string;
 }
 
 export interface AparienciaSello {
@@ -42,43 +75,81 @@ export interface AparienciaSello {
   contentStream: Buffer;
 }
 
-export function construirAparienciaSello(lineas: string[]): AparienciaSello {
-  const anchoTexto = Math.max(...lineas.map((l) => medirAnchoTexto(l, FONT_SIZE)));
-  const ancho = anchoTexto + RELLENO * 2;
-  const alto = lineas.length * INTERLINEADO + RELLENO * 2 - (INTERLINEADO - FONT_SIZE);
+export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
+  const nombreMayus = datos.nombre.trim().toUpperCase();
+  const lineasNombre = envolverTexto(nombreMayus, NAME_FONT_SIZE, MAX_ANCHO_COLUMNA_TEXTO);
+
+  const anchoEtiqueta = medirAnchoCourier(datos.etiqueta, LABEL_FONT_SIZE);
+  const anchoNombre = Math.max(...lineasNombre.map((l) => medirAnchoCourier(l, NAME_FONT_SIZE)));
+  const anchoTexto = Math.max(anchoEtiqueta, anchoNombre);
+  const altoTexto = LABEL_FONT_SIZE + LABEL_NAME_GAP + lineasNombre.length * NAME_LINE_HEIGHT;
+
+  const bloqueQr = datos.qrUrl
+    ? construirBloqueQr(datos.qrUrl, QR_MODULO_PT, QR_ZONA_SILENCIO_MODULOS)
+    : null;
+
+  const anchoContenido = (bloqueQr ? bloqueQr.ancho + GAP_QR_TEXTO : 0) + anchoTexto;
+  const ancho = anchoContenido + RELLENO * 2;
+  const alto = Math.max(bloqueQr?.alto ?? 0, altoTexto) + RELLENO * 2;
+
+  const xTexto = RELLENO + (bloqueQr ? bloqueQr.ancho + GAP_QR_TEXTO : 0);
+  // Centra verticalmente el bloque de texto contra el bloque QR (normalmente más alto).
+  const yBaseBloque = RELLENO + Math.max(0, ((bloqueQr?.alto ?? altoTexto) - altoTexto) / 2);
+  const yEtiqueta = yBaseBloque + altoTexto - LABEL_FONT_SIZE;
+  const yPrimeraLineaNombre = yEtiqueta - LABEL_NAME_GAP - NAME_FONT_SIZE;
 
   const partes: Buffer[] = [];
+
+  if (bloqueQr) {
+    partes.push(
+      Buffer.from(['q', `1 0 0 1 ${RELLENO.toFixed(2)} ${RELLENO.toFixed(2)} cm`].join('\n') + '\n', 'ascii'),
+    );
+    partes.push(bloqueQr.operadores);
+    partes.push(Buffer.from('\nQ\n', 'ascii'));
+  }
+
+  // Etiqueta (Courier regular, gris)
   partes.push(
     Buffer.from(
       [
         'q',
+        `${COLOR_ETIQUETA} rg`,
         '/GS1 gs',
-        '1 0.98 0.85 rg',
-        '0.6 0.5 0 RG',
-        '0.75 w',
-        `0 0 ${ancho.toFixed(2)} ${alto.toFixed(2)} re`,
-        'B',
-        'Q',
-        'q',
-        '0.15 0.15 0.15 rg',
         'BT',
-        `/F1 ${FONT_SIZE} Tf`,
-        `1 0 0 1 ${RELLENO.toFixed(2)} ${(alto - RELLENO - FONT_SIZE).toFixed(2)} Tm`,
+        `/F1 ${LABEL_FONT_SIZE} Tf`,
+        `1 0 0 1 ${xTexto.toFixed(2)} ${yEtiqueta.toFixed(2)} Tm`,
         '',
       ].join('\n'),
       'ascii',
     ),
   );
+  partes.push(Buffer.from('(', 'ascii'));
+  partes.push(codificarLineaPdf(datos.etiqueta));
+  partes.push(Buffer.from(') Tj\nET\nQ\n', 'ascii'));
 
-  lineas.forEach((linea, i) => {
+  // Nombre (Courier-Bold, negro), una o varias líneas
+  partes.push(
+    Buffer.from(
+      [
+        'q',
+        '0 0 0 rg',
+        '/GS1 gs',
+        'BT',
+        `/F2 ${NAME_FONT_SIZE} Tf`,
+        `1 0 0 1 ${xTexto.toFixed(2)} ${yPrimeraLineaNombre.toFixed(2)} Tm`,
+        '',
+      ].join('\n'),
+      'ascii',
+    ),
+  );
+  lineasNombre.forEach((linea, i) => {
     if (i > 0) {
-      partes.push(Buffer.from(`0 ${-INTERLINEADO} Td\n`, 'ascii'));
+      partes.push(Buffer.from(`0 ${-NAME_LINE_HEIGHT} Td\n`, 'ascii'));
     }
     partes.push(Buffer.from('(', 'ascii'));
     partes.push(codificarLineaPdf(linea));
     partes.push(Buffer.from(') Tj\n', 'ascii'));
   });
-
   partes.push(Buffer.from('ET\nQ', 'ascii'));
 
   return { ancho, alto, contentStream: Buffer.concat(partes) };

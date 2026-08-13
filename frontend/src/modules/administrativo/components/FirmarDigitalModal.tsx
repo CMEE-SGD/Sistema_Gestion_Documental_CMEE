@@ -48,6 +48,10 @@ export default function FirmarDigitalModal({
   const [pdfDescargado, setPdfDescargado] = useState<Uint8Array | null>(null);
   const [cargandoPdf, setCargandoPdf] = useState(false);
   const [posicionFirma, setPosicionFirma] = useState<PosicionFirma | null>(null);
+  // Código público del certificado — si se consigue, el sello incluye un QR
+  // que apunta a /verificar/:codigo. Es un extra visual: si esta petición
+  // falla, se firma igual, solo que sin QR (ver el catch silencioso abajo).
+  const [codigoVerificacion, setCodigoVerificacion] = useState<string | null>(null);
   const [p12File, setP12File] = useState<File | null>(null);
   const [password, setPassword] = useState('');
   const [observaciones, setObservaciones] = useState('');
@@ -64,8 +68,8 @@ export default function FirmarDigitalModal({
     setCargandoPdf(true);
     setError(null);
     (async () => {
+      const token = localStorage.getItem('token');
       try {
-        const token = localStorage.getItem('token');
         const res = await fetch(
           `${API_BASE}/certificados/download/${certificadoId}`,
           { headers: { Authorization: `Bearer ${token}` } },
@@ -86,11 +90,40 @@ export default function FirmarDigitalModal({
     };
   }, [accion, certificadoId, pdfDescargado]);
 
+  // Efecto aparte (con su propia bandera de cancelación): si viviera en el
+  // mismo efecto que la descarga del PDF, el `setPdfDescargado` de arriba
+  // dispara un re-render que reinicia ESE efecto — y su limpieza marca
+  // `cancelado = true` antes de que esta petición alcance a resolver, así
+  // que el código de verificación nunca llegaba a guardarse (bug real: el
+  // sello salía siempre sin QR). No bloquea la firma si falla.
+  useEffect(() => {
+    if (accion !== 'FIRMAR' || codigoVerificacion || !certificadoId) return;
+    let cancelado = false;
+    (async () => {
+      const token = localStorage.getItem('token');
+      try {
+        const res = await fetch(`${API_BASE}/certificados/${certificadoId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelado) setCodigoVerificacion(data.codigo_verificacion ?? null);
+        }
+      } catch {
+        // silencioso a propósito — ver comentario arriba
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [accion, certificadoId, codigoVerificacion]);
+
   const resetYcerrar = () => {
     setAccion(null);
     setPdfDescargado(null);
     setCargandoPdf(false);
     setPosicionFirma(null);
+    setCodigoVerificacion(null);
     setP12File(null);
     setPassword('');
     setObservaciones('');
@@ -131,12 +164,15 @@ export default function FirmarDigitalModal({
     // Carga diferida: las librerías de firma (~350KB) solo se descargan
     // cuando alguien realmente va a firmar, no en el bundle principal.
     const { firmarPdfConP12 } = await import('../../../shared/utils/firmarPdf');
+    const qrUrl = codigoVerificacion
+      ? `${window.location.origin}/verificar/${codigoVerificacion}`
+      : undefined;
     const pdfFirmado = await firmarPdfConP12(
       pdfDescargado,
       p12File,
       password,
       tituloAccion,
-      { posicion: posicionFirma },
+      { posicion: posicionFirma, qrUrl },
     );
 
     setPaso('subiendo');

@@ -83,6 +83,9 @@ import ClientesPage from '../../modules/administrativo/pages/ClientesPage';
 import CertificadosPage from '../../modules/administrativo/pages/CertificadosPage';
 import ReportesPage from '../../modules/administrativo/pages/ReportesPage';
 
+// --- PÚBLICO (sin sesión) ---
+import VerificarCertificadoPage from '../../modules/publico/pages/VerificarCertificadoPage';
+
 const AppRouter = () => {
   return (
     <QueryClientProvider client={queryClient}>
@@ -91,6 +94,7 @@ const AppRouter = () => {
         <Route path="/" element={<LoginPage />} />
         <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/403" element={<AccesoDenegadoPage />} />
+        <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
 
         <Route path="/usuarios" element={<UsuariosLayout />}>
           <Route index element={<UsuariosPage />} />
