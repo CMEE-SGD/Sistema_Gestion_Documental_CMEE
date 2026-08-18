@@ -800,6 +800,26 @@ export default function BandejaTrabajoPage() {
                             </Button>
                           )}
 
+                          {/* EN_CALIBRACION / REVISION_OBT: Cambiar técnico —
+                          el OBT todavía puede corregir una mala asignación
+                          mientras el técnico no haya firmado nada. */}
+                          {canAssign &&
+                            (req.estado === 'EN_CALIBRACION' || req.estado === 'REVISION_OBT') && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  setAsignacionTecnico({
+                                    equipoId: req.id,
+                                    laboratorioId: req.laboratorio?.id ?? null,
+                                  })
+                                }
+                                title="Cambiar técnico"
+                              >
+                                <UserPlus className="h-4 w-4" />
+                              </Button>
+                            )}
+
                           {/* EN_CALIBRACION: Subir certificado */}
                           {canExecute && req.estado === 'EN_CALIBRACION' && (
                             <Button

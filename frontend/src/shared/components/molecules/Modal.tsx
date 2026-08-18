@@ -26,7 +26,11 @@ export const Modal = ({ isOpen, onClose, title, children }: ModalProps) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden transform transition-all">
+        {/* Sin `transform`: esa clase no anima nada (no hay translate/scale real),
+        pero combinada con `overflow-hidden` hace que Chrome recorte los popups
+        nativos (el desplegable de <select>) dentro del rectángulo del modal en
+        vez de dejarlos flotar libremente sobre el resto de la página. */}
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden transition-all">
             {/* Cabecera del Modal */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
             <h2 className="text-lg font-bold text-gray-800">{title}</h2>

@@ -12,6 +12,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { HydratedUser } from '../common/helpers/lab-scope';
 import { formatearNumeroCertificado } from '../common/helpers/certificado-format';
 import { verificarFirmaPdf } from '../common/helpers/pdf-signature';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { notificarResponsablesEquipo } from '../common/helpers/notificar-responsables-equipo';
 
 function conNumeroFormateado<
   T extends { numero_certificado: number; fecha_subida: Date },
@@ -27,7 +29,10 @@ function conNumeroFormateado<
 
 @Injectable()
 export class CertificadosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificacionesService: NotificacionesService,
+  ) {}
 
   async upload(
     file: Express.Multer.File,
@@ -138,6 +143,8 @@ export class CertificadosService {
             id: true,
             estado: true,
             tecnico_id: true,
+            equipo_descripcion: true,
+            laboratorio_id: true,
           },
         },
       },
@@ -235,7 +242,7 @@ export class CertificadosService {
       .digest('hex');
     const firmanteId = user.isGod ? 1 : (personaId as number);
 
-    return this.prisma.$transaction(async (tx) => {
+    const resultadoFirma = await this.prisma.$transaction(async (tx) => {
       await tx.certificado.update({
         where: { id: certificadoId },
         data: { ruta_archivo: file.path, nombre_original: file.originalname },
@@ -273,6 +280,24 @@ export class CertificadosService {
 
       return { firma, estado_nuevo: estadoNuevo };
     });
+
+    // Se notifica después de que la transacción de la firma ya quedó
+    // confirmada en BD — un fallo al notificar nunca debe revertir ni
+    // bloquear la firma que ya se registró (ver notificarResponsablesEquipo,
+    // que además nunca lanza).
+    await notificarResponsablesEquipo(
+      this.prisma,
+      this.notificacionesService,
+      {
+        id: equipo.id,
+        equipo_descripcion: equipo.equipo_descripcion,
+        laboratorio_id: equipo.laboratorio_id,
+        tecnico_id: equipo.tecnico_id,
+      },
+      estadoNuevo,
+    );
+
+    return resultadoFirma;
   }
 
   async download(id: number, user: HydratedUser) {
@@ -305,8 +330,16 @@ export class CertificadosService {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '');
 
+      // Excluye "jefe" de esTecnico — un puesto como "Jefe Técnico de
+      // Laboratorio" contiene "tecnico" en el texto, pero quien lo ocupa
+      // revisa/firma certificados de CUALQUIER técnico del laboratorio, no
+      // solo los que él mismo tuviera asignados (mismo criterio que ya usa
+      // firmar() más arriba en este archivo para el paso REVISION_JEFE).
+      // Sin esta exclusión, un Jefe con ese título quedaba bloqueado para
+      // descargar certificados de equipos que no le fueron asignados a él.
       const esObservador = n.includes('observador');
-      const esTecnico = n.includes('tecnico') && !n.includes('observador');
+      const esTecnico =
+        n.includes('tecnico') && !n.includes('observador') && !n.includes('jefe');
 
       if (esObservador && equipo.laboratorio_id !== labId) {
         throw new ForbiddenException(
@@ -328,23 +361,28 @@ export class CertificadosService {
    * Verificación pública de autenticidad — sin autenticación. Devuelve solo
    * metadatos seguros (nunca la ruta del archivo ni datos personales más
    * allá del nombre del técnico responsable).
+   *
+   * El listado de `firmas` es la parte fiel al patrón de FirmaEC: su QR, al
+   * escanearse, muestra únicamente el nombre del firmante y la fecha de esa
+   * firma puntual — no un resumen general del trámite. Como un mismo
+   * certificado pasa por 3 firmantes (técnico, jefe, director) que comparten
+   * el mismo codigo_verificacion, aquí se listan las 3 firmas reales
+   * registradas en FirmaDigital al momento de cada firma, en vez de mostrar
+   * solo metadatos genéricos del certificado.
    */
   async verificar(codigo: string) {
     const certificado = await this.prisma.certificado.findUnique({
       where: { codigo_verificacion: codigo },
       include: {
-        tecnico: { select: { nombre: true, apellidos: true } },
         equipo_recepcion: {
+          select: { equipo_descripcion: true },
+        },
+        firmas: {
+          orderBy: { fecha_firma: 'asc' },
           select: {
-            equipo_descripcion: true,
-            estado: true,
-            laboratorio: { select: { nombre: true } },
-            orden_trabajo: {
-              select: {
-                orden_trabajo_fisica: true,
-                cliente: { select: { nombre: true } },
-              },
-            },
+            etapa: true,
+            certificado_titular: true,
+            fecha_firma: true,
           },
         },
       },
@@ -356,21 +394,18 @@ export class CertificadosService {
       );
     }
 
-    const equipo = certificado.equipo_recepcion;
-
     return {
       valido: true,
       numero_certificado: formatearNumeroCertificado(
         certificado.numero_certificado,
         certificado.fecha_subida,
       ),
-      fecha_emision: certificado.fecha_subida,
-      laboratorio: equipo.laboratorio?.nombre ?? null,
-      cliente: equipo.orden_trabajo?.cliente?.nombre ?? null,
-      orden_trabajo_fisica: equipo.orden_trabajo?.orden_trabajo_fisica ?? null,
-      equipo: equipo.equipo_descripcion,
-      tecnico_responsable: `${certificado.tecnico.nombre} ${certificado.tecnico.apellidos}`,
-      estado: equipo.estado,
+      equipo: certificado.equipo_recepcion.equipo_descripcion,
+      firmas: certificado.firmas.map((f) => ({
+        etapa: f.etapa,
+        titular: f.certificado_titular,
+        fecha_firma: f.fecha_firma,
+      })),
     };
   }
 

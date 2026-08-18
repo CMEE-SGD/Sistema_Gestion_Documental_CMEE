@@ -43,38 +43,34 @@ function extraerTitularCertificado(
  * @param pdfBytes El PDF a firmar (el original, o uno que ya trae firmas previas).
  * @param p12File El archivo .p12 seleccionado por el usuario.
  * @param password La contraseña del .p12 (nunca se envía al servidor).
- * @param razon Motivo de la firma, embebido en el propio PDF (ej. "Aprobación de Jefatura").
+ * @param razon Motivo de la firma, embebido en el propio PDF (campo /Reason del
+ *   diccionario de firma) aunque ya no se imprima como línea visible del sello.
  * @param sello Si se provee, dibuja un sello visual en esa posición antes de firmar,
  *   con el nombre real del titular del certificado (no el usuario de la sesión).
+ *   `qrUrl`, si se provee, dibuja un QR a la izquierda del sello — solo tiene
+ *   sentido cuando existe una página pública de verificación para ese documento
+ *   (hoy: Certificados; Gestor Documental no pasa qrUrl y el sello sale sin QR).
  */
 export async function firmarPdfConP12(
   pdfBytes: Uint8Array,
   p12File: File,
   password: string,
   razon: string,
-  sello?: { posicion: PosicionFirma },
+  sello?: { posicion: PosicionFirma; qrUrl?: string },
 ): Promise<Uint8Array> {
   const p12Bytes = new Uint8Array(await p12File.arrayBuffer());
   const p12Buffer = Buffer.from(p12Bytes);
 
-  let selloParaPlaceholder: { posicion: PosicionFirma; lineas: string[] } | undefined;
+  let selloParaPlaceholder:
+    | { posicion: PosicionFirma; etiqueta: string; nombre: string; qrUrl?: string }
+    | undefined;
   if (sello) {
     const titular = extraerTitularCertificado(p12Buffer, password) ?? 'Titular del certificado';
-    const fecha = new Date().toLocaleString('es-EC', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
     selloParaPlaceholder = {
       posicion: sello.posicion,
-      lineas: [
-        'Firmado digitalmente',
-        `Por: ${titular}`,
-        `Fecha: ${fecha}`,
-        `Motivo: ${razon}`,
-      ],
+      etiqueta: 'Firmado electrónicamente por:',
+      nombre: titular,
+      qrUrl: sello.qrUrl,
     };
   }
 

@@ -5,7 +5,7 @@ import { users } from "../../shared/data/users";
 import { logoCentro } from "../../assets";
 import { laboratorio } from "../../assets";
 import api from "../../core/api/axios";
-import { AlertCircle } from 'lucide-react'; // 👇 1. Importamos el ícono de alerta
+import { AlertCircle, Eye, EyeOff } from 'lucide-react'; // 👇 1. Importamos el ícono de alerta
 import { useConfiguracionGeneral } from "../../shared/hooks/useConfiguracionGeneral";
 
 export default function LoginPage() {
@@ -152,7 +152,7 @@ export default function LoginPage() {
           />
           <div className="relative z-10 flex flex-col justify-end p-12 text-white">
             <h2 className="text-4xl font-bold mb-4">
-              Sistema de Gestión Documental
+              Sistema Informático
             </h2>
             <p className="text-slate-200 text-lg max-w-lg">
               {nombreInstitucion}
@@ -224,14 +224,18 @@ export default function LoginPage() {
                     placeholder="Contraseña"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 bg-white border border-slate-300 rounded-xl text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20 focus:border-[#1e3a5f] transition-all"
+                    // Edge/IE inyectan su propio ícono de "mostrar contraseña"
+                    // (::-ms-reveal) dentro de todo <input type="password">,
+                    // que se sumaba al botón de abajo y aparecían dos ojos.
+                    className="w-full pl-10 pr-12 py-3 bg-white border border-slate-300 rounded-xl text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20 focus:border-[#1e3a5f] transition-all [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                   >
-                    👁
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>

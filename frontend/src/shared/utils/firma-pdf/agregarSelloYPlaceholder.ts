@@ -52,7 +52,7 @@ export interface OpcionesFirmaPlaceholder {
   location: string;
   signatureLength?: number;
   /** Si se provee, el sello visual se dibuja como la apariencia del widget de firma. */
-  sello?: { posicion: PosicionFirma; lineas: string[] };
+  sello?: { posicion: PosicionFirma; etiqueta: string; nombre: string; qrUrl?: string };
 }
 
 export function agregarSelloYPlaceholder({
@@ -103,7 +103,11 @@ export function agregarSelloYPlaceholder({
   let widgetRect: [number, number, number, number] = [0, 0, 0, 0];
 
   if (sello) {
-    const { ancho, alto, contentStream } = construirAparienciaSello(sello.lineas);
+    const { ancho, alto, contentStream } = construirAparienciaSello({
+      etiqueta: sello.etiqueta,
+      nombre: sello.nombre,
+      qrUrl: sello.qrUrl,
+    });
 
     const paginaDictionary = findObject(pdf, info.xref, pageRef);
     const tamanoPagina =
@@ -124,8 +128,16 @@ export function agregarSelloYPlaceholder({
       FormType: 1,
       BBox: [0, 0, ancho, alto],
       Resources: {
-        Font: { F1: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica', Encoding: 'WinAnsiEncoding' } },
-        ExtGState: { GS1: { Type: 'ExtGState', ca: 0.9, CA: 0.9 } },
+        Font: {
+          F1: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Courier', Encoding: 'WinAnsiEncoding' },
+          F2: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Courier-Bold', Encoding: 'WinAnsiEncoding' },
+        },
+        ExtGState: {
+          GS1: { Type: 'ExtGState', ca: 0.9, CA: 0.9 },
+          // Dedicado al QR: 100% opaco, para no arriesgar la fiabilidad del
+          // escaneo por el mismo alpha 0.9 que ya usa el texto.
+          GS2: { Type: 'ExtGState', ca: 1, CA: 1 },
+        },
       },
       Length: contentStream.length,
     });
