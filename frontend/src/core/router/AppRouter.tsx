@@ -74,6 +74,14 @@ import { NoConformidadesPage } from '../../modules/calidad/pages/NoConformidades
 import { NuevaNcPage } from '../../modules/calidad/pages/NuevaNcPage';
 import { DetalleNcPage } from '../../modules/calidad/pages/DetalleNcPage';
 import { PlanAccionPage } from '../../modules/calidad/pages/PlanAccionPage';
+import { RiesgosOportunidadesPage } from '../../modules/calidad/pages/RiesgosOportunidadesPage';
+import { RiesgoFormPage } from '../../modules/calidad/pages/RiesgoFormPage';
+import { RiesgoDetallePage } from '../../modules/calidad/pages/RiesgoDetallePage';
+import { RiesgoSeguimientoPage } from '../../modules/calidad/pages/RiesgoSeguimientoPage';
+import { QuejasPage } from '../../modules/calidad/pages/QuejasPage';
+import { QuejaFormPage } from '../../modules/calidad/pages/QuejaFormPage';
+import { QuejaDetallePage } from '../../modules/calidad/pages/QuejaDetallePage';
+import { QuejaSeguimientoPage } from '../../modules/calidad/pages/QuejaSeguimientoPage';
 
 // --- IMPORTACIONES ADMINISTRATIVO (NUEVO) ---
 import { AdministrativoLayout } from '../../modules/administrativo/components/AdministrativoLayout';
@@ -165,11 +173,16 @@ const AppRouter = () => {
           <Route path="auditorias/:auditoriaId/nc/editar/:ncId" element={<NuevaNcPage />} />
           <Route path="auditorias/:auditoriaId/nc/:ncId" element={<DetalleNcPage />} />
           <Route path="auditorias/:auditoriaId/nc/:ncId/plan-accion" element={<PlanAccionPage />} />
-          <Route path="no-conformidades" element={<NoConformidadesPage />} />
-          <Route path="no-conformidades/nueva" element={<NuevaNcPage />} />
-          <Route path="no-conformidades/editar/:ncId" element={<NuevaNcPage />} />
-          <Route path="no-conformidades/:ncId" element={<DetalleNcPage />} />
-          <Route path="no-conformidades/:ncId/plan-accion" element={<PlanAccionPage />} />
+          <Route path="riesgos" element={<RiesgosOportunidadesPage />} />
+          <Route path="riesgos/nueva" element={<RiesgoFormPage />} />
+          <Route path="riesgos/editar/:id" element={<RiesgoFormPage />} />
+          <Route path="riesgos/:id/seguimiento" element={<RiesgoSeguimientoPage />} />
+          <Route path="riesgos/:id" element={<RiesgoDetallePage />} />
+          <Route path="quejas" element={<QuejasPage />} />
+          <Route path="quejas/nueva" element={<QuejaFormPage />} />
+          <Route path="quejas/editar/:id" element={<QuejaFormPage />} />
+          <Route path="quejas/:id/seguimiento" element={<QuejaSeguimientoPage />} />
+          <Route path="quejas/:id" element={<QuejaDetallePage />} />
         </Route>
 
         {/* --- NUEVO MÓDULO ADMINISTRATIVO --- */}

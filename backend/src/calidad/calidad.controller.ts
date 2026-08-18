@@ -9,6 +9,11 @@ import { UpdateAuditoriaDto } from './dto/update-auditoria.dto';
 import { CreateNcDto } from './dto/create-nc.dto';
 import { UpdateNcDto } from './dto/update-nc.dto';
 import { CambiarEstadoNcDto } from './dto/cambiar-estado-nc.dto';
+import { CreateRiesgoDto } from './dto/create-riesgo.dto';
+import { UpdateRiesgoDto } from './dto/update-riesgo.dto';
+import { CreateQuejaDto } from './dto/create-queja.dto';
+import { UpdateQuejaDto } from './dto/update-queja.dto';
+
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
@@ -256,5 +261,115 @@ export class CalidadController {
   @RequireAccess('Gestion de Calidad', 5)
   removeNc(@Param('id', ParseIntPipe) id: number) {
     return this.calidadService.removeNc(id);
+  }
+
+  // ==================== QUEJAS (AC1.3.F1-3) ====================
+
+  @Post('quejas')
+  @RequireAccess('Gestion de Calidad', 5)
+  async createQueja(@Body() dto: CreateQuejaDto) {
+    try {
+      return await this.calidadService.createQueja(dto);
+    } catch (error: any) {
+      console.error('Error creando queja:', error);
+      if (error instanceof BadRequestException) throw error;
+      if (error.code === 'P2002') throw new BadRequestException(`El código "${dto.codigo}" ya existe`);
+      if (error.code === 'P2003') throw new BadRequestException('El responsable seleccionado no existe');
+      throw new InternalServerErrorException(error?.message || 'Error al crear la queja');
+    }
+  }
+
+  @Get('quejas')
+  @RequireAccess('Gestion de Calidad', 2)
+  findAllQuejas() {
+    return this.calidadService.findAllQuejas();
+  }
+
+  @Get('quejas/siguiente-codigo')
+  @RequireAccess('Gestion de Calidad', 2)
+  siguienteCodigoQueja() {
+    return this.calidadService.siguienteNumeroQueja();
+  }
+
+  @Get('quejas/:id')
+  @RequireAccess('Gestion de Calidad', 2)
+  findOneQueja(@Param('id', ParseIntPipe) id: number) {
+    return this.calidadService.findOneQueja(id);
+  }
+
+  @Patch('quejas/:id')
+  @RequireAccess('Gestion de Calidad', 4)
+  async updateQueja(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateQuejaDto) {
+    try {
+      return await this.calidadService.updateQueja(id, dto);
+    } catch (error: any) {
+      console.error('Error actualizando queja:', error);
+      if (error instanceof BadRequestException) throw error;
+      if (error.code === 'P2002') throw new BadRequestException(`El código "${dto.codigo}" ya existe`);
+      if (error.code === 'P2003') throw new BadRequestException('El responsable seleccionado no existe');
+      if (error.code === 'P2025') throw new NotFoundException('La queja no existe');
+      throw new InternalServerErrorException(error?.message || 'Error al actualizar la queja');
+    }
+  }
+
+  @Delete('quejas/:id')
+  @RequireAccess('Gestion de Calidad', 5)
+  removeQueja(@Param('id', ParseIntPipe) id: number) {
+    return this.calidadService.removeQueja(id);
+  }
+
+  // ==================== RIESGOS Y OPORTUNIDADES ====================
+
+  @Post('riesgos')
+  @RequireAccess('Gestion de Calidad', 5)
+  async createRiesgo(@Body() dto: CreateRiesgoDto) {
+    try {
+      return await this.calidadService.createRiesgo(dto);
+    } catch (error: any) {
+      console.error('Error creando riesgo/oportunidad:', error);
+      if (error instanceof BadRequestException) throw error;
+      if (error.code === 'P2002') throw new BadRequestException(`El código "${dto.codigo}" ya existe`);
+      if (error.code === 'P2003') throw new BadRequestException('El responsable seleccionado no existe');
+      throw new InternalServerErrorException(error?.message || 'Error al crear el riesgo/oportunidad');
+    }
+  }
+
+  @Get('riesgos')
+  @RequireAccess('Gestion de Calidad', 2)
+  findAllRiesgos() {
+    return this.calidadService.findAllRiesgos();
+  }
+
+  @Get('riesgos/siguiente-codigo')
+  @RequireAccess('Gestion de Calidad', 2)
+  siguienteCodigoRiesgo(@Query('tipo') tipo: string) {
+    return this.calidadService.siguienteNumeroRiesgoEndpoint(tipo === 'OPORTUNIDAD' ? 'OPORTUNIDAD' : 'RIESGO');
+  }
+
+  @Get('riesgos/:id')
+  @RequireAccess('Gestion de Calidad', 2)
+  findOneRiesgo(@Param('id', ParseIntPipe) id: number) {
+    return this.calidadService.findOneRiesgo(id);
+  }
+
+  @Patch('riesgos/:id')
+  @RequireAccess('Gestion de Calidad', 4)
+  async updateRiesgo(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRiesgoDto) {
+    try {
+      return await this.calidadService.updateRiesgo(id, dto);
+    } catch (error: any) {
+      console.error('Error actualizando riesgo/oportunidad:', error);
+      if (error instanceof BadRequestException) throw error;
+      if (error.code === 'P2002') throw new BadRequestException(`El código "${dto.codigo}" ya existe`);
+      if (error.code === 'P2003') throw new BadRequestException('El responsable seleccionado no existe');
+      if (error.code === 'P2025') throw new NotFoundException('El riesgo/oportunidad no existe');
+      throw new InternalServerErrorException(error?.message || 'Error al actualizar el riesgo/oportunidad');
+    }
+  }
+
+  @Delete('riesgos/:id')
+  @RequireAccess('Gestion de Calidad', 5)
+  removeRiesgo(@Param('id', ParseIntPipe) id: number) {
+    return this.calidadService.removeRiesgo(id);
   }
 }

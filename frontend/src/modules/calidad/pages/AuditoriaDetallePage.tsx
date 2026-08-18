@@ -207,7 +207,6 @@ export const AuditoriaDetallePage = () => {
                                     <table className="w-full text-sm">
                                         <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
                                             <tr>
-                                                <th className="px-3 py-2 text-left font-semibold">Modalidad</th>
                                                 <th className="px-3 py-2 text-left font-semibold">Función / Rol</th>
                                                 <th className="px-3 py-2 text-left font-semibold">Nombre</th>
                                                 <th className="px-3 py-2 text-left font-semibold">Teléfono</th>
@@ -222,13 +221,12 @@ export const AuditoriaDetallePage = () => {
                                                 if (miembros.length === 0) return null;
                                                 return [
                                                     <tr key={`h-${g}`}>
-                                                        <td colSpan={7} className="px-3 py-2 bg-gray-50 font-bold text-gray-700">
+                                                        <td colSpan={6} className="px-3 py-2 bg-gray-50 font-bold text-gray-700">
                                                             {g === 'IN_SITU' ? 'IN SITU' : 'REMOTO'}
                                                         </td>
                                                     </tr>,
                                                     ...miembros.map((m, i) => (
                                                         <tr key={`${g}-${i}`}>
-                                                            <td className="px-3 py-2">{g === 'REMOTO' ? 'Remoto' : 'In Situ'}</td>
                                                             <td className="px-3 py-2">{m.rol || m.funcion || '-'}</td>
                                                             <td className="px-3 py-2">{m.nombre || '-'}</td>
                                                             <td className="px-3 py-2">{m.telefono || '-'}</td>
@@ -277,6 +275,35 @@ export const AuditoriaDetallePage = () => {
                             )}
                         </div>
                     )}
+                    {auditoria.testificaciones && auditoria.testificaciones.length > 0 && (
+                        <div>
+                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">{esExterna ? '4. TESTIFICACIONES A REALIZARSE' : 'TESTIFICACIONES A REALIZARSE'}</div>
+                            <div className="border border-t-0 border-gray-300 rounded-b overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left font-semibold">No.</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Método de ensayo / medida</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Técnica / Magnitud</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Matriz / Instrumento de medida</th>
+                                            <th className="px-3 py-2 text-left font-semibold">Evaluador / Experto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {auditoria.testificaciones.map((t: any, i: number) => (
+                                            <tr key={i}>
+                                                <td className="px-3 py-2">{t.test || '-'}</td>
+                                                <td className="px-3 py-2">{t.metodo_ensayo || '-'}</td>
+                                                <td className="px-3 py-2 whitespace-pre-wrap">{t.metodo_magnitud || '-'}</td>
+                                                <td className="px-3 py-2">{t.muestra || '-'}</td>
+                                                <td className="px-3 py-2">{t.evaluador || '-'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                     {auditoria.cronograma && auditoria.cronograma.length > 0 && (
                         <div>
                             <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">{esExterna ? '5. HORARIO DE EVALUACIÓN (CRONOGRAMA)' : 'CRONOGRAMA DE AUDITORÍA'}</div>
@@ -306,35 +333,6 @@ export const AuditoriaDetallePage = () => {
                                                     </tr>
                                                 ))}
                                             </Fragment>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-                    {auditoria.testificaciones && auditoria.testificaciones.length > 0 && (
-                        <div>
-                            <div className="bg-[#88bddf] text-white px-3 py-2 text-sm font-semibold rounded-t">{esExterna ? '4. TESTIFICACIONES A REALIZARSE' : 'TESTIFICACIONES A REALIZARSE'}</div>
-                            <div className="border border-t-0 border-gray-300 rounded-b overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-100 border-b border-gray-300 text-gray-700">
-                                        <tr>
-                                            <th className="px-3 py-2 text-left font-semibold">No.</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Método de ensayo / medida</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Técnica / Magnitud</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Matriz / Instrumento de medida</th>
-                                            <th className="px-3 py-2 text-left font-semibold">Evaluador / Experto</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {auditoria.testificaciones.map((t: any, i: number) => (
-                                            <tr key={i}>
-                                                <td className="px-3 py-2">{t.test || '-'}</td>
-                                                <td className="px-3 py-2">{t.metodo_ensayo || '-'}</td>
-                                                <td className="px-3 py-2 whitespace-pre-wrap">{t.metodo_magnitud || '-'}</td>
-                                                <td className="px-3 py-2">{t.muestra || '-'}</td>
-                                                <td className="px-3 py-2">{t.evaluador || '-'}</td>
-                                            </tr>
                                         ))}
                                     </tbody>
                                 </table>

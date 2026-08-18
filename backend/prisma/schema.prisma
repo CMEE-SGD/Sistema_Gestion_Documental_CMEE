@@ -973,6 +973,29 @@ enum EstadoNC {
   VERIFICADA
 }
 
+enum TipoRiesgo {
+  RIESGO
+  OPORTUNIDAD
+}
+
+enum CondicionRiesgo {
+  ALTO
+  MODERADO
+  LEVE
+}
+
+enum EstadoRiesgo {
+  IDENTIFICADO
+  EN_SEGUIMIENTO
+  CERRADO
+}
+
+enum TratamientoRiesgo {
+  EVITAR
+  REDUCIR
+  ASUMIR
+}
+
 model AuditoriaInterna {
   id                    Int             @id @default(autoincrement())
   codigo                String          @unique @db.VarChar(50)
@@ -1089,4 +1112,121 @@ model NoConformidadHistorial {
 
   @@index([nc_id])
   @@map("no_conformidad_historial")
+}
+
+// ==========================================
+// ==========================================
+// RIESGOS Y OPORTUNIDADES (MC19.1.P1)
+// Nivel de riesgo = Probabilidad (P) x Impacto (I) x Detección (D)
+// Condición: >= 200 Alto | 80..199 Moderado | < 80 Leve
+// ==========================================
+model RiesgoOportunidad {
+  id             Int               @id @default(autoincrement())
+  codigo         String            @unique @db.VarChar(50)
+  tipo           TipoRiesgo        @default(RIESGO)
+  proceso        String            @db.VarChar(100)
+  evento         String            @db.Text
+  causa          String?           @db.Text
+  fuente         String?           @db.Text
+  consecuencias  String?           @db.Text
+  probabilidad   Int               @db.SmallInt
+  impacto        Int               @db.SmallInt
+  deteccion      Int               @db.SmallInt
+  nivel_riesgo   Int               @db.SmallInt
+  condicion      CondicionRiesgo   @default(LEVE)
+  tratamiento    TratamientoRiesgo?
+  acciones       String?           @db.Text
+  fecha_limite   DateTime?         @db.Date
+  verificacion_eficacia String?    @db.Text
+  cierre_fecha   DateTime?         @db.Date
+  cerrada_por    String?           @db.VarChar(150)
+  estado         EstadoRiesgo      @default(IDENTIFICADO)
+  observaciones  String?           @db.Text
+  activo         Boolean           @default(true)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  responsables   RiesgoResponsable[]
+
+  @@map("riesgo_oportunidad")
+}
+
+model RiesgoResponsable {
+  id             Int          @id @default(autoincrement())
+  riesgo_id      Int
+  riesgo         RiesgoOportunidad @relation(fields: [riesgo_id], references: [id], onDelete: Cascade)
+  fase           String       @db.VarChar(50)
+  nombre         String       @db.VarChar(150)
+  cargo          String?      @db.VarChar(150)
+  fecha          DateTime?    @db.Date
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([riesgo_id])
+  @@map("riesgo_responsable")
+}
+
+// ==========================================
+// QUEJAS — GESTIÓN DE QUEJAS (AC1.3.F1-3)
+// Flujo: RECEPCIÓN → ANÁLISIS → ACCIONES → CIERRE
+// ==========================================
+
+enum EstadoQueja {
+  RECIBIDA
+  EN_ANALISIS
+  PROCEDENTE
+  NO_PROCEDENTE
+  EN_SEGUIMIENTO
+  CERRADA
+}
+
+model Queja {
+  id                   Int          @id @default(autoincrement())
+  codigo               String       @unique @db.VarChar(50)
+
+  // --- RECEPCIÓN ---
+  cliente              String?      @db.VarChar(200)
+  telefono_contacto    String?      @db.VarChar(50)
+  email_contacto       String?      @db.VarChar(150)
+  formulado_por        String?      @db.VarChar(150)    @map("formulado_por")
+  descripcion_queja    String       @db.Text
+  recibida_por         String?      @db.VarChar(150)
+  recibida_fecha       DateTime?    @db.Date
+
+  // --- ANÁLISIS ---
+  area_afectada        String?      @db.VarChar(100)
+  procedente           Boolean?
+  num_iac              String?      @db.VarChar(50)
+  justificativo_no_procede String?  @db.Text
+
+  // --- ACCIONES ---
+  acciones             String?      @db.Text
+  fecha_limite         DateTime?    @db.Date
+  responsables         QuejaResponsable[]
+
+  // --- CIERRE ---
+  verificacion_eficacia String?    @db.Text
+  cierre_fecha         DateTime?    @db.Date
+  cerrada_por          String?      @db.VarChar(150)
+
+  // --- ESTADO ---
+  estado               EstadoQueja  @default(RECIBIDA)
+  observaciones        String?      @db.Text
+  activo               Boolean      @default(true)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("queja")
+}
+
+model QuejaResponsable {
+  id                   Int          @id @default(autoincrement())
+  queja_id             Int
+  queja                Queja        @relation(fields: [queja_id], references: [id], onDelete: Cascade)
+  fase                 String       @db.VarChar(50)  // ANALISIS, ACCIONES, CIERRE
+  nombre               String       @db.VarChar(150)
+  cargo                String?      @db.VarChar(150)
+  fecha                DateTime?    @db.Date
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([queja_id])
+  @@map("queja_responsable")
 }

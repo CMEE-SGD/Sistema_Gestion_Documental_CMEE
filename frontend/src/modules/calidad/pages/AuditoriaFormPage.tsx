@@ -127,11 +127,8 @@ const ROLES_EVALUADOR = [
 ];
 
 const ACTIVIDADES_EVALUACION = [
-    { key: 'REMOTA', label: 'Remota' },
-    { key: 'PRESENCIAL', label: 'Presencial' },
-    { key: 'EVAL_REMOTA', label: 'Evaluación: Remota' },
-    { key: 'IN_SITU', label: 'In Situ' },
-    { key: 'TESTIFICACION', label: 'Testificación' },
+    { grupo: 'Evaluación', opciones: [{ key: 'EVAL_REMOTA', label: 'Remota' }, { key: 'EVAL_IN_SITU', label: 'In Situ' }] },
+    { grupo: 'Testificación', opciones: [{ key: 'TEST_PRESENCIAL', label: 'Presencial' }, { key: 'TEST_REMOTA', label: 'Remota' }] },
 ];
 
 const TIPOS_EVALUACION = [
@@ -494,14 +491,21 @@ export const AuditoriaFormPage = () => {
                             </div>
                             <div className="flex flex-col gap-1.5 md:col-span-2">
                                 <label className="text-sm font-medium text-gray-700">Actividades de Evaluación</label>
-                                <div className="flex flex-wrap gap-x-5 gap-y-2 border border-gray-300 rounded-md px-3 py-2.5 bg-gray-50">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border border-gray-300 rounded-md px-3 py-2.5 bg-gray-50">
                                     {ACTIVIDADES_EVALUACION.map(act => (
-                                        <label key={act.key} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                                            <input type="checkbox" checked={actividadesSeleccion.includes(act.label)} onChange={e => {
-                                                setActividadesSeleccion(prev => e.target.checked ? [...prev, act.label] : prev.filter(x => x !== act.label));
-                                            }} className="w-4 h-4 accent-blue-600" />
-                                            {act.label}
-                                        </label>
+                                        <div key={act.grupo} className="flex flex-col gap-1.5">
+                                            <span className="text-sm font-semibold text-gray-700">{act.grupo}:</span>
+                                            <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+                                                {act.opciones.map(op => (
+                                                    <label key={op.key} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                                        <input type="checkbox" checked={actividadesSeleccion.includes(`${act.grupo}: ${op.label}`)} onChange={e => {
+                                                            setActividadesSeleccion(prev => e.target.checked ? [...prev, `${act.grupo}: ${op.label}`] : prev.filter(x => x !== `${act.grupo}: ${op.label}`));
+                                                        }} className="w-4 h-4 accent-blue-600" />
+                                                        {op.label}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
@@ -614,98 +618,93 @@ export const AuditoriaFormPage = () => {
                     )}
                     <div className="border border-t-0 border-gray-300 rounded-b overflow-hidden">
                         <div className="hidden md:grid grid-cols-12 bg-gray-100 border-b border-gray-300 text-xs font-bold text-gray-700">
-                            <div className="col-span-1 px-3 py-2">Modalidad</div>
                             <div className="col-span-2 px-3 py-2">Función / Rol</div>
                             <div className="col-span-2 px-3 py-2">Nombre</div>
                             <div className="col-span-1 px-3 py-2">Teléfono</div>
                             <div className="col-span-2 px-3 py-2">E-mail</div>
                             <div className="col-span-1 px-3 py-2">Entidad</div>
                             <div className="col-span-2 px-3 py-2">Alcance / Campo</div>
-                            <div className="col-span-1 px-3 py-2 text-center"></div>
+                            <div className="col-span-2 px-3 py-2 text-center"></div>
                         </div>
-                        {equipoEvaluador.map((m, idx) => {
-                            const personaSel = m.nombre ? personas.find(p => `${p.nombre} ${p.apellidos}` === m.nombre) : null;
+                        {MODALIDADES_EQUIPO.map(mod => {
+                            const filas = equipoEvaluador.filter(m => m.modalidad === mod.value);
                             return (
-                                <div key={idx} className="grid grid-cols-1 md:grid-cols-12 border-b border-gray-200 last:border-b-0 gap-2 p-2 md:gap-0 md:p-0">
-                                    <div className="col-span-1 p-1">
-                                        <select value={m.modalidad} onChange={e => {
-                                            const copy = [...equipoEvaluador];
-                                            copy[idx].modalidad = e.target.value;
-                                            setEquipoEvaluador(copy);
-                                        }} className={`${inputCls} bg-white`}>
-                                            {MODALIDADES_EQUIPO.map(mod => (
-                                                <option key={mod.value} value={mod.value}>{mod.label}</option>
-                                            ))}
-                                        </select>
+                                <Fragment key={mod.value}>
+                                    <div className="grid grid-cols-12 bg-gray-100 border-y border-gray-300 text-xs font-bold text-gray-700 px-3 py-2">
+                                        <div className="col-span-8 flex items-center">{mod.label.toUpperCase()}</div>
+                                        <div className="col-span-4 text-right">
+                                            <button type="button" onClick={() => setEquipoEvaluador([...equipoEvaluador, { modalidad: mod.value, rol: '', nombre: '', telefono: '', email: '', entidad: '', alcance: '' }])} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                                                <Plus className="w-3 h-3 inline mr-1" />Agregar evaluador {mod.label}
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="col-span-2 p-1">
-                                        <input
-                                            list="roles-evaluador"
-                                            value={m.rol}
-                                            onChange={e => {
-                                                const copy = [...equipoEvaluador];
-                                                copy[idx].rol = e.target.value;
-                                                setEquipoEvaluador(copy);
-                                            }}
-                                            className={inputCls}
-                                            placeholder="Rol"
-                                        />
-                                        <datalist id="roles-evaluador">
-                                            {ROLES_EVALUADOR.map(r => <option key={r} value={r} />)}
-                                        </datalist>
-                                    </div>
-                                    <div className="col-span-2 p-1">
-                                        <select value={personaSel?.id || ''} onChange={e => {
-                                            const p = personas.find(x => x.id === Number(e.target.value));
-                                            const copy = [...equipoEvaluador];
-                                            copy[idx].nombre = p ? `${p.nombre} ${p.apellidos}` : '';
-                                            setEquipoEvaluador(copy);
-                                        }} className={`${inputCls} bg-white`}>
-                                            <option value="">Persona...</option>
-                                            {personasDisponiblesPara(m.nombre || '', equipoEvaluador).map(p => (
-                                                <option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="col-span-1 p-1">
-                                        <input type="text" value={m.telefono} onChange={e => {
-                                            const copy = [...equipoEvaluador];
-                                            copy[idx].telefono = e.target.value;
-                                            setEquipoEvaluador(copy);
-                                        }} className={inputCls} placeholder="Ext." />
-                                    </div>
-                                    <div className="col-span-2 p-1">
-                                        <input type="text" value={m.email} onChange={e => {
-                                            const copy = [...equipoEvaluador];
-                                            copy[idx].email = e.target.value;
-                                            setEquipoEvaluador(copy);
-                                        }} className={inputCls} placeholder="@" />
-                                    </div>
-                                    <div className="col-span-1 p-1">
-                                        <input type="text" value={m.entidad} onChange={e => {
-                                            const copy = [...equipoEvaluador];
-                                            copy[idx].entidad = e.target.value;
-                                            setEquipoEvaluador(copy);
-                                        }} className={inputCls} placeholder="SAE" />
-                                    </div>
-                                    <div className="col-span-2 p-1">
-                                        <AutoGrowTextarea value={m.alcance} onChange={e => {
-                                            const copy = [...equipoEvaluador];
-                                            copy[idx].alcance = e.target.value;
-                                            setEquipoEvaluador(copy);
-                                        }} rows={1} className={textareaCls} placeholder="Alcance / campo" />
-                                    </div>
-                                    <div className="col-span-1 p-1 flex items-center justify-center">
-                                        <button type="button" onClick={() => setEquipoEvaluador(equipoEvaluador.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
-                                    </div>
-                                </div>
+                                    {filas.length === 0 && (
+                                        <div className="px-3 py-2 text-sm text-gray-400 border-b border-gray-200">Sin evaluadores {mod.label.toLowerCase()}</div>
+                                    )}
+                                    {filas.map(m => {
+                                        const idx = equipoEvaluador.findIndex(x => x === m);
+                                        return (
+                                            <div key={idx} className="grid grid-cols-1 md:grid-cols-12 border-b border-gray-200 last:border-b-0 gap-2 p-2 md:gap-0 md:p-0">
+                                                <div className="col-span-2 p-1">
+                                                    <input
+                                                        list="roles-evaluador"
+                                                        value={m.rol}
+                                                        onChange={e => {
+                                                            const copy = [...equipoEvaluador];
+                                                            copy[idx].rol = e.target.value;
+                                                            setEquipoEvaluador(copy);
+                                                        }}
+                                                        className={inputCls}
+                                                        placeholder="Rol"
+                                                    />
+                                                    <datalist id="roles-evaluador">
+                                                        {ROLES_EVALUADOR.map(r => <option key={r} value={r} />)}
+                                                    </datalist>
+                                                </div>
+                                                <div className="col-span-2 p-1">
+                                                    <input type="text" value={m.nombre} onChange={e => {
+                                                        const copy = [...equipoEvaluador];
+                                                        copy[idx].nombre = e.target.value;
+                                                        setEquipoEvaluador(copy);
+                                                    }} className={inputCls} placeholder="Nombre de la persona" />
+                                                </div>
+                                                <div className="col-span-1 p-1">
+                                                    <input type="text" value={m.telefono} onChange={e => {
+                                                        const copy = [...equipoEvaluador];
+                                                        copy[idx].telefono = e.target.value;
+                                                        setEquipoEvaluador(copy);
+                                                    }} className={inputCls} placeholder="Ext." />
+                                                </div>
+                                                <div className="col-span-2 p-1">
+                                                    <input type="text" value={m.email} onChange={e => {
+                                                        const copy = [...equipoEvaluador];
+                                                        copy[idx].email = e.target.value;
+                                                        setEquipoEvaluador(copy);
+                                                    }} className={inputCls} placeholder="@" />
+                                                </div>
+                                                <div className="col-span-1 p-1">
+                                                    <input type="text" value={m.entidad} onChange={e => {
+                                                        const copy = [...equipoEvaluador];
+                                                        copy[idx].entidad = e.target.value;
+                                                        setEquipoEvaluador(copy);
+                                                    }} className={inputCls} placeholder="SAE" />
+                                                </div>
+                                                <div className="col-span-2 p-1">
+                                                    <AutoGrowTextarea value={m.alcance} onChange={e => {
+                                                        const copy = [...equipoEvaluador];
+                                                        copy[idx].alcance = e.target.value;
+                                                        setEquipoEvaluador(copy);
+                                                    }} rows={1} className={textareaCls} placeholder="Alcance / campo" />
+                                                </div>
+                                                <div className="col-span-2 p-1 flex items-center justify-center">
+                                                    <button type="button" onClick={() => setEquipoEvaluador(equipoEvaluador.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </Fragment>
                             );
                         })}
-                        <div className="p-2 text-center bg-gray-50">
-                            <button type="button" onClick={() => setEquipoEvaluador([...equipoEvaluador, { modalidad: 'IN_SITU', rol: '', nombre: '', telefono: '', email: '', entidad: '', alcance: '' }])} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
-                                <Plus className="w-3 h-3 inline mr-1" />Agregar evaluador
-                            </button>
-                        </div>
                     </div>
                 </div>
                 )}
@@ -825,6 +824,48 @@ export const AuditoriaFormPage = () => {
                 </div>
                 )}
 
+                {/* Testificaciones */}
+                <div>
+                    <div className={seccionCls}>{esExterna ? '4. TESTIFICACIONES A REALIZARSE' : 'TESTIFICACIONES A REALIZARSE'}</div>
+                    <div className="border border-t-0 border-gray-300 rounded-b overflow-hidden">
+                        <div className="hidden md:grid grid-cols-12 bg-gray-100 border-b border-gray-300 text-xs font-bold text-gray-700">
+                            <div className="col-span-1 px-3 py-2">No.</div>
+                            <div className="col-span-3 px-3 py-2">Método de ensayo / medida</div>
+                            <div className="col-span-3 px-3 py-2">Técnica / Magnitud</div>
+                            <div className="col-span-3 px-3 py-2">Matriz / Instrumento de medida</div>
+                            <div className="col-span-1 px-3 py-2">Evaluador / Experto</div>
+                            <div className="col-span-1 px-3 py-2 text-center"></div>
+                        </div>
+                        {testificaciones.map((t, i) => (
+                            <div key={i} className="grid grid-cols-1 md:grid-cols-12 border-b border-gray-200 last:border-b-0 gap-2 p-2 md:gap-0 md:p-0">
+                                <div className="col-span-1 p-1">
+                                    <input type="text" value={t.test} readOnly className={`${inputCls} bg-gray-100 text-gray-700 cursor-not-allowed`} />
+                                </div>
+                                <div className="col-span-3 p-1">
+                                    <input type="text" value={t.metodo_ensayo} onChange={e => { const copy = [...testificaciones]; copy[i].metodo_ensayo = e.target.value; setTestificaciones(copy); }} className={inputCls} placeholder="CA7.P1" />
+                                </div>
+                                <div className="col-span-3 p-1">
+                                    <AutoGrowTextarea value={t.metodo_magnitud} onChange={e => { const copy = [...testificaciones]; copy[i].metodo_magnitud = e.target.value; setTestificaciones(copy); }} rows={2} className={textareaCls} placeholder="Tiempo y Frecuencia: Intervalo de Tiempo" />
+                                </div>
+                                <div className="col-span-3 p-1">
+                                    <input type="text" value={t.muestra} onChange={e => { const copy = [...testificaciones]; copy[i].muestra = e.target.value; setTestificaciones(copy); }} className={inputCls} placeholder="Cronómetro" />
+                                </div>
+                                <div className="col-span-1 p-1">
+                                    <input type="text" value={t.evaluador} onChange={e => { const copy = [...testificaciones]; copy[i].evaluador = e.target.value; setTestificaciones(copy); }} className={inputCls} placeholder="ET1" />
+                                </div>
+                                <div className="col-span-1 p-1 flex items-center justify-center">
+                                    <button type="button" onClick={() => setTestificaciones(renumerarTestificaciones(testificaciones.filter((_, idx) => idx !== i)))} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            </div>
+                        ))}
+                        <div className="p-2 text-center bg-gray-50">
+                            <button type="button" onClick={() => setTestificaciones(renumerarTestificaciones([...testificaciones, { test: '', metodo_ensayo: '', metodo_magnitud: '', muestra: '', evaluador: '' }]))} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                                <Plus className="w-3 h-3 inline mr-1" />Agregar testificación
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Cronograma */}
                 <div>
                     <div className={seccionCls}>{esExterna ? '5. HORARIO DE EVALUACIÓN (CRONOGRAMA)' : 'CRONOGRAMA DE AUDITORÍA'}</div>
@@ -907,48 +948,6 @@ export const AuditoriaFormPage = () => {
                         <div className="p-2 text-center bg-gray-50">
                             <button type="button" onClick={() => setCronograma([...cronograma, { fecha: '', actividades: [{ hora: '', actividad: '', evaluador: '', referencia: '' }] }])} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
                                 <Plus className="w-3 h-3 inline mr-1" />Agregar fecha
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Testificaciones */}
-                <div>
-                    <div className={seccionCls}>{esExterna ? '4. TESTIFICACIONES A REALIZARSE' : 'TESTIFICACIONES A REALIZARSE'}</div>
-                    <div className="border border-t-0 border-gray-300 rounded-b overflow-hidden">
-                        <div className="hidden md:grid grid-cols-12 bg-gray-100 border-b border-gray-300 text-xs font-bold text-gray-700">
-                            <div className="col-span-1 px-3 py-2">No.</div>
-                            <div className="col-span-3 px-3 py-2">Método de ensayo / medida</div>
-                            <div className="col-span-3 px-3 py-2">Técnica / Magnitud</div>
-                            <div className="col-span-3 px-3 py-2">Matriz / Instrumento de medida</div>
-                            <div className="col-span-1 px-3 py-2">Evaluador / Experto</div>
-                            <div className="col-span-1 px-3 py-2 text-center"></div>
-                        </div>
-                        {testificaciones.map((t, i) => (
-                            <div key={i} className="grid grid-cols-1 md:grid-cols-12 border-b border-gray-200 last:border-b-0 gap-2 p-2 md:gap-0 md:p-0">
-                                <div className="col-span-1 p-1">
-                                    <input type="text" value={t.test} readOnly className={`${inputCls} bg-gray-100 text-gray-700 cursor-not-allowed`} />
-                                </div>
-                                <div className="col-span-3 p-1">
-                                    <input type="text" value={t.metodo_ensayo} onChange={e => { const copy = [...testificaciones]; copy[i].metodo_ensayo = e.target.value; setTestificaciones(copy); }} className={inputCls} placeholder="CA7.P1" />
-                                </div>
-                                <div className="col-span-3 p-1">
-                                    <AutoGrowTextarea value={t.metodo_magnitud} onChange={e => { const copy = [...testificaciones]; copy[i].metodo_magnitud = e.target.value; setTestificaciones(copy); }} rows={2} className={textareaCls} placeholder="Tiempo y Frecuencia: Intervalo de Tiempo" />
-                                </div>
-                                <div className="col-span-3 p-1">
-                                    <input type="text" value={t.muestra} onChange={e => { const copy = [...testificaciones]; copy[i].muestra = e.target.value; setTestificaciones(copy); }} className={inputCls} placeholder="Cronómetro" />
-                                </div>
-                                <div className="col-span-1 p-1">
-                                    <input type="text" value={t.evaluador} onChange={e => { const copy = [...testificaciones]; copy[i].evaluador = e.target.value; setTestificaciones(copy); }} className={inputCls} placeholder="ET1" />
-                                </div>
-                                <div className="col-span-1 p-1 flex items-center justify-center">
-                                    <button type="button" onClick={() => setTestificaciones(renumerarTestificaciones(testificaciones.filter((_, idx) => idx !== i)))} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
-                                </div>
-                            </div>
-                        ))}
-                        <div className="p-2 text-center bg-gray-50">
-                            <button type="button" onClick={() => setTestificaciones(renumerarTestificaciones([...testificaciones, { test: '', metodo_ensayo: '', metodo_magnitud: '', muestra: '', evaluador: '' }]))} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
-                                <Plus className="w-3 h-3 inline mr-1" />Agregar testificación
                             </button>
                         </div>
                     </div>

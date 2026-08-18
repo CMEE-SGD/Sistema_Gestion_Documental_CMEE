@@ -1,11 +1,16 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { EstadoNC } from '@prisma/client';
+import { EstadoNC, CondicionRiesgo } from '@prisma/client';
 import { CreateAuditoriaDto } from './dto/create-auditoria.dto';
 import { UpdateAuditoriaDto } from './dto/update-auditoria.dto';
 import { CreateNcDto } from './dto/create-nc.dto';
 import { UpdateNcDto } from './dto/update-nc.dto';
 import { CambiarEstadoNcDto } from './dto/cambiar-estado-nc.dto';
+import { CreateRiesgoDto } from './dto/create-riesgo.dto';
+import { UpdateRiesgoDto } from './dto/update-riesgo.dto';
+import { CreateQuejaDto } from './dto/create-queja.dto';
+import { UpdateQuejaDto } from './dto/update-queja.dto';
+
 
 /**
  * Máquina de estados de una No Conformidad.
@@ -404,6 +409,250 @@ export class CalidadService {
   async removeNc(id: number) {
     await this.findOneNc(id);
     return this.prisma.noConformidad.update({
+      where: { id },
+      data: { activo: false },
+    });
+  }
+
+  // ==================== RIESGOS Y OPORTUNIDADES (MC19.1.P1) ====================
+
+  // ==================== QUEJAS (AC1.3.F1-3) ====================
+
+  async siguienteNumeroQueja() {
+    const items = await this.prisma.queja.findMany({ select: { codigo: true } });
+    let max = 0;
+    for (const item of items) {
+      const n = parseInt(item.codigo.replace('Q-', ''), 10);
+      if (!isNaN(n) && n > max) max = n;
+    }
+    return `Q-${String(max + 1).padStart(4, '0')}`;
+  }
+
+  async createQueja(data: CreateQuejaDto) {
+    const codigo = data.codigo || await this.siguienteNumeroQueja();
+    const { responsables, ...rest } = data;
+    return this.prisma.queja.create({
+      data: {
+        codigo,
+        cliente: rest.cliente,
+        telefono_contacto: rest.telefono_contacto,
+        email_contacto: rest.email_contacto,
+        formulado_por: rest.formulado_por,
+        descripcion_queja: rest.descripcion_queja,
+        recibida_por: rest.recibida_por,
+        recibida_fecha: rest.recibida_fecha ? new Date(rest.recibida_fecha) : null,
+        area_afectada: rest.area_afectada,
+        procedente: rest.procedente ?? null,
+        num_iac: rest.num_iac,
+        justificativo_no_procede: rest.justificativo_no_procede,
+        acciones: rest.acciones,
+        fecha_limite: rest.fecha_limite ? new Date(rest.fecha_limite) : null,
+        verificacion_eficacia: rest.verificacion_eficacia,
+        cierre_fecha: rest.cierre_fecha ? new Date(rest.cierre_fecha) : null,
+        cerrada_por: rest.cerrada_por,
+        estado: rest.estado ?? 'RECIBIDA',
+        observaciones: rest.observaciones,
+        ...(responsables?.length && {
+          responsables: {
+            create: responsables.map(r => ({
+              fase: r.fase,
+              nombre: r.nombre,
+              cargo: r.cargo,
+              fecha: r.fecha ? new Date(r.fecha) : null,
+            })),
+          },
+        }),
+      },
+      include: { responsables: true },
+    });
+  }
+
+  async findAllQuejas() {
+    return this.prisma.queja.findMany({
+      where: { activo: true },
+      include: { responsables: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOneQueja(id: number) {
+    const item = await this.prisma.queja.findUnique({
+      where: { id },
+      include: { responsables: true },
+    });
+    if (!item) throw new NotFoundException(`Queja con ID ${id} no encontrada`);
+    return item;
+  }
+
+  async updateQueja(id: number, data: UpdateQuejaDto) {
+    await this.findOneQueja(id);
+    const { responsables, ...rest } = data;
+    return this.prisma.queja.update({
+      where: { id },
+      data: {
+        ...(rest as any),
+        recibida_fecha: rest.recibida_fecha
+          ? new Date(rest.recibida_fecha)
+          : rest.recibida_fecha === null ? null : undefined,
+        fecha_limite: rest.fecha_limite
+          ? new Date(rest.fecha_limite)
+          : rest.fecha_limite === null ? null : undefined,
+        cierre_fecha: rest.cierre_fecha
+          ? new Date(rest.cierre_fecha)
+          : rest.cierre_fecha === null ? null : undefined,
+        ...(responsables && {
+          responsables: {
+            deleteMany: {},
+            create: responsables.map(r => ({
+              fase: r.fase,
+              nombre: r.nombre,
+              cargo: r.cargo,
+              fecha: r.fecha ? new Date(r.fecha) : null,
+            })),
+          },
+        }),
+      },
+      include: { responsables: true },
+    });
+  }
+
+  async removeQueja(id: number) {
+    await this.findOneQueja(id);
+    return this.prisma.queja.update({
+      where: { id },
+      data: { activo: false },
+    });
+  }
+
+  /**
+   * Código correlativo por tipo: R-0001 (riesgo) / O-0001 (oportunidad).
+   */
+  private async siguienteNumeroRiesgo(tipo: 'RIESGO' | 'OPORTUNIDAD') {
+    const prefijo = tipo === 'OPORTUNIDAD' ? 'O' : 'R';
+    const items = await this.prisma.riesgoOportunidad.findMany({
+      where: { tipo },
+      select: { codigo: true },
+    });
+    let max = 0;
+    for (const item of items) {
+      const n = parseInt(item.codigo.split('-')[1], 10);
+      if (!isNaN(n) && n > max) max = n;
+    }
+    return `${prefijo}-${String(max + 1).padStart(4, '0')}`;
+  }
+
+  /**
+   * Calcula el nivel de riesgo (P x I x D) y su condición según la Tabla 4:
+   * >= 200 Alto | 80..199 Moderado | < 80 Leve.
+   */
+  private calcularNivel(probabilidad: number, impacto: number, deteccion: number): { nivel: number; condicion: CondicionRiesgo } {
+    const nivel = probabilidad * impacto * deteccion;
+    if (nivel >= 200) return { nivel, condicion: CondicionRiesgo.ALTO };
+    if (nivel >= 80) return { nivel, condicion: CondicionRiesgo.MODERADO };
+    return { nivel, condicion: CondicionRiesgo.LEVE };
+  }
+
+  async siguienteNumeroRiesgoEndpoint(tipo: 'RIESGO' | 'OPORTUNIDAD') {
+    return this.siguienteNumeroRiesgo(tipo);
+  }
+
+  async createRiesgo(data: CreateRiesgoDto) {
+    const tipo = data.tipo ?? 'RIESGO';
+    const codigo = data.codigo || (await this.siguienteNumeroRiesgo(tipo));
+    const { nivel, condicion } = this.calcularNivel(data.probabilidad, data.impacto, data.deteccion);
+    const { responsables, ...rest } = data;
+    return this.prisma.riesgoOportunidad.create({
+      data: {
+        codigo,
+        tipo,
+        proceso: rest.proceso,
+        evento: rest.evento,
+        causa: rest.causa,
+        fuente: rest.fuente,
+        consecuencias: rest.consecuencias,
+        probabilidad: rest.probabilidad,
+        impacto: rest.impacto,
+        deteccion: rest.deteccion,
+        nivel_riesgo: nivel,
+        condicion,
+        tratamiento: rest.tratamiento,
+        acciones: rest.acciones,
+        fecha_limite: rest.fecha_limite ? new Date(rest.fecha_limite) : null,
+        verificacion_eficacia: rest.verificacion_eficacia,
+        cierre_fecha: rest.cierre_fecha ? new Date(rest.cierre_fecha) : null,
+        cerrada_por: rest.cerrada_por,
+        estado: rest.estado,
+        observaciones: rest.observaciones,
+        ...(responsables?.length && {
+          responsables: {
+            create: responsables.map(r => ({
+              fase: r.fase,
+              nombre: r.nombre,
+              cargo: r.cargo,
+              fecha: r.fecha ? new Date(r.fecha) : null,
+            })),
+          },
+        }),
+      },
+      include: { responsables: true },
+    });
+  }
+
+  async findAllRiesgos() {
+    return this.prisma.riesgoOportunidad.findMany({
+      where: { activo: true },
+      include: { responsables: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOneRiesgo(id: number) {
+    const item = await this.prisma.riesgoOportunidad.findUnique({
+      where: { id },
+      include: { responsables: true },
+    });
+    if (!item) throw new NotFoundException(`Riesgo/Oportunidad con ID ${id} no encontrado`);
+    return item;
+  }
+
+  async updateRiesgo(id: number, data: UpdateRiesgoDto) {
+    const existente = await this.findOneRiesgo(id);
+    const probabilidad = data.probabilidad ?? existente.probabilidad;
+    const impacto = data.impacto ?? existente.impacto;
+    const deteccion = data.deteccion ?? existente.deteccion;
+    const { nivel, condicion } = this.calcularNivel(probabilidad, impacto, deteccion);
+    const { responsables, ...rest } = data;
+    return this.prisma.riesgoOportunidad.update({
+      where: { id },
+      data: {
+        ...(rest as any),
+        nivel_riesgo: nivel,
+        condicion,
+        fecha_limite: rest.fecha_limite
+          ? new Date(rest.fecha_limite)
+          : rest.fecha_limite === null ? null : undefined,
+        cierre_fecha: rest.cierre_fecha
+          ? new Date(rest.cierre_fecha)
+          : rest.cierre_fecha === null ? null : undefined,
+        ...(responsables && {
+          responsables: {
+            deleteMany: {},
+            create: responsables.map(r => ({
+              fase: r.fase,
+              nombre: r.nombre,
+              cargo: r.cargo,
+              fecha: r.fecha ? new Date(r.fecha) : null,
+            })),
+          },
+        }),
+      },
+      include: { responsables: true },
+    });
+  }
+
+  async removeRiesgo(id: number) {
+    await this.findOneRiesgo(id);
+    return this.prisma.riesgoOportunidad.update({
       where: { id },
       data: { activo: false },
     });
