@@ -152,7 +152,7 @@ export const QuejaFormPage = () => {
           fase,
           nombre: r.nombre,
           cargo: r.cargo || null,
-          fecha: r.fecha ? new Date(r.fecha).toISOString() : null,
+          fecha: r.fecha || null,
         }));
 
       const allResponsables = [
@@ -168,7 +168,7 @@ export const QuejaFormPage = () => {
         formulado_por: form.formulado_por,
         descripcion_queja: form.descripcion_queja,
         recibida_por: form.recibida_por,
-        recibida_fecha: form.recibida_fecha ? new Date(form.recibida_fecha).toISOString() : null,
+        recibida_fecha: form.recibida_fecha || null,
       };
       if (esEdicion) {
         Object.assign(payload, {
@@ -177,9 +177,9 @@ export const QuejaFormPage = () => {
           num_iac: form.num_iac || null,
           justificativo_no_procede: form.justificativo_no_procede || null,
           acciones: form.acciones || null,
-          fecha_limite: form.fecha_limite ? new Date(form.fecha_limite).toISOString() : null,
+          fecha_limite: form.fecha_limite || null,
           verificacion_eficacia: form.verificacion_eficacia || null,
-          cierre_fecha: form.cierre_fecha ? new Date(form.cierre_fecha).toISOString() : null,
+          cierre_fecha: form.cierre_fecha || null,
           cerrada_por: form.cerrada_por || null,
           observaciones: form.observaciones || null,
           responsables: allResponsables,

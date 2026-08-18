@@ -15,6 +15,7 @@ const condicionStyles: Record<string, string> = {
 const estadoStyles: Record<string, string> = {
     IDENTIFICADO: 'bg-blue-100 text-blue-700',
     EN_SEGUIMIENTO: 'bg-amber-100 text-amber-700',
+    VALORADO: 'bg-blue-100 text-blue-700',
     CERRADO: 'bg-emerald-100 text-emerald-700',
 };
 
@@ -70,15 +71,20 @@ export const RiesgoDetallePage = () => {
                                 <Search className="w-4 h-4 mr-1" /> Valoración
                             </Button>
                         )}
-                        {(item.estado === 'IDENTIFICADO' || item.estado === 'EN_SEGUIMIENTO') && item.acciones && (
-                            <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${item.id}/seguimiento?seccion=seguimiento`)}>
-                                <ClipboardList className="w-4 h-4 mr-1" /> Seguimiento
+                        {item.estado === 'VALORADO' && (
+                            <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${item.id}/seguimiento?seccion=tratamiento`)}>
+                                <ClipboardList className="w-4 h-4 mr-1" /> Tratamiento
                             </Button>
                         )}
                         {item.estado === 'EN_SEGUIMIENTO' && (
-                            <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${item.id}/seguimiento?seccion=cierre`)}>
-                                <CheckCircle className="w-4 h-4 mr-1" /> Cierre
-                            </Button>
+                            <>
+                                <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${item.id}/seguimiento?seccion=seguimiento`)}>
+                                    <ClipboardList className="w-4 h-4 mr-1" /> Seguimiento
+                                </Button>
+                                <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${item.id}/seguimiento?seccion=cierre`)}>
+                                    <CheckCircle className="w-4 h-4 mr-1" /> Cierre
+                                </Button>
+                            </>
                         )}
                         {puedeEditar && (
                             <Button variant="default" onClick={() => navigate(`/calidad/riesgos/editar/${item.id}`)}>

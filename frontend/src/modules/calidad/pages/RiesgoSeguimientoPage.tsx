@@ -171,7 +171,7 @@ export const RiesgoSeguimientoPage = () => {
                     fase: faseActual,
                     nombre: r.nombre,
                     cargo: r.cargo || null,
-                    fecha: r.fecha ? new Date(r.fecha).toISOString() : null,
+                    fecha: r.fecha || null,
                 }));
 
             let payload: any = {};
@@ -186,7 +186,7 @@ export const RiesgoSeguimientoPage = () => {
                 payload = {
                     tratamiento: form.tratamiento || null,
                     acciones: form.acciones || null,
-                    fecha_limite: form.fecha_limite ? new Date(form.fecha_limite).toISOString() : null,
+                    fecha_limite: form.fecha_limite || null,
                     observaciones: form.observaciones || null,
                     estado: 'EN_SEGUIMIENTO',
                     responsables: buildResp(),
@@ -194,7 +194,7 @@ export const RiesgoSeguimientoPage = () => {
             } else if (seccion === 'seguimiento') {
                 payload = {
                     verificacion_eficacia: form.verificacion_eficacia || null,
-                    cierre_fecha: form.cierre_fecha ? new Date(form.cierre_fecha).toISOString() : null,
+                    cierre_fecha: form.cierre_fecha || null,
                     cerrada_por: form.cerrada_por || null,
                     estado: 'CERRADO',
                     responsables: buildResp(),

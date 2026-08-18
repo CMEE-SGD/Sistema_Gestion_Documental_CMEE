@@ -16,6 +16,7 @@ const condicionStyles: Record<string, string> = {
 const estadoStyles: Record<string, string> = {
     IDENTIFICADO: 'bg-blue-100 text-blue-700',
     EN_SEGUIMIENTO: 'bg-amber-100 text-amber-700',
+    VALORADO: 'bg-blue-100 text-blue-700',
     CERRADO: 'bg-emerald-100 text-emerald-700',
 };
 

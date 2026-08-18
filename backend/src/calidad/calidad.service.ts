@@ -622,10 +622,21 @@ export class CalidadService {
     const deteccion = data.deteccion ?? existente.deteccion;
     const { nivel, condicion } = this.calcularNivel(probabilidad, impacto, deteccion);
     const { responsables, ...rest } = data;
+    let autoEstado = rest.estado;
+    if (!autoEstado || autoEstado === existente.estado) {
+      if ((data.probabilidad !== undefined || data.impacto !== undefined || data.deteccion !== undefined) && existente.estado === 'IDENTIFICADO') {
+        autoEstado = 'VALORADO';
+      } else if (data.tratamiento !== undefined && existente.estado === 'VALORADO') {
+        autoEstado = 'EN_SEGUIMIENTO';
+      } else if (data.verificacion_eficacia !== undefined && existente.estado === 'EN_SEGUIMIENTO') {
+        autoEstado = 'CERRADO';
+      }
+    }
     return this.prisma.riesgoOportunidad.update({
       where: { id },
       data: {
         ...(rest as any),
+        estado: autoEstado,
         nivel_riesgo: nivel,
         condicion,
         fecha_limite: rest.fecha_limite
