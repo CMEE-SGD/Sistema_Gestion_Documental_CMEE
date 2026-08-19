@@ -6,6 +6,7 @@ import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { tienePermiso } from '../../../shared/utils/auth';
+import { encodeId } from '../../../shared/utils/ids';
 
 const condicionStyles: Record<string, string> = {
     ALTO: 'bg-red-100 text-red-700',
@@ -110,7 +111,7 @@ export const RiesgosOportunidadesPage = () => {
                         ) : filtradas.length === 0 ? (
                             <tr><td colSpan={8} className="text-center py-10 text-gray-400">No se encontraron registros</td></tr>
                         ) : filtradas.map(item => (
-                            <tr key={item.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/calidad/riesgos/${item.id}`)}>
+                            <tr key={item.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/calidad/riesgos/${encodeId(item.id)}`)}>
                                 <td className="px-4 py-3 font-medium text-gray-800">{item.codigo}</td>
                                 <td className="px-4 py-3">
                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${item.tipo === 'OPORTUNIDAD' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
@@ -129,9 +130,9 @@ export const RiesgosOportunidadesPage = () => {
                                 </td>
                                 <td className="px-4 py-3">
                                     <div className="flex justify-center gap-1">
-                                        <button onClick={() => navigate(`/calidad/riesgos/${item.id}`)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver detalle"><Eye className="w-4 h-4" /></button>
+                                        <button onClick={() => navigate(`/calidad/riesgos/${encodeId(item.id)}`)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver detalle"><Eye className="w-4 h-4" /></button>
                                         {puedeEditar && (
-                                            <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/riesgos/editar/${item.id}`); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar"><Edit3 className="w-4 h-4" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/riesgos/editar/${encodeId(item.id)}`); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar"><Edit3 className="w-4 h-4" /></button>
                                         )}
                                         {puedeEliminar && (
                                             <button onClick={(e) => { e.stopPropagation(); handleEliminar(item.id); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>

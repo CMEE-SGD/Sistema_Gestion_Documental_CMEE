@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCcw } from 'lucide-react';
 import api from '../../../../core/api/axios';
+import { encodeId } from '../../../../shared/utils/ids';
 
 export const CircuitosConfigPage = () => {
     const navigate = useNavigate();
@@ -64,7 +65,7 @@ export const CircuitosConfigPage = () => {
                                         </button>
                                         <button
                                             // 👉 Al dar clic, navegamos a la vista de fases de ESTE circuito
-                                            onClick={() => navigate(`/gestordocumental/configuracion/circuitos/${circuito.id}/fases`, { state: { nombreCircuito: circuito.nombre }})}
+                                            onClick={() => navigate(`/gestordocumental/configuracion/circuitos/${encodeId(circuito.id)}/fases`, { state: { nombreCircuito: circuito.nombre }})}
                                             className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm text-gray-700 font-medium"
                                         >
                                             Fases

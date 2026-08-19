@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Settings, FolderPlus, Folder, ChevronRight, ChevronDown } from 'lucide-react';
 import api from '../../../core/api/axios';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const SidebarGestorDocumental = () => {
     const navigate = useNavigate();
@@ -32,10 +33,10 @@ const SidebarGestorDocumental = () => {
     // Abrir automáticamente la carpeta actual en el sidebar
     useEffect(() => {
         if (carpetas.length === 0) return;
-        const match = location.pathname.match(/\/carpeta\/(\d+)/);
+        const match = location.pathname.match(/\/carpeta\/([^/]+)/);
         if (!match) return;
 
-        const activeFolderId = parseInt(match[1], 10);
+        const activeFolderId = Number(decodeId(match[1]));
         const getAncestors = (folderId: number) => {
             const ancestors: number[] = [];
             let current = carpetas.find(c => c.id === folderId);
@@ -79,7 +80,7 @@ const SidebarGestorDocumental = () => {
         return (
             <div className={`flex flex-col ${depth > 0 ? 'ml-4 pl-2 border-l border-gray-200' : ''}`}>
                 {children.map(carpeta => {
-                    const isActive = location.pathname.includes(`/gestordocumental/carpeta/${carpeta.id}`);
+                    const isActive = location.pathname.includes(`/gestordocumental/carpeta/${encodeId(carpeta.id)}`);
                     const isExpanded = expandedFolders[carpeta.id];
                     const hasChildren = carpetas.some(c => c.carpeta_padre_id === carpeta.id);
 
@@ -87,7 +88,7 @@ const SidebarGestorDocumental = () => {
                         <div key={carpeta.id} className="flex flex-col mt-1">
                             <div
                                 onClick={() => {
-                                    navigate(`/gestordocumental/carpeta/${carpeta.id}`);
+                                    navigate(`/gestordocumental/carpeta/${encodeId(carpeta.id)}`);
                                     if (hasChildren) {
                                         setExpandedFolders(prev => {
                                             const isOpening = !prev[carpeta.id];

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import { Persona } from '../interfaces/persona.interface';
 import { tienePermiso } from '../../../shared/utils/auth';
+import { encodeId } from '../../../shared/utils/ids';
 
 interface TablaPersonasProps {
     personas: Persona[];
@@ -72,7 +73,7 @@ const TablaPersonas = ({
                                         </td>
                                     )}
 
-                                    <td className="px-4 py-2 border-r border-gray-200 print:border-gray-400 cursor-pointer" onClick={() => navigate(`/rrhh/personas/${persona.id}`)}>
+                                    <td className="px-4 py-2 border-r border-gray-200 print:border-gray-400 cursor-pointer" onClick={() => navigate(`/rrhh/personas/${encodeId(persona.id)}`)}>
                                         <div className="flex items-center gap-3">
                                             <div className="print:hidden">
                                                 {persona.foto_ruta ? (

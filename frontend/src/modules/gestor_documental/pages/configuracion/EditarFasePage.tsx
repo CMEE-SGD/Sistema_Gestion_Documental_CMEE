@@ -3,9 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../../shared/utils/ids';
 
 export const EditarFasePage = () => {
-    const { circuitoId, faseId } = useParams();
+    const { circuitoId: rawCircuitoId, faseId: rawFaseId } = useParams();
+    const circuitoId = rawCircuitoId ? decodeId(rawCircuitoId) : undefined;
+    const faseId = rawFaseId ? decodeId(rawFaseId) : undefined;
     const navigate = useNavigate();
     const { alert, confirm } = useAlert();
     const { toast } = useToast();

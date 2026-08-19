@@ -4,9 +4,10 @@ import api from '../../../../core/api/axios';
 import FormGrupo from '../../components/FormGrupo';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../../shared/utils/ids';
 
 export const EditarGrupoPage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
     const { confirm } = useAlert();
     const { toast } = useToast();
@@ -55,7 +56,7 @@ export const EditarGrupoPage = () => {
         };
         await api.patch(`/departamentos/${id}`, payload);
         toast({ message: 'Grupo actualizado correctamente.' });
-        navigate(`/rrhh/grupos/${id}`);
+        navigate(`/rrhh/grupos/${encodeId(id)}`);
     };
 
     if (loading) return <div>Cargando...</div>;

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { X, Trash2, ArrowLeft, UsersRound } from 'lucide-react';
 import api from '../../core/api/axios';
+import { encodeId, decodeId } from '../../shared/utils/ids';
 import { useAlert } from '../../shared/components/molecules/AlertModal';
 import { useToast } from '../../shared/components/molecules/Toast';
 
@@ -18,7 +19,8 @@ const Toggle = ({ label, checked, onChange }: any) => (
 );
 
 export const GrupoFormPage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams();
+    const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
     const { alert, confirm } = useAlert();
     const { toast } = useToast();

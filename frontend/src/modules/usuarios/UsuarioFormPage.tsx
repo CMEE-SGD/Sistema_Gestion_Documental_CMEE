@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2, Lock, Calendar, X, ArrowLeft } from 'lucide-react';
 import api from '../../core/api/axios';
+import { encodeId, decodeId } from '../../shared/utils/ids';
 import { useAlert } from '../../shared/components/molecules/AlertModal';
 import { useToast } from '../../shared/components/molecules/Toast';
 
@@ -20,7 +21,8 @@ const Toggle = ({ label, checked, onChange, icon }: any) => (
 );
 
 export const UsuarioFormPage = () => {
-    const { id } = useParams(); 
+    const { id: rawId } = useParams();
+    const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
     const { alert } = useAlert();
     const { toast } = useToast();

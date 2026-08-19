@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, Edit2, Trash2, Search, Users, ArchiveRestore } from 'lucide-react';
 import api from '../../core/api/axios';
+import { encodeId } from '../../shared/utils/ids';
 import { tienePermiso } from '../../shared/utils/auth';
 import { useAlert } from '../../shared/components/molecules/AlertModal';
 import { useToast } from '../../shared/components/molecules/Toast';
@@ -191,7 +192,7 @@ export const UsuariosPage = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex justify-center gap-1">
                                                     {puedeEditar && (
-                                                        <button onClick={() => navigate(`/usuarios/editar/${usuario.id}`)} className="text-muted-foreground hover:text-primary hover:bg-primary/10 p-1.5 rounded-md transition-colors" title="Editar">
+                                                        <button onClick={() => navigate(`/usuarios/editar/${encodeId(usuario.id)}`)} className="text-muted-foreground hover:text-primary hover:bg-primary/10 p-1.5 rounded-md transition-colors" title="Editar">
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
                                                     )}

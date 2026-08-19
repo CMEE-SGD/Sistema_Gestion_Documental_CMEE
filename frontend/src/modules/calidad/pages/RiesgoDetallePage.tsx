@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { tienePermiso } from '../../../shared/utils/auth';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const condicionStyles: Record<string, string> = {
     ALTO: 'bg-red-100 text-red-700',
@@ -20,7 +21,8 @@ const estadoStyles: Record<string, string> = {
 };
 
 export const RiesgoDetallePage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams<{id: string}>();
+    const id = decodeId(rawId!);
     const navigate = useNavigate();
     const { alert } = useAlert();
     const [item, setItem] = useState<any>(null);
@@ -67,27 +69,27 @@ export const RiesgoDetallePage = () => {
                     </div>
                     <div className="flex items-center gap-2">
                         {item.estado === 'IDENTIFICADO' && (
-                            <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${item.id}/seguimiento?seccion=valoracion`)}>
+                            <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${encodeId(item.id)}/seguimiento?seccion=valoracion`)}>
                                 <Search className="w-4 h-4 mr-1" /> Valoración
                             </Button>
                         )}
                         {item.estado === 'VALORADO' && (
-                            <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${item.id}/seguimiento?seccion=tratamiento`)}>
+                            <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${encodeId(item.id)}/seguimiento?seccion=tratamiento`)}>
                                 <ClipboardList className="w-4 h-4 mr-1" /> Tratamiento
                             </Button>
                         )}
                         {item.estado === 'EN_SEGUIMIENTO' && (
                             <>
-                                <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${item.id}/seguimiento?seccion=seguimiento`)}>
+                                <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${encodeId(item.id)}/seguimiento?seccion=seguimiento`)}>
                                     <ClipboardList className="w-4 h-4 mr-1" /> Seguimiento
                                 </Button>
-                                <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${item.id}/seguimiento?seccion=cierre`)}>
+                                <Button variant="default" onClick={() => navigate(`/calidad/riesgos/${encodeId(item.id)}/seguimiento?seccion=cierre`)}>
                                     <CheckCircle className="w-4 h-4 mr-1" /> Cierre
                                 </Button>
                             </>
                         )}
                         {puedeEditar && (
-                            <Button variant="default" onClick={() => navigate(`/calidad/riesgos/editar/${item.id}`)}>
+                            <Button variant="default" onClick={() => navigate(`/calidad/riesgos/editar/${encodeId(item.id)}`)}>
                                 <Edit3 className="w-4 h-4 mr-1" /> Editar
                             </Button>
                         )}

@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const inputCls = 'w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500';
 
@@ -53,7 +54,8 @@ const RespSection = ({ title, items, onChange, onAdd, onRemove }: {
 );
 
 export const QuejaFormPage = () => {
-  const { id } = useParams();
+  const { id: rawId } = useParams<{id: string}>();
+  const id = decodeId(rawId!);
   const navigate = useNavigate();
   const { alert } = useAlert();
   const { toast } = useToast();
@@ -356,7 +358,7 @@ export const QuejaFormPage = () => {
         <div className="flex justify-end gap-3 px-4 pb-4">
           <button
             type="button"
-            onClick={() => navigate(esEdicion ? `/calidad/quejas/${id}` : '/calidad/quejas')}
+            onClick={() => navigate(esEdicion ? `/calidad/quejas/${encodeId(id)}` : '/calidad/quejas')}
             className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Cancelar

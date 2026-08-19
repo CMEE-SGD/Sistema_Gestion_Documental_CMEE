@@ -5,11 +5,13 @@ import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import FirmarDocumentoModal from '../components/FirmarDocumentoModal';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export const DetalleDocumentoPage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams();
+    const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
     const { alert, confirm } = useAlert();
     const { toast } = useToast();

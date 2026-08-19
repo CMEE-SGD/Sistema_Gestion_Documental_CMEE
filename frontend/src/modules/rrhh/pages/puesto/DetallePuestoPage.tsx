@@ -7,9 +7,10 @@ import FichaPuesto from '../../components/FichaPuesto';
 import { tienePermiso } from '../../../../shared/utils/auth';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../../shared/utils/ids';
 
 export const DetallePuestoPage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
     const { alert, confirm } = useAlert();
     const { toast } = useToast();
@@ -83,7 +84,7 @@ export const DetallePuestoPage = () => {
                     
                     {/* 👇 Ocultamos Editar (Nivel 4) */}
                     {tienePermiso('Recursos Humanos', 4) && (
-                        <Button onClick={() => navigate(`/rrhh/puestos/editar/${id}`)} variant="clasico">Editar</Button>
+                        <Button onClick={() => navigate(`/rrhh/puestos/editar/${encodeId(id)}`)} variant="clasico">Editar</Button>
                     )}
                 </div>
             </div>

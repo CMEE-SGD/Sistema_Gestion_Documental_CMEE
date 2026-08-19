@@ -4,6 +4,7 @@ import { ArrowLeft, Edit3, Search, ClipboardList, CheckCircle } from 'lucide-rea
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const estadoStyles: Record<string, string> = {
   RECIBIDA: 'bg-gray-100 text-gray-700',
@@ -15,7 +16,8 @@ const estadoStyles: Record<string, string> = {
 };
 
 export const QuejaDetallePage = () => {
-  const { id } = useParams();
+  const { id: rawId } = useParams<{id: string}>();
+  const id = decodeId(rawId!);
   const navigate = useNavigate();
   const { alert } = useAlert();
   const [item, setItem] = useState<any>(null);
@@ -60,7 +62,7 @@ export const QuejaDetallePage = () => {
             {(item.estado === 'RECIBIDA' || item.estado === 'EN_ANALISIS') && (
               <Button
                 variant="default"
-                onClick={() => navigate(`/calidad/quejas/${item.id}/seguimiento?seccion=analisis`)}
+                onClick={() => navigate(`/calidad/quejas/${encodeId(item.id)}/seguimiento?seccion=analisis`)}
               >
                 <Search className="w-4 h-4 mr-1" /> Análisis
               </Button>
@@ -68,7 +70,7 @@ export const QuejaDetallePage = () => {
             {(item.estado === 'PROCEDENTE' || item.estado === 'EN_SEGUIMIENTO') && (
               <Button
                 variant="default"
-                onClick={() => navigate(`/calidad/quejas/${item.id}/seguimiento?seccion=acciones`)}
+                onClick={() => navigate(`/calidad/quejas/${encodeId(item.id)}/seguimiento?seccion=acciones`)}
               >
                 <ClipboardList className="w-4 h-4 mr-1" /> Acciones
               </Button>
@@ -76,14 +78,14 @@ export const QuejaDetallePage = () => {
             {item.estado === 'EN_SEGUIMIENTO' && (
               <Button
                 variant="default"
-                onClick={() => navigate(`/calidad/quejas/${item.id}/seguimiento?seccion=cierre`)}
+                onClick={() => navigate(`/calidad/quejas/${encodeId(item.id)}/seguimiento?seccion=cierre`)}
               >
                 <CheckCircle className="w-4 h-4 mr-1" /> Cierre
               </Button>
             )}
             <Button
               variant="default"
-              onClick={() => navigate(`/calidad/quejas/editar/${item.id}`)}
+              onClick={() => navigate(`/calidad/quejas/editar/${encodeId(item.id)}`)}
             >
               <Edit3 className="w-4 h-4 mr-1" /> Editar
             </Button>

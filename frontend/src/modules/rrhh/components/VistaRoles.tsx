@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserCog } from 'lucide-react';
+import { encodeId } from '../../../shared/utils/ids';
 
 interface VistaRolesProps {
     vistaActual: 'tabla' | 'esquema';
@@ -38,7 +39,7 @@ const VistaRoles = ({ vistaActual, rolesFiltrados, loading }: VistaRolesProps) =
                         ) : rolesFiltrados.map((rol) => (
                             <tr 
                                 key={rol.id} 
-                                onClick={() => navigate(`/rrhh/roles/${rol.id}`)}
+                                onClick={() => navigate(`/rrhh/roles/${encodeId(rol.id)}`)}
                                 className={`hover:bg-gray-100 cursor-pointer transition-colors print:break-inside-avoid ${!rol.activo ? 'opacity-70 bg-gray-50 print:opacity-100' : ''}`}
                             >
                                 <td className="px-4 py-2 flex items-center gap-2">

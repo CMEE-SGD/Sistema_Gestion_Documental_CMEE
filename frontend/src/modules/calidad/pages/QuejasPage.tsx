@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { encodeId } from '../../../shared/utils/ids';
 
 const estadoStyles: Record<string, string> = {
   RECIBIDA: 'bg-gray-100 text-gray-700',
@@ -99,7 +100,7 @@ export const QuejasPage = () => {
                   <tr
                     key={item.id}
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/calidad/quejas/${item.id}`)}
+                    onClick={() => navigate(`/calidad/quejas/${encodeId(item.id)}`)}
                   >
                     <td className="px-4 py-3 font-mono text-xs font-bold text-gray-700">{item.codigo}</td>
                     <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{item.cliente || '—'}</td>
@@ -115,14 +116,14 @@ export const QuejasPage = () => {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={(e) => { e.stopPropagation(); navigate(`/calidad/quejas/${item.id}`); }}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/calidad/quejas/${encodeId(item.id)}`); }}
                           className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                           title="Ver detalle"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); navigate(`/calidad/quejas/editar/${item.id}`); }}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/calidad/quejas/editar/${encodeId(item.id)}`); }}
                           className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors"
                           title="Editar"
                         >

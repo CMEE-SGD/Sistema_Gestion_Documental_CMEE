@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const PROCESOS = [
     { value: 'DCM', label: 'Direccionamiento Operativo (DCM)' },
@@ -82,7 +83,8 @@ const condicionBadge: Record<string, string> = {
 };
 
 export const RiesgoFormPage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams<{id: string}>();
+    const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
     const { alert } = useAlert();
     const { toast } = useToast();
@@ -381,7 +383,7 @@ export const RiesgoFormPage = () => {
 
                 {/* ============ BOTONES ============ */}
                 <div className="flex justify-end gap-3 px-4 pb-4">
-                    <button type="button" onClick={() => navigate(esEdicion ? `/calidad/riesgos/${id}` : '/calidad/riesgos')} className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+                    <button type="button" onClick={() => navigate(esEdicion ? `/calidad/riesgos/${encodeId(id!)}` : '/calidad/riesgos')} className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
                     <Button type="submit" disabled={guardando}>
                         <Save className="w-4 h-4 mr-1" /> {guardando ? 'Guardando...' : 'Guardar'}
                     </Button>

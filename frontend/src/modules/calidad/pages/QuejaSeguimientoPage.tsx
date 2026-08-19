@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const inputCls = 'w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500';
 
@@ -17,7 +18,8 @@ interface ResponsableRow {
 const emptyResp = (): ResponsableRow => ({ nombre: '', cargo: '', fecha: '' });
 
 export const QuejaSeguimientoPage = () => {
-  const { id } = useParams();
+  const { id: rawId } = useParams<{id: string}>();
+  const id = decodeId(rawId!);
   const [searchParams] = useSearchParams();
   const seccion = searchParams.get('seccion') || 'analisis';
   const navigate = useNavigate();
@@ -133,7 +135,7 @@ export const QuejaSeguimientoPage = () => {
       }
       await api.patch(`/calidad/quejas/${id}`, payload);
       toast({ message: 'Seguimiento actualizado correctamente.' });
-      navigate(`/calidad/quejas/${id}`);
+      navigate(`/calidad/quejas/${encodeId(id)}`);
     } catch (error: any) {
       await alert({ message: error?.response?.data?.message || 'Error al guardar el seguimiento.' });
     } finally {
@@ -308,7 +310,7 @@ export const QuejaSeguimientoPage = () => {
   return (
     <div className="p-6">
       <button
-        onClick={() => navigate(`/calidad/quejas/${id}`)}
+        onClick={() => navigate(`/calidad/quejas/${encodeId(id)}`)}
         className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-4"
       >
         <ArrowLeft className="w-4 h-4" /> Volver a {codigo}
@@ -325,7 +327,7 @@ export const QuejaSeguimientoPage = () => {
         <div className="flex justify-end gap-3 px-4 pb-4">
           <button
             type="button"
-            onClick={() => navigate(`/calidad/quejas/${id}`)}
+            onClick={() => navigate(`/calidad/quejas/${encodeId(id)}`)}
             className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Cancelar

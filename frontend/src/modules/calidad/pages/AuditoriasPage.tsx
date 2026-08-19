@@ -6,6 +6,7 @@ import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { tienePermiso } from '../../../shared/utils/auth';
+import { encodeId } from '../../../shared/utils/ids';
 
 export const AuditoriasPage = () => {
     const navigate = useNavigate();
@@ -106,7 +107,7 @@ export const AuditoriasPage = () => {
                         ) : filtradas.length === 0 ? (
                             <tr><td colSpan={7} className="text-center py-10 text-gray-400">No se encontraron auditorías</td></tr>
                         ) : filtradas.map(a => (
-                            <tr key={a.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/calidad/auditorias/${a.id}`)}>
+                            <tr key={a.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/calidad/auditorias/${encodeId(a.id)}`)}>
                                 <td className="px-4 py-3 font-medium text-gray-800">{a.codigo}</td>
                                 <td className="px-4 py-3">
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${a.tipo === 'EXTERNA' ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-700'}`}>{a.tipo === 'EXTERNA' ? 'EXTERNA' : 'INTERNA'}</span>
@@ -117,9 +118,9 @@ export const AuditoriasPage = () => {
                                 <td className="px-4 py-3">{estadoBadge(a.estado)}</td>
                                 <td className="px-4 py-3">
                                     <div className="flex justify-center gap-1">
-                                        <button onClick={() => navigate(`/calidad/auditorias/${a.id}`)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver detalle"><Eye className="w-4 h-4" /></button>
+                                        <button onClick={() => navigate(`/calidad/auditorias/${encodeId(a.id)}`)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver detalle"><Eye className="w-4 h-4" /></button>
                                         {puedeEditar && (
-                                            <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/auditorias/editar/${a.id}`); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar"><Edit3 className="w-4 h-4" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/auditorias/editar/${encodeId(a.id)}`); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar"><Edit3 className="w-4 h-4" /></button>
                                         )}
                                         {puedeEliminar && (
                                             <button onClick={(e) => { e.stopPropagation(); handleEliminar(a.id); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
