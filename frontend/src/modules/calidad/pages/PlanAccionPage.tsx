@@ -8,6 +8,7 @@ import '@sd-vk/spa-quill-table-better/dist/quill-table-better.css';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -37,7 +38,9 @@ const formats = [
 ];
 
 export const PlanAccionPage = () => {
-    const { auditoriaId, ncId } = useParams();
+    const { auditoriaId: rawAid, ncId: rawNcId } = useParams<{auditoriaId: string; ncId: string}>();
+    const auditoriaId = rawAid ? decodeId(rawAid) : undefined;
+    const ncId = rawNcId ? decodeId(rawNcId) : undefined;
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { alert } = useAlert();
@@ -135,7 +138,7 @@ export const PlanAccionPage = () => {
                 setEstadoNc('EN_CURSO');
             }
             toast({ message: 'Plan de acción guardado correctamente.' });
-            navigate(auditoriaId ? `/calidad/auditorias/${auditoriaId}/nc/${ncId}` : `/calidad/no-conformidades/${ncId}`);
+            navigate(auditoriaId ? `/calidad/auditorias/${encodeId(auditoriaId)}/nc/${encodeId(ncId!)}` : `/calidad/no-conformidades/${encodeId(ncId!)}`);
         } catch (error: any) {
             const msg = error.response?.data?.message || 'Error al guardar el plan de acción';
             await alert({ message: msg });
@@ -179,7 +182,7 @@ export const PlanAccionPage = () => {
                 }
             }
             toast({ message: resultadoVerif === 'EFICAZ' ? 'Verificación registrada. La NC quedó como VERIFICADA.' : 'Verificación registrada. La NC continúa EN CURSO.' });
-            navigate(auditoriaId ? `/calidad/auditorias/${auditoriaId}/nc/${ncId}` : `/calidad/no-conformidades/${ncId}`);
+            navigate(auditoriaId ? `/calidad/auditorias/${encodeId(auditoriaId)}/nc/${encodeId(ncId!)}` : `/calidad/no-conformidades/${encodeId(ncId!)}`);
         } catch (error: any) {
             const msg = error.response?.data?.message || 'Error al registrar la verificación';
             await alert({ message: msg });
@@ -205,7 +208,7 @@ export const PlanAccionPage = () => {
     return (
         <div className="p-6 max-w-5xl mx-auto">
             <div className="mb-6">
-                <button onClick={() => navigate(auditoriaId ? `/calidad/auditorias/${auditoriaId}/nc/${ncId}` : `/calidad/no-conformidades/${ncId}`)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-2">
+                <button onClick={() => navigate(auditoriaId ? `/calidad/auditorias/${encodeId(auditoriaId)}/nc/${encodeId(ncId!)}` : `/calidad/no-conformidades/${encodeId(ncId!)}`)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-2">
                     <ArrowLeft className="w-4 h-4" /> Volver a la NC
                 </button>
                 <h1 className="text-2xl font-bold text-gray-800">Plan de Acción</h1>

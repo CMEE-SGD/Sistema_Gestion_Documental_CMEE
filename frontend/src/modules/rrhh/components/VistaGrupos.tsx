@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users } from 'lucide-react';
+import { encodeId } from '../../../shared/utils/ids';
 
 interface VistaGruposProps {
     vistaActual: 'tabla' | 'organigrama';
@@ -33,7 +34,7 @@ const VistaGrupos = ({ vistaActual, gruposFiltrados, loading, verPersonal }: Vis
                             gruposFiltrados.map((dep) => (
                                 <tr 
                                     key={dep.id} 
-                                    onClick={() => navigate(`/rrhh/grupos/${dep.id}`)}
+                                    onClick={() => navigate(`/rrhh/grupos/${encodeId(dep.id)}`)}
                                     className={`hover:bg-gray-100 cursor-pointer transition-colors print:break-inside-avoid ${!dep.activo ? 'opacity-70 bg-gray-50 print:opacity-100' : ''}`}
                                 >
                                     <td className="px-4 py-2 flex items-center gap-2">

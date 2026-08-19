@@ -3,9 +3,11 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../../shared/utils/ids';
 
 export const NuevaFasePage = () => {
-    const { circuitoId } = useParams();
+    const { circuitoId: rawCircuitoId } = useParams();
+    const circuitoId = rawCircuitoId ? decodeId(rawCircuitoId) : undefined;
     const navigate = useNavigate();
     const location = useLocation();
     const { alert } = useAlert();

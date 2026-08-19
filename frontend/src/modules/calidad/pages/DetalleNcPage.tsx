@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { VerificarEficaciaModal } from '../components/VerificarEficaciaModal';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -16,14 +17,16 @@ const ESTADO_STYLES: Record<string, string> = {
 };
 
 export const DetalleNcPage = () => {
-    const { auditoriaId, ncId } = useParams();
+    const { auditoriaId: rawAid, ncId: rawNcId } = useParams<{auditoriaId: string; ncId: string}>();
+    const auditoriaId = rawAid ? decodeId(rawAid) : undefined;
+    const ncId = rawNcId ? decodeId(rawNcId) : undefined;
     const navigate = useNavigate();
     const { alert, confirm } = useAlert();
     const { toast } = useToast();
     const [nc, setNc] = useState<any>(null);
     const [verifOpen, setVerifOpen] = useState(false);
 
-    const volverA = auditoriaId ? `/calidad/auditorias/${auditoriaId}` : '/calidad/no-conformidades';
+    const volverA = auditoriaId ? `/calidad/auditorias/${encodeId(auditoriaId)}` : '/calidad/no-conformidades';
 
     const fetchNc = async () => {
         try {
@@ -48,8 +51,8 @@ export const DetalleNcPage = () => {
 
     const rutaPlan = (editar?: boolean) =>
         auditoriaId
-            ? `/calidad/auditorias/${auditoriaId}/nc/${ncId}/plan-accion${editar ? '?editar=1' : ''}`
-            : `/calidad/no-conformidades/${ncId}/plan-accion${editar ? '?editar=1' : ''}`;
+            ? `/calidad/auditorias/${encodeId(auditoriaId)}/nc/${encodeId(ncId!)}/plan-accion${editar ? '?editar=1' : ''}`
+            : `/calidad/no-conformidades/${encodeId(ncId!)}/plan-accion${editar ? '?editar=1' : ''}`;
 
     const handleCerrar = async () => {
         if (!await confirm({ title: 'Cerrar NC', message: '¿Confirma el cierre formal de esta no conformidad? El cierre es definitivo.' })) return;

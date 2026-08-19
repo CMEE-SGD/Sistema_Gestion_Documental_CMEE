@@ -4,6 +4,7 @@ import { ArrowLeft, Save, Upload, Plus, Trash2 } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { decodeId } from '../../../shared/utils/ids';
 
 const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -148,7 +149,8 @@ const MODALIDADES_EQUIPO = [
 ];
 
 export const AuditoriaFormPage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams<{id: string}>();
+    const id = decodeId(rawId!);
     const navigate = useNavigate();
     const { alert } = useAlert();
     const { toast } = useToast();

@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const PROCESOS = [
     { value: 'DCM', label: 'Direccionamiento Operativo (DCM)' },
@@ -82,7 +83,8 @@ const condicionBadge: Record<string, string> = {
 };
 
 export const RiesgoSeguimientoPage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams<{id: string}>();
+    const id = decodeId(rawId!);
     const [searchParams] = useSearchParams();
     const seccion = searchParams.get('seccion') || 'valoracion';
     const navigate = useNavigate();
@@ -98,7 +100,7 @@ export const RiesgoSeguimientoPage = () => {
     useEffect(() => {
         const cargar = async () => {
             try {
-                const res = await api.get(`/calidad/riesgos/${id}`);
+                const res = await api.get(`/calidad/riesgos/${encodeId(id)}`);
                 const r = res.data;
                 setCodigo(r.codigo);
                 setForm({
@@ -171,7 +173,7 @@ export const RiesgoSeguimientoPage = () => {
                     fase: faseActual,
                     nombre: r.nombre,
                     cargo: r.cargo || null,
-                    fecha: r.fecha ? new Date(r.fecha).toISOString() : null,
+                    fecha: r.fecha || null,
                 }));
 
             let payload: any = {};
@@ -186,7 +188,7 @@ export const RiesgoSeguimientoPage = () => {
                 payload = {
                     tratamiento: form.tratamiento || null,
                     acciones: form.acciones || null,
-                    fecha_limite: form.fecha_limite ? new Date(form.fecha_limite).toISOString() : null,
+                    fecha_limite: form.fecha_limite || null,
                     observaciones: form.observaciones || null,
                     estado: 'EN_SEGUIMIENTO',
                     responsables: buildResp(),
@@ -194,15 +196,15 @@ export const RiesgoSeguimientoPage = () => {
             } else if (seccion === 'seguimiento') {
                 payload = {
                     verificacion_eficacia: form.verificacion_eficacia || null,
-                    cierre_fecha: form.cierre_fecha ? new Date(form.cierre_fecha).toISOString() : null,
+                    cierre_fecha: form.cierre_fecha || null,
                     cerrada_por: form.cerrada_por || null,
                     estado: 'CERRADO',
                     responsables: buildResp(),
                 };
             }
-            await api.patch(`/calidad/riesgos/${id}`, payload);
+            await api.patch(`/calidad/riesgos/${encodeId(id)}`, payload);
             toast({ message: 'Seguimiento actualizado correctamente.' });
-            navigate(`/calidad/riesgos/${id}`);
+            navigate(`/calidad/riesgos/${encodeId(id)}`);
         } catch (error: any) {
             await alert({ message: error?.response?.data?.message || 'Error al guardar el seguimiento.' });
         } finally {
@@ -299,7 +301,7 @@ export const RiesgoSeguimientoPage = () => {
 
     return (
         <div className="p-6">
-            <button onClick={() => navigate(`/calidad/riesgos/${id}`)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-4">
+            <button onClick={() => navigate(`/calidad/riesgos/${encodeId(id)}`)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-4">
                 <ArrowLeft className="w-4 h-4" /> Volver a {codigo}
             </button>
 
@@ -312,7 +314,7 @@ export const RiesgoSeguimientoPage = () => {
                 </div>
 
                 <div className="flex justify-end gap-3 px-4 pb-4">
-                    <button type="button" onClick={() => navigate(`/calidad/riesgos/${id}`)} className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button type="button" onClick={() => navigate(`/calidad/riesgos/${encodeId(id)}`)} className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         Cancelar
                     </button>
                     <Button type="submit" disabled={guardando}>

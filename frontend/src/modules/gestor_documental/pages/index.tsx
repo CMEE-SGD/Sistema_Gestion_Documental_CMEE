@@ -4,12 +4,14 @@ import { HelpCircle, Folder } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export const GestorDocumentalPage = () => {
     const navigate = useNavigate();
-    const { id } = useParams();
+    const { id: rawId } = useParams();
+    const id = rawId ? decodeId(rawId) : undefined;
     const { alert, confirm } = useAlert();
     const { toast } = useToast();
 
@@ -130,7 +132,7 @@ export const GestorDocumentalPage = () => {
         }
 
         if (padreActual) {
-            navigate(`/gestordocumental/carpeta/${padreActual.id}`);
+            navigate(`/gestordocumental/carpeta/${encodeId(padreActual.id)}`);
         } else {
             navigate('/gestordocumental');
         }
@@ -234,7 +236,7 @@ export const GestorDocumentalPage = () => {
                             <div
                                 className="flex items-center gap-2 py-1 hover:bg-blue-50 cursor-pointer rounded px-2 w-max transition-colors"
                                 onClick={() => {
-                                    navigate(`/gestordocumental/carpeta/${carpeta.id}`);
+                                    navigate(`/gestordocumental/carpeta/${encodeId(carpeta.id)}`);
                                     if (hasChildren) {
                                         setExpandedFolders(prev => {
                                             const isOpening = !prev[carpeta.id];
@@ -379,7 +381,7 @@ export const GestorDocumentalPage = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-3 py-1.5 uppercase cursor-pointer text-blue-600 hover:underline font-semibold"
-                                                        onClick={() => navigate(`/gestordocumental/documento/${doc.id}`)}>
+                                                        onClick={() => navigate(`/gestordocumental/documento/${encodeId(doc.id)}`)}>
                                                         {doc.nombre}
                                                     </td>
                                                     <td className="px-3 py-1.5">

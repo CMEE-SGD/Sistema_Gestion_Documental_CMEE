@@ -986,6 +986,7 @@ enum CondicionRiesgo {
 
 enum EstadoRiesgo {
   IDENTIFICADO
+  VALORADO
   EN_SEGUIMIENTO
   CERRADO
 }

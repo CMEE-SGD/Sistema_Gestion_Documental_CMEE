@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Settings, Users } from 'lucide-react'; 
 import api from '../../../../core/api/axios';
+import { encodeId, decodeId } from '../../../../shared/utils/ids';
 
 export const FasesConfigPage = () => {
-    const { circuitoId } = useParams();
+    const { circuitoId: rawCircuitoId } = useParams();
+    const circuitoId = rawCircuitoId ? decodeId(rawCircuitoId) : undefined;
     const location = useLocation();
     const navigate = useNavigate();
     
@@ -37,7 +39,7 @@ export const FasesConfigPage = () => {
                     Cancelar
                 </button>
                 <button 
-                    onClick={() => navigate(`/gestordocumental/configuracion/circuitos/${circuitoId}/fases/nueva`, { state: { nombreCircuito }})}
+                    onClick={() => navigate(`/gestordocumental/configuracion/circuitos/${encodeId(circuitoId!)}/fases/nueva`, { state: { nombreCircuito }})}
                     className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
                 >
                     Nueva fase
@@ -92,7 +94,7 @@ export const FasesConfigPage = () => {
                                         </td>
                                         <td className="px-3 py-2 text-right">
                                             <button 
-                                                onClick={() => navigate(`/gestordocumental/configuracion/circuitos/${circuitoId}/fases/${fase.id}/editar`, { state: { nombreCircuito }})}
+                                                onClick={() => navigate(`/gestordocumental/configuracion/circuitos/${encodeId(circuitoId!)}/fases/${encodeId(fase.id)}/editar`, { state: { nombreCircuito }})}
                                                 className="px-3 py-1 mr-2 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm text-gray-700"
                                             >
                                                 Editar

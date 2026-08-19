@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const inputCls = 'w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500';
 
@@ -53,7 +54,8 @@ const RespSection = ({ title, items, onChange, onAdd, onRemove }: {
 );
 
 export const QuejaFormPage = () => {
-  const { id } = useParams();
+  const { id: rawId } = useParams<{id: string}>();
+  const id = decodeId(rawId!);
   const navigate = useNavigate();
   const { alert } = useAlert();
   const { toast } = useToast();
@@ -152,7 +154,7 @@ export const QuejaFormPage = () => {
           fase,
           nombre: r.nombre,
           cargo: r.cargo || null,
-          fecha: r.fecha ? new Date(r.fecha).toISOString() : null,
+          fecha: r.fecha || null,
         }));
 
       const allResponsables = [
@@ -168,7 +170,7 @@ export const QuejaFormPage = () => {
         formulado_por: form.formulado_por,
         descripcion_queja: form.descripcion_queja,
         recibida_por: form.recibida_por,
-        recibida_fecha: form.recibida_fecha ? new Date(form.recibida_fecha).toISOString() : null,
+        recibida_fecha: form.recibida_fecha || null,
       };
       if (esEdicion) {
         Object.assign(payload, {
@@ -177,9 +179,9 @@ export const QuejaFormPage = () => {
           num_iac: form.num_iac || null,
           justificativo_no_procede: form.justificativo_no_procede || null,
           acciones: form.acciones || null,
-          fecha_limite: form.fecha_limite ? new Date(form.fecha_limite).toISOString() : null,
+          fecha_limite: form.fecha_limite || null,
           verificacion_eficacia: form.verificacion_eficacia || null,
-          cierre_fecha: form.cierre_fecha ? new Date(form.cierre_fecha).toISOString() : null,
+          cierre_fecha: form.cierre_fecha || null,
           cerrada_por: form.cerrada_por || null,
           observaciones: form.observaciones || null,
           responsables: allResponsables,
@@ -356,7 +358,7 @@ export const QuejaFormPage = () => {
         <div className="flex justify-end gap-3 px-4 pb-4">
           <button
             type="button"
-            onClick={() => navigate(esEdicion ? `/calidad/quejas/${id}` : '/calidad/quejas')}
+            onClick={() => navigate(esEdicion ? `/calidad/quejas/${encodeId(id)}` : '/calidad/quejas')}
             className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Cancelar

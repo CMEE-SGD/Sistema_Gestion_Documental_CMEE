@@ -6,9 +6,10 @@ import FormPersona from '../../components/FormPersona';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
 import { validarCedula } from '../../../../shared/utils/utils';
+import { encodeId, decodeId } from '../../../../shared/utils/ids';
 
 export const EditarPersonaPage = () => {
-    const { id } = useParams<{ id: string }>();
+    const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
     const { alert, confirm } = useAlert();
     const { toast } = useToast();
@@ -126,7 +127,7 @@ export const EditarPersonaPage = () => {
             });
 
             toast({ message: 'Recurso actualizado exitosamente.' });
-            navigate(`/rrhh/personas/${id}`);
+            navigate(`/rrhh/personas/${encodeId(id)}`);
         } catch (error) {
             console.error('Error al actualizar', error);
             await alert({ message: 'Error al actualizar el recurso.' });

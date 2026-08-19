@@ -6,6 +6,7 @@ import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { tienePermiso } from '../../../shared/utils/auth';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -33,7 +34,8 @@ const normalizarCronograma = (lista: any[]) => {
 };
 
 export const AuditoriaDetallePage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams<{id: string}>();
+    const id = decodeId(rawId!);
     const navigate = useNavigate();
     const { alert, confirm } = useAlert();
     const { toast } = useToast();
@@ -123,7 +125,7 @@ export const AuditoriaDetallePage = () => {
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
                     <h2 className="font-bold text-gray-800">{esExterna ? 'Plan de Evaluación' : 'Programa de Auditoría'}</h2>
                     {tienePermiso('Gestion de Calidad', 4) && (
-                        <Button variant="default" onClick={() => navigate(`/calidad/auditorias/editar/${id}`)}>
+                        <Button variant="default" onClick={() => navigate(`/calidad/auditorias/editar/${encodeId(id)}`)}>
                             <Edit3 className="w-4 h-4 mr-1" /> {esExterna ? 'Editar plan' : 'Editar programa'}
                         </Button>
                     )}
@@ -356,7 +358,7 @@ export const AuditoriaDetallePage = () => {
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
                     <h2 className="font-bold text-gray-800">No Conformidades ({ncs.length})</h2>
                     {puedeCrearNC && (
-                        <Button variant="default" onClick={() => navigate(`/calidad/auditorias/${id}/nc/nueva`)}>
+                        <Button variant="default" onClick={() => navigate(`/calidad/auditorias/${encodeId(id)}/nc/nueva`)}>
                             <Plus className="w-4 h-4 mr-1" /> Nueva NC
                         </Button>
                     )}
@@ -381,7 +383,7 @@ export const AuditoriaDetallePage = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {ncs.map(nc => (
-                                <tr key={nc.id} onClick={() => navigate(`/calidad/auditorias/${id}/nc/${nc.id}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                                <tr key={nc.id} onClick={() => navigate(`/calidad/auditorias/${encodeId(id)}/nc/${encodeId(nc.id)}`)} className="cursor-pointer hover:bg-gray-50 transition-colors">
                                     <td className="px-4 py-3 font-medium text-gray-800">{nc.codigo}</td>
                                     <td className="px-4 py-3">
                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${nc.categoria === 'COM' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>{nc.categoria || 'NC'}</span>
@@ -396,9 +398,9 @@ export const AuditoriaDetallePage = () => {
                                     <td className="px-4 py-3 text-center">{nc.reiterada ? <CircleCheck className="w-4 h-4 text-emerald-600 inline" /> : <CircleX className="w-4 h-4 text-red-400 inline" />}</td>
                                     <td className="px-4 py-3 text-center">
                                         <div className="flex justify-center gap-1">
-                                            <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/auditorias/${id}/nc/${nc.id}`); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver NC"><Eye className="w-4 h-4" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/auditorias/${encodeId(id)}/nc/${encodeId(nc.id)}`); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver NC"><Eye className="w-4 h-4" /></button>
                                             {puedeEditarNC && (
-                                                <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/auditorias/${id}/nc/editar/${nc.id}`); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar NC"><Edit3 className="w-4 h-4" /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); navigate(`/calidad/auditorias/${encodeId(id)}/nc/editar/${encodeId(nc.id)}`); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar NC"><Edit3 className="w-4 h-4" /></button>
                                             )}
                                             {puedeCrearNC && (
                                                 <button onClick={(e) => { e.stopPropagation(); handleEliminarNc(nc.id); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Eliminar NC"><Trash2 className="w-4 h-4" /></button>

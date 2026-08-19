@@ -9,6 +9,7 @@ import FichaPersona from '../../components/FichaPersona';
 import { tienePermiso } from '../../../../shared/utils/auth';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../../shared/utils/ids';
 
 interface DocumentoAdjunto {
     id: number;
@@ -17,7 +18,7 @@ interface DocumentoAdjunto {
 }
 
 export const DetallePersonaPage = () => {
-    const { id } = useParams<{ id: string }>();
+    const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
     const { alert, confirm } = useAlert();
     const { toast } = useToast();
@@ -91,7 +92,7 @@ export const DetallePersonaPage = () => {
                 
                 {/* 👇 Ocultamos Editar (Nivel 4) */}
                 {tienePermiso('Recursos Humanos', 4) && (
-                    <Button onClick={() => navigate(`/rrhh/personas/editar/${id}`)} variant="clasico">Editar</Button>
+                    <Button onClick={() => navigate(`/rrhh/personas/editar/${encodeId(id)}`)} variant="clasico">Editar</Button>
                 )}
                 
                 {/* 👇 Ocultamos Eliminar (Nivel 5) */}
@@ -99,7 +100,7 @@ export const DetallePersonaPage = () => {
                     <Button onClick={handleEliminar} variant="clasico">Eliminar</Button>
                 )}
                 
-                <Button onClick={() => navigate(`/rrhh/personas/${id}/documentos`)} variant="clasico">Documentos</Button>
+                <Button onClick={() => navigate(`/rrhh/personas/${encodeId(id)}/documentos`)} variant="clasico">Documentos</Button>
                 <Button variant="imprimir" />
                 <Button onClick={handleToggleLogs} variant="clasico">Log</Button>
             </div>

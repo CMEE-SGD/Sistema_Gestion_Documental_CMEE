@@ -4,9 +4,10 @@ import api from '../../../../core/api/axios';
 import FormPuesto from '../../components/FormPuesto';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../../shared/utils/ids';
 
 export const EditarPuestoPage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
     const { alert, confirm } = useAlert();
     const { toast } = useToast();
@@ -66,7 +67,7 @@ export const EditarPuestoPage = () => {
 
             await api.patch(`/puestos/${id}`, payload);
             toast({ message: 'Puesto actualizado correctamente.' });
-            navigate(`/rrhh/puestos/${id}`);
+            navigate(`/rrhh/puestos/${encodeId(id)}`);
         } catch (error: any) {
             const mensajeBackend = error.response?.data?.message || error.message;
             console.error('Error detallado del backend:', error.response?.data);

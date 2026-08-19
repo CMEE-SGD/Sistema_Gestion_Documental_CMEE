@@ -5,9 +5,10 @@ import api from '../../../../core/api/axios';
 import { FileText, Eye, Download, Printer, Trash2 } from 'lucide-react';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../../shared/utils/ids';
 
 export const DocumentosPersonaPage = () => {
-    const { id } = useParams<{ id: string }>();
+    const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
     const { alert, confirm } = useAlert();
     const { toast } = useToast();
@@ -157,7 +158,7 @@ export const DocumentosPersonaPage = () => {
 
             {/* Botonera */}
             <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-gray-300 bg-gray-50">
-                <Button onClick={() => navigate(`/rrhh/personas/${id}`)} variant="clasico">Atrás a la Ficha</Button>
+                <Button onClick={() => navigate(`/rrhh/personas/${encodeId(id)}`)} variant="clasico">Atrás a la Ficha</Button>
                 <Button
                     onClick={() => fileInputRef.current?.click()}
                     variant="clasico"

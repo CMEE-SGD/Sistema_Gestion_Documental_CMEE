@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Briefcase, Users } from 'lucide-react';
+import { encodeId } from '../../../shared/utils/ids';
 
 interface VistaPuestosProps {
     vistaActual: 'tabla' | 'esquema';
@@ -38,7 +39,7 @@ const VistaPuestos = ({ vistaActual, puestosFiltrados, loading }: VistaPuestosPr
                             puestosFiltrados.map((puesto) => (
                                 <tr 
                                     key={puesto.id} 
-                                    onClick={() => navigate(`/rrhh/puestos/${puesto.id}`)}
+                                    onClick={() => navigate(`/rrhh/puestos/${encodeId(puesto.id)}`)}
                                     className={`hover:bg-gray-100 cursor-pointer transition-colors print:break-inside-avoid ${!puesto.activo ? 'opacity-70 bg-gray-50 print:opacity-100' : ''}`}
                                 >
                                     <td className="px-4 py-2 flex items-center gap-2">

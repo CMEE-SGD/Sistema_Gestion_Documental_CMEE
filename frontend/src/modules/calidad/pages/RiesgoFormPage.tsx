@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { encodeId, decodeId } from '../../../shared/utils/ids';
 
 const PROCESOS = [
     { value: 'DCM', label: 'Direccionamiento Operativo (DCM)' },
@@ -82,7 +83,8 @@ const condicionBadge: Record<string, string> = {
 };
 
 export const RiesgoFormPage = () => {
-    const { id } = useParams();
+    const { id: rawId } = useParams<{id: string}>();
+    const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
     const { alert } = useAlert();
     const { toast } = useToast();
@@ -189,7 +191,7 @@ export const RiesgoFormPage = () => {
                     fase,
                     nombre: r.nombre,
                     cargo: r.cargo || null,
-                    fecha: r.fecha ? new Date(r.fecha).toISOString() : null,
+                    fecha: r.fecha || null,
                 }));
 
             const allResponsables = [
@@ -200,14 +202,22 @@ export const RiesgoFormPage = () => {
             ];
 
             const payload: any = {
-                ...form,
+                tipo: form.tipo,
+                proceso: form.proceso,
+                evento: form.evento,
+                causa: form.causa || null,
+                fuente: form.fuente || null,
+                consecuencias: form.consecuencias || null,
                 probabilidad: Number(form.probabilidad),
                 impacto: Number(form.impacto),
                 deteccion: Number(form.deteccion),
                 tratamiento: form.tratamiento || null,
+                acciones: form.acciones || null,
+                fecha_limite: form.fecha_limite || null,
                 verificacion_eficacia: form.verificacion_eficacia || null,
-                cierre_fecha: form.cierre_fecha ? new Date(form.cierre_fecha).toISOString() : null,
+                cierre_fecha: form.cierre_fecha || null,
                 cerrada_por: form.cerrada_por || null,
+                estado: form.estado,
                 observaciones: form.observaciones || null,
                 responsables: allResponsables,
             };
@@ -373,7 +383,7 @@ export const RiesgoFormPage = () => {
 
                 {/* ============ BOTONES ============ */}
                 <div className="flex justify-end gap-3 px-4 pb-4">
-                    <button type="button" onClick={() => navigate(esEdicion ? `/calidad/riesgos/${id}` : '/calidad/riesgos')} className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+                    <button type="button" onClick={() => navigate(esEdicion ? `/calidad/riesgos/${encodeId(id!)}` : '/calidad/riesgos')} className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
                     <Button type="submit" disabled={guardando}>
                         <Save className="w-4 h-4 mr-1" /> {guardando ? 'Guardando...' : 'Guardar'}
                     </Button>

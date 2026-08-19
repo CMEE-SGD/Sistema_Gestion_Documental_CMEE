@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, UsersRound } from 'lucide-react';
 import api from '../../core/api/axios';
+import { encodeId } from '../../shared/utils/ids';
 import { tienePermiso } from '../../shared/utils/auth';
 
 export const UsuariosGruposPage = () => {
@@ -94,7 +95,7 @@ export const UsuariosGruposPage = () => {
                             filtrados.map((grupo: any) => (
                                 <tr
                                     key={grupo.id}
-                                    onClick={() => puedeEditar && navigate(`/usuarios/grupos/editar/${grupo.id}`)}
+                                    onClick={() => puedeEditar && navigate(`/usuarios/grupos/editar/${encodeId(grupo.id)}`)}
                                     className={`transition-colors ${
                                         puedeEditar ? 'hover:bg-muted/40 cursor-pointer' : ''
                                     }`}
