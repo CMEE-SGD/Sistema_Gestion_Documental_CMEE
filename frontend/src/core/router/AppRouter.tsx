@@ -90,6 +90,7 @@ import RecepcionesPage from '../../modules/administrativo/pages/RecepcionesPage'
 import ClientesPage from '../../modules/administrativo/pages/ClientesPage';
 import CertificadosPage from '../../modules/administrativo/pages/CertificadosPage';
 import ReportesPage from '../../modules/administrativo/pages/ReportesPage';
+import DashboardClientes from '../../modules/inicio/pages/DashboardClientes';
 
 // --- PÚBLICO (sin sesión) ---
 import VerificarCertificadoPage from '../../modules/publico/pages/VerificarCertificadoPage';
@@ -196,6 +197,7 @@ const AppRouter = () => {
           <Route path="clientes" element={<ClientesPage />} />
           <Route path="certificados" element={<CertificadosPage />} />
           <Route path="reportes" element={<ReportesPage />} />
+          <Route path="dashboard-clientes" element={<DashboardClientes />} />
         </Route>
         
       </Routes>

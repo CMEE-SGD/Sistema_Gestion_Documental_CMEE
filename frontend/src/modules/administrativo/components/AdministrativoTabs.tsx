@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Award, BarChart3, ClipboardList, Inbox, Users } from 'lucide-react';
+import { Award, BarChart3, ClipboardList, Inbox, Users, LayoutDashboard } from 'lucide-react';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { cn } from '../../../shared/utils/utils';
 
@@ -12,6 +12,12 @@ export default function AdministrativoTabs() {
   const puedeVerModulo = tienePermiso('Recepcion Equipos', 1);
 
   const tabs = [
+    {
+      label: 'Dashboard',
+      path: '/administrativo/dashboard-clientes',
+      icon: LayoutDashboard,
+      visible: true,
+    },
     {
       label: 'Recepción de equipos',
       path: '/administrativo/recepciones',
