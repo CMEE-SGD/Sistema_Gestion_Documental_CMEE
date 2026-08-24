@@ -2,6 +2,8 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
+RUN apt-get update -y && apt-get install -y openssl
+
 COPY package*.json ./
 RUN npm ci
 
@@ -17,6 +19,8 @@ FROM node:20-slim AS production
 WORKDIR /app
 
 ENV NODE_ENV=production
+
+RUN apt-get update -y && apt-get install -y openssl
 
 COPY package*.json ./
 RUN npm ci --omit=dev
