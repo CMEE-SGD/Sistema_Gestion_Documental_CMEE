@@ -723,6 +723,9 @@ model ClienteInstitucional {
   tipo          TipoCliente @default(CIVIL)
   activo        Boolean     @default(true)
 
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
   ordenes_trabajo OrdenTrabajo[]
 
   @@map("clientes_institucionales")
