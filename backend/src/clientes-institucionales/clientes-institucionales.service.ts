@@ -1,0 +1,109 @@
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { CreateClienteInstitucionalDto } from './dto/create-clientes-institucionale.dto';
+import { UpdateClientesInstitucionaleDto } from './dto/update-clientes-institucionale.dto';
+
+@Injectable()
+export class ClientesInstitucionalesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(createDto: CreateClienteInstitucionalDto) {
+    const existeNombre = await this.prisma.clienteInstitucional.findUnique({
+      where: { nombre: createDto.nombre },
+    });
+
+    if (existeNombre) {
+      throw new ConflictException(
+        'Ya existe un cliente o institución con este nombre',
+      );
+    }
+
+    if (createDto.ruc) {
+      const existeRuc = await this.prisma.clienteInstitucional.findUnique({
+        where: { ruc: createDto.ruc },
+      });
+
+      if (existeRuc) {
+        throw new ConflictException(
+          'Ya existe un cliente registrado con este RUC',
+        );
+      }
+    }
+
+    return this.prisma.clienteInstitucional.create({
+      data: createDto,
+    });
+  }
+
+  findAll() {
+    return this.prisma.clienteInstitucional.findMany({
+      orderBy: { nombre: 'asc' },
+    });
+  }
+
+  async findOne(id: number) {
+    const cliente = await this.prisma.clienteInstitucional.findUnique({
+      where: { id },
+    });
+    if (!cliente)
+      throw new NotFoundException(`Cliente con ID ${id} no encontrado`);
+    return cliente;
+  }
+
+  async update(id: number, updateDto: UpdateClientesInstitucionaleDto) {
+    await this.findOne(id); // Verifica que exista
+
+    if (updateDto.nombre) {
+      const existeNombre = await this.prisma.clienteInstitucional.findUnique({
+        where: { nombre: updateDto.nombre },
+      });
+      if (existeNombre && existeNombre.id !== id) {
+        throw new ConflictException(
+          'Ya existe un cliente o institución con este nombre',
+        );
+      }
+    }
+
+    if (updateDto.ruc) {
+      const existeRuc = await this.prisma.clienteInstitucional.findUnique({
+        where: { ruc: updateDto.ruc },
+      });
+      if (existeRuc && existeRuc.id !== id) {
+        throw new ConflictException(
+          'Ya existe un cliente registrado con este RUC',
+        );
+      }
+    }
+
+    try {
+      return await this.prisma.clienteInstitucional.update({
+        where: { id },
+        data: updateDto,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Ya existe un cliente con ese nombre o RUC',
+        );
+      }
+      throw error;
+    }
+  }
+
+  async remove(id: number) {
+    await this.findOne(id);
+    // Borrado lógico para no romper el historial de recepciones
+    return this.prisma.clienteInstitucional.update({
+      where: { id },
+      data: { activo: false },
+    });
+  }
+}

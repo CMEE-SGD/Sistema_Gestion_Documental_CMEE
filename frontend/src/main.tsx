@@ -1,10 +1,19 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import AppRouter from './core/router/AppRouter';
+import { AlertProvider } from './shared/components/molecules/AlertModal';
+import { ToastProvider } from './shared/components/molecules/Toast';
+import './index.css';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+
+root.render(
+  <React.StrictMode>
+    <AlertProvider>
+      <ToastProvider>
+        <AppRouter />
+      </ToastProvider>
+    </AlertProvider>
+  </React.StrictMode>
+);

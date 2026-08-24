@@ -2,7 +2,1235 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator docs {
+  provider = "node node_modules/prisma-docs-generator"
+  output   = "../docs/prisma"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. ROL
+// ==========================================
+model Rol {
+  id                        Int      @id @default(autoincrement())
+  codigo                    String   @unique @db.VarChar(20)
+  nombre                    String   @db.VarChar(150)
+  funciones                 String?  @db.Text
+  educacion_indispensable   String?  @db.Text
+  educacion_deseable        String?  @db.Text
+  formacion_indispensable   String?  @db.Text
+  formacion_deseable        String?  @db.Text
+  capacidades_indispensable String?  @db.Text
+  capacidades_deseable      String?  @db.Text
+  experiencia_indispensable String?  @db.Text
+  experiencia_deseable      String?  @db.Text
+  orden                     Int?     @default(0) @db.SmallInt
+  activo                    Boolean  @default(true)
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relación N:M con Persona
+  personas Persona[] @relation("PersonaRoles")
+
+  logs_auditoria Auditoria[]
+
+  @@map("rol")
+}
+
+// ==========================================
+// 2. DEPARTAMENTO
+// ==========================================
+model Departamento {
+  id          Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(20)
+  nombre      String  @db.VarChar(200)
+  tipo        String  @default("Departamento") @db.VarChar(50)
+  descripcion String? @db.Text
+
+  // Jerarquía recursiva
+  dependencia_id Int?
+  padre          Departamento?  @relation("DeptoJerarquia", fields: [dependencia_id], references: [id])
+  hijos          Departamento[] @relation("DeptoJerarquia")
+
+  // FK Diferida a Persona (Responsable)
+  responsable_id Int?
+  responsable    Persona? @relation("DeptoResponsable", fields: [responsable_id], references: [id])
+
+  // FK a Laboratorio (el departamento pertenece a un laboratorio)
+  laboratorio_id Int?
+  laboratorio    Laboratorio? @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
+
+  orden     Int?     @default(0) @db.SmallInt
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  puestos_asignados PersonaPuesto[]
+  carpetas_permisos CarpetaPermiso[]
+
+  @@index([dependencia_id])
+  @@index([laboratorio_id])
+  @@map("departamento")
+}
+
+// ==========================================
+// 3. PUESTO
+// ==========================================
+model Puesto {
+  id                             Int     @id @default(autoincrement())
+  codigo                         String  @unique @db.VarChar(20)
+  nombre                         String  @db.VarChar(200)
+  educacion                      String? @db.Text
+  formacion                      String? @db.Text
+  habilidad                      String? @db.Text
+  experiencia                    String? @db.Text
+  conocimiento_tecnico           String? @db.Text
+  calificacion                   String? @db.Text
+  autoridad                      String? @db.Text
+  responsabilidades              String? @db.Text
+  funcion_principal              String? @db.Text
+  funciones_alternas             String? @db.Text
+  funciones                      String? @db.Text
+  perfil_educacion_indispensable String? @db.Text
+  perfil_formacion_deseable      String? @db.Text
+  perfil_capacidades_deseable    String? @db.Text
+  perfil_experiencia_deseable    String? @db.Text
+
+  // Jerarquía recursiva
+  dependencia_id Int?
+  padre          Puesto?  @relation("PuestoJerarquia", fields: [dependencia_id], references: [id])
+  hijos          Puesto[] @relation("PuestoJerarquia")
+
+  orden            Int?     @default(0) @db.SmallInt
+  activo           Boolean  @default(true)
+  fecha_ultima_mod DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  personas_asignadas PersonaPuesto[]
+
+  logs_auditoria Auditoria[]
+
+  @@index([dependencia_id])
+  @@map("puesto")
+}
+
+// ==========================================
+// 4. PERSONA
+// ==========================================
+enum EstadoPersona {
+  ACTIVO
+  INACTIVO
+  SUSPENDIDO
+}
+
+model Persona {
+  id               Int       @id @default(autoincrement())
+  grado            String?   @db.VarChar(30)
+  nombre           String    @db.VarChar(100)
+  apellidos        String    @db.VarChar(100)
+  cedula_identidad String?   @unique @db.VarChar(20)
+  fecha_nacimiento DateTime? @db.Date
+  sexo             String?   @db.Char(1)
+  domicilio        String?   @db.VarChar(250)
+  ciudad           String?   @db.VarChar(100)
+  provincia        String?   @db.VarChar(100)
+  celular_1        String?   @db.VarChar(20)
+  celular_2        String?   @db.VarChar(20)
+  email_1          String?   @db.VarChar(150)
+  email_2          String?   @db.VarChar(150)
+  foto_ruta        String?   @db.VarChar(500)
+  hoja_vida_ruta   String?   @db.VarChar(500)
+  tipo_recurso     String?   @default("Usuario del sistema") @db.VarChar(50)
+  fecha_alta       DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  idioma           String?   @default("Idioma por defecto del centro") @db.VarChar(50)
+
+  estado EstadoPersona @default(ACTIVO)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  usuario                  Usuario?
+  puestos                  PersonaPuesto[]
+  documentos               DocumentoPersona[]
+  deptos_responsable       Departamento[]       @relation("DeptoResponsable")
+  roles                    Rol[]                @relation("PersonaRoles")
+  carpetas_permisos        CarpetaPermiso[]
+  laboratorios_responsable Laboratorio[]
+  logs_recibidos           Auditoria[]          @relation("LogPersonaAfectada")
+  fases_participadas       FaseParticipante[]
+  equipos_tecnicos         EquipoRecepcion[]    @relation("TecnicoRecepcion")
+  ordenes_recibidas        OrdenTrabajo[]       @relation("PersonaRecibeOrden")
+  certificados_subidos     Certificado[]        @relation("TecnicoCertificado")
+  historial_estados        HistorialEstado[]    @relation("HistorialEstadoPersona")
+    firmas_digitales         FirmaDigital[]       @relation("FirmanteDigital")
+    firmas_documentos        FirmaDocumentoFase[] @relation("FirmanteDocumentoFase")
+    nc_historial             NoConformidadHistorial[] @relation("NcHistorialPersona")
+    auditoria_historial      AuditoriaHistorial[] @relation("AuditoriaHistorialPersona")
+
+  auditorias_responsables      AuditoriaInterna[] @relation("AuditoriaResponsable")
+  no_conformidades_responsable NoConformidad[]    @relation("NcResponsable")
+
+  @@map("persona")
+}
+
+// ==========================================
+// 5. USUARIO
+// ==========================================
+model Usuario {
+  id         Int     @id @default(autoincrement())
+  persona_id Int     @unique
+  persona    Persona @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+
+  nombre_usuario  String    @unique @db.VarChar(80)
+  fecha_caducidad DateTime? @db.Date
+  estado_cuenta   Boolean   @default(true)
+  bloqueado       Boolean   @default(false)
+  grupos          Grupo[]   @relation("UsuarioGrupos")
+
+  password_hash                String  @db.VarChar(255)
+  cambiar_clave_proxima_sesion Boolean @default(false)
+
+  auditorias     Auditoria[]
+  notificaciones Notificacion[]
+  intentos_login IntentoLogin[]
+
+  idioma              String? @db.VarChar(50)
+  acceso_preferencias Boolean @default(false)
+  acceso_chat         Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([nombre_usuario])
+  @@map("usuario")
+}
+
+// ==========================================
+// 6. PERSONA_PUESTO
+// ==========================================
+model PersonaPuesto {
+  id Int @id @default(autoincrement())
+
+  persona_id Int
+  persona    Persona @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+
+  puesto_id Int
+  puesto    Puesto @relation(fields: [puesto_id], references: [id], onDelete: Restrict)
+
+  departamento_id Int
+  departamento    Departamento @relation(fields: [departamento_id], references: [id], onDelete: Restrict)
+
+  orden_puesto     Int      @db.SmallInt
+  fecha_asignacion DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([persona_id, puesto_id], name: "uq_persona_puesto")
+  @@unique([persona_id, orden_puesto], name: "uq_persona_orden_puesto")
+  @@index([persona_id])
+  @@index([puesto_id])
+  @@map("persona_puesto")
+}
+
+// ==========================================
+// 7. DOCUMENTOS_PERSONA
+// ==========================================
+model DocumentoPersona {
+  id             Int      @id @default(autoincrement())
+  persona_id     Int
+  persona        Persona  @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+  nombre_archivo String   @db.VarChar(300)
+  ruta           String   @db.VarChar(500)
+  tipo_documento String?  @db.VarChar(100)
+  peso_bytes     Int?
+  fecha_subida   DateTime @default(now()) @db.Timestamptz
+  activo         Boolean  @default(true)
+
+  @@index([persona_id])
+  @@map("documento_persona")
+}
+
+// ==========================================
+// 8. GRUPO
+// ==========================================
+model Grupo {
+  id          Int     @id @default(autoincrement())
+  nombre      String  @unique @db.VarChar(100)
+  descripcion String? @db.Text
+  activo      Boolean @default(true)
+
+  usuarios Usuario[] @relation("UsuarioGrupos")
+
+  aplicaciones GrupoAplicacion[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("grupo")
+}
+
+// ==========================================
+// 9. APLICACION
+// ==========================================
+model Aplicacion {
+  id          Int     @id @default(autoincrement())
+  nombre      String  @unique @db.VarChar(100)
+  descripcion String? @db.Text
+  activo      Boolean @default(true)
+
+  grupos GrupoAplicacion[]
+
+  @@map("aplicacion")
+}
+
+// ==========================================
+// 10. GRUPO_APLICACION
+// ==========================================
+model GrupoAplicacion {
+  id Int @id @default(autoincrement())
+
+  grupo_id Int
+  grupo    Grupo @relation(fields: [grupo_id], references: [id], onDelete: Cascade)
+
+  aplicacion_id Int
+  aplicacion    Aplicacion @relation(fields: [aplicacion_id], references: [id], onDelete: Cascade)
+
+  nivel Int @db.SmallInt
+
+  orden Int? @default(0) @db.SmallInt
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([grupo_id, aplicacion_id])
+  @@index([grupo_id])
+  @@index([aplicacion_id])
+  @@map("grupo_aplicacion")
+}
+
+// =========================================================================
+// MÓDULO 2: GESTIÓN DOCUMENTAL
+// =========================================================================
+
+enum TipoNivelCarpeta {
+  LIBRERIA
+  AREA
+  SUBCARPETA
+}
+
+enum EstadoWorkflow {
+  EN_CURSO
+  COMPLETADO
+  RECHAZADO
+}
+
+enum EstadoFaseWorkflow {
+  PENDIENTE
+  EN_CURSO
+  COMPLETADO
+  RECHAZADO
+}
+
+model Documento {
+  id Int @id @default(autoincrement())
+
+  empresa         String?   @default("Centro de Metrología del Ejército Ecuatoriano") @db.VarChar(200)
+  fecha_documento DateTime? @db.Date
+  circuito_id     Int?
+  circuito        Circuito? @relation(fields: [circuito_id], references: [id])
+  activo          Boolean   @default(true)
+  propietario     String?   @db.VarChar(150)
+
+  archivo_url String
+  nombre      String
+  version     String? @default("1")
+
+  codigo     String?  @db.VarChar(50)
+  orden      Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  carpeta_id Int
+  carpeta    Carpeta @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
+
+  documentos_origen  DocumentoRelacion[] @relation("DocOrigen")
+  documentos_destino DocumentoRelacion[] @relation("DocDestino")
+
+  logs_auditoria Auditoria[]
+  versiones      DocumentoVersion[]
+  workflow       DocumentoWorkflow?
+
+  @@map("documentos")
+}
+
+model DocumentoVersion {
+  id           Int       @id @default(autoincrement())
+  documento_id Int
+  documento    Documento @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+  version      String    @db.VarChar(20)
+  archivo_url  String
+  subido_por   String?   @db.VarChar(150)
+  comentario   String?   @db.Text
+  created_at   DateTime  @default(now())
+
+  @@map("documentos_versiones")
+}
+
+model DocumentoWorkflow {
+  id           Int            @id @default(autoincrement())
+  documento_id Int            @unique
+  documento    Documento      @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+  circuito_id  Int
+  circuito     Circuito       @relation(fields: [circuito_id], references: [id])
+  estado       EstadoWorkflow @default(EN_CURSO)
+  created_at   DateTime       @default(now())
+  updated_at   DateTime       @updatedAt
+
+  fases DocumentoWorkflowFase[]
+
+  @@map("documentos_workflow")
+}
+
+model DocumentoWorkflowFase {
+  id            Int                @id @default(autoincrement())
+  workflow_id   Int
+  workflow      DocumentoWorkflow  @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  fase_id       Int
+  fase          Fase               @relation(fields: [fase_id], references: [id])
+  estado        EstadoFaseWorkflow @default(PENDIENTE)
+  archivo_url   String?
+  procesado_por String?            @db.VarChar(150)
+  comentario    String?            @db.Text
+  created_at    DateTime           @default(now())
+  updated_at    DateTime           @updatedAt
+
+  firmas FirmaDocumentoFase[]
+
+  @@map("documentos_workflow_fases")
+}
+
+// Evidencia de firma digital real (PAdES) para una fase del workflow de
+// Gestor Documental — mismo mecanismo que FirmaDigital (certificados), pero
+// ligado a DocumentoWorkflowFase en vez de a Certificado. No se unifican en
+// un solo modelo porque son ciclos de vida y entidades padre distintas.
+model FirmaDocumentoFase {
+  id Int @id @default(autoincrement())
+
+  documento_workflow_fase_id Int
+  documento_workflow_fase    DocumentoWorkflowFase @relation(fields: [documento_workflow_fase_id], references: [id], onDelete: Cascade)
+
+  firmante_id Int
+  firmante    Persona @relation("FirmanteDocumentoFase", fields: [firmante_id], references: [id])
+
+  certificado_titular      String   @db.VarChar(200)
+  certificado_emisor       String   @db.VarChar(200)
+  certificado_numero_serie String   @db.VarChar(100)
+  certificado_valido_desde DateTime
+  certificado_valido_hasta DateTime
+
+  hash_documento String @db.VarChar(128)
+
+  fecha_firma DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([documento_workflow_fase_id])
+  @@index([firmante_id])
+  @@map("firma_documento_fase")
+}
+
+model DocumentoRelacion {
+  id             Int     @id @default(autoincrement())
+  doc_origen_id  Int
+  doc_destino_id Int
+  tipo_relacion  String?
+
+  doc_origen  Documento @relation("DocOrigen", fields: [doc_origen_id], references: [id], onDelete: Cascade)
+  doc_destino Documento @relation("DocDestino", fields: [doc_destino_id], references: [id], onDelete: Cascade)
+
+  @@map("documentos_relaciones")
+}
+
+model RolCarpeta {
+  id          Int     @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+
+  nivel Int @default(1)
+
+  activo     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("roles_carpetas")
+}
+
+model Carpeta {
+  id              Int     @id @default(autoincrement())
+  nombre          String
+  descripcion     String? @db.Text
+  codigo          String? @db.VarChar(50)
+  version_inicial String? @default("1")
+  etiquetas       String? @db.Text
+
+  tipo       TipoNivelCarpeta @default(SUBCARPETA)
+  orden      Int              @default(0)
+  activo     Boolean          @default(true)
+  created_at DateTime         @default(now())
+  updated_at DateTime         @updatedAt
+
+  carpeta_padre_id Int?
+  carpeta_padre    Carpeta?  @relation("JerarquiaCarpetas", fields: [carpeta_padre_id], references: [id], onDelete: Cascade)
+  subcarpetas      Carpeta[] @relation("JerarquiaCarpetas")
+
+  documentos Documento[]
+  permisos   CarpetaPermiso[]
+
+  @@map("carpetas")
+}
+
+model CarpetaPermiso {
+  id         Int @id @default(autoincrement())
+  carpeta_id Int
+
+  departamento_id Int?
+  persona_id      Int?
+
+  nivel_permiso Int @default(1)
+
+  permiso_docs     Boolean @default(false)
+  permiso_carpetas Boolean @default(false)
+  permiso_extra    Boolean @default(false)
+
+  carpeta      Carpeta       @relation(fields: [carpeta_id], references: [id], onDelete: Cascade)
+  departamento Departamento? @relation(fields: [departamento_id], references: [id], onDelete: Cascade)
+  persona      Persona?      @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+
+  @@map("carpetas_permisos")
+}
+
+// ==========================================
+// 11. BITÁCORA DE AUDITORÍA
+// ==========================================
+model Auditoria {
+  id Int @id @default(autoincrement())
+
+  usuario_id Int
+  usuario    Usuario @relation(fields: [usuario_id], references: [id], onDelete: Restrict)
+
+  modulo      String  @db.VarChar(50)
+  accion      String  @db.VarChar(100)
+  descripcion String? @db.Text
+  // Snapshot del payload enviado en la mutación (POST/PATCH/PUT), con campos
+  // sensibles redactados — ver sanitizarBody() en auditoria.interceptor.ts.
+  detalle     String? @db.Text
+
+  documento_id Int?
+  documento    Documento? @relation(fields: [documento_id], references: [id], onDelete: Cascade)
+
+  persona_afectada_id Int?
+  persona_afectada    Persona? @relation("LogPersonaAfectada", fields: [persona_afectada_id], references: [id], onDelete: Cascade)
+
+  rol_afectado_id Int?
+  rol_afectado    Rol? @relation(fields: [rol_afectado_id], references: [id], onDelete: Cascade)
+
+  puesto_afectado_id Int?
+  puesto_afectado    Puesto? @relation(fields: [puesto_afectado_id], references: [id], onDelete: Cascade)
+
+  // Id genérico de la entidad afectada, capturado para CUALQUIER módulo con
+  // un id numérico en la URL (no solo los que tienen relación FK dedicada
+  // arriba). Sin relación referencial a propósito: apunta a tablas distintas
+  // según `modulo`, así que no se puede modelar como una FK única de Prisma.
+  entidad_id Int?
+
+  fecha_hora DateTime @default(now()) @db.Timestamptz
+
+  @@index([usuario_id])
+  @@index([documento_id])
+  @@index([modulo])
+  @@index([modulo, entidad_id])
+  @@map("auditoria")
+}
+
+// ==========================================
+// BITÁCORA DE INTENTOS DE INICIO DE SESIÓN
+// Independiente de Auditoria porque un intento fallido puede no corresponder
+// a ningún Usuario real (usuario inexistente) — Auditoria.usuario_id es
+// obligatorio y no admite ese caso.
+// ==========================================
+model IntentoLogin {
+  id Int @id @default(autoincrement())
+
+  nombre_usuario String @db.VarChar(80)
+
+  exito        Boolean
+  motivo_fallo String? @db.VarChar(100)
+  ip           String? @db.VarChar(45)
+
+  usuario_id Int?
+  usuario    Usuario? @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+
+  fecha_hora DateTime @default(now()) @db.Timestamptz
+
+  @@index([nombre_usuario])
+  @@index([usuario_id])
+  @@index([fecha_hora])
+  @@map("intento_login")
+}
+
+// ==========================================
+// 12. LABORATORIO
+// ==========================================
+model Laboratorio {
+  id          Int     @id @default(autoincrement())
+  codigo      String? @unique @db.VarChar(20)
+  nombre      String  @unique @db.VarChar(100)
+  descripcion String? @db.Text
+  activo      Boolean @default(true)
+
+  responsable_id Int?
+  responsable    Persona? @relation(fields: [responsable_id], references: [id], onDelete: Restrict)
+
+  equipos           Equipo[]
+  servicios         Servicio[]
+  equipos_recibidos EquipoRecepcion[]
+  departamentos     Departamento[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([responsable_id])
+  @@map("laboratorio")
+}
+
+// ==========================================
+// 13. EQUIPO (Inventario de instrumentos)
+// ==========================================
+model Equipo {
+  id           Int          @id @default(autoincrement())
+  codigo       String       @unique @db.VarChar(50)
+  nombre       String       @db.VarChar(150)
+  marca        String?      @db.VarChar(100)
+  modelo       String?      @db.VarChar(100)
+  numero_serie String?      @db.VarChar(100)
+  estado       EstadoEquipo @default(OPERATIVO)
+
+  laboratorio_id Int
+  laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([laboratorio_id])
+  @@map("equipo")
+}
+
+// ==========================================
+// 14. SERVICIO
+// ==========================================
+model Servicio {
+  id          Int     @id @default(autoincrement())
+  nombre      String  @db.VarChar(200)
+  magnitud    String? @db.VarChar(100)
+  descripcion String? @db.Text
+
+  laboratorio_id Int
+  laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([laboratorio_id])
+  @@map("servicio")
+}
+
+enum EstadoEquipo {
+  OPERATIVO
+  EN_CALIBRACION
+  FUERA_DE_SERVICIO
+}
+
+// ==========================================
+// CIRCUITOS Y FASES
+// ==========================================
+model Circuito {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique @db.VarChar(100)
+  activo Boolean @default(true)
+
+  fases      Fase[]
+  documentos Documento[]
+  workflows  DocumentoWorkflow[]
+
+  @@map("circuitos")
+}
+
+model Fase {
+  id          Int      @id @default(autoincrement())
+  circuito_id Int
+  circuito    Circuito @relation(fields: [circuito_id], references: [id], onDelete: Cascade)
+
+  nombre String @db.VarChar(100)
+  orden  Int    @default(10)
+
+  etiqueta_singular String? @db.VarChar(100)
+  etiqueta_plural   String? @db.VarChar(100)
+
+  individual_paralelo   Boolean @default(false)
+  mostrar_hora          Boolean @default(true)
+  ocultar_enviar_correo Boolean @default(false)
+  activo                Boolean @default(true)
+  en_vigor              Boolean @default(false)
+  obligatorio_todos     Boolean @default(false)
+
+  participantes  FaseParticipante[]
+  workflow_fases DocumentoWorkflowFase[]
+
+  @@map("fases")
+}
+
+model FaseParticipante {
+  id      Int  @id @default(autoincrement())
+  fase_id Int
+  fase    Fase @relation(fields: [fase_id], references: [id], onDelete: Cascade)
+
+  persona_id Int
+  persona    Persona @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+
+  @@unique([fase_id, persona_id])
+  @@map("fases_participantes")
+}
+
+// =========================================================================
+// MÓDULO ADMINISTRATIVO — Recepción de Equipos (Cabecera-Detalle)
+// =========================================================================
+
+// Cumple el requisito: "Registro de unidades solicitantes o usuarios del servicio"
+model ClienteInstitucional {
+  id            Int         @id @default(autoincrement())
+  nombre        String      @unique @db.VarChar(200)
+  ruc           String?     @unique @db.VarChar(20)
+  representante String      @db.VarChar(150)
+  direccion     String      @db.VarChar(250)
+  telefono      String      @db.VarChar(20)
+  email         String?     @db.VarChar(150)
+  tipo          TipoCliente @default(CIVIL)
+  activo        Boolean     @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  ordenes_trabajo OrdenTrabajo[]
+
+  @@map("clientes_institucionales")
+}
+
+// CABECERA — Orden de Trabajo Física
+// Cumple el requisito: "Registro de solicitudes"
+model OrdenTrabajo {
+  id Int @id @default(autoincrement())
+
+  // Número preimpreso en rojo (Ej: 0013679) — AHORA ÚNICO A NIVEL DE CABECERA
+  orden_trabajo_fisica String   @unique @db.VarChar(50)
+  fecha_ingreso        DateTime @default(now()) @db.Date
+
+  // El cliente se registra una sola vez por orden
+  cliente_id Int
+  cliente    ClienteInstitucional @relation(fields: [cliente_id], references: [id])
+
+  // Nuevos campos de cabecera
+  n_proforma            String?  @db.VarChar(50)
+  recibe_responsable_id Int?
+  recibe_responsable    Persona? @relation("PersonaRecibeOrden", fields: [recibe_responsable_id], references: [id])
+
+  // Un detalle por cada equipo recibido en esta orden
+  equipos EquipoRecepcion[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([cliente_id])
+  @@index([recibe_responsable_id])
+  @@map("ordenes_trabajo")
+}
+
+// DETALLE — Cada equipo dentro de una orden de trabajo
+// Cumple el requisito: "Control de estado"
+model EquipoRecepcion {
+  id Int @id @default(autoincrement())
+
+  // FK a la cabecera
+  orden_trabajo_id Int
+  orden_trabajo    OrdenTrabajo @relation(fields: [orden_trabajo_id], references: [id])
+
+  // Datos del equipo
+  equipo_descripcion String  @db.VarChar(200)
+  codigo_serie       String? @db.VarChar(100)
+
+  // Nuevos campos del detalle (formato Excel legacy)
+  codigo_cmee                String? @db.VarChar(50)
+  marca                      String? @db.VarChar(100)
+  modelo                     String? @db.VarChar(100)
+  accesorios                 String? @db.VarChar(300)
+  requerimientos_calibracion String? @db.VarChar(500)
+
+  // A qué laboratorio se deriva (puede diferir por equipo dentro de la misma orden)
+  laboratorio_id Int
+  laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id])
+
+  // Fecha en que el equipo ingresó físicamente al laboratorio
+  fecha_ingreso_laboratorio DateTime? @db.Date
+
+  // Estado individual del equipo
+  estado EstadoRecepcion @default(EN_ESPERA)
+
+  // Técnico asignado para la calibración de este equipo
+  tecnico_id Int?
+  tecnico    Persona? @relation("TecnicoRecepcion", fields: [tecnico_id], references: [id])
+
+  certificados     Certificado[]
+  historial_estado HistorialEstado[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([orden_trabajo_id])
+  @@index([tecnico_id])
+  @@index([laboratorio_id])
+  @@index([codigo_cmee])
+  @@map("equipos_recepcion")
+}
+
+model Certificado {
+  id                  Int             @id @default(autoincrement())
+  equipo_recepcion_id Int
+  equipo_recepcion    EquipoRecepcion @relation(fields: [equipo_recepcion_id], references: [id])
+  ruta_archivo        String          @db.VarChar(500)
+  nombre_original     String          @db.VarChar(255)
+  fecha_subida        DateTime        @default(now()) @db.Timestamptz
+  tecnico_id          Int
+  tecnico             Persona         @relation("TecnicoCertificado", fields: [tecnico_id], references: [id])
+
+  // Control de numeración (secuencia propia, independiente del id interno)
+  numero_certificado  Int    @unique @default(autoincrement())
+  // Identificador público no adivinable para verificación de autenticidad
+  codigo_verificacion String @unique @default(uuid())
+
+  firmas FirmaDigital[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([equipo_recepcion_id])
+  @@index([tecnico_id])
+  @@map("certificado")
+}
+
+enum TipoCliente {
+  MILITAR
+  CIVIL
+}
+
+// ==========================================
+// FIRMA DIGITAL — firma criptográfica real (PAdES) aplicada en el navegador
+// del firmante con su certificado .p12 personal. El servidor nunca recibe
+// la clave privada ni la contraseña del .p12: solo el PDF ya firmado, que
+// se verifica criptográficamente antes de aceptarlo. Este modelo guarda
+// evidencia de la firma (datos públicos del certificado), no el mecanismo.
+// ==========================================
+enum EtapaFirma {
+  TECNICO
+  JEFE
+  DIRECTOR
+}
+
+model FirmaDigital {
+  id Int @id @default(autoincrement())
+
+  certificado_id Int
+  certificado    Certificado @relation(fields: [certificado_id], references: [id])
+
+  firmante_id Int
+  firmante    Persona @relation("FirmanteDigital", fields: [firmante_id], references: [id])
+
+  etapa EtapaFirma
+
+  // Datos públicos extraídos del certificado .p12 al momento de firmar —
+  // nunca la clave privada ni la contraseña, que no salen del navegador.
+  certificado_titular      String   @db.VarChar(200)
+  certificado_emisor       String   @db.VarChar(200)
+  certificado_numero_serie String   @db.VarChar(100)
+  certificado_valido_desde DateTime
+  certificado_valido_hasta DateTime
+
+  // Hash SHA-256 del PDF resultante en el momento de esta firma —
+  // permite detectar si el archivo fue alterado después de firmarse.
+  hash_documento String @db.VarChar(128)
+
+  fecha_firma DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([certificado_id])
+  @@index([firmante_id])
+  @@map("firma_digital")
+}
+
+// Historial de transiciones de estado POR EQUIPO (Detalle)
+model HistorialEstado {
+  id                  Int             @id @default(autoincrement())
+  equipo_recepcion_id Int
+  equipo_recepcion    EquipoRecepcion @relation(fields: [equipo_recepcion_id], references: [id])
+  estado_anterior     EstadoRecepcion
+  estado_nuevo        EstadoRecepcion
+  accion              String          @db.VarChar(20)
+  observaciones       String?         @db.Text
+  realizado_por_id    Int
+  realizado_por       Persona         @relation("HistorialEstadoPersona", fields: [realizado_por_id], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([equipo_recepcion_id])
+  @@map("historial_estado")
+}
+
+enum EstadoRecepcion {
+  EN_ESPERA
+  EN_CALIBRACION
+  REVISION_OBT
+  PENDIENTE_FIRMA_TECNICO
+  REVISION_JEFE
+  REVISION_DIRECTOR
+  LISTO_PARA_ENTREGA
+  FINALIZADO
+}
+
+// ==========================================
+// CONFIGURACIÓN GENERAL — fila única (id=1) con parámetros del sistema
+// editables por un administrador, para no tener datos institucionales ni
+// parámetros de seguridad fijos ("hardcoded") en el código fuente.
+// ==========================================
+model ConfiguracionGeneral {
+  id Int @id @default(1)
+
+  nombre_institucion String @db.VarChar(200)
+
+  // Intentos fallidos de login consecutivos antes de bloquear la cuenta
+  // automáticamente — ver evaluarBloqueoAutomatico() en usuarios.service.ts.
+  max_intentos_fallidos_login Int @default(5) @db.SmallInt
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("configuracion_general")
+}
+
+// ==========================================
+// NOTIFICACIONES
+// ==========================================
+model Notificacion {
+  id         Int     @id @default(autoincrement())
+  usuario_id Int
+  usuario    Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  tipo          String  @db.VarChar(50)
+  mensaje       String  @db.VarChar(500)
+  leido         Boolean @default(false)
+  referencia_id Int?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([usuario_id, leido])
+  @@map("notificaciones")
+}
+
+// ==========================================
+// MÓDULO CALIDAD — Auditorías Internas y No Conformidades
+// ==========================================
+
+enum TipoAuditoria {
+  INTERNA
+  EXTERNA
+}
+
+enum EstadoAuditoria {
+  PLANIFICADA
+  EN_CURSO
+  CERRADA
+}
+
+enum ClasificacionNC {
+  MENOR
+  MAYOR
+  CRITICA
+}
+
+enum EstadoNC {
+  ABIERTA
+  EN_CURSO
+  CERRADA
+  VERIFICADA
+}
+
+enum TipoRiesgo {
+  RIESGO
+  OPORTUNIDAD
+}
+
+enum CondicionRiesgo {
+  ALTO
+  MODERADO
+  LEVE
+}
+
+enum EstadoRiesgo {
+  IDENTIFICADO
+  VALORADO
+  EN_SEGUIMIENTO
+  CERRADO
+}
+
+enum TratamientoRiesgo {
+  EVITAR
+  REDUCIR
+  ASUMIR
+}
+
+model AuditoriaInterna {
+  id                    Int             @id @default(autoincrement())
+  codigo                String          @unique @db.VarChar(50)
+  tipo                  TipoAuditoria   @default(INTERNA)
+  alcance               String?         @db.Text
+  fecha_inicio          DateTime        @db.Date
+  fecha_fin             DateTime?       @db.Date
+  responsable_id        Int?
+  responsable           Persona?        @relation("AuditoriaResponsable", fields: [responsable_id], references: [id], onDelete: Restrict)
+  estado                EstadoAuditoria @default(PLANIFICADA)
+  descripcion           String?         @db.Text
+  objeto                String?         @db.Text
+  documentos_referencia Json?
+  responsable_auditoria String?         @db.Text
+  equipo_auditor        Json?
+  cronograma            Json?
+  testificaciones       Json?
+  observaciones         String?         @db.Text
+  archivo_planificacion String?         @db.VarChar(500)
+  nombre_oec            String?         @db.Text
+  expediente_nro        String?         @db.VarChar(100)
+  tipo_oec              String?         @db.VarChar(100)
+  email_oec             String?         @db.VarChar(200)
+  ciudad_pais           String?         @db.VarChar(200)
+  telefono_oec          String?         @db.VarChar(200)
+  direccion_oficina     String?         @db.Text
+  localizaciones_criticas String?       @db.Text
+  persona_contacto      String?         @db.VarChar(150)
+  norma_acreditacion    String?         @db.Text
+  actividades_evaluacion String?        @db.Text
+  tipo_evaluacion       Json?
+  fecha_evaluacion_anterior String?     @db.VarChar(100)
+  fecha_testificacion   String?         @db.VarChar(100)
+  localizaciones_evaluacion String?     @db.Text
+  idioma_evaluacion     String?         @db.VarChar(50)
+  fecha_elaboracion     DateTime?       @db.Date
+  elaborado_por         String?         @db.VarChar(150)
+  activo                Boolean         @default(true)
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  no_conformidades NoConformidad[]
+  historial         AuditoriaHistorial[]
+
+  @@index([responsable_id])
+  @@map("auditoria_interna")
+}
+
+// Historial de transiciones de estado POR AUDITORÍA INTERNA
+model AuditoriaHistorial {
+  id               Int              @id @default(autoincrement())
+  auditoria_id     Int
+  auditoria        AuditoriaInterna @relation(fields: [auditoria_id], references: [id], onDelete: Cascade)
+  estado_anterior  EstadoAuditoria?
+  estado_nuevo     EstadoAuditoria
+  accion           String           @db.VarChar(50)
+  observaciones    String?          @db.Text
+  realizado_por_id Int?
+  realizado_por    Persona?         @relation("AuditoriaHistorialPersona", fields: [realizado_por_id], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([auditoria_id])
+  @@map("auditoria_historial")
+}
+
+model NoConformidad {
+  id                   Int              @id @default(autoincrement())
+  codigo               String           @db.VarChar(50)
+  auditoria_id         Int?
+  auditoria            AuditoriaInterna? @relation(fields: [auditoria_id], references: [id], onDelete: SetNull)
+  categoria            String           @default("NC") @db.VarChar(10)
+  requisito            String?          @db.VarChar(500)
+  hallazgo             String           @db.Text
+  evidencia            String?          @db.Text
+  archivo              String?          @db.VarChar(500)
+  aceptada_oec         Boolean          @default(false)
+  reiterada            Boolean          @default(false)
+  descripcion          String?          @db.Text
+  requisito_incumplido String?          @db.VarChar(500)
+  clasificacion        ClasificacionNC  @default(MENOR)
+  causa_raiz           String?          @db.Text
+  acciones_inmediatas  String?          @db.Text
+  plan_accion          Json?
+  verificacion_eficacia Json?
+  estado               EstadoNC         @default(ABIERTA)
+  responsable_id       Int?
+  responsable          Persona?         @relation("NcResponsable", fields: [responsable_id], references: [id], onDelete: Restrict)
+  fecha_cierre         DateTime?        @db.Date
+  activo               Boolean          @default(true)
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  historial NoConformidadHistorial[]
+
+  @@index([auditoria_id])
+  @@unique([auditoria_id, codigo], name: "uq_no_conformidad_auditoria_codigo")
+  @@map("no_conformidad")
+}
+
+// Historial de transiciones de estado POR NO CONFORMIDAD
+model NoConformidadHistorial {
+  id               Int        @id @default(autoincrement())
+  nc_id            Int
+  nc               NoConformidad @relation(fields: [nc_id], references: [id], onDelete: Cascade)
+  estado_anterior  EstadoNC?
+  estado_nuevo     EstadoNC
+  accion           String     @db.VarChar(50)
+  observaciones    String?    @db.Text
+  realizado_por_id Int?
+  realizado_por    Persona?   @relation("NcHistorialPersona", fields: [realizado_por_id], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([nc_id])
+  @@map("no_conformidad_historial")
+}
+
+// ==========================================
+// ==========================================
+// RIESGOS Y OPORTUNIDADES (MC19.1.P1)
+// Nivel de riesgo = Probabilidad (P) x Impacto (I) x Detección (D)
+// Condición: >= 200 Alto | 80..199 Moderado | < 80 Leve
+// ==========================================
+model RiesgoOportunidad {
+  id             Int               @id @default(autoincrement())
+  codigo         String            @unique @db.VarChar(50)
+  tipo           TipoRiesgo        @default(RIESGO)
+  proceso        String            @db.VarChar(100)
+  evento         String            @db.Text
+  causa          String?           @db.Text
+  fuente         String?           @db.Text
+  consecuencias  String?           @db.Text
+  probabilidad   Int               @db.SmallInt
+  impacto        Int               @db.SmallInt
+  deteccion      Int               @db.SmallInt
+  nivel_riesgo   Int               @db.SmallInt
+  condicion      CondicionRiesgo   @default(LEVE)
+  tratamiento    TratamientoRiesgo?
+  acciones       String?           @db.Text
+  fecha_limite   DateTime?         @db.Date
+  verificacion_eficacia String?    @db.Text
+  cierre_fecha   DateTime?         @db.Date
+  cerrada_por    String?           @db.VarChar(150)
+  estado         EstadoRiesgo      @default(IDENTIFICADO)
+  observaciones  String?           @db.Text
+  activo         Boolean           @default(true)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  responsables   RiesgoResponsable[]
+
+  @@map("riesgo_oportunidad")
+}
+
+model RiesgoResponsable {
+  id             Int          @id @default(autoincrement())
+  riesgo_id      Int
+  riesgo         RiesgoOportunidad @relation(fields: [riesgo_id], references: [id], onDelete: Cascade)
+  fase           String       @db.VarChar(50)
+  nombre         String       @db.VarChar(150)
+  cargo          String?      @db.VarChar(150)
+  fecha          DateTime?    @db.Date
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([riesgo_id])
+  @@map("riesgo_responsable")
+}
+
+// ==========================================
+// QUEJAS — GESTIÓN DE QUEJAS (AC1.3.F1-3)
+// Flujo: RECEPCIÓN → ANÁLISIS → ACCIONES → CIERRE
+// ==========================================
+
+enum EstadoQueja {
+  RECIBIDA
+  EN_ANALISIS
+  PROCEDENTE
+  NO_PROCEDENTE
+  EN_SEGUIMIENTO
+  CERRADA
+}
+
+model Queja {
+  id                   Int          @id @default(autoincrement())
+  codigo               String       @unique @db.VarChar(50)
+
+  // --- RECEPCIÓN ---
+  cliente              String?      @db.VarChar(200)
+  telefono_contacto    String?      @db.VarChar(50)
+  email_contacto       String?      @db.VarChar(150)
+  formulado_por        String?      @db.VarChar(150)    @map("formulado_por")
+  descripcion_queja    String       @db.Text
+  recibida_por         String?      @db.VarChar(150)
+  recibida_fecha       DateTime?    @db.Date
+
+  // --- ANÁLISIS ---
+  area_afectada        String?      @db.VarChar(100)
+  procedente           Boolean?
+  num_iac              String?      @db.VarChar(50)
+  justificativo_no_procede String?  @db.Text
+
+  // --- ACCIONES ---
+  acciones             String?      @db.Text
+  fecha_limite         DateTime?    @db.Date
+  responsables         QuejaResponsable[]
+
+  // --- CIERRE ---
+  verificacion_eficacia String?    @db.Text
+  cierre_fecha         DateTime?    @db.Date
+  cerrada_por          String?      @db.VarChar(150)
+
+  // --- ESTADO ---
+  estado               EstadoQueja  @default(RECIBIDA)
+  observaciones        String?      @db.Text
+  activo               Boolean      @default(true)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("queja")
+}
+
+model QuejaResponsable {
+  id                   Int          @id @default(autoincrement())
+  queja_id             Int
+  queja                Queja        @relation(fields: [queja_id], references: [id], onDelete: Cascade)
+  fase                 String       @db.VarChar(50)  // ANALISIS, ACCIONES, CIERRE
+  nombre               String       @db.VarChar(150)
+  cargo                String?      @db.VarChar(150)
+  fecha                DateTime?    @db.Date
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([queja_id])
+  @@map("queja_responsable")
 }
