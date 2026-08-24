@@ -317,11 +317,11 @@ export const NuevaCarpetaPage = () => {
                                                         onChange={(e) => {
                                                             if (e.target.checked) {
                                                                 const nuevos: Record<string, any> = {};
-                                                                unicos.forEach(p => { nuevos[`p_${p.id}`] = { nivel_permiso: 5, permiso_docs: true, permiso_carpetas: true, permiso_extra: true }; });
+                                                                unicos.forEach((p: any) => { nuevos[`p_${p.id}`] = { nivel_permiso: 5, permiso_docs: true, permiso_carpetas: true, permiso_extra: true }; });
                                                                 setPermisos(prev => ({ ...prev, ...nuevos }));
                                                             } else {
                                                                 const rest = { ...permisos };
-                                                                unicos.forEach(p => delete rest[`p_${p.id}`]);
+                                                                unicos.forEach((p: any) => delete rest[`p_${p.id}`]);
                                                                 setPermisos(rest);
                                                             }
                                                         }}
