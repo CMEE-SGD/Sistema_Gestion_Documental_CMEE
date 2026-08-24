@@ -1,5 +1,5 @@
 // En un archivo como src/data/departamentos.ts
-import { Persona } from './users';
+import { Persona } from '../../modules/rrhh/interfaces/persona.interface';
 
 export interface Departamento {
     id: number;
