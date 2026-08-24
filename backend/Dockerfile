@@ -22,7 +22,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN npx prisma generate --generator client
 
 COPY --from=builder /app/dist ./dist
 
