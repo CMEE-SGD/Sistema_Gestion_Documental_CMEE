@@ -4,6 +4,8 @@ import { Button } from '../../../shared/components/atoms/button';
 import LabelRow from './LabelRow';
 import { FormPersonaProps } from '../interfaces/FormPersonaProps';
 
+const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+
 const PROVINCIAS_ECUADOR = [
     "Azuay", "Bolívar", "Cañar", "Carchi", "Chimborazo", "Cotopaxi", "El Oro", 
     "Esmeraldas", "Galápagos", "Guayas", "Imbabura", "Loja", "Los Ríos", "Manabí", 
@@ -33,7 +35,7 @@ const FormPersona = ({
 
   useEffect(() => {
     if (isEdit && formData.foto_ruta && !fotoPreview) {
-      setFotoPreview(`http://localhost:3001${formData.foto_ruta}`);
+      setFotoPreview(`${BACKEND_URL}${formData.foto_ruta}`);
     }
   }, [isEdit, formData.foto_ruta]);
 
