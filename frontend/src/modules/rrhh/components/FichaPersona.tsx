@@ -160,9 +160,9 @@ const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLo
 
                     <DataRow label="Nombre de usuario" value={persona.usuario?.nombre_usuario || '-'} />
                     <DataRow label="Perfil">
-                        {persona.roles && persona.roles.length > 0 ? persona.roles.map((r: any) => r.nombre).join(', ') : 'Responsable de proceso'}
+                        {persona.roles && persona.roles.length > 0 ? persona.roles.map((r: any) => r.nombre).join(', ') : '-'}
                     </DataRow>
-                    <DataRow label="Interfaz" value="SGD-CMEE" />
+                    <DataRow label="Interfaz" value="SI-CMEE" />
                 </div>
 
                 {/* 6. LOGS DE AUDITORÍA */}

@@ -13,7 +13,7 @@ const BrandLogo = () => {
         <img src={logoCentro} alt="Logo CMEE" className="h-7 w-auto drop-shadow-sm" />
       </div>
       <span className="text-primary-foreground font-bold text-sm tracking-[0.15em] uppercase">
-        SGD-CMEE
+        SI-CMEE
       </span>
     </div>
   );
