@@ -6,7 +6,7 @@ import { Modal } from '../../../shared/components/molecules/Modal';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 
-const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
 const autoResize = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const el = e.target;
@@ -181,7 +181,7 @@ export const VerificarEficaciaModal = ({ nc, isOpen, onClose, onSuccess }: Verif
                             </div>
                         )}
                         {plan.archivo && (
-                            <a href={`${BACKEND_URL}${plan.archivo}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">
+                            <a href={buildFileUrl(plan.archivo) ?? undefined} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">
                                 {plan.archivo_nombre ? 'Ver/descargar: ' + plan.archivo_nombre : 'Ver/descargar archivo'}
                             </a>
                         )}

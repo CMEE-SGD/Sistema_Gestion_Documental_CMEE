@@ -6,8 +6,7 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { VerificarEficaciaModal } from '../components/VerificarEficaciaModal';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
-
-const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
 const ESTADO_STYLES: Record<string, string> = {
     ABIERTA: 'bg-red-100 text-red-700',
@@ -143,7 +142,7 @@ export const DetalleNcPage = () => {
                             <tr>
                                 <td colSpan={3} className="p-4 align-top">
                                     <div className="text-xs text-gray-500 mb-1">Archivo adjunto:</div>
-                                    <a href={`${BACKEND_URL}${nc.archivo}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">Ver/descargar archivo</a>
+                                    <a href={buildFileUrl(nc.archivo) ?? undefined} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">Ver/descargar archivo</a>
                                 </td>
                             </tr>
                         )}
@@ -225,7 +224,7 @@ export const DetalleNcPage = () => {
                     {nc.plan_accion.archivo && (
                         <div className="mb-4 p-3 bg-gray-50 border border-gray-300 rounded">
                             <div className="text-xs font-semibold text-gray-700 mb-1">Archivo adjunto (Plan de Acción):</div>
-                            <a href={`${BACKEND_URL}${nc.plan_accion.archivo}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">
+                            <a href={buildFileUrl(nc.plan_accion.archivo) ?? undefined} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">
                                 {nc.plan_accion.archivo_nombre ? 'Ver/descargar: ' + nc.plan_accion.archivo_nombre : 'Ver/descargar archivo'}
                             </a>
                         </div>

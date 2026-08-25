@@ -5,8 +5,7 @@ import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { decodeId } from '../../../shared/utils/ids';
-
-const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
 const AutoGrowTextarea = (props: TextareaHTMLAttributes<HTMLTextAreaElement>) => {
     const ref = useRef<HTMLTextAreaElement>(null);
@@ -994,7 +993,7 @@ export const AuditoriaFormPage = () => {
                                 <button type="button" onClick={() => setArchivo(null)} className="text-xs text-red-600 hover:text-red-800">Quitar</button>
                             )}
                             {!archivo && archivoActual && (
-                                <a href={`${BACKEND_URL}${archivoActual}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:text-blue-800 underline">Ver archivo actual</a>
+                                <a href={buildFileUrl(archivoActual) ?? undefined} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:text-blue-800 underline">Ver archivo actual</a>
                             )}
                         </div>
                     </div>

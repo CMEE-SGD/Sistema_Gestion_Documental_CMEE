@@ -2,6 +2,7 @@ import React from 'react';
 import { User, Contact, ShieldAlert, BookOpen, UserCog } from 'lucide-react';
 import DataRow from './DataRow';
 import { TablaHistorial } from '../../../shared/components/organisms/TablaHistorial';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
 interface DocumentoAdjunto {
     id: number;
@@ -41,7 +42,7 @@ const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLo
                     <div className="w-[130px] h-[160px] shrink-0 border border-gray-300 print:border-gray-400 bg-[#e2e6ea] print:bg-transparent flex items-center justify-center overflow-hidden">
                         {persona.foto_ruta ? (
                             <img
-                                src={`${(import.meta as any).env.VITE_BACKEND_URL}${persona.foto_ruta}`} alt="Foto perfil"
+                                src={buildFileUrl(persona.foto_ruta) ?? undefined} alt="Foto perfil"
                                 className="w-full h-full object-cover"
                             />) : (
                             <User className="w-16 h-16 text-gray-400 stroke-[1.5]" />
@@ -135,7 +136,7 @@ const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLo
                                 documentos.map((doc) => (
                                     <div key={doc.id} className="flex items-center justify-between bg-white border border-gray-300 px-3 py-1.5 rounded-sm">
                                         <a
-                                            href={`${(import.meta as any).env.VITE_BACKEND_URL}${doc.ruta}`} target="_blank"
+                                            href={buildFileUrl(doc.ruta) ?? undefined} target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-blue-600 underline hover:text-blue-800 text-[11px]"
                                         >
