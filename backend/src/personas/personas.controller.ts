@@ -150,12 +150,19 @@ export class PersonasController {
     limits: LIMITES_ARCHIVOS_PERSONA,
   }))
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: any, @UploadedFiles() files: { foto?: Express.Multer.File[]; documentos?: Express.Multer.File[] }) {
-    delete dto.eliminar_foto;
-
     // Multer entrega todo como strings; parseamos los campos compuestos
     // PATCH: try-catch defensivo contra JSON malformado
     try { dto.roles = typeof dto.roles === 'string' ? JSON.parse(dto.roles) : dto.roles; } catch { dto.roles = dto.roles ?? []; }
     try { dto.puestos_asignados = typeof dto.puestos_asignados === 'string' ? JSON.parse(dto.puestos_asignados) : dto.puestos_asignados; } catch { dto.puestos_asignados = dto.puestos_asignados ?? []; }
+
+    // Si llegó una foto nueva, calculamos su ruta igual que en create()
+    if (files.foto?.[0]) {
+      const nombre = sanitizarSegmentoRuta(dto.nombre || 'U');
+      const apellidos = sanitizarSegmentoRuta(dto.apellidos || '');
+      const cedula = sanitizarSegmentoRuta(dto.cedula_identidad || '0');
+      dto.foto_ruta = `/uploads/Personas/${nombre}_${apellidos}_${cedula}/${files.foto[0].filename}`;
+      dto.eliminar_foto = false;
+    }
 
     // PATCH: whitelist manual (ValidationPipe global inefectivo con @Body() any)
     const camposUpdate = ['grado', 'nombre', 'apellidos', 'cedula_identidad', 'fecha_nacimiento', 'sexo', 'domicilio', 'ciudad', 'provincia', 'celular_1', 'celular_2', 'email_1', 'email_2', 'foto_ruta', 'hoja_vida_ruta', 'tipo_recurso', 'idioma', 'estado', 'eliminar_foto', 'roles', 'puestos_asignados', 'puestos'];
@@ -164,7 +171,15 @@ export class PersonasController {
     limpiarVacios(dto);
     await validarODevolverError(UpdatePersonaDto, dto);
 
-    const persona = await this.personasService.update(id, dto);
+    const persona = await this.personasService.update(
+      id,
+      dto,
+      files.documentos?.map((d) => ({
+        nombre_archivo: d.originalname,
+        ruta: d.path,
+        tipo_documento: 'Adjunto',
+      })),
+    );
     return persona;
   }
 
