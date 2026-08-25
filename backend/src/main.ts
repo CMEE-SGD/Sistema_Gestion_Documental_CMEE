@@ -32,6 +32,7 @@ async function bootstrap() {
   // 4. Exposición de archivos estáticos (PDFs y Fotografías)
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {
     prefix: '/uploads/',
+    index: false,
   });
 
   // 5. Configuración de Swagger (Documentación Interactiva)

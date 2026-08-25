@@ -419,7 +419,53 @@ export class DocumentosService {
         data.archivo_url = path.join(nuevaRutaRelativa, nombre).replace(/\\/g, '/');
       }
     }
-    return this.prisma.documento.update({ where: { id }, data: { ...data, circuito_id: data.circuito_id ? parseInt(data.circuito_id, 10) : null } });
+    const updateData: any = {
+      nombre: data.nombre,
+      codigo: data.codigo ?? null,
+      propietario: data.propietario ?? null,
+      empresa: data.empresa ?? null,
+      fecha_documento: data.fecha_documento ? new Date(data.fecha_documento) : null,
+      circuito_id: data.circuito_id ? parseInt(data.circuito_id, 10) : null,
+      activo: data.activo,
+    };
+
+    const nuevoCircuitoId = data.circuito_id ? parseInt(data.circuito_id, 10) : null;
+    const cambioCircuito = (antiguo.circuito_id ?? null) !== nuevoCircuitoId;
+
+    return this.prisma.$transaction(async (tx) => {
+      const doc = await tx.documento.update({ where: { id }, data: updateData });
+
+      if (cambioCircuito) {
+        const workflowViejo = await tx.documentoWorkflow.findUnique({ where: { documento_id: id } });
+        if (workflowViejo) {
+          await tx.documentoWorkflowFase.deleteMany({ where: { workflow_id: workflowViejo.id } });
+          await tx.documentoWorkflow.delete({ where: { id: workflowViejo.id } });
+        }
+
+        if (nuevoCircuitoId) {
+          const fases = await tx.fase.findMany({
+            where: { circuito_id: nuevoCircuitoId, activo: true },
+            orderBy: { orden: 'asc' },
+          });
+          if (fases.length > 0) {
+            await tx.documentoWorkflow.create({
+              data: {
+                documento_id: id,
+                circuito_id: nuevoCircuitoId,
+                fases: {
+                  create: fases.map((f, i) => ({
+                    fase_id: f.id,
+                    estado: i === 0 ? 'EN_CURSO' : 'PENDIENTE',
+                  })),
+                },
+              },
+            });
+          }
+        }
+      }
+
+      return doc;
+    });
   }
 
   async remove(id: number, usuarioId?: number) {
