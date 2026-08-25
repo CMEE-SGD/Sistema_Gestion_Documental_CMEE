@@ -3,6 +3,7 @@ import { User } from 'lucide-react';
 import { Persona } from '../interfaces/persona.interface';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { encodeId } from '../../../shared/utils/ids';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
 interface TablaPersonasProps {
     personas: Persona[];
@@ -78,7 +79,7 @@ const TablaPersonas = ({
                                             <div className="print:hidden">
                                                 {persona.foto_ruta ? (
                                                     <img
-                                                        src={`${(import.meta as any).env.VITE_BACKEND_URL}${persona.foto_ruta}`} alt="Foto perfil"
+                                                        src={buildFileUrl(persona.foto_ruta) ?? undefined} alt="Foto perfil"
                                                         className="w-8 h-10 object-cover"
                                                     />) : (
                                                     <div className="w-8 h-10 flex items-center justify-center bg-gray-200 border border-gray-300 text-gray-400">

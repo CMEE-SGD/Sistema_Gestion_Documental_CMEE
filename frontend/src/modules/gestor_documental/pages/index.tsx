@@ -5,8 +5,7 @@ import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
-
-const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
 export const GestorDocumentalPage = () => {
     const navigate = useNavigate();
@@ -148,8 +147,8 @@ export const GestorDocumentalPage = () => {
 
         for (const doc of docsAImprimir) {
             try {
-                const rutaLimpia = doc.archivo_url.replace(/\\/g, '/');
-                const fileUrl = `${BACKEND_URL}/${rutaLimpia}`;
+                const fileUrl = buildFileUrl(doc.archivo_url);
+                if (!fileUrl) continue;
                 const response = await fetch(fileUrl);
                 const blob = await response.blob();
                 const blobUrl = window.URL.createObjectURL(blob);

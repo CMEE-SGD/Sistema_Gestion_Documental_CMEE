@@ -181,7 +181,11 @@ export class PersonasService {
    * @param updatePersonaDto - Datos o identificador requerido (Entidad | PrismaResponse)
    * @returns Array<Entidad>
    */
-  async update(id: number, updatePersonaDto: UpdatePersonaDto) {
+  async update(
+    id: number,
+    updatePersonaDto: UpdatePersonaDto,
+    documentos?: { nombre_archivo: string; ruta: string; tipo_documento: string }[],
+  ) {
     // PATCH: validar existencia antes de actualizar (consistente con remove())
     await this.findOne(id);
 
@@ -211,7 +215,7 @@ export class PersonasService {
         : [];
 
       // 6. Actualizamos pasando solo los datos que Prisma reconoce
-      return tx.persona.update({
+      const persona = await tx.persona.update({
         where: { id },
         data: {
           ...datosBasicosPrisma,
@@ -264,6 +268,14 @@ export class PersonasService {
           },
         },
       });
+
+      if (documentos && documentos.length > 0) {
+        await tx.documentoPersona.createMany({
+          data: documentos.map((d) => ({ ...d, persona_id: id })),
+        });
+      }
+
+      return persona;
     });
   }
 

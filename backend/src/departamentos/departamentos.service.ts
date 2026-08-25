@@ -18,6 +18,20 @@ export class DepartamentosService {
     if (!lab) throw new NotFoundException(`Laboratorio con ID ${id} no encontrado`);
   }
 
+  private async validateDependencia(id?: number | null): Promise<void> {
+    if (id == null) return;
+    const padre = await this.prisma.departamento.findUnique({ where: { id } });
+    if (!padre)
+      throw new NotFoundException(`Grupo enlazado con ID ${id} no encontrado`);
+  }
+
+  private async validateResponsable(id?: number | null): Promise<void> {
+    if (id == null) return;
+    const persona = await this.prisma.persona.findUnique({ where: { id } });
+    if (!persona)
+      throw new NotFoundException(`Responsable con ID ${id} no encontrado`);
+  }
+
   async create(createDepartamentoDto: CreateDepartamentoDto) {
     const existe = await this.prisma.departamento.findUnique({
       where: { codigo: createDepartamentoDto.codigo },
@@ -25,8 +39,10 @@ export class DepartamentosService {
     if (existe)
       throw new ConflictException('El código del departamento ya existe');
 
-    // PATCH: Validar que el laboratorio existe si se envía
+    // Validar que las referencias enviadas existan antes de intentar el insert
     await this.validateLaboratorio(createDepartamentoDto.laboratorio_id);
+    await this.validateDependencia(createDepartamentoDto.dependencia_id);
+    await this.validateResponsable(createDepartamentoDto.responsable_id);
 
     return this.prisma.departamento.create({ data: createDepartamentoDto });
   }
@@ -78,8 +94,10 @@ export class DepartamentosService {
       );
     }
 
-    // PATCH: Validar que el laboratorio existe si se envía
+    // Validar que las referencias enviadas existan antes de intentar el update
     await this.validateLaboratorio(updateDepartamentoDto.laboratorio_id);
+    await this.validateDependencia(updateDepartamentoDto.dependencia_id);
+    await this.validateResponsable(updateDepartamentoDto.responsable_id);
 
     return this.prisma.departamento.update({
       where: { id },
