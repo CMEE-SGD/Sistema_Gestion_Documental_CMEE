@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Paperclip, RotateCcw, FileSignature, X } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import FirmarDocumentoModal from '../components/FirmarDocumentoModal';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 
-const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export const DetalleDocumentoPage = () => {
     const { id: rawId } = useParams();
@@ -87,10 +87,9 @@ export const DetalleDocumentoPage = () => {
     // 👉 NUEVA FUNCIÓN: Forzar la descarga del PDF
     const handleDescargar = async () => {
         if (!documento?.archivo_url) return;
-        
-        const backendUrl = BACKEND_URL;
-        const rutaLimpia = documento.archivo_url.replace(/\\/g, '/');
-        const fileUrl = `${backendUrl}/${rutaLimpia}`;
+
+        const fileUrl = buildFileUrl(documento.archivo_url);
+        if (!fileUrl) return;
 
         try {
             // Descargamos los datos binarios del archivo
@@ -117,10 +116,9 @@ export const DetalleDocumentoPage = () => {
     // 👉 NUEVA FUNCIÓN: Imprimir el PDF de forma silenciosa e integrada
     const handleImprimir = async () => {
         if (!documento?.archivo_url) return;
-        
-        const backendUrl = BACKEND_URL;
-        const rutaLimpia = documento.archivo_url.replace(/\\/g, '/');
-        const fileUrl = `${backendUrl}/${rutaLimpia}`;
+
+        const fileUrl = buildFileUrl(documento.archivo_url);
+        if (!fileUrl) return;
 
         try {
             // Obtenemos el Blob para evitar bloqueos de seguridad del navegador
@@ -158,9 +156,8 @@ export const DetalleDocumentoPage = () => {
         });
     };
     const handleDescargarArchivoWF = async (ruta: string) => {
-        const backendUrl = BACKEND_URL;
-        const rutaLimpia = ruta.replace(/\\/g, '/');
-        const fileUrl = `${backendUrl}/${rutaLimpia}`;
+        const fileUrl = buildFileUrl(ruta);
+        if (!fileUrl) return;
         try {
             const response = await fetch(fileUrl);
             const blob = await response.blob();
@@ -179,11 +176,9 @@ export const DetalleDocumentoPage = () => {
 
     // 👉 NUEVA FUNCIÓN: Abre el PDF en una nueva pestaña
     const handleAbrirFichero = () => {
-        if (documento?.archivo_url) {
-            // Reemplaza 'http://localhost:3001' si tu backend está en otro puerto o dominio
-            const backendUrl = BACKEND_URL;
-            const rutaLimpia = documento.archivo_url.replace(/\\/g, '/');
-            window.open(`${backendUrl}/${rutaLimpia}`, '_blank', 'noopener,noreferrer');
+        const fileUrl = buildFileUrl(documento?.archivo_url);
+        if (fileUrl) {
+            window.open(fileUrl, '_blank', 'noopener,noreferrer');
         }
     };
 
@@ -597,7 +592,7 @@ export const DetalleDocumentoPage = () => {
                                                     {wf.archivo_url && (
                                                         <div className="flex gap-2">
                                                             <a
-                                                                href={`${BACKEND_URL}/${wf.archivo_url.replace(/\\/g, '/')}`}
+                                                                href={buildFileUrl(wf.archivo_url) ?? undefined}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="text-blue-600 hover:underline text-xs"

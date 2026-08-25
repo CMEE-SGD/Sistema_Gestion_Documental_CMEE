@@ -9,8 +9,7 @@ import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
-
-const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
 const autoResize = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const el = e.target;
@@ -385,7 +384,7 @@ export const PlanAccionPage = () => {
                         {correccionFile ? (
                             <p className="text-xs text-gray-500 mt-1">Seleccionado: {correccionFile.name}</p>
                         ) : planArchivoActual ? (
-                            <a href={`${BACKEND_URL}${planArchivoActual}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:text-blue-800 underline mt-1 inline-block">Ver archivo actual</a>
+                            <a href={buildFileUrl(planArchivoActual) ?? undefined} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:text-blue-800 underline mt-1 inline-block">Ver archivo actual</a>
                         ) : null}
                     </div>
                 )}
@@ -393,7 +392,7 @@ export const PlanAccionPage = () => {
                 {readOnly && planArchivoActual && (
                     <div className="mt-4 p-3 bg-gray-50 border border-gray-300 rounded">
                         <div className="text-xs font-semibold text-gray-700 mb-1">Archivo adjunto (Plan de Acción):</div>
-                        <a href={`${BACKEND_URL}${planArchivoActual}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">Ver/descargar archivo</a>
+                        <a href={buildFileUrl(planArchivoActual) ?? undefined} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">Ver/descargar archivo</a>
                     </div>
                 )}
 
