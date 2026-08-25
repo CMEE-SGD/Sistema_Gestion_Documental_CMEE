@@ -38,6 +38,7 @@ export const DetalleDocumentoPage = () => {
     const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
     const [showLogModal, setShowLogModal] = useState(false);
+    const [showVersionesModal, setShowVersionesModal] = useState(false);
     const [logs, setLogs] = useState<any[]>([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
 
@@ -375,6 +376,7 @@ export const DetalleDocumentoPage = () => {
                     Eliminar
                 </button>
                 <button onClick={handleVerLog} className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Log</button>
+                <button onClick={() => setShowVersionesModal(true)} className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Historial</button>
 
                 {/* Botón Mover conectado */}
                 <button
@@ -656,53 +658,6 @@ export const DetalleDocumentoPage = () => {
                 )}
             </div>
 
-            {/* Historial de Versiones */}
-            <div className="mt-6 border border-gray-200 rounded-lg overflow-hidden">
-                <div className="bg-gray-100 font-bold text-gray-600 uppercase text-xs border-b border-gray-200 p-2">
-                    Historial de versiones
-                </div>
-                <div className="bg-white">
-                    {documento.versiones && documento.versiones.length > 0 ? (
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="font-bold text-gray-800 border-b border-gray-200 text-xs">
-                                    <th className="p-2">Versión</th>
-                                    <th className="p-2">Subido por</th>
-                                    <th className="p-2">Comentario</th>
-                                    <th className="p-2">Fecha</th>
-                                    <th className="p-2">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {documento.versiones.map((v: any) => (
-                                    <tr key={v.id} className={`border-b border-gray-100 text-sm ${v.version === documento.version ? 'bg-green-50' : ''}`}>
-                                        <td className="p-2 font-bold">{v.version}</td>
-                                        <td className="p-2">{v.subido_por || '-'}</td>
-                                        <td className="p-2 text-gray-500">{v.comentario || '-'}</td>
-                                        <td className="p-2">{new Date(v.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                                        <td className="p-2">
-                                            {v.version !== documento.version && (
-                                                <button
-                                                    onClick={() => handleRestaurarVersion(v.id)}
-                                                    className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs"
-                                                >
-                                                    <RotateCcw className="w-3 h-3" /> Restaurar
-                                                </button>
-                                            )}
-                                            {v.version === documento.version && (
-                                                <span className="text-green-600 text-xs font-semibold">Actual</span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        <p className="p-3 text-gray-500 text-sm">Sin historial de versiones.</p>
-                    )}
-                </div>
-            </div>
-
             <FirmarDocumentoModal
                 isOpen={isFirmaModalOpen}
                 onClose={() => setIsFirmaModalOpen(false)}
@@ -747,6 +702,59 @@ export const DetalleDocumentoPage = () => {
                                         ))}
                                     </tbody>
                                 </table>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showVersionesModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl max-h-[80vh] flex flex-col">
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+                            <h3 className="font-bold text-sm text-gray-800">Historial de versiones</h3>
+                            <button onClick={() => setShowVersionesModal(false)} className="text-gray-500 hover:text-gray-800">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto text-sm">
+                            {documento.versiones && documento.versiones.length > 0 ? (
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="font-bold text-gray-800 border-b border-gray-200 text-xs">
+                                            <th className="p-3">Versión</th>
+                                            <th className="p-3">Subido por</th>
+                                            <th className="p-3">Comentario</th>
+                                            <th className="p-3">Fecha</th>
+                                            <th className="p-3">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {documento.versiones.map((v: any) => (
+                                            <tr key={v.id} className={`border-b border-gray-100 text-sm ${v.version === documento.version ? 'bg-green-50' : ''}`}>
+                                                <td className="p-2 font-bold">{v.version}</td>
+                                                <td className="p-2">{v.subido_por || '-'}</td>
+                                                <td className="p-2 text-gray-500">{v.comentario || '-'}</td>
+                                                <td className="p-2">{new Date(v.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                                                <td className="p-2">
+                                                    {v.version !== documento.version && (
+                                                        <button
+                                                            onClick={() => handleRestaurarVersion(v.id)}
+                                                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs"
+                                                        >
+                                                            <RotateCcw className="w-3 h-3" /> Restaurar
+                                                        </button>
+                                                    )}
+                                                    {v.version === documento.version && (
+                                                        <span className="text-green-600 text-xs font-semibold">Actual</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <p className="p-4 text-gray-500">Sin historial de versiones.</p>
                             )}
                         </div>
                     </div>
