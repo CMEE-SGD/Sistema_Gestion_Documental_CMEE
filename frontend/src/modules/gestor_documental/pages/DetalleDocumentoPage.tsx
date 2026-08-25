@@ -24,6 +24,7 @@ export const DetalleDocumentoPage = () => {
     const [showVersionForm, setShowVersionForm] = useState(false);
     const [versionFile, setVersionFile] = useState<File | null>(null);
     const [versionComentario, setVersionComentario] = useState('');
+    const [versionFecha, setVersionFecha] = useState(new Date().toISOString().split('T')[0]);
     const [subiendoVersion, setSubiendoVersion] = useState(false);
 
     const [isFirmaModalOpen, setIsFirmaModalOpen] = useState(false);
@@ -32,7 +33,7 @@ export const DetalleDocumentoPage = () => {
     const [listaCircuitos, setListaCircuitos] = useState<{ id: number, nombre: string }[]>([]);
     const [showEditForm, setShowEditForm] = useState(false);
     const [editFormData, setEditFormData] = useState({
-        nombre: '', codigo: '', propietario: '', empresa: '', fecha_documento: '', circuito_id: '', activo: true,
+        nombre: '', codigo: '', propietario: '', empresa: '', circuito_id: '', activo: true, created_at: '',
     });
     const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
@@ -196,6 +197,7 @@ export const DetalleDocumentoPage = () => {
             formData.append('archivo', versionFile);
             formData.append('subido_por', subidoPor);
             formData.append('comentario', versionComentario);
+            formData.append('created_at', versionFecha);
 
             const res = await api.post(`/documentos/${id}/versiones`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
@@ -275,9 +277,9 @@ export const DetalleDocumentoPage = () => {
             codigo: documento.codigo || '',
             propietario: documento.propietario || '',
             empresa: documento.empresa || 'Centro de Metrología del Ejército Ecuatoriano',
-            fecha_documento: documento.fecha_documento ? documento.fecha_documento.split('T')[0] : '',
             circuito_id: documento.circuito_id ? String(documento.circuito_id) : '',
             activo: documento.activo,
+            created_at: documento.created_at ? documento.created_at.split('T')[0] : '',
         });
         setShowVersionForm(false);
         setShowEditForm(true);
@@ -295,16 +297,17 @@ export const DetalleDocumentoPage = () => {
         if (!documento) return;
         setGuardandoEdicion(true);
         try {
-            const res = await api.patch(`/documentos/${documento.id}`, {
+            await api.patch(`/documentos/${documento.id}`, {
                 nombre: editFormData.nombre,
                 codigo: editFormData.codigo,
                 propietario: editFormData.propietario,
                 empresa: editFormData.empresa,
-                fecha_documento: editFormData.fecha_documento || null,
                 circuito_id: editFormData.circuito_id || null,
                 activo: editFormData.activo,
+                created_at: editFormData.created_at || null,
             });
-            setDocumento((prev: any) => ({ ...prev, ...res.data }));
+            const resDoc = await api.get(`/documentos/${id}`);
+            setDocumento(resDoc.data);
             setShowEditForm(false);
             toast({ message: 'Documento actualizado correctamente' });
             window.dispatchEvent(new Event('refreshDocumentos'));
@@ -432,9 +435,9 @@ export const DetalleDocumentoPage = () => {
                             />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className="text-xs font-medium text-gray-600">Fecha del documento</label>
+                            <label className="text-xs font-medium text-gray-600">Fecha</label>
                             <input
-                                type="date" name="fecha_documento" value={editFormData.fecha_documento} onChange={handleEditFormChange}
+                                type="date" name="created_at" value={editFormData.created_at} onChange={handleEditFormChange}
                                 className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
                             />
                         </div>
@@ -494,6 +497,15 @@ export const DetalleDocumentoPage = () => {
                             onChange={(e) => setVersionComentario(e.target.value)}
                             className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
                         />
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-gray-700 font-medium">Fecha:</label>
+                            <input
+                                type="date"
+                                value={versionFecha}
+                                onChange={(e) => setVersionFecha(e.target.value)}
+                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
+                            />
+                        </div>
                         <div className="flex gap-2">
                             <button
                                 onClick={handleNuevaVersion}
@@ -503,7 +515,7 @@ export const DetalleDocumentoPage = () => {
                                 {subiendoVersion ? 'Subiendo...' : 'Subir versión'}
                             </button>
                             <button
-                                onClick={() => { setShowVersionForm(false); setVersionFile(null); setVersionComentario(''); }}
+                                onClick={() => { setShowVersionForm(false); setVersionFile(null); setVersionComentario(''); setVersionFecha(new Date().toISOString().split('T')[0]); }}
                                 className="px-4 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-sm"
                             >
                                 Cancelar
@@ -553,7 +565,7 @@ export const DetalleDocumentoPage = () => {
                 </div>
 
                 <div className="bg-gray-100 font-bold text-gray-600 uppercase text-xs border-b border-gray-200 p-2">
-                    Workflow
+                    Responsable
                 </div>
                 {documento.workflow ? (
                     <div>
@@ -638,8 +650,8 @@ export const DetalleDocumentoPage = () => {
                         })()}
                     </div>
                 ) : (
-                    <div className="bg-white p-3 text-gray-500 text-sm">
-                        Sin workflow (el documento no tiene un circuito asignado).
+                    <div className="bg-white p-2 text-sm font-semibold">
+                        {documento.propietario || 'Sin propietario'}
                     </div>
                 )}
             </div>

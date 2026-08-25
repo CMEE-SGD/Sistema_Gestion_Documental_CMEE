@@ -78,6 +78,10 @@ export class DocumentosService {
 
     const urlParaBD = path.join(rutaDestinoRelativa, nombreArchivo).replace(/\\/g, '/');
     const version = data.version || '1';
+    const ahora = new Date();
+    const fechaCreacion = data.created_at
+      ? new Date(`${data.created_at}T${ahora.toTimeString().slice(0, 8)}`)
+      : ahora;
 
     return this.prisma.$transaction(async (tx) => {
       const doc = await tx.documento.create({
@@ -91,6 +95,7 @@ export class DocumentosService {
           activo: data.activo === 'true',
           propietario: data.propietario,
           carpeta_id: carpetaId,
+          created_at: fechaCreacion,
         },
       });
 
@@ -101,6 +106,7 @@ export class DocumentosService {
           archivo_url: urlParaBD,
           subido_por: data.propietario || null,
           comentario: null,
+          created_at: fechaCreacion,
         },
       });
 
@@ -160,6 +166,11 @@ export class DocumentosService {
     const nuevoNumero = ultimaVersion ? String(parseInt(ultimaVersion.version, 10) + 1) : '1';
 
     return this.prisma.$transaction(async (tx) => {
+      const ahora = new Date();
+      const fechaCreacion = data.created_at
+        ? new Date(`${data.created_at}T${ahora.toTimeString().slice(0, 8)}`)
+        : ahora;
+
       const version = await tx.documentoVersion.create({
         data: {
           documento_id: documentoId,
@@ -167,6 +178,7 @@ export class DocumentosService {
           archivo_url: urlParaBD,
           subido_por: data.subido_por || null,
           comentario: data.comentario || null,
+          created_at: fechaCreacion,
         },
       });
 
@@ -427,6 +439,7 @@ export class DocumentosService {
       fecha_documento: data.fecha_documento ? new Date(data.fecha_documento) : null,
       circuito_id: data.circuito_id ? parseInt(data.circuito_id, 10) : null,
       activo: data.activo,
+      ...(data.created_at ? { created_at: new Date(`${data.created_at}T${new Date().toTimeString().slice(0, 8)}`) } : {}),
     };
 
     const nuevoCircuitoId = data.circuito_id ? parseInt(data.circuito_id, 10) : null;
@@ -434,6 +447,11 @@ export class DocumentosService {
 
     return this.prisma.$transaction(async (tx) => {
       const doc = await tx.documento.update({ where: { id }, data: updateData });
+
+      if (data.created_at) {
+        const fechaNueva = new Date(`${data.created_at}T${new Date().toTimeString().slice(0, 8)}`);
+        await tx.documentoVersion.updateMany({ where: { documento_id: id }, data: { created_at: fechaNueva } });
+      }
 
       if (cambioCircuito) {
         const workflowViejo = await tx.documentoWorkflow.findUnique({ where: { documento_id: id } });

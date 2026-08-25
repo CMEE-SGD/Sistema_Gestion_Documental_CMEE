@@ -119,7 +119,7 @@ export const NuevoFicheroPage = () => {
             submitData.append('carpeta_id', carpetaPadreId.toString());
             submitData.append('empresa', formData.empresa);
             if (formData.circuito_id) submitData.append('circuito_id', formData.circuito_id);
-            submitData.append('fecha_documento', formData.fecha);
+            submitData.append('created_at', formData.fecha);
             submitData.append('activo', String(formData.estado));
             submitData.append('nombre', formData.titulo);
             submitData.append('version', formData.version);

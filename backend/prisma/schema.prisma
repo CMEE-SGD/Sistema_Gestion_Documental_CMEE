@@ -352,7 +352,7 @@ model Documento {
 
   codigo     String?  @db.VarChar(50)
   orden      Int      @default(0)
-  created_at DateTime @default(now())
+  created_at DateTime
   updated_at DateTime @updatedAt
 
   carpeta_id Int
@@ -376,7 +376,7 @@ model DocumentoVersion {
   archivo_url  String
   subido_por   String?   @db.VarChar(150)
   comentario   String?   @db.Text
-  created_at   DateTime  @default(now())
+  created_at   DateTime
 
   @@map("documentos_versiones")
 }
