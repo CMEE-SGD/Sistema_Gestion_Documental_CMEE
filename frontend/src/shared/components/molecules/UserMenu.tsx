@@ -4,16 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { logoCentro } from '../../../assets';
 import { User, LogOut, Settings } from 'lucide-react'; // 👇 Lucide Icons
 import api from '../../../core/api/axios';
-
-const BACKEND = (import.meta as any).env.VITE_BACKEND_URL || '';
-
-function fotoUrl(ruta?: string | null): string | null {
-  if (!ruta) return null;
-  if (ruta.startsWith('http')) return ruta;
-  const baseUrl = BACKEND.endsWith('/') ? BACKEND.slice(0, -1) : BACKEND;
-  const path = ruta.startsWith('/') ? ruta : `/${ruta}`;
-  return `${baseUrl}${path}`;
-}
+import { buildFileUrl as fotoUrl } from '../../utils/backendUrl';
 
 const UserMenu = () => {
   const { user, cerrarSesion } = useAuth();

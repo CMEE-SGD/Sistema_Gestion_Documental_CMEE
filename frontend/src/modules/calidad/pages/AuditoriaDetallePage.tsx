@@ -7,8 +7,7 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
-
-const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
 const GRUPOS_EQUIPO = [
     { label: null, secciones: ['EVALUADOR_LIDER', 'EVALUADOR_CALIDAD'] },
@@ -113,7 +112,7 @@ export const AuditoriaDetallePage = () => {
                         )}
                         {auditoria.archivo_planificacion && (
                             <div className="mt-3">
-                                <a href={`${BACKEND_URL}${auditoria.archivo_planificacion}`} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">Ver/descargar planificación</a>
+                                <a href={buildFileUrl(auditoria.archivo_planificacion) ?? undefined} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">Ver/descargar planificación</a>
                             </div>
                         )}
                     </div>

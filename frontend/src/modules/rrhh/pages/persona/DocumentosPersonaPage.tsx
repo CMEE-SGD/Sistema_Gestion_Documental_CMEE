@@ -6,6 +6,7 @@ import { FileText, Eye, Download, Printer, Trash2 } from 'lucide-react';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
 import { encodeId, decodeId } from '../../../../shared/utils/ids';
+import { buildFileUrl } from '../../../../shared/utils/backendUrl';
 
 export const DocumentosPersonaPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
@@ -199,7 +200,7 @@ export const DocumentosPersonaPage = () => {
                                 <tbody>
                                     {documentos.map((doc: any) => {
                                         // Armamos la URL correcta hacia tu backend
-                                        const fileUrl = `${import.meta.env.VITE_BACKEND_URL}${doc.ruta}`;
+                                        const fileUrl = buildFileUrl(doc.ruta) ?? '';
 
                                         return (
                                             <tr key={doc.id} className="border-b border-gray-200 hover:bg-gray-50">
