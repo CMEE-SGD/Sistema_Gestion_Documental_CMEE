@@ -180,13 +180,37 @@ export class CarpetasService {
   findOne(id: number) {
     return this.prisma.carpeta.findUnique({
       where: { id },
+      include: { permisos: true },
     });
   }
 
   async update(id: number, data: any) {
-    return this.prisma.carpeta.update({
+    const { permisos, ...carpetaData } = data;
+
+    const updated = await this.prisma.carpeta.update({
       where: { id },
-      data: data,
+      data: carpetaData,
+    });
+
+    if (Array.isArray(permisos)) {
+      await this.prisma.carpetaPermiso.deleteMany({ where: { carpeta_id: id } });
+      if (permisos.length > 0) {
+        const permisosData = permisos.map((p: any) => ({
+          carpeta_id: id,
+          departamento_id: p.departamento_id || null,
+          persona_id: p.persona_id || null,
+          nivel_permiso: p.nivel_permiso ?? 1,
+          permiso_docs: p.permiso_docs ?? false,
+          permiso_carpetas: p.permiso_carpetas ?? false,
+          permiso_extra: p.permiso_extra ?? false,
+        }));
+        await this.prisma.carpetaPermiso.createMany({ data: permisosData });
+      }
+    }
+
+    return this.prisma.carpeta.findUnique({
+      where: { id },
+      include: { permisos: true },
     });
   }
 
