@@ -21,7 +21,7 @@ interface EditCarpetaModalProps {
 }
 
 export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaModalProps) => {
-  const { alert } = useAlert();
+  const { alert, confirm } = useAlert();
   const { toast } = useToast();
   const [form, setForm] = useState({ nombre: '', descripcion: '', codigo: '', orden: 0, activo: true });
   const [permisos, setPermisos] = useState<Record<string, PermisoRow>>({});
@@ -112,7 +112,7 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
   };
 
   const eliminar = async () => {
-    const confirmado = await alert({ message: `¿Eliminar "${carpetaNombre}"? Se eliminarán todas sus subcarpetas y documentos.` });
+    const confirmado = await confirm({ message: `¿Eliminar "${carpetaNombre}"? Se eliminarán todas sus subcarpetas y documentos.` });
     if (!confirmado) return;
     try {
       await api.delete(`/carpetas/${carpetaId}`);
