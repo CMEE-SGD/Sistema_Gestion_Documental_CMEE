@@ -13,9 +13,17 @@ interface ResponsableRow {
   nombre: string;
   cargo: string;
   fecha: string;
+  persona_id?: number;
 }
 
-const emptyResp = (): ResponsableRow => ({ nombre: '', cargo: '', fecha: '' });
+interface PersonaOption {
+  id: number;
+  nombre: string;
+  apellidos: string;
+  puestos?: { puesto?: { nombre: string }; departamento?: { nombre: string } }[];
+}
+
+const emptyResp = (): ResponsableRow => ({ nombre: '', cargo: '', fecha: '', persona_id: undefined });
 
 export const QuejaSeguimientoPage = () => {
   const { id: rawId } = useParams<{id: string}>();
@@ -31,6 +39,8 @@ export const QuejaSeguimientoPage = () => {
   const [form, setForm] = useState<any>({});
 
   const [responsables, setResponsables] = useState<ResponsableRow[]>([]);
+  const [personas, setPersonas] = useState<PersonaOption[]>([]);
+  const [cerradaPorId, setCerradaPorId] = useState<number | ''>('');
 
   useEffect(() => {
     const cargar = async () => {
@@ -71,6 +81,17 @@ export const QuejaSeguimientoPage = () => {
     };
     cargar();
   }, [id, seccion]);
+
+  useEffect(() => {
+    api.get('/personas').then(r => setPersonas(r.data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (form.cerrada_por && personas.length) {
+      const found = personas.find(p => `${p.nombre} ${p.apellidos}` === form.cerrada_por);
+      setCerradaPorId(found ? found.id : '');
+    }
+  }, [personas, form.cerrada_por]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -152,11 +173,34 @@ export const QuejaSeguimientoPage = () => {
         <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-gray-50 rounded-md border border-gray-200">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-500">Nombre</label>
-            <input type="text" value={r.nombre} onChange={e => handleRespChange(idx, 'nombre', e.target.value)} className={inputCls} placeholder="Nombre completo" />
+            <select
+              value={r.nombre || ''}
+              onChange={e => {
+                const fullName = e.target.value;
+                if (!fullName) {
+                  handleRespChange(idx, 'nombre', '');
+                  handleRespChange(idx, 'cargo', '');
+                  return;
+                }
+                const p = personas.find(x => `${x.nombre} ${x.apellidos}` === fullName);
+                if (p) {
+                  handleRespChange(idx, 'nombre', fullName);
+                  const pp = p.puestos?.[0];
+                  const cargo = pp ? `${pp.puesto?.nombre || ''}${pp.departamento?.nombre ? ' - ' + pp.departamento.nombre : ''}` : '';
+                  handleRespChange(idx, 'cargo', cargo);
+                }
+              }}
+              className={inputCls}
+            >
+              <option value="">— Seleccionar persona —</option>
+              {personas.map(p => (
+                <option key={p.id} value={`${p.nombre} ${p.apellidos}`}>{p.nombre} {p.apellidos}</option>
+              ))}
+            </select>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-500">Cargo</label>
-            <input type="text" value={r.cargo} onChange={e => handleRespChange(idx, 'cargo', e.target.value)} className={inputCls} placeholder="Cargo o función" />
+            <input type="text" value={r.cargo} onChange={e => handleRespChange(idx, 'cargo', e.target.value)} className={inputCls} placeholder="Se llena automáticamente" />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-500">Fecha</label>
@@ -290,14 +334,15 @@ export const QuejaSeguimientoPage = () => {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Cerrada por</label>
-            <input
-              type="text"
-              name="cerrada_por"
-              value={form.cerrada_por}
-              onChange={handleChange}
-              className={inputCls}
-              placeholder="Nombre de quien cierra"
-            />
+            <select value={cerradaPorId} onChange={e => {
+              const pid = Number(e.target.value);
+              if (!pid) { setCerradaPorId(''); setForm((prev: any) => ({ ...prev, cerrada_por: '' })); return; }
+              const p = personas.find(x => x.id === pid);
+              if (p) { setCerradaPorId(pid); setForm((prev: any) => ({ ...prev, cerrada_por: `${p.nombre} ${p.apellidos}` })); }
+            }} className={`${inputCls} bg-white`}>
+              <option value="">— Seleccionar persona —</option>
+              {personas.map(p => <option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>)}
+            </select>
           </div>
           {renderResponsables()}
         </div>

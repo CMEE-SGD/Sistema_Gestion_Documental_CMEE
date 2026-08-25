@@ -11,7 +11,9 @@ export class DashboardController {
   @Get('clientes/stats')
   getClientesStats(
     @Query('periodo') periodo?: string,
+    @Query('mes') mes?: string,
+    @Query('anio') anio?: string,
   ) {
-    return this.dashboardService.getClientesStats(periodo);
+    return this.dashboardService.getClientesStats(periodo, mes, anio);
   }
 }

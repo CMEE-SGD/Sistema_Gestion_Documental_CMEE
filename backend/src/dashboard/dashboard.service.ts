@@ -5,37 +5,73 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
-  async getClientesStats(periodo: string = 'diario') {
+  async getClientesStats(periodo: string = 'ultimos30', mes?: string, anio?: string) {
     const today = new Date();
-    let startDate = new Date();
-    const bucketsMap = new Map<string, number>();
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-    if (periodo === 'mensual') {
-      // Últimos 12 meses
-      startDate.setMonth(today.getMonth() - 11);
-      startDate.setDate(1);
-      startDate.setHours(0, 0, 0, 0);
+    let startDate: Date;
+    let endDate: Date;
+    const bucketsMap = new Map<string, number>();
 
-      // Pre-llenar buckets
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        bucketsMap.set(`${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`, 0);
+    switch (periodo) {
+      case 'esteMes': {
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+        const daysInMonth = endDate.getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dt = new Date(today.getFullYear(), today.getMonth(), d);
+          bucketsMap.set(`${dt.getDate()} ${monthNames[dt.getMonth()]}`, 0);
+        }
+        break;
       }
-    } else {
-      // Últimos 30 días
-      startDate.setDate(today.getDate() - 29);
-      startDate.setHours(0, 0, 0, 0);
-
-      // Pre-llenar buckets
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(today.getDate() - i);
-        bucketsMap.set(`${d.getDate()} ${monthNames[d.getMonth()]}`, 0);
+      case 'mesAnterior': {
+        const prevMonth = today.getMonth() === 0 ? 11 : today.getMonth() - 1;
+        const prevYear = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear();
+        startDate = new Date(prevYear, prevMonth, 1);
+        endDate = new Date(prevYear, prevMonth + 1, 0, 23, 59, 59);
+        const daysInMonth = endDate.getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dt = new Date(prevYear, prevMonth, d);
+          bucketsMap.set(`${dt.getDate()} ${monthNames[dt.getMonth()]}`, 0);
+        }
+        break;
+      }
+      case 'esteAnio': {
+        startDate = new Date(today.getFullYear(), 0, 1);
+        endDate = new Date(today.getFullYear(), 11, 31, 23, 59, 59);
+        for (let m = 0; m < 12; m++) {
+          bucketsMap.set(`${monthNames[m]} ${today.getFullYear().toString().slice(-2)}`, 0);
+        }
+        break;
+      }
+      case 'personalizado': {
+        const m = mes ? parseInt(mes, 10) : today.getMonth() + 1;
+        const y = anio ? parseInt(anio, 10) : today.getFullYear();
+        startDate = new Date(y, m - 1, 1);
+        endDate = new Date(y, m, 0, 23, 59, 59);
+        const daysInMonth = endDate.getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dt = new Date(y, m - 1, d);
+          bucketsMap.set(`${dt.getDate()} ${monthNames[dt.getMonth()]}`, 0);
+        }
+        break;
+      }
+      default: {
+        // ultimos30
+        startDate = new Date();
+        startDate.setDate(today.getDate() - 29);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+        for (let i = 29; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(today.getDate() - i);
+          bucketsMap.set(`${d.getDate()} ${monthNames[d.getMonth()]}`, 0);
+        }
+        break;
       }
     }
 
-    const dateFilter = { gte: startDate };
+    const dateFilter = { gte: startDate, lte: endDate };
 
     const [ordenes, clientesNuevos, quejas] = await Promise.all([
       this.prisma.ordenTrabajo.findMany({
@@ -53,8 +89,11 @@ export class DashboardService {
     ]);
 
     const getBucketKey = (d: Date) => {
-      if (periodo === 'mensual') {
-        return `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+      if (periodo === 'esteAnio' || (periodo === 'personalizado' && mes && anio)) {
+        return `${d.getDate()} ${monthNames[d.getMonth()]}`;
+      }
+      if (periodo === 'esteMes' || periodo === 'mesAnterior') {
+        return `${d.getDate()} ${monthNames[d.getMonth()]}`;
       }
       return `${d.getDate()} ${monthNames[d.getMonth()]}`;
     };
@@ -93,13 +132,13 @@ export class DashboardService {
     return {
       clientesAtendidosTotal: uniqueClientsTotal.size,
       clientesAtendidosSerie: Array.from(clientesAtendidosBuckets, ([fecha, count]) => ({ fecha, count })),
-      
+
       nuevosClientesTotal: clientesNuevos.length,
       nuevosClientesSerie: Array.from(nuevosClientesBuckets, ([fecha, count]) => ({ fecha, count })),
-      
+
       numeroQuejasTotal: quejas.length,
       quejasSerie: Array.from(quejasBuckets, ([fecha, count]) => ({ fecha, count })),
-      
+
       quejasPorEstado: Array.from(quejasEstadosMap, ([estado, count]) => ({ estado, count })),
     };
   }

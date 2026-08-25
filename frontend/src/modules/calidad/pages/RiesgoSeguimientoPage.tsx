@@ -29,13 +29,22 @@ interface ResponsableRow {
     nombre: string;
     cargo: string;
     fecha: string;
+    persona_id?: number;
 }
 
-const emptyResp = (): ResponsableRow => ({ nombre: '', cargo: '', fecha: '' });
+interface PersonaOption {
+    id: number;
+    nombre: string;
+    apellidos: string;
+    puestos?: { puesto?: { nombre: string }; departamento?: { nombre: string } }[];
+}
 
-const RespSection = ({ title, items, onChange, onAdd, onRemove }: {
+const emptyResp = (): ResponsableRow => ({ nombre: '', cargo: '', fecha: '', persona_id: undefined });
+
+const RespSection = ({ title, items, personas, onChange, onAdd, onRemove }: {
     title: string;
     items: ResponsableRow[];
+    personas: PersonaOption[];
     onChange: (idx: number, field: keyof ResponsableRow, value: string) => void;
     onAdd: () => void;
     onRemove: (idx: number) => void;
@@ -46,11 +55,34 @@ const RespSection = ({ title, items, onChange, onAdd, onRemove }: {
             <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2 p-2 bg-gray-50 rounded-md border border-gray-200">
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-medium text-gray-500">Nombre</label>
-                    <input type="text" value={r.nombre} onChange={e => onChange(idx, 'nombre', e.target.value)} className={inputCls} placeholder="Nombre completo" />
+                    <select
+                        value={r.nombre || ''}
+                        onChange={e => {
+                            const fullName = e.target.value;
+                            if (!fullName) {
+                                onChange(idx, 'nombre', '');
+                                onChange(idx, 'cargo', '');
+                                return;
+                            }
+                            const p = personas.find(x => `${x.nombre} ${x.apellidos}` === fullName);
+                            if (p) {
+                                onChange(idx, 'nombre', fullName);
+                                const pp = p.puestos?.[0];
+                                const cargo = pp ? `${pp.puesto?.nombre || ''}${pp.departamento?.nombre ? ' - ' + pp.departamento.nombre : ''}` : '';
+                                onChange(idx, 'cargo', cargo);
+                            }
+                        }}
+                        className={inputCls}
+                    >
+                        <option value="">— Seleccionar persona —</option>
+                        {personas.map(p => (
+                            <option key={p.id} value={`${p.nombre} ${p.apellidos}`}>{p.nombre} {p.apellidos}</option>
+                        ))}
+                    </select>
                 </div>
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-medium text-gray-500">Cargo</label>
-                    <input type="text" value={r.cargo} onChange={e => onChange(idx, 'cargo', e.target.value)} className={inputCls} placeholder="Cargo o función" />
+                    <input type="text" value={r.cargo} onChange={e => onChange(idx, 'cargo', e.target.value)} className={inputCls} placeholder="Se llena automáticamente" />
                 </div>
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-medium text-gray-500">Fecha</label>
@@ -96,6 +128,8 @@ export const RiesgoSeguimientoPage = () => {
     const [form, setForm] = useState<any>({});
 
     const [responsables, setResponsables] = useState<ResponsableRow[]>([]);
+    const [personas, setPersonas] = useState<PersonaOption[]>([]);
+    const [cerradaPorId, setCerradaPorId] = useState<number | ''>('');
 
     useEffect(() => {
         const cargar = async () => {
@@ -142,6 +176,17 @@ export const RiesgoSeguimientoPage = () => {
         };
         cargar();
     }, [id, seccion]);
+
+    useEffect(() => {
+        api.get('/personas').then(r => setPersonas(r.data)).catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (form.cerrada_por && personas.length) {
+            const found = personas.find(p => `${p.nombre} ${p.apellidos}` === form.cerrada_por);
+            setCerradaPorId(found ? found.id : '');
+        }
+    }, [personas, form.cerrada_por]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -215,7 +260,7 @@ export const RiesgoSeguimientoPage = () => {
     if (loading) return <div className="p-6 text-center text-gray-400">Cargando...</div>;
 
     const renderResponsables = () => (
-        <RespSection title="Responsables" items={responsables} onChange={handleRespChange} onAdd={addResp} onRemove={removeResp} />
+        <RespSection title="Responsables" items={responsables} personas={personas} onChange={handleRespChange} onAdd={addResp} onRemove={removeResp} />
     );
 
     const secciones: Record<string, { titulo: string; color: string; contenido: JSX.Element }> = {
@@ -289,7 +334,15 @@ export const RiesgoSeguimientoPage = () => {
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-medium text-gray-700">Cerrada por</label>
-                        <input type="text" name="cerrada_por" value={form.cerrada_por} onChange={handleChange} className={inputCls} placeholder="Nombre de quien cierra" />
+                        <select value={cerradaPorId} onChange={e => {
+                          const pid = Number(e.target.value);
+                          if (!pid) { setCerradaPorId(''); setForm((prev: any) => ({ ...prev, cerrada_por: '' })); return; }
+                          const p = personas.find(x => x.id === pid);
+                          if (p) { setCerradaPorId(pid); setForm((prev: any) => ({ ...prev, cerrada_por: `${p.nombre} ${p.apellidos}` })); }
+                        }} className={`${inputCls} bg-white`}>
+                          <option value="">— Seleccionar persona —</option>
+                          {personas.map(p => <option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>)}
+                        </select>
                     </div>
                     {renderResponsables()}
                 </div>
