@@ -597,7 +597,7 @@ export const DetalleDocumentoPage = () => {
                                                     {wf.archivo_url && (
                                                         <div className="flex gap-2">
                                                             <a
-                                                                href={`http://localhost:3001/${wf.archivo_url.replace(/\\/g, '/')}`}
+                                                                href={`${BACKEND_URL}/${wf.archivo_url.replace(/\\/g, '/')}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="text-blue-600 hover:underline text-xs"
