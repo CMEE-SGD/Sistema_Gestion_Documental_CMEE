@@ -62,7 +62,7 @@ export class CapacitacionesService {
       where: { id },
       include: {
         participantes: {
-          select: { id: true, certificado: true, persona: { select: { id: true, nombre: true, apellidos: true, cedula_identidad: true } } },
+          select: { id: true, persona_id: true, certificado: true, persona: { select: { id: true, nombre: true, apellidos: true, cedula_identidad: true } } },
         },
       },
     });

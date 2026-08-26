@@ -5,7 +5,7 @@ import { GraduationCap, ArrowLeft, Edit, Trash2, FileText, Upload } from 'lucide
 import api from '../../../../core/api/axios';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
-import { decodeId } from '../../../../shared/utils/ids';
+import { decodeId, encodeId } from '../../../../shared/utils/ids';
 import { buildFileUrl } from '../../../../shared/utils/backendUrl';
 
 const estadoColors: Record<string, string> = {
@@ -122,7 +122,14 @@ export const CapacitacionDetallePage = () => {
               {cap.participantes.map((p: any, i: number) => (
                 <tr key={p.id} className="border-b border-gray-100">
                   <td className="p-3 text-gray-400">{i + 1}</td>
-                  <td className="p-3 font-semibold">{p.persona.nombre} {p.persona.apellidos}</td>
+                  <td className="p-3 font-semibold">
+                    <span
+                      className="text-blue-600 hover:underline cursor-pointer"
+                      onClick={() => navigate(`/rrhh/personas/${encodeId(p.persona.id)}/capacitaciones-archivos`)}
+                    >
+                      {p.persona.nombre} {p.persona.apellidos}
+                    </span>
+                  </td>
                   <td className="p-3">{p.persona.cedula_identidad || '-'}</td>
                   <td className="p-3">
                     <div className="flex items-center gap-2">
@@ -140,15 +147,20 @@ export const CapacitacionDetallePage = () => {
                       )}
                       <label className={`flex items-center gap-1 text-xs cursor-pointer px-2 py-1 rounded border border-gray-300 hover:bg-gray-100 ${uploading[p.persona.id] ? 'opacity-50 pointer-events-none' : ''}`}>
                         <Upload className="w-3 h-3" />
-                        {uploading[p.persona.id] ? 'Subiendo...' : 'Subir PDF'}
+                        {uploading[p.persona.id] ? 'Subiendo...' : 'Editar'}
                         <input
                           type="file"
                           accept=".pdf"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
-                            if (file) handleSubirCertificado(p.persona.id, file);
                             e.target.value = '';
+                            if (!file) return;
+                            if (p.certificado) {
+                              const ok = await confirm({ message: `${p.persona.nombre} ya tiene un certificado. ¿Desea reemplazarlo?` });
+                              if (!ok) return;
+                            }
+                            handleSubirCertificado(p.persona.id, file);
                           }}
                         />
                       </label>
