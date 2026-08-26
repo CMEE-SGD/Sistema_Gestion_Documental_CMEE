@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateServicioDto } from './dto/create-servicio.dto';
 import { UpdateServicioDto } from './dto/update-servicio.dto';
@@ -13,7 +13,7 @@ export class ServiciosService {
     try {
       return await this.prisma.servicio.create({ data });
     } catch (error: any) {
-      throw new import('@nestjs/common').BadRequestException(
+      throw new BadRequestException(
         'Error al crear el servicio: ' + (error.message || 'Error de base de datos')
       );
     }
@@ -83,7 +83,7 @@ export class ServiciosService {
         data: resto,
       });
     } catch (error: any) {
-      throw new import('@nestjs/common').BadRequestException(
+      throw new BadRequestException(
         'Error al actualizar el servicio: ' + (error.message || 'Error de base de datos')
       );
     }
