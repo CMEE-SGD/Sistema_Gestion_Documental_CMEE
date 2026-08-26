@@ -68,6 +68,32 @@ export class UsuariosController {
 
   /**
    * Obtiene información de un registro específico.
+   * @param req - Datos o identificador requerido (any)
+   * @returns Objeto complejo / PrismaResponse
+   */
+  @Get('perfil/actual')
+  @UseGuards(JwtAuthGuard) // Solo validamos que el token exista y sea válido
+  @ApiOperation({
+    summary: 'Obtener datos y permisos actualizados del usuario logueado',
+  })
+  getPerfilActual(@Req() req: any) {
+    // req.user.id viene del token interceptado por JwtAuthGuard
+    return this.usuariosService.getPerfilActual(req.user.id);
+  }
+
+  /**
+   * Permite a cualquier usuario autenticado editar su propio idioma y/o
+   * contraseña — nunca otro campo ni otro usuario (opera sobre req.user.id).
+   */
+  @Patch('perfil/actual')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Actualizar idioma y/o contraseña propios' })
+  actualizarPerfilPropio(@Req() req: any, @Body() dto: UpdatePerfilDto) {
+    return this.usuariosService.actualizarPerfilPropio(req.user.id, dto);
+  }
+
+  /**
+   * Obtiene información de un registro específico.
    * @param id - Datos o identificador requerido (number)
    * @returns Objeto complejo / PrismaResponse
    */
@@ -107,31 +133,5 @@ export class UsuariosController {
   @ApiOperation({ summary: 'Desactivar usuario' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.usuariosService.remove(id);
-  }
-
-  /**
-   * Obtiene información de un registro específico.
-   * @param req - Datos o identificador requerido (any)
-   * @returns Objeto complejo / PrismaResponse
-   */
-  @Get('perfil/actual')
-  @UseGuards(JwtAuthGuard) // Solo validamos que el token exista y sea válido
-  @ApiOperation({
-    summary: 'Obtener datos y permisos actualizados del usuario logueado',
-  })
-  getPerfilActual(@Req() req: any) {
-    // req.user.id viene del token interceptado por JwtAuthGuard
-    return this.usuariosService.getPerfilActual(req.user.id);
-  }
-
-  /**
-   * Permite a cualquier usuario autenticado editar su propio idioma y/o
-   * contraseña — nunca otro campo ni otro usuario (opera sobre req.user.id).
-   */
-  @Patch('perfil/actual')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Actualizar idioma y/o contraseña propios' })
-  actualizarPerfilPropio(@Req() req: any, @Body() dto: UpdatePerfilDto) {
-    return this.usuariosService.actualizarPerfilPropio(req.user.id, dto);
   }
 }
