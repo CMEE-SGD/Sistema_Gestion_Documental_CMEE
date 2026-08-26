@@ -2,11 +2,18 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../../../shared/components/atoms/button';
 import api from '../../../../core/api/axios';
-import { GraduationCap, Eye, Download, Printer, Trash2 } from 'lucide-react';
+import { GraduationCap, Eye, Download, Printer, Trash2, Plus } from 'lucide-react';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
 import { encodeId, decodeId } from '../../../../shared/utils/ids';
 import { buildFileUrl } from '../../../../shared/utils/backendUrl';
+
+const estadoColors: Record<string, string> = {
+  PROGRAMADA: 'bg-yellow-100 text-yellow-800',
+  EN_CURSO: 'bg-blue-100 text-blue-800',
+  FINALIZADA: 'bg-green-100 text-green-800',
+  CANCELADA: 'bg-red-100 text-red-800',
+};
 
 export const CapacitacionesPersonaPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
@@ -14,6 +21,7 @@ export const CapacitacionesPersonaPage = () => {
     const { alert, confirm } = useAlert();
     const { toast } = useToast();
     const [persona, setPersona] = useState<any>(null);
+    const [capacitaciones, setCapacitaciones] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [subiendo, setSubiendo] = useState(false);
@@ -21,10 +29,14 @@ export const CapacitacionesPersonaPage = () => {
     useEffect(() => {
         const fetchDatos = async () => {
             try {
-                const response = await api.get(`/personas/${id}`);
-                setPersona(response.data);
+                const [personaRes, capsRes] = await Promise.all([
+                    api.get(`/personas/${id}`),
+                    api.get(`/capacitaciones/persona/${id}`),
+                ]);
+                setPersona(personaRes.data);
+                setCapacitaciones(capsRes.data);
             } catch (error) {
-                console.error('Error al cargar capacitaciones', error);
+                console.error('Error al cargar datos', error);
             } finally {
                 setLoading(false);
             }
@@ -32,7 +44,7 @@ export const CapacitacionesPersonaPage = () => {
         fetchDatos();
     }, [id]);
 
-    const handleEliminar = async (archivoId: number, nombreArchivo: string) => {
+    const handleEliminarArchivo = async (archivoId: number, nombreArchivo: string) => {
         const ok = await confirm({ message: `¿Está seguro de que desea eliminar el archivo "${nombreArchivo}"?` });
         if (!ok) return;
 
@@ -125,13 +137,14 @@ export const CapacitacionesPersonaPage = () => {
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-sm font-sans">Cargando archivos...</div>;
+    if (loading) return <div className="p-8 text-center text-sm font-sans">Cargando...</div>;
     if (!persona) return <div className="p-8 text-center text-sm text-red-500 font-sans">Recurso no encontrado.</div>;
 
     const archivos = persona.capacitaciones_archivos || [];
 
     return (
         <div className="bg-white min-h-screen font-sans">
+            {/* Cabecera */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-300 text-sm">
                 <GraduationCap className="w-5 h-5 text-blue-600" />
                 <span className="font-bold text-gray-800">
@@ -139,14 +152,18 @@ export const CapacitacionesPersonaPage = () => {
                 </span>
             </div>
 
+            {/* Botonera */}
             <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-gray-300 bg-gray-50">
                 <Button onClick={() => navigate(`/rrhh/personas/${encodeId(id)}`)} variant="clasico">Atrás a la Ficha</Button>
+                <Button onClick={() => navigate(`/rrhh/capacitaciones/nueva?persona=${encodeId(id)}`)} variant="clasico">
+                    <Plus className="w-4 h-4 mr-1" /> Nueva Capacitación
+                </Button>
                 <Button
                     onClick={() => fileInputRef.current?.click()}
                     variant="clasico"
                     disabled={subiendo}
                 >
-                    {subiendo ? 'Subiendo archivos...' : 'Agregar Capacitaciones'}
+                    {subiendo ? 'Subiendo archivos...' : 'Agregar PDF'}
                 </Button>
 
                 <input
@@ -159,15 +176,62 @@ export const CapacitacionesPersonaPage = () => {
                 />
             </div>
 
+            {/* Sección 1: Capacitaciones (cursos) */}
             <div className="p-4">
                 <div className="border border-gray-300 shadow-sm">
                     <div className="bg-[#8eb8d5] text-white font-bold px-4 py-2 text-sm">
-                        Listado de Capacitaciones (PDFs)
+                        Capacitaciones en las que participa
                     </div>
+                    <div className="p-4 bg-white">
+                        {capacitaciones.length === 0 ? (
+                            <div className="text-gray-500 italic text-[12px] p-2">Esta persona no tiene capacitaciones registradas.</div>
+                        ) : (
+                            <table className="w-full text-left text-[12px] border-collapse">
+                                <thead>
+                                    <tr className="border-b-2 border-gray-300 bg-gray-100 text-gray-700">
+                                        <th className="py-2.5 px-3 font-bold">Nombre</th>
+                                        <th className="py-2.5 px-3 font-bold">Inicio</th>
+                                        <th className="py-2.5 px-3 font-bold">Fin</th>
+                                        <th className="py-2.5 px-3 font-bold">Horas</th>
+                                        <th className="py-2.5 px-3 font-bold">Lugar</th>
+                                        <th className="py-2.5 px-3 font-bold">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {capacitaciones.map((c: any) => (
+                                        <tr
+                                            key={c.id}
+                                            onClick={() => navigate(`/rrhh/capacitaciones/${encodeId(c.id)}`)}
+                                            className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+                                        >
+                                            <td className="py-2.5 px-3 font-medium text-blue-800">{c.nombre}</td>
+                                            <td className="py-2.5 px-3">{new Date(c.fecha_inicio).toLocaleDateString('es-ES')}</td>
+                                            <td className="py-2.5 px-3">{new Date(c.fecha_fin).toLocaleDateString('es-ES')}</td>
+                                            <td className="py-2.5 px-3">{c.horas}</td>
+                                            <td className="py-2.5 px-3">{c.lugar || '-'}</td>
+                                            <td className="py-2.5 px-3">
+                                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${estadoColors[c.estado] || 'bg-gray-100'}`}>
+                                                    {c.estado?.replace('_', ' ')}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+            </div>
 
+            {/* Sección 2: PDFs */}
+            <div className="px-4 pb-4">
+                <div className="border border-gray-300 shadow-sm">
+                    <div className="bg-[#8eb8d5] text-white font-bold px-4 py-2 text-sm">
+                        Archivos PDF de capacitación
+                    </div>
                     <div className="p-4 bg-white">
                         {archivos.length === 0 ? (
-                            <div className="text-gray-500 italic text-[12px] p-2">No hay archivos de capacitación registrados para esta persona.</div>
+                            <div className="text-gray-500 italic text-[12px] p-2">No hay archivos PDF registrados.</div>
                         ) : (
                             <table className="w-full text-left text-[12px] border-collapse">
                                 <thead>
@@ -198,7 +262,6 @@ export const CapacitacionesPersonaPage = () => {
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </a>
-
                                                     <button
                                                         onClick={() => handleDescargar(fileUrl, archivo.nombre_archivo)}
                                                         className="text-green-600 hover:text-green-800 transition-colors"
@@ -206,7 +269,6 @@ export const CapacitacionesPersonaPage = () => {
                                                     >
                                                         <Download className="w-4 h-4" />
                                                     </button>
-
                                                     <button
                                                         onClick={() => handleImprimir(fileUrl)}
                                                         className="text-gray-600 hover:text-gray-800 transition-colors"
@@ -214,9 +276,8 @@ export const CapacitacionesPersonaPage = () => {
                                                     >
                                                         <Printer className="w-4 h-4" />
                                                     </button>
-
                                                     <button
-                                                        onClick={() => handleEliminar(archivo.id, archivo.nombre_archivo)}
+                                                        onClick={() => handleEliminarArchivo(archivo.id, archivo.nombre_archivo)}
                                                         className="text-red-600 hover:text-red-800 transition-colors ml-2"
                                                         title="Eliminar archivo"
                                                     >

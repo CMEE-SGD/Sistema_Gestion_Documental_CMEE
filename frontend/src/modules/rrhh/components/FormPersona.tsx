@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, FileText, Briefcase, Image as ImageIcon, Trash2, X, GraduationCap } from 'lucide-react';
+import { User, FileText, Briefcase, Image as ImageIcon, Trash2, X } from 'lucide-react';
 import { Button } from '../../../shared/components/atoms/button';
 import LabelRow from './LabelRow';
 import { FormPersonaProps } from '../interfaces/FormPersonaProps';
@@ -24,8 +24,6 @@ const FormPersona = ({
   setFotoFile,
   documentosFiles,
   setDocumentosFiles,
-  capacitacionesFiles,
-  setCapacitacionesFiles,
   rolesLista,
   departamentos,
   puestosLista,
@@ -101,16 +99,6 @@ const FormPersona = ({
 
   const handleRemoveDocumento = (index: number) => {
     setDocumentosFiles((prev: File[]) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleCapacitacionesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setCapacitacionesFiles((prev: File[]) => [...prev, ...Array.from(e.target.files as FileList)]);
-    }
-  };
-
-  const handleRemoveCapacitacion = (index: number) => {
-    setCapacitacionesFiles((prev: File[]) => prev.filter((_, i) => i !== index));
   };
 
   const handleEliminarFoto = () => {
@@ -259,31 +247,6 @@ const FormPersona = ({
           </div>
         </div>
 
-
-        <div className="border-t border-b border-gray-300 py-5 mb-8 mt-4 flex flex-col gap-2 bg-gray-50 px-6 -mx-8">
-          <div className="flex items-start gap-4">
-            <div className="w-40 font-bold pt-1 text-gray-800">
-              Capacitaciones <br /> <span className="font-normal text-gray-500 text-[9px]">(PDFs de capacitación)</span>
-            </div>
-            <div className="flex-1">
-              <input type="file" multiple accept=".pdf" onChange={handleCapacitacionesChange} className="text-[11px] file:mr-4 file:py-1 file:px-3 file:rounded-sm file:border file:border-gray-300 file:bg-gray-200 hover:file:bg-gray-300 cursor-pointer" />
-              {capacitacionesFiles.length > 0 && (
-                <ul className="mt-3 text-[10px] text-gray-700 bg-white p-3 border border-gray-200 rounded-sm w-full shadow-sm">
-                  {capacitacionesFiles.map((file, idx) => (
-                    <li key={idx} className="mb-1.5 flex items-center justify-between group">
-                      <div className="flex items-center gap-2">
-                        <span className="text-blue-700"><GraduationCap className="w-3 h-3 inline mr-1" /></span>
-                        <span className="font-semibold text-gray-800">{file.name}</span>
-                        <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                      </div>
-                      <button type="button" onClick={() => handleRemoveCapacitacion(idx)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors opacity-0 group-hover:opacity-100"><X className="w-4 h-4" /></button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-        </div>
 
         <div className="flex items-center justify-between mb-5 mt-2">
           <h3 className="font-bold text-[12px] text-gray-900 underline uppercase tracking-wide flex items-center gap-2"> <Briefcase className="w-4 h-4 text-gray-700" /> Puestos </h3>

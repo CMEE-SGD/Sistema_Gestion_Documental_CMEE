@@ -1266,7 +1266,6 @@ model Capacitacion {
   horas         Float
   lugar         String?  @db.VarChar(250)
   proveedor     String?  @db.VarChar(250)
-  certificado   String?  @db.VarChar(500)
   estado        EstadoCapacitacion @default(PROGRAMADA)
   observaciones String?  @db.Text
 
@@ -1282,6 +1281,7 @@ model CapacitacionPersona {
   id              Int          @id @default(autoincrement())
   capacitacion_id Int
   persona_id      Int
+  certificado     String?      @db.VarChar(500)
 
   capacitacion Capacitacion @relation(fields: [capacitacion_id], references: [id], onDelete: Cascade)
   persona      Persona      @relation(fields: [persona_id], references: [id], onDelete: Cascade)

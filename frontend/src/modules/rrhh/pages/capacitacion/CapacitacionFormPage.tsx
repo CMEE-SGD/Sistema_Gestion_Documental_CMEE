@@ -1,20 +1,37 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../../../../shared/components/atoms/button';
-import { GraduationCap, ArrowLeft } from 'lucide-react';
+import { GraduationCap, ArrowLeft, FileText } from 'lucide-react';
 import api from '../../../../core/api/axios';
 import { useToast } from '../../../../shared/components/molecules/Toast';
 import { decodeId, encodeId } from '../../../../shared/utils/ids';
+import { buildFileUrl } from '../../../../shared/utils/backendUrl';
+
+interface Persona {
+  id: number;
+  nombre: string;
+  apellidos: string;
+}
+
+interface ParticipanteCert {
+  personaId: number;
+  archivo: File | null;
+  existente: string | null;
+}
 
 export const CapacitacionFormPage = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const esEdicion = Boolean(id);
   const decodedId = id ? decodeId(id) : null;
 
+  const personaQueryId = searchParams.get('persona');
+  const decodedPersonaId = personaQueryId ? decodeId(personaQueryId) : null;
+
   const [loading, setLoading] = useState(false);
-  const [personas, setPersonas] = useState<any[]>([]);
+  const [personas, setPersonas] = useState<Persona[]>([]);
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({
     nombre: '',
@@ -28,6 +45,7 @@ export const CapacitacionFormPage = () => {
   });
   const [busquedaPersona, setBusquedaPersona] = useState('');
   const [personaIds, setPersonaIds] = useState<number[]>([]);
+  const [certificados, setCertificados] = useState<Record<number, ParticipanteCert>>({});
 
   useEffect(() => {
     api.get('/personas').then(res => {
@@ -46,17 +64,60 @@ export const CapacitacionFormPage = () => {
           estado: c.estado || 'PROGRAMADA',
           observaciones: c.observaciones || '',
         });
-        setPersonaIds(c.participantes?.map((p: any) => p.persona_id) || []);
+        const pids: number[] = c.participantes?.map((p: any) => p.persona_id) || [];
+        setPersonaIds(pids);
+        const certs: Record<number, ParticipanteCert> = {};
+        c.participantes?.forEach((p: any) => {
+          certs[p.persona_id] = { personaId: p.persona_id, archivo: null, existente: p.certificado || null };
+        });
+        setCertificados(certs);
       });
     }
   }, [id, esEdicion, decodedId]);
+
+  useEffect(() => {
+    if (decodedPersonaId && !esEdicion) {
+      const pid = Number(decodedPersonaId);
+      setPersonaIds(prev => prev.includes(pid) ? prev : [...prev, pid]);
+    }
+  }, [decodedPersonaId, esEdicion]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const togglePersona = (pid: number) => {
-    setPersonaIds(prev => prev.includes(pid) ? prev.filter(x => x !== pid) : [...prev, pid]);
+    setPersonaIds(prev => {
+      const next = prev.includes(pid) ? prev.filter(x => x !== pid) : [...prev, pid];
+      if (!next.includes(pid)) {
+        setCertificados(prev => {
+          const c = { ...prev };
+          delete c[pid];
+          return c;
+        });
+      }
+      return next;
+    });
+  };
+
+  const setCertificadoArchivo = (pid: number, file: File | null) => {
+    setCertificados(prev => ({
+      ...prev,
+      [pid]: { personaId: pid, archivo: file, existente: prev[pid]?.existente || null },
+    }));
+  };
+
+  const subirCertificados = async (capId: number) => {
+    for (const pid of Object.keys(certificados).map(Number)) {
+      const cert = certificados[pid];
+      if (cert?.archivo) {
+        const fd = new FormData();
+        fd.append('certificado', cert.archivo);
+        await api.post(`/capacitaciones/${capId}/certificado/${pid}`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,19 +125,47 @@ export const CapacitacionFormPage = () => {
     if (!form.nombre.trim()) return;
     setLoading(true);
     try {
-      const payload = {
-        ...form,
-        horas: parseFloat(form.horas) || 0,
-        persona_ids: personaIds,
-      };
+      let capId: number;
+
       if (esEdicion && decodedId) {
-        await api.patch(`/capacitaciones/${decodedId}`, payload);
+        capId = Number(decodedId);
+        const payload: any = {
+          nombre: form.nombre,
+          fecha_inicio: form.fecha_inicio,
+          fecha_fin: form.fecha_fin,
+          horas: parseFloat(form.horas) || 0,
+          estado: form.estado,
+          persona_ids: personaIds,
+        };
+        if (form.lugar) payload.lugar = form.lugar;
+        if (form.proveedor) payload.proveedor = form.proveedor;
+        if (form.observaciones) payload.observaciones = form.observaciones;
+        await api.patch(`/capacitaciones/${capId}`, payload);
         toast({ message: 'Capacitación actualizada correctamente' });
+      } else {
+        const res = await api.post('/capacitaciones', {
+          nombre: form.nombre,
+          fecha_inicio: form.fecha_inicio,
+          fecha_fin: form.fecha_fin,
+          horas: parseFloat(form.horas) || 0,
+          estado: form.estado,
+          persona_ids: personaIds,
+          ...(form.lugar && { lugar: form.lugar }),
+          ...(form.proveedor && { proveedor: form.proveedor }),
+          ...(form.observaciones && { observaciones: form.observaciones }),
+        });
+        capId = res.data.id;
+        toast({ message: 'Capacitación creada correctamente' });
+      }
+
+      await subirCertificados(capId);
+
+      if (personaQueryId) {
+        navigate(`/rrhh/personas/${personaQueryId}/capacitaciones-archivos`);
+      } else if (esEdicion && id) {
         navigate(`/rrhh/capacitaciones/${id}`);
       } else {
-        const res = await api.post('/capacitaciones', payload);
-        toast({ message: 'Capacitación creada correctamente' });
-        navigate(`/rrhh/capacitaciones/${encodeId(res.data.id)}`);
+        navigate('/rrhh/capacitaciones');
       }
     } catch (err: any) {
       toast({ message: err.response?.data?.message || 'Error al guardar' });
@@ -84,6 +173,12 @@ export const CapacitacionFormPage = () => {
       setLoading(false);
     }
   };
+
+  const personasFiltradas = personas.filter(p => {
+    if (!busquedaPersona.trim()) return true;
+    const q = busquedaPersona.toLowerCase();
+    return `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q);
+  });
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen max-w-4xl mx-auto">
@@ -146,7 +241,7 @@ export const CapacitacionFormPage = () => {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600">Participantes</label>
+          <label className="text-xs font-medium text-gray-600">Participantes y certificados</label>
           {personas.length > 0 && (
             <input
               type="text"
@@ -156,26 +251,45 @@ export const CapacitacionFormPage = () => {
               className="border border-gray-300 rounded px-3 py-1.5 text-sm outline-none focus:border-blue-500"
             />
           )}
-          <div className="border border-gray-300 rounded p-3 max-h-48 overflow-y-auto">
-            {personas.length === 0 ? (
-              <p className="text-sm text-gray-500">No hay personas registradas</p>
+          <div className="border border-gray-300 rounded p-3 max-h-64 overflow-y-auto">
+            {personasFiltradas.length === 0 ? (
+              <p className="text-sm text-gray-500">No hay personas{busquedaPersona.trim() ? ' que coincidan' : ' registradas'}</p>
             ) : (
-              personas
-                .filter(p => {
-                  if (!busquedaPersona.trim()) return true;
-                  const q = busquedaPersona.toLowerCase();
-                  return `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q);
-                })
-                .map(p => (
-                <label key={p.id} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1">
-                  <input
-                    type="checkbox"
-                    checked={personaIds.includes(p.id)}
-                    onChange={() => togglePersona(p.id)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">{p.nombre} {p.apellidos}</span>
-                </label>
+              personasFiltradas.map(p => (
+                <div key={p.id} className="flex items-center gap-3 py-1.5 px-1 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded">
+                  <label className="flex items-center gap-2 cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={personaIds.includes(p.id)}
+                      onChange={() => togglePersona(p.id)}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{p.nombre} {p.apellidos}</span>
+                  </label>
+                  {personaIds.includes(p.id) && (
+                    <div className="flex items-center gap-2 ml-auto">
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => setCertificadoArchivo(p.id, e.target.files?.[0] || null)}
+                        className="text-[11px] max-w-[200px] file:mr-2 file:py-0.5 file:px-2 file:rounded-sm file:border file:border-gray-300 file:bg-gray-200 hover:file:bg-gray-300 cursor-pointer"
+                      />
+                      {certificados[p.id]?.archivo && (
+                        <span className="text-[11px] text-gray-500">{certificados[p.id].archivo!.name}</span>
+                      )}
+                      {!certificados[p.id]?.archivo && certificados[p.id]?.existente && (
+                        <a
+                          href={buildFileUrl(certificados[p.id].existente!) ?? '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          <FileText className="w-3 h-3" /> Ver certificado
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
               ))
             )}
           </div>
