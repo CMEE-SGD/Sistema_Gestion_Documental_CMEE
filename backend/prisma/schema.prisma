@@ -157,6 +157,7 @@ model Persona {
   usuario                  Usuario?
   puestos                  PersonaPuesto[]
   documentos               DocumentoPersona[]
+  capacitaciones_archivos  CapacitacionArchivo[]
   deptos_responsable       Departamento[]       @relation("DeptoResponsable")
   roles                    Rol[]                @relation("PersonaRoles")
   carpetas_permisos        CarpetaPermiso[]
@@ -254,6 +255,20 @@ model DocumentoPersona {
 
   @@index([persona_id])
   @@map("documento_persona")
+}
+
+model CapacitacionArchivo {
+  id             Int      @id @default(autoincrement())
+  persona_id     Int
+  persona        Persona  @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+  nombre_archivo String   @db.VarChar(300)
+  ruta           String   @db.VarChar(500)
+  peso_bytes     Int?
+  fecha_subida   DateTime @default(now()) @db.Timestamptz
+  activo         Boolean  @default(true)
+
+  @@index([persona_id])
+  @@map("capacitacion_archivo")
 }
 
 // ==========================================
@@ -1251,7 +1266,6 @@ model Capacitacion {
   horas         Float
   lugar         String?  @db.VarChar(250)
   proveedor     String?  @db.VarChar(250)
-  certificado   String?  @db.VarChar(500)
   estado        EstadoCapacitacion @default(PROGRAMADA)
   observaciones String?  @db.Text
 
@@ -1267,6 +1281,7 @@ model CapacitacionPersona {
   id              Int          @id @default(autoincrement())
   capacitacion_id Int
   persona_id      Int
+  certificado     String?      @db.VarChar(500)
 
   capacitacion Capacitacion @relation(fields: [capacitacion_id], references: [id], onDelete: Cascade)
   persona      Persona      @relation(fields: [persona_id], references: [id], onDelete: Cascade)

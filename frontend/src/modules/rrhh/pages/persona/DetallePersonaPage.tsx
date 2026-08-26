@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User } from 'lucide-react';
+import { User, GraduationCap } from 'lucide-react';
 import api from '../../../../core/api/axios';
 import { Persona } from '../../interfaces/persona.interface';
 import PrintHeader from '../../../../shared/components/organisms/PrintHeader';
@@ -101,6 +101,9 @@ export const DetallePersonaPage = () => {
                 )}
                 
                 <Button onClick={() => navigate(`/rrhh/personas/${encodeId(id)}/documentos`)} variant="clasico">Documentos</Button>
+                <Button onClick={() => navigate(`/rrhh/personas/${encodeId(id)}/capacitaciones-archivos`)} variant="clasico">
+                    <GraduationCap className="w-4 h-4 mr-1" /> Capacitaciones
+                </Button>
                 <Button variant="imprimir" />
                 <Button onClick={handleToggleLogs} variant="clasico">Log</Button>
             </div>

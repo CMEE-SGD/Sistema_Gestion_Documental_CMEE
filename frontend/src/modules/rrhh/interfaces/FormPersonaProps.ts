@@ -9,5 +9,4 @@ export interface FormPersonaProps {
     puestosLista: any[];
     onSubmit: (e: React.FormEvent) => void;
     isEdit?: boolean;
-    // 👇 ¡Asegúrate de borrar la línea onChange de aquí!
 }
