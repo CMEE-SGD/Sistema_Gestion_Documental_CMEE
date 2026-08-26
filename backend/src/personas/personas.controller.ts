@@ -75,7 +75,7 @@ export class PersonasController {
   @Post()
   @RequireAccess('Recursos Humanos', 5)
   @ApiOperation({ summary: 'Crear persona' })
-  @UseInterceptors(FileFieldsInterceptor([{ name: 'foto', maxCount: 1 }, { name: 'documentos', maxCount: 10 }], {
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'foto', maxCount: 1 }, { name: 'documentos', maxCount: 10 }, { name: 'capacitaciones', maxCount: 20 }], {
     storage: diskStorage({
       destination: (req, file, cb) => {
         const nombre = sanitizarSegmentoRuta(req.body.nombre || 'Usuario');
@@ -94,7 +94,7 @@ export class PersonasController {
     fileFilter: filtroArchivosPersona,
     limits: LIMITES_ARCHIVOS_PERSONA,
   }))
-  async create(@Body() dto: any, @UploadedFiles() files: { foto?: Express.Multer.File[]; documentos?: Express.Multer.File[] }) {
+  async create(@Body() dto: any, @UploadedFiles() files: { foto?: Express.Multer.File[]; documentos?: Express.Multer.File[]; capacitaciones?: Express.Multer.File[] }) {
     delete dto.eliminar_foto;
     if (files.foto) dto.foto_ruta = `/uploads/Personas/${sanitizarSegmentoRuta(dto.nombre || 'U')}_${sanitizarSegmentoRuta(dto.apellidos || '')}_${sanitizarSegmentoRuta(dto.cedula_identidad || '0')}/${files.foto[0].filename}`;
     
@@ -117,6 +117,10 @@ export class PersonasController {
         ruta: d.path,
         tipo_documento: 'Adjunto',
       })),
+      files.capacitaciones?.map((d) => ({
+        nombre_archivo: d.originalname,
+        ruta: d.path,
+      })),
     );
   }
 
@@ -134,7 +138,7 @@ export class PersonasController {
 
   @Patch(':id')
   @RequireAccess('Recursos Humanos', 4)
-  @UseInterceptors(FileFieldsInterceptor([{ name: 'foto', maxCount: 1 }, { name: 'documentos', maxCount: 10 }], {
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'foto', maxCount: 1 }, { name: 'documentos', maxCount: 10 }, { name: 'capacitaciones', maxCount: 20 }], {
     storage: diskStorage({
       destination: (req, file, cb) => {
         const nombre = sanitizarSegmentoRuta(req.body.nombre || 'U');
@@ -149,7 +153,7 @@ export class PersonasController {
     fileFilter: filtroArchivosPersona,
     limits: LIMITES_ARCHIVOS_PERSONA,
   }))
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: any, @UploadedFiles() files: { foto?: Express.Multer.File[]; documentos?: Express.Multer.File[] }) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: any, @UploadedFiles() files: { foto?: Express.Multer.File[]; documentos?: Express.Multer.File[]; capacitaciones?: Express.Multer.File[] }) {
     // Multer entrega todo como strings; parseamos los campos compuestos
     // PATCH: try-catch defensivo contra JSON malformado
     try { dto.roles = typeof dto.roles === 'string' ? JSON.parse(dto.roles) : dto.roles; } catch { dto.roles = dto.roles ?? []; }
@@ -179,6 +183,10 @@ export class PersonasController {
         ruta: d.path,
         tipo_documento: 'Adjunto',
       })),
+      files.capacitaciones?.map((d) => ({
+        nombre_archivo: d.originalname,
+        ruta: d.path,
+      })),
     );
     return persona;
   }
@@ -190,4 +198,8 @@ export class PersonasController {
   @Delete('documento/:id')
   @RequireAccess('Recursos Humanos', 4)
   removeDocumento(@Param('id', ParseIntPipe) id: number) { return this.personasService.eliminarDocumento(id); }
+
+  @Delete('capacitacion-archivo/:id')
+  @RequireAccess('Recursos Humanos', 4)
+  removeCapacitacionArchivo(@Param('id', ParseIntPipe) id: number) { return this.personasService.eliminarCapacitacionArchivo(id); }
 }

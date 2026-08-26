@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../../../shared/components/atoms/button';
-import { GraduationCap, ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Edit, Trash2, FileText, Upload } from 'lucide-react';
 import api from '../../../../core/api/axios';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../../shared/components/molecules/Toast';
-import { decodeId, encodeId } from '../../../../shared/utils/ids';
+import { decodeId } from '../../../../shared/utils/ids';
+import { buildFileUrl } from '../../../../shared/utils/backendUrl';
 
 const estadoColors: Record<string, string> = {
   PROGRAMADA: 'bg-yellow-100 text-yellow-800',
@@ -22,6 +23,12 @@ export const CapacitacionDetallePage = () => {
   const { toast } = useToast();
   const [cap, setCap] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState<Record<number, boolean>>({});
+
+  const cargar = () => {
+    if (!decodedId) return;
+    api.get(`/capacitaciones/${decodedId}`).then(res => setCap(res.data));
+  };
 
   useEffect(() => {
     if (!decodedId) return;
@@ -30,6 +37,24 @@ export const CapacitacionDetallePage = () => {
       .catch(() => toast({ message: 'Error al cargar capacitación' }))
       .finally(() => setLoading(false));
   }, [decodedId]);
+
+  const handleSubirCertificado = async (personaId: number, file: File) => {
+    if (!decodedId) return;
+    setUploading(prev => ({ ...prev, [personaId]: true }));
+    try {
+      const fd = new FormData();
+      fd.append('certificado', file);
+      await api.post(`/capacitaciones/${decodedId}/certificado/${personaId}`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast({ message: 'Certificado subido correctamente' });
+      cargar();
+    } catch (err: any) {
+      toast({ message: err.response?.data?.message || 'Error al subir certificado' });
+    } finally {
+      setUploading(prev => ({ ...prev, [personaId]: false }));
+    }
+  };
 
   const handleEliminar = async () => {
     const ok = await confirm({ message: '¿Eliminar esta capacitación?' });
@@ -90,6 +115,7 @@ export const CapacitacionDetallePage = () => {
                 <th className="p-3">#</th>
                 <th className="p-3">Nombre</th>
                 <th className="p-3">Cédula</th>
+                <th className="p-3">Certificado</th>
               </tr>
             </thead>
             <tbody>
@@ -98,6 +124,36 @@ export const CapacitacionDetallePage = () => {
                   <td className="p-3 text-gray-400">{i + 1}</td>
                   <td className="p-3 font-semibold">{p.persona.nombre} {p.persona.apellidos}</td>
                   <td className="p-3">{p.persona.cedula_identidad || '-'}</td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      {p.certificado ? (
+                        <a
+                          href={buildFileUrl(p.certificado) ?? '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline flex items-center gap-1 text-xs"
+                        >
+                          <FileText className="w-4 h-4" /> Ver certificado
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-400">Sin certificado</span>
+                      )}
+                      <label className={`flex items-center gap-1 text-xs cursor-pointer px-2 py-1 rounded border border-gray-300 hover:bg-gray-100 ${uploading[p.persona.id] ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <Upload className="w-3 h-3" />
+                        {uploading[p.persona.id] ? 'Subiendo...' : 'Subir PDF'}
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleSubirCertificado(p.persona.id, file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

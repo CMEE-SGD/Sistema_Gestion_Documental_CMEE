@@ -247,6 +247,7 @@ const FormPersona = ({
           </div>
         </div>
 
+
         <div className="flex items-center justify-between mb-5 mt-2">
           <h3 className="font-bold text-[12px] text-gray-900 underline uppercase tracking-wide flex items-center gap-2"> <Briefcase className="w-4 h-4 text-gray-700" /> Puestos </h3>
           <button type="button" onClick={handleLimpiarPuestos} className="text-[10px] text-red-600 hover:text-red-800 font-bold px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded flex items-center gap-1.5 transition-colors"> <Trash2 className="w-3 h-3" /> Limpiar Puestos </button>

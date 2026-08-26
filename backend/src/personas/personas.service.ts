@@ -28,6 +28,7 @@ export class PersonasService {
   async create(
     createPersonaDto: CreatePersonaDto,
     documentos?: { nombre_archivo: string; ruta: string; tipo_documento: string }[],
+    capacitaciones?: { nombre_archivo: string; ruta: string }[],
   ) {
     const { roles, puestos_asignados, activo, ...personaData } = createPersonaDto as any;
 
@@ -83,6 +84,16 @@ export class PersonasService {
           });
         }
 
+        if (capacitaciones && capacitaciones.length > 0) {
+          await tx.capacitacionArchivo.createMany({
+            data: capacitaciones.map((d) => ({
+              nombre_archivo: d.nombre_archivo,
+              ruta: d.ruta,
+              persona_id: persona.id,
+            })),
+          });
+        }
+
         return persona;
       });
       // PATCH: captura P2002 entre findUnique y create (race condition)
@@ -133,6 +144,7 @@ export class PersonasService {
         puestos: { include: { puesto: true, departamento: true } },
         usuario: { select: { nombre_usuario: true, estado_cuenta: true } },
         documentos: true,
+        capacitaciones_archivos: { where: { activo: true } },
       },
     });
     if (!persona)
@@ -175,6 +187,21 @@ export class PersonasService {
     });
   }
 
+  async eliminarCapacitacionArchivo(id: number) {
+    const archivo = await this.prisma.capacitacionArchivo.findUnique({ where: { id } });
+    if (!archivo) throw new NotFoundException(`Archivo de capacitación con ID ${id} no encontrado`);
+
+    try {
+      const rutaRelativa = archivo.ruta.startsWith('/') ? archivo.ruta.substring(1) : archivo.ruta;
+      const rutaFisica = join(process.cwd(), rutaRelativa);
+      if (fs.existsSync(rutaFisica)) fs.unlinkSync(rutaFisica);
+    } catch (error) {
+      console.error(`Aviso: No se pudo borrar el archivo físico en ${archivo.ruta}`, error);
+    }
+
+    return await this.prisma.capacitacionArchivo.delete({ where: { id } });
+  }
+
   /**
    * Ejecuta la operación de negocio update.
    * @param id - Datos o identificador requerido (number)
@@ -185,6 +212,7 @@ export class PersonasService {
     id: number,
     updatePersonaDto: UpdatePersonaDto,
     documentos?: { nombre_archivo: string; ruta: string; tipo_documento: string }[],
+    capacitaciones?: { nombre_archivo: string; ruta: string }[],
   ) {
     // PATCH: validar existencia antes de actualizar (consistente con remove())
     await this.findOne(id);
@@ -272,6 +300,16 @@ export class PersonasService {
       if (documentos && documentos.length > 0) {
         await tx.documentoPersona.createMany({
           data: documentos.map((d) => ({ ...d, persona_id: id })),
+        });
+      }
+
+      if (capacitaciones && capacitaciones.length > 0) {
+        await tx.capacitacionArchivo.createMany({
+          data: capacitaciones.map((d) => ({
+            nombre_archivo: d.nombre_archivo,
+            ruta: d.ruta,
+            persona_id: id,
+          })),
         });
       }
 

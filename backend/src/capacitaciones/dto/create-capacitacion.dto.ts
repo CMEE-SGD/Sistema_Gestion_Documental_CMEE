@@ -23,10 +23,6 @@ export class CreateCapacitacionDto {
 
   @IsOptional()
   @IsString()
-  certificado?: string;
-
-  @IsOptional()
-  @IsString()
   estado?: string;
 
   @IsOptional()
