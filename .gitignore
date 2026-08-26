@@ -12,7 +12,6 @@ build/
 
 # Prisma generated
 frontend/.next/
-backend/prisma/migrations/*.sql
 
 # IDE
 .vscode/
@@ -28,6 +27,15 @@ npm-debug.log*
 
 # Prisma
 backend/prisma/dev.db
+
+# Archivos subidos por usuarios (viven solo en el disco del servidor,
+# montados via docker-compose; nunca deben versionarse)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Dumps de base de datos / datos reales
+*.sql
+!backend/prisma/migrations/**/*.sql
 
 AGENTS.md
 CLAUDE.md
