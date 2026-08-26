@@ -4,10 +4,11 @@ export interface FormPersonaProps {
     setFotoFile: React.Dispatch<React.SetStateAction<File | null>>;
     documentosFiles: File[];
     setDocumentosFiles: React.Dispatch<React.SetStateAction<File[]>>;
+    capacitacionesFiles: File[];
+    setCapacitacionesFiles: React.Dispatch<React.SetStateAction<File[]>>;
     rolesLista: any[];
     departamentos: any[];
     puestosLista: any[];
     onSubmit: (e: React.FormEvent) => void;
     isEdit?: boolean;
-    // 👇 ¡Asegúrate de borrar la línea onChange de aquí!
 }

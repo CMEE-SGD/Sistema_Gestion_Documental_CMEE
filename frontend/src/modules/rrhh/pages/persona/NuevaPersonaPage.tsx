@@ -17,6 +17,7 @@ export const NuevaPersonaPage = () => {
     const [puestosLista, setPuestosLista] = useState([]);
     const [fotoFile, setFotoFile] = useState<File | null>(null);
     const [documentosFiles, setDocumentosFiles] = useState<File[]>([]);
+    const [capacitacionesFiles, setCapacitacionesFiles] = useState<File[]>([]);
 
     // 👇 Estado inicial actualizado
     const [formData, setFormData] = useState({
@@ -77,6 +78,7 @@ export const NuevaPersonaPage = () => {
 
             if (fotoFile) payload.append('foto', fotoFile);
             documentosFiles.forEach(file => payload.append('documentos', file));
+            capacitacionesFiles.forEach(file => payload.append('capacitaciones', file));
 
             await api.post('/personas', payload, {
                 headers: { 'Content-Type': 'multipart/form-data' }
@@ -102,6 +104,8 @@ export const NuevaPersonaPage = () => {
                 setFotoFile={setFotoFile}
                 documentosFiles={documentosFiles}
                 setDocumentosFiles={setDocumentosFiles}
+                capacitacionesFiles={capacitacionesFiles}
+                setCapacitacionesFiles={setCapacitacionesFiles}
                 rolesLista={rolesLista}
                 departamentos={departamentos}
                 puestosLista={puestosLista}
