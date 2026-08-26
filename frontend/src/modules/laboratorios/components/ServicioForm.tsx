@@ -57,7 +57,6 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
         e.preventDefault();
         try {
             const payload: any = {
-                nombre: formData.procedimiento,
                 magnitud: formData.procedimiento,
                 descripcion: formData.descripcion,
                 laboratorio_id: parseInt(formData.laboratorio_id)
