@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsEnum, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, IsDateString } from 'class-validator';
 
 export class CreateCapacitacionDto {
   @IsString()
@@ -15,19 +15,11 @@ export class CreateCapacitacionDto {
 
   @IsOptional()
   @IsString()
-  lugar?: string;
-
-  @IsOptional()
-  @IsString()
   proveedor?: string;
 
   @IsOptional()
   @IsString()
   estado?: string;
-
-  @IsOptional()
-  @IsString()
-  observaciones?: string;
 
   @IsOptional()
   @IsArray()
