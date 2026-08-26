@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { Building2, Briefcase, Shield, Users, Settings } from 'lucide-react';
+import { Building2, Briefcase, Shield, Users, Settings, GraduationCap } from 'lucide-react';
 
 const menuItems = [
     { name: 'Grupos de organización', path: '/rrhh/grupos', icon: Building2 },
     { name: 'Puestos', path: '/rrhh/puestos', icon: Briefcase },
     { name: 'Roles', path: '/rrhh/roles', icon: Shield },
     { name: 'Personas', path: '/rrhh/personas', icon: Users },
+    { name: 'Capacitaciones', path: '/rrhh/capacitaciones', icon: GraduationCap },
     // { name: 'Personalización', path: '/rrhh/personalizacion', icon: Settings },
 ];
 

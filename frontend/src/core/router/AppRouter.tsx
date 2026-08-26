@@ -30,6 +30,9 @@ import { DetallePersonaPage } from '../../modules/rrhh/pages/persona/DetallePers
 import { EditarPersonaPage } from '../../modules/rrhh/pages/persona/EditarPersonaPage';
 import AccesoDenegadoPage from '../../modules/auth/AccesoDenegadoPage';
 import { DocumentosPersonaPage } from '../../modules/rrhh/pages/persona/DocumentosPersonaPage';
+import { CapacitacionesPage } from '../../modules/rrhh/pages/capacitacion/CapacitacionesPage';
+import { CapacitacionFormPage } from '../../modules/rrhh/pages/capacitacion/CapacitacionFormPage';
+import { CapacitacionDetallePage } from '../../modules/rrhh/pages/capacitacion/CapacitacionDetallePage';
 
 // --- IMPORTACIONES DE LABORATORIOS ---
 import { LaboratoriosPage } from '../../modules/laboratorios/pages/LaboratoriosPage';
@@ -136,6 +139,10 @@ const AppRouter = () => {
           <Route path="personas/:id" element={<DetallePersonaPage />} />
           <Route path="personas/editar/:id" element={<EditarPersonaPage />} />
           <Route path="personas/:id/documentos" element={<DocumentosPersonaPage />} />
+          <Route path="capacitaciones" element={<CapacitacionesPage />} />
+          <Route path="capacitaciones/nueva" element={<CapacitacionFormPage />} />
+          <Route path="capacitaciones/:id" element={<CapacitacionDetallePage />} />
+          <Route path="capacitaciones/editar/:id" element={<CapacitacionFormPage />} />
           <Route path="personalizacion" element={<div>Configuración de RRHH</div>} />
         </Route>
         

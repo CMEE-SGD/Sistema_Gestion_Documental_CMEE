@@ -1,0 +1,1 @@
+ALTER TABLE "capacitaciones" ADD COLUMN "fecha_fin" DATE; ALTER TABLE "capacitaciones" ADD COLUMN "fecha_inicio" DATE; UPDATE "capacitaciones" SET "fecha_inicio" = "fecha", "fecha_fin" = "fecha"; ALTER TABLE "capacitaciones" DROP COLUMN "fecha";

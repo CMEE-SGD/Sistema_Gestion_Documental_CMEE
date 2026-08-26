@@ -27,6 +27,7 @@ import { ReportesModule } from './reportes/reportes.module';
 import { CalidadModule } from './calidad/calidad.module';
 import { ConfiguracionGeneralModule } from './configuracion-general/configuracion-general.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { CapacitacionesModule } from './capacitaciones/capacitaciones.module';
 
 /** Módulo controlador o servicio para gestionar la entidad AppModule. */
 @Module({
@@ -67,6 +68,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     CalidadModule,
     ConfiguracionGeneralModule,
     DashboardModule,
+    CapacitacionesModule,
   ],
   controllers: [],
   providers: [],
