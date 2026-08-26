@@ -10,7 +10,13 @@ export class ServiciosService {
   constructor(private prisma: PrismaService) {}
 
   async create(data: CreateServicioDto) {
-    return this.prisma.servicio.create({ data });
+    try {
+      return await this.prisma.servicio.create({ data });
+    } catch (error: any) {
+      throw new import('@nestjs/common').BadRequestException(
+        'Error al crear el servicio: ' + (error.message || 'Error de base de datos')
+      );
+    }
   }
 
   async findAll(user?: HydratedUser) {
@@ -71,10 +77,16 @@ export class ServiciosService {
     // que exigen nivel 5 — así edición (nivel 4) nunca puede usarse como
     // puerta trasera para desactivar o reactivar.
     const { activo: _activo, ...resto } = data;
-    return this.prisma.servicio.update({
-      where: { id },
-      data: resto,
-    });
+    try {
+      return await this.prisma.servicio.update({
+        where: { id },
+        data: resto,
+      });
+    } catch (error: any) {
+      throw new import('@nestjs/common').BadRequestException(
+        'Error al actualizar el servicio: ' + (error.message || 'Error de base de datos')
+      );
+    }
   }
 
   async remove(id: number, user?: HydratedUser) {
