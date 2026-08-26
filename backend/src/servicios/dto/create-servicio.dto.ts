@@ -9,12 +9,12 @@ import {
 /** Módulo controlador o servicio para gestionar la entidad CreateServicioDto. */
 export class CreateServicioDto {
   @IsString()
-  @IsNotEmpty()
-  nombre: string;
+  @IsOptional()
+  nombre?: string;
 
   @IsString()
-  @IsOptional()
-  magnitud?: string;
+  @IsNotEmpty()
+  magnitud: string;
 
   @IsString()
   @IsOptional()

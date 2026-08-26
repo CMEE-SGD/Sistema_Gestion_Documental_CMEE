@@ -651,7 +651,7 @@ model Equipo {
 // ==========================================
 model Servicio {
   id          Int     @id @default(autoincrement())
-  nombre      String  @db.VarChar(200)
+  nombre      String? @db.VarChar(200)
   magnitud    String? @db.VarChar(100)
   descripcion String? @db.Text
 
