@@ -16,8 +16,7 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
-        nombre: '',
-        magnitud: '',
+        procedimiento: '',
         descripcion: '',
         laboratorio_id: ''
     });
@@ -33,8 +32,7 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
                     const resSrv = await api.get(`/servicios/${servicioId}`);
                     const srv = resSrv.data;
                     setFormData({
-                        nombre: srv.nombre || '',
-                        magnitud: srv.magnitud || '',
+                        procedimiento: srv.magnitud || srv.procedimiento || '',
                         descripcion: srv.descripcion || '',
                         laboratorio_id: srv.laboratorio_id?.toString() || ''
                     });
@@ -58,9 +56,8 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const payload = {
-                nombre: formData.nombre,
-                magnitud: formData.magnitud,
+            const payload: any = {
+                magnitud: formData.procedimiento,
                 descripcion: formData.descripcion,
                 laboratorio_id: parseInt(formData.laboratorio_id)
             };
@@ -83,25 +80,18 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
     return (
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-700">Nombre del Servicio *</label>
-                <input type="text" name="nombre" required value={formData.nombre} onChange={handleChange} 
+                <label className="text-sm font-medium text-gray-700">Procedimiento *</label>
+                <input type="text" name="procedimiento" required value={formData.procedimiento} onChange={handleChange} 
                     className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium text-gray-700">Magnitud</label>
-                    <input type="text" name="magnitud" value={formData.magnitud} onChange={handleChange} 
-                        className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium text-gray-700">Laboratorio *</label>
-                    <select name="laboratorio_id" required value={formData.laboratorio_id} onChange={handleChange}
-                        className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">-- Seleccione --</option>
-                        {laboratorios.map(lab => <option key={lab.id} value={lab.id}>{lab.nombre}</option>)}
-                    </select>
-                </div>
+            <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-700">Laboratorio *</label>
+                <select name="laboratorio_id" required value={formData.laboratorio_id} onChange={handleChange}
+                    className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Seleccione --</option>
+                    {laboratorios.map(lab => <option key={lab.id} value={lab.id}>{lab.nombre}</option>)}
+                </select>
             </div>
 
             <div className="flex flex-col gap-1.5">
