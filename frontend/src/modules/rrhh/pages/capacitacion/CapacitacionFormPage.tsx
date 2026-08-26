@@ -38,10 +38,8 @@ export const CapacitacionFormPage = () => {
     fecha_inicio: today,
     fecha_fin: today,
     horas: '',
-    lugar: '',
     proveedor: '',
     estado: 'PROGRAMADA',
-    observaciones: '',
   });
   const [busquedaPersona, setBusquedaPersona] = useState('');
   const [personaIds, setPersonaIds] = useState<number[]>([]);
@@ -59,10 +57,8 @@ export const CapacitacionFormPage = () => {
           fecha_inicio: c.fecha_inicio ? c.fecha_inicio.split('T')[0] : '',
           fecha_fin: c.fecha_fin ? c.fecha_fin.split('T')[0] : '',
           horas: String(c.horas || ''),
-          lugar: c.lugar || '',
           proveedor: c.proveedor || '',
           estado: c.estado || 'PROGRAMADA',
-          observaciones: c.observaciones || '',
         });
         const pids: number[] = c.participantes?.map((p: any) => p.persona_id) || [];
         setPersonaIds(pids);
@@ -137,9 +133,7 @@ export const CapacitacionFormPage = () => {
           estado: form.estado,
           persona_ids: personaIds,
         };
-        if (form.lugar) payload.lugar = form.lugar;
         if (form.proveedor) payload.proveedor = form.proveedor;
-        if (form.observaciones) payload.observaciones = form.observaciones;
         await api.patch(`/capacitaciones/${capId}`, payload);
         toast({ message: 'Capacitación actualizada correctamente' });
       } else {
@@ -150,9 +144,7 @@ export const CapacitacionFormPage = () => {
           horas: parseFloat(form.horas) || 0,
           estado: form.estado,
           persona_ids: personaIds,
-          ...(form.lugar && { lugar: form.lugar }),
           ...(form.proveedor && { proveedor: form.proveedor }),
-          ...(form.observaciones && { observaciones: form.observaciones }),
         });
         capId = res.data.id;
         toast({ message: 'Capacitación creada correctamente' });
@@ -223,21 +215,10 @@ export const CapacitacionFormPage = () => {
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Lugar</label>
-            <input type="text" name="lugar" value={form.lugar} onChange={handleChange}
-              className="border border-gray-300 rounded px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
-          </div>
-          <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-600">Proveedor</label>
             <input type="text" name="proveedor" value={form.proveedor} onChange={handleChange}
               className="border border-gray-300 rounded px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
           </div>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600">Observaciones</label>
-          <textarea name="observaciones" value={form.observaciones} onChange={handleChange} rows={3}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm outline-none focus:border-blue-500 resize-none" />
         </div>
 
         <div className="flex flex-col gap-1">

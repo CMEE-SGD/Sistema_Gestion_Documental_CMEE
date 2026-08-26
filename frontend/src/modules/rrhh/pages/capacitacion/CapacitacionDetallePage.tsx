@@ -95,12 +95,8 @@ export const CapacitacionDetallePage = () => {
           <div className="p-3 border-b border-gray-200">{new Date(cap.fecha_fin).toLocaleDateString('es-ES')}</div>
           <div className="p-3 border-r border-b border-gray-200 font-medium text-gray-500">Horas</div>
           <div className="p-3 border-b border-gray-200">{cap.horas}</div>
-          <div className="p-3 border-r border-b border-gray-200 font-medium text-gray-500">Lugar</div>
-          <div className="p-3 border-b border-gray-200">{cap.lugar || '-'}</div>
           <div className="p-3 border-r border-b border-gray-200 font-medium text-gray-500">Proveedor</div>
           <div className="p-3 border-b border-gray-200">{cap.proveedor || '-'}</div>
-          <div className="p-3 border-r border-gray-200 font-medium text-gray-500">Observaciones</div>
-          <div className="p-3">{cap.observaciones || '-'}</div>
         </div>
       </div>
 

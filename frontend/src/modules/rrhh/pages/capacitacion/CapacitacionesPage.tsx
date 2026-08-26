@@ -30,7 +30,7 @@ export const CapacitacionesPage = () => {
     if (filtroEstado !== 'todos' && c.estado !== filtroEstado) return false;
     if (busqueda) {
       const b = busqueda.toLowerCase();
-      const texto = `${c.nombre} ${c.proveedor || ''} ${c.lugar || ''}`.toLowerCase();
+      const texto = `${c.nombre} ${c.proveedor || ''}`.toLowerCase();
       if (!texto.includes(b)) return false;
     }
     return true;
@@ -82,7 +82,6 @@ export const CapacitacionesPage = () => {
               <th className="p-3">Inicio</th>
               <th className="p-3">Fin</th>
               <th className="p-3">Horas</th>
-              <th className="p-3">Lugar</th>
               <th className="p-3">Proveedor</th>
               <th className="p-3">Participantes</th>
               <th className="p-3">Estado</th>
@@ -90,9 +89,9 @@ export const CapacitacionesPage = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="p-4 text-center text-gray-500">Cargando...</td></tr>
+              <tr><td colSpan={6} className="p-4 text-center text-gray-500">Cargando...</td></tr>
             ) : filtradas.length === 0 ? (
-              <tr><td colSpan={7} className="p-4 text-center text-gray-500">No se encontraron capacitaciones.</td></tr>
+              <tr><td colSpan={6} className="p-4 text-center text-gray-500">No se encontraron capacitaciones.</td></tr>
             ) : filtradas.map(c => (
               <tr
                 key={c.id}
@@ -103,7 +102,6 @@ export const CapacitacionesPage = () => {
                 <td className="p-3">{new Date(c.fecha_inicio).toLocaleDateString('es-ES')}</td>
                 <td className="p-3">{new Date(c.fecha_fin).toLocaleDateString('es-ES')}</td>
                 <td className="p-3">{c.horas}</td>
-                <td className="p-3">{c.lugar || '-'}</td>
                 <td className="p-3">{c.proveedor || '-'}</td>
                 <td className="p-3">{c.participantes?.length || 0}</td>
                 <td className="p-3">

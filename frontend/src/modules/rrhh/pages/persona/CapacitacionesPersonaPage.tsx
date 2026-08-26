@@ -96,7 +96,7 @@ export const CapacitacionesPersonaPage = () => {
                                         <th className="py-2.5 px-3 font-bold">Inicio</th>
                                         <th className="py-2.5 px-3 font-bold">Fin</th>
                                         <th className="py-2.5 px-3 font-bold">Horas</th>
-                                        <th className="py-2.5 px-3 font-bold">Lugar</th>
+                                        <th className="py-2.5 px-3 font-bold">Proveedor</th>
                                         <th className="py-2.5 px-3 font-bold">Estado</th>
                                         <th className="py-2.5 px-3 font-bold">Certificado</th>
                                     </tr>
@@ -120,7 +120,7 @@ export const CapacitacionesPersonaPage = () => {
                                                 <td className="py-2.5 px-3">{new Date(c.fecha_inicio).toLocaleDateString('es-ES')}</td>
                                                 <td className="py-2.5 px-3">{new Date(c.fecha_fin).toLocaleDateString('es-ES')}</td>
                                                 <td className="py-2.5 px-3">{c.horas}</td>
-                                                <td className="py-2.5 px-3">{c.lugar || '-'}</td>
+                                                <td className="py-2.5 px-3">{c.proveedor || '-'}</td>
                                                 <td className="py-2.5 px-3">
                                                     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${estadoColors[c.estado] || 'bg-gray-100'}`}>
                                                         {c.estado?.replace('_', ' ')}

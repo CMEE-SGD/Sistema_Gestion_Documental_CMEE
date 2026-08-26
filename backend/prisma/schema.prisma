@@ -1264,10 +1264,8 @@ model Capacitacion {
   fecha_inicio  DateTime @db.Date
   fecha_fin     DateTime @db.Date
   horas         Float
-  lugar         String?  @db.VarChar(250)
   proveedor     String?  @db.VarChar(250)
   estado        EstadoCapacitacion @default(PROGRAMADA)
-  observaciones String?  @db.Text
 
   created_at DateTime
   updated_at DateTime @updatedAt

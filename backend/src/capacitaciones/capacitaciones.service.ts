@@ -25,10 +25,8 @@ export class CapacitacionesService {
         fecha_inicio: new Date(data.fecha_inicio),
         fecha_fin: new Date(data.fecha_fin),
         horas: data.horas,
-        lugar: data.lugar || null,
         proveedor: data.proveedor || null,
         estado: (data.estado as any) || 'PROGRAMADA',
-        observaciones: data.observaciones || null,
         created_at,
         ...(persona_ids?.length
           ? {
@@ -80,10 +78,8 @@ export class CapacitacionesService {
       if (data.fecha_inicio !== undefined) updateData.fecha_inicio = new Date(data.fecha_inicio);
       if (data.fecha_fin !== undefined) updateData.fecha_fin = new Date(data.fecha_fin);
       if (data.horas !== undefined) updateData.horas = data.horas;
-      if (data.lugar !== undefined) updateData.lugar = data.lugar || null;
       if (data.proveedor !== undefined) updateData.proveedor = data.proveedor || null;
       if (data.estado !== undefined) updateData.estado = data.estado;
-      if (data.observaciones !== undefined) updateData.observaciones = data.observaciones || null;
 
       const result = await tx.capacitacion.update({ where: { id }, data: updateData });
 
