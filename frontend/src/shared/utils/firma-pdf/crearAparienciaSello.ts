@@ -9,10 +9,10 @@ const GAP_QR_TEXTO = 10;
 const QR_MODULO_PT = 2.2;
 const QR_ZONA_SILENCIO_MODULOS = 4; // recomendado por ISO/IEC 18004 para códigos impresos/fotocopiados
 
-const LABEL_FONT_SIZE = 8;
-const NAME_FONT_SIZE = 12;
-const NAME_LINE_HEIGHT = 14;
-const LABEL_NAME_GAP = 5;
+const LABEL_FONT_SIZE = 5.5;
+const NAME_FONT_SIZE = 7.5;
+const NAME_LINE_HEIGHT = 8.5;
+const LABEL_NAME_GAP = 3;
 const MAX_ANCHO_COLUMNA_TEXTO = 230;
 const COLOR_ETIQUETA = '0.42 0.42 0.42'; // gris — contraste "delgado" contra el nombre en negro
 
