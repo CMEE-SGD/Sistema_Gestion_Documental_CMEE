@@ -149,7 +149,7 @@ const MODALIDADES_EQUIPO = [
 
 export const AuditoriaFormPage = () => {
     const { id: rawId } = useParams<{id: string}>();
-    const id = decodeId(rawId!);
+    const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
     const { alert } = useAlert();
     const { toast } = useToast();

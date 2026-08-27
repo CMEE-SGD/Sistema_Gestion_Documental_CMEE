@@ -17,6 +17,7 @@ export const ServiciosPage = () => {
     const [error, setError] = useState(false);
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<'activo' | 'inactivo' | 'todos'>('activo');
+    const [filtroLaboratorio, setFiltroLaboratorio] = useState('todos');
 
     // 👇 Estados para el Modal
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,9 +41,18 @@ export const ServiciosPage = () => {
         fetchServicios();
     }, []);
 
+    const mapaLaboratorios = new Map<number, string>();
+    servicios.forEach(srv => {
+        if (srv.laboratorio_id && srv.laboratorio?.nombre) {
+            mapaLaboratorios.set(srv.laboratorio_id, srv.laboratorio.nombre);
+        }
+    });
+    const laboratoriosUnicos: [number, string][] = Array.from(mapaLaboratorios).sort((a, b) => a[1].localeCompare(b[1]));
+
     const filtrados = servicios.filter(srv => {
         if (filtroEstado === 'activo' && !srv.activo) return false;
         if (filtroEstado === 'inactivo' && srv.activo) return false;
+        if (filtroLaboratorio !== 'todos' && String(srv.laboratorio_id) !== filtroLaboratorio) return false;
 
         return (srv.magnitud || '').toLowerCase().includes(busqueda.toLowerCase());
     });
@@ -92,23 +102,36 @@ export const ServiciosPage = () => {
                 </div>
             </div>
 
-            <div className="mb-4 flex items-center bg-white p-3 rounded-lg shadow-sm border border-gray-200 w-full max-w-2xl">
+            <div className="mb-4 flex flex-wrap items-center gap-3 bg-white p-3 rounded-lg shadow-sm border border-gray-200 w-full">
                 <select
                     value={filtroEstado}
                     onChange={(e) => setFiltroEstado(e.target.value as any)}
-                    className="border border-gray-300 rounded px-3 py-1.5 text-sm mr-4 outline-none"
+                    className="border border-gray-300 rounded px-3 py-1.5 text-sm outline-none"
                 >
                     <option value="activo">Solo Activos</option>
                     <option value="inactivo">Solo Inactivos</option>
                     <option value="todos">Mostrar Todos</option>
                 </select>
 
-                <svg className="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                <input
-                    type="text" placeholder="Buscar por procedimiento..."
-                    className="w-full text-sm outline-none bg-transparent"
-                    value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
-                />
+                <select
+                    value={filtroLaboratorio}
+                    onChange={(e) => setFiltroLaboratorio(e.target.value)}
+                    className="border border-gray-300 rounded px-3 py-1.5 text-sm outline-none"
+                >
+                    <option value="todos">Todos los laboratorios</option>
+                    {laboratoriosUnicos.map(([id, nombre]) => (
+                        <option key={id} value={id}>{nombre}</option>
+                    ))}
+                </select>
+
+                <div className="flex items-center flex-1 min-w-[200px]">
+                    <svg className="w-5 h-5 text-gray-400 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <input
+                        type="text" placeholder="Buscar por procedimiento..."
+                        className="w-full text-sm outline-none bg-transparent"
+                        value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+                    />
+                </div>
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -116,6 +139,7 @@ export const ServiciosPage = () => {
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
                         <tr>
                             <th className="px-6 py-4 font-semibold">Procedimiento</th>
+                            <th className="px-6 py-4 font-semibold">Descripción</th>
                             <th className="px-6 py-4 font-semibold">Laboratorio Ejecutor</th>
                             <th className="px-6 py-4 font-semibold text-center">Estado</th>
                             <th className="px-6 py-4 font-semibold text-center">Acciones</th>
@@ -123,18 +147,19 @@ export const ServiciosPage = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {loading ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-gray-400">Cargando datos...</td></tr>
+                            <tr><td colSpan={5} className="p-8 text-center text-gray-400">Cargando datos...</td></tr>
                         ) : error ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-red-500">
+                            <tr><td colSpan={5} className="p-8 text-center text-red-500">
                                 No se pudo cargar el catálogo de servicios.{' '}
                                 <button onClick={fetchServicios} className="underline font-medium hover:text-red-700">Reintentar</button>
                             </td></tr>
                         ) : filtrados.length === 0 ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-gray-400">No se encontraron servicios.</td></tr>
+                            <tr><td colSpan={5} className="p-8 text-center text-gray-400">No se encontraron servicios.</td></tr>
                         ) : (
                             filtrados.map(srv => (
                                 <tr key={srv.id} className={`hover:bg-gray-50 transition-colors ${!srv.activo ? 'opacity-60 bg-gray-50' : ''}`}>
                                     <td className="px-6 py-4 font-medium text-gray-900">{srv.magnitud || 'N/A'}</td>
+                                    <td className="px-6 py-4 text-gray-500">{srv.descripcion || '—'}</td>
                                     <td className="px-6 py-4">{srv.laboratorio?.nombre || 'Desconocido'}</td>
                                     <td className="px-6 py-4 text-center">
                                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${srv.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
