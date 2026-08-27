@@ -139,8 +139,8 @@ export const ServiciosPage = () => {
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
                         <tr>
                             <th className="px-6 py-4 font-semibold">Procedimiento</th>
-                            <th className="px-6 py-4 font-semibold">Descripción</th>
                             <th className="px-6 py-4 font-semibold">Laboratorio Ejecutor</th>
+                            <th className="px-6 py-4 font-semibold">Descripción</th>
                             <th className="px-6 py-4 font-semibold text-center">Estado</th>
                             <th className="px-6 py-4 font-semibold text-center">Acciones</th>
                         </tr>
@@ -159,8 +159,8 @@ export const ServiciosPage = () => {
                             filtrados.map(srv => (
                                 <tr key={srv.id} className={`hover:bg-gray-50 transition-colors ${!srv.activo ? 'opacity-60 bg-gray-50' : ''}`}>
                                     <td className="px-6 py-4 font-medium text-gray-900">{srv.magnitud || 'N/A'}</td>
-                                    <td className="px-6 py-4 text-gray-500">{srv.descripcion || '—'}</td>
                                     <td className="px-6 py-4">{srv.laboratorio?.nombre || 'Desconocido'}</td>
+                                    <td className="px-6 py-4 text-gray-500">{srv.descripcion || '—'}</td>
                                     <td className="px-6 py-4 text-center">
                                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${srv.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                             {srv.activo ? 'Activo' : 'Inactivo'}
