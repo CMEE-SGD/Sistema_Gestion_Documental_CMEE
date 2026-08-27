@@ -55,7 +55,7 @@ export const ServiciosPage = () => {
         if (filtroLaboratorio !== 'todos' && String(srv.laboratorio_id) !== filtroLaboratorio) return false;
 
         return (srv.magnitud || '').toLowerCase().includes(busqueda.toLowerCase());
-    });
+    }).sort((a, b) => (a.magnitud || '').localeCompare(b.magnitud || ''));
 
     const handleEliminar = async (id: number) => {
         if (!await confirm({ title: 'Confirmar', message: '¿Está seguro de desactivar este servicio?' })) return;
