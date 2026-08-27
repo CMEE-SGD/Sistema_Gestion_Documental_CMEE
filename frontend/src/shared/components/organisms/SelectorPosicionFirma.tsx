@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Este componente completo se carga de forma diferida (ver los modales de
 // firma), así que importar pdfjs-dist estáticamente aquí no afecta el
@@ -21,14 +21,24 @@ interface Props {
   pdfBytes: Uint8Array;
   posicionActual: PosicionFirma | null;
   onSeleccionar: (pos: PosicionFirma) => void;
+  /** Tamaño real (en puntos PDF) que ocupará el sello — mismo cálculo que se
+   * usa al firmar (ver construirAparienciaSello), para que el recuadro de
+   * vista previa sea exacto y no solo aproximado. */
+  tamanoSello?: { ancho: number; alto: number } | null;
 }
 
 const ANCHO_MAXIMO_CANVAS = 700;
+// Tamaño de respaldo si aún no se pudo calcular el tamaño real del sello
+// (p. ej. mientras se carga el módulo de firma) — solo para que el recuadro
+// no desaparezca un instante.
+const ANCHO_SELLO_DEFECTO = 90;
+const ALTO_SELLO_DEFECTO = 30;
 
 export default function SelectorPosicionFirma({
   pdfBytes,
   posicionActual,
   onSeleccionar,
+  tamanoSello,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
@@ -37,6 +47,7 @@ export default function SelectorPosicionFirma({
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [escala, setEscala] = useState(1);
+  const [anchoPagina, setAnchoPagina] = useState(0);
   const [alturaPagina, setAlturaPagina] = useState(0);
 
   // Carga del documento — una sola vez por PDF recibido.
@@ -92,6 +103,7 @@ export default function SelectorPosicionFirma({
       if (cancelado) return;
 
       setEscala(escalaCalculada);
+      setAnchoPagina(viewportBase.width);
       setAlturaPagina(viewportBase.height);
     })();
 
@@ -117,10 +129,28 @@ export default function SelectorPosicionFirma({
     return <p className="text-sm text-destructive">{error}</p>;
   }
 
+  // Misma lógica de recorte contra el borde de la página que usa
+  // agregarSelloYPlaceholder.ts al insertar el sello de verdad — así el
+  // recuadro de vista previa queda exactamente donde va a quedar el sello.
+  let recuadro: { left: number; top: number; width: number; height: number } | null = null;
+  if (posicionActual && posicionActual.pagina === paginaActual && !cargando) {
+    const ancho = tamanoSello?.ancho ?? ANCHO_SELLO_DEFECTO;
+    const alto = tamanoSello?.alto ?? ALTO_SELLO_DEFECTO;
+    const x1 = Math.min(Math.max(posicionActual.x, 0), Math.max(anchoPagina - ancho, 0));
+    const yTope = Math.min(Math.max(posicionActual.y, alto), alturaPagina);
+    recuadro = {
+      left: x1 * escala,
+      top: (alturaPagina - yTope) * escala,
+      width: ancho * escala,
+      height: alto * escala,
+    };
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-muted-foreground">
-        Haga clic en el PDF donde quiere que aparezca el sello de firma.
+        Haga clic en el PDF donde quiere que aparezca el sello de firma. El
+        recuadro punteado muestra el tamaño real que va a ocupar.
       </p>
 
       <div className="relative inline-block border border-border rounded-md overflow-hidden mx-auto bg-white">
@@ -134,16 +164,11 @@ export default function SelectorPosicionFirma({
           onClick={handleClick}
           className={cargando ? 'hidden' : 'cursor-crosshair block'}
         />
-        {posicionActual && posicionActual.pagina === paginaActual && !cargando && (
+        {recuadro && (
           <div
-            className="absolute pointer-events-none"
-            style={{
-              left: posicionActual.x * escala - 10,
-              top: (alturaPagina - posicionActual.y) * escala - 20,
-            }}
-          >
-            <MapPin className="h-5 w-5 text-red-600 drop-shadow" fill="white" />
-          </div>
+            className="absolute pointer-events-none border-2 border-dashed border-red-500 bg-red-500/10"
+            style={recuadro}
+          />
         )}
       </div>
 

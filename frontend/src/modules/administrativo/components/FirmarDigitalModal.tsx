@@ -54,11 +54,55 @@ export default function FirmarDigitalModal({
   const [codigoVerificacion, setCodigoVerificacion] = useState<string | null>(null);
   const [p12File, setP12File] = useState<File | null>(null);
   const [password, setPassword] = useState('');
+  const [tamanoSello, setTamanoSello] = useState<{ ancho: number; alto: number } | null>(null);
   const [observaciones, setObservaciones] = useState('');
   const [paso, setPaso] = useState<Paso>('idle');
   const [error, setError] = useState<string | null>(null);
 
   const enviando = paso !== 'idle';
+
+  // Recalcula el tamaño real del recuadro de vista previa: usa el nombre del
+  // certificado si ya se pudo leer (archivo + contraseña correctos) o el
+  // texto de respaldo que usará la firma real si todavía no, e incluye el QR
+  // cuando hay código de verificación disponible — igual que al firmar de verdad.
+  useEffect(() => {
+    if (accion !== 'FIRMAR') return;
+    let cancelado = false;
+    (async () => {
+      let nombre: string | null = null;
+      if (p12File && password.length > 0) {
+        try {
+          const { extraerTitularCertificado } = await import(
+            '../../../shared/utils/firmarPdf'
+          );
+          const buffer = Buffer.from(new Uint8Array(await p12File.arrayBuffer()));
+          nombre = extraerTitularCertificado(buffer, password);
+        } catch {
+          nombre = null;
+        }
+      }
+      if (cancelado) return;
+      try {
+        const { construirAparienciaSello } = await import(
+          '../../../shared/utils/firma-pdf/crearAparienciaSello'
+        );
+        const qrUrl = codigoVerificacion
+          ? `${window.location.origin}/verificar/${codigoVerificacion}`
+          : undefined;
+        const { ancho, alto } = construirAparienciaSello({
+          etiqueta: 'Firmado electrónicamente por:',
+          nombre: nombre ?? 'Titular del certificado',
+          qrUrl,
+        });
+        if (!cancelado) setTamanoSello({ ancho, alto });
+      } catch {
+        if (!cancelado) setTamanoSello(null);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [accion, p12File, password, codigoVerificacion]);
 
   // Al elegir "Firmar digitalmente" se descarga el PDF actual una sola vez,
   // para poder mostrarlo y que el usuario elija dónde va el sello.
@@ -126,6 +170,7 @@ export default function FirmarDigitalModal({
     setCodigoVerificacion(null);
     setP12File(null);
     setPassword('');
+    setTamanoSello(null);
     setObservaciones('');
     setPaso('idle');
     setError(null);
@@ -296,81 +341,82 @@ export default function FirmarDigitalModal({
 
             {accion === 'FIRMAR' && (
               <div className="space-y-4">
+                <div className="space-y-3">
+                  <div>
+                    <label
+                      htmlFor="p12-file"
+                      className="mb-1.5 block text-sm font-medium text-foreground"
+                    >
+                      Certificado (.p12) <span className="text-destructive">*</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={enviando}
+                        className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                      >
+                        <Upload className="h-4 w-4" />
+                        Seleccionar archivo
+                      </button>
+                      <span className="truncate text-sm text-muted-foreground">
+                        {p12File?.name ?? 'Ningún archivo seleccionado'}
+                      </span>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      id="p12-file"
+                      type="file"
+                      accept=".p12,.pfx"
+                      className="hidden"
+                      onChange={(e) => setP12File(e.target.files?.[0] ?? null)}
+                      disabled={enviando}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="p12-password"
+                      className="mb-1.5 block text-sm font-medium text-foreground"
+                    >
+                      Contraseña del certificado{' '}
+                      <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      id="p12-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={enviando}
+                      className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
                 {cargandoPdf ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground border-t border-border pt-4">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Descargando documento…
                   </div>
                 ) : pdfDescargado ? (
-                  <Suspense
-                    fallback={
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Cargando visor de PDF…
-                      </div>
-                    }
-                  >
-                    <SelectorPosicionFirma
-                      pdfBytes={pdfDescargado}
-                      posicionActual={posicionFirma}
-                      onSeleccionar={setPosicionFirma}
-                    />
-                  </Suspense>
-                ) : null}
-
-                {posicionFirma && (
-                  <div className="space-y-3 border-t border-border pt-4">
-                    <div>
-                      <label
-                        htmlFor="p12-file"
-                        className="mb-1.5 block text-sm font-medium text-foreground"
-                      >
-                        Certificado (.p12) <span className="text-destructive">*</span>
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={enviando}
-                          className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-                        >
-                          <Upload className="h-4 w-4" />
-                          Seleccionar archivo
-                        </button>
-                        <span className="truncate text-sm text-muted-foreground">
-                          {p12File?.name ?? 'Ningún archivo seleccionado'}
-                        </span>
-                      </div>
-                      <input
-                        ref={fileInputRef}
-                        id="p12-file"
-                        type="file"
-                        accept=".p12,.pfx"
-                        className="hidden"
-                        onChange={(e) => setP12File(e.target.files?.[0] ?? null)}
-                        disabled={enviando}
+                  <div className="border-t border-border pt-4">
+                    <Suspense
+                      fallback={
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Cargando visor de PDF…
+                        </div>
+                      }
+                    >
+                      <SelectorPosicionFirma
+                        pdfBytes={pdfDescargado}
+                        posicionActual={posicionFirma}
+                        onSeleccionar={setPosicionFirma}
+                        tamanoSello={tamanoSello}
                       />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="p12-password"
-                        className="mb-1.5 block text-sm font-medium text-foreground"
-                      >
-                        Contraseña del certificado{' '}
-                        <span className="text-destructive">*</span>
-                      </label>
-                      <input
-                        id="p12-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={enviando}
-                        className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                      />
-                    </div>
+                    </Suspense>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
 

@@ -22,7 +22,7 @@ export type { PosicionFirma };
  * visual. Si no se puede leer (contraseña incorrecta, certificado sin CN),
  * devuelve null y el llamador decide el texto de respaldo.
  */
-function extraerTitularCertificado(
+export function extraerTitularCertificado(
   p12Buffer: Buffer,
   password: string,
 ): string | null {
