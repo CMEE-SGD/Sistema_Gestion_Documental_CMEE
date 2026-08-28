@@ -73,10 +73,10 @@ export class DashboardService {
 
     const dateFilter = { gte: startDate, lte: endDate };
 
-    const [ordenes, clientesNuevos, quejas] = await Promise.all([
+    const [ordenes, clientesNuevos, quejas, equiposEnTramite] = await Promise.all([
       this.prisma.ordenTrabajo.findMany({
         where: { createdAt: dateFilter },
-        select: { createdAt: true, cliente_id: true }
+        select: { createdAt: true, cliente_id: true, cliente: { select: { tipo: true } } }
       }),
       this.prisma.clienteInstitucional.findMany({
         where: { createdAt: dateFilter },
@@ -84,16 +84,46 @@ export class DashboardService {
       }),
       this.prisma.queja.findMany({
         where: { createdAt: dateFilter },
-        select: { createdAt: true, estado: true, id: true }
+        select: { createdAt: true, estado: true, id: true, procedente: true }
+      }),
+      // "Clientes en trámite" — foto del momento actual, no del período
+      // filtrado arriba: clientes con al menos un equipo que todavía no
+      // llegó a FINALIZADO (el único estado terminal del flujo).
+      this.prisma.equipoRecepcion.findMany({
+        where: { estado: { not: 'FINALIZADO' } },
+        select: { orden_trabajo: { select: { cliente_id: true } } }
       })
     ]);
+    const clientesEnTramiteTotal = new Set(
+      equiposEnTramite.map(e => e.orden_trabajo.cliente_id)
+    ).size;
 
+    // Período inmediatamente anterior, de la misma duración — para poder
+    // mostrar "+8 vs. período anterior" en vez de solo un número suelto.
+    const duracionMs = endDate.getTime() - startDate.getTime();
+    const prevEnd = new Date(startDate.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - duracionMs);
+    const prevFilter = { gte: prevStart, lte: prevEnd };
+
+    const [ordenesPrev, nuevosClientesPrevTotal, quejasPrevTotal] = await Promise.all([
+      this.prisma.ordenTrabajo.findMany({
+        where: { createdAt: prevFilter },
+        select: { cliente_id: true }
+      }),
+      this.prisma.clienteInstitucional.count({ where: { createdAt: prevFilter } }),
+      this.prisma.queja.count({ where: { createdAt: prevFilter } }),
+    ]);
+    const clientesAtendidosPrevTotal = new Set(ordenesPrev.map(o => o.cliente_id)).size;
+
+    // "esteAnio" agrupa por MES (los buckets se inicializaron como "Ene 26",
+    // "Feb 26", ...) — el resto de períodos agrupan por DÍA ("15 Mar"). Antes
+    // esta función devolvía siempre el formato de día sin importar el
+    // período, así que para "esteAnio" nunca coincidía con ningún bucket
+    // inicializado y la serie salía siempre en cero pese a que el total sí
+    // era correcto (se calcula aparte, sin pasar por los buckets).
     const getBucketKey = (d: Date) => {
-      if (periodo === 'esteAnio' || (periodo === 'personalizado' && mes && anio)) {
-        return `${d.getDate()} ${monthNames[d.getMonth()]}`;
-      }
-      if (periodo === 'esteMes' || periodo === 'mesAnterior') {
-        return `${d.getDate()} ${monthNames[d.getMonth()]}`;
+      if (periodo === 'esteAnio') {
+        return `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
       }
       return `${d.getDate()} ${monthNames[d.getMonth()]}`;
     };
@@ -101,12 +131,21 @@ export class DashboardService {
     // 1. Clientes Atendidos Serie
     const clientesAtendidosBuckets = new Map(bucketsMap);
     const uniqueClientsTotal = new Set();
+    const tipoPorCliente = new Map<number, string>();
     ordenes.forEach(o => {
       const key = getBucketKey(o.createdAt);
       if (clientesAtendidosBuckets.has(key)) {
         clientesAtendidosBuckets.set(key, clientesAtendidosBuckets.get(key)! + 1);
       }
       uniqueClientsTotal.add(o.cliente_id);
+      tipoPorCliente.set(o.cliente_id, o.cliente.tipo);
+    });
+
+    // Clientes Atendidos por tipo (MILITAR/CIVIL) — un cliente cuenta una sola
+    // vez en el periodo, igual que clientesAtendidosTotal.
+    const clientesPorTipoMap = new Map<string, number>();
+    tipoPorCliente.forEach((tipo) => {
+      clientesPorTipoMap.set(tipo, (clientesPorTipoMap.get(tipo) || 0) + 1);
     });
 
     // 2. Nuevos Clientes Serie
@@ -121,12 +160,19 @@ export class DashboardService {
     // 3. Quejas Serie
     const quejasBuckets = new Map(bucketsMap);
     const quejasEstadosMap = new Map<string, number>();
+    let quejasProcedentes = 0;
+    let quejasNoProcedentes = 0;
+    let quejasSinAnalizar = 0;
     quejas.forEach(q => {
       const key = getBucketKey(q.createdAt);
       if (quejasBuckets.has(key)) {
         quejasBuckets.set(key, quejasBuckets.get(key)! + 1);
       }
       quejasEstadosMap.set(q.estado, (quejasEstadosMap.get(q.estado) || 0) + 1);
+
+      if (q.procedente === true) quejasProcedentes++;
+      else if (q.procedente === false) quejasNoProcedentes++;
+      else quejasSinAnalizar++;
     });
 
     return {
@@ -140,6 +186,26 @@ export class DashboardService {
       quejasSerie: Array.from(quejasBuckets, ([fecha, count]) => ({ fecha, count })),
 
       quejasPorEstado: Array.from(quejasEstadosMap, ([estado, count]) => ({ estado, count })),
+
+      clientesPorTipo: Array.from(clientesPorTipoMap, ([tipo, count]) => ({ tipo, count })),
+
+      // No depende del período seleccionado — es "ahora mismo", no
+      // "en los últimos N días".
+      clientesEnTramiteTotal,
+
+      quejasProcedencia: {
+        procedentes: quejasProcedentes,
+        noProcedentes: quejasNoProcedentes,
+        sinAnalizar: quejasSinAnalizar,
+      },
+
+      // Comparativo vs. el mismo número de días inmediatamente anterior al
+      // período seleccionado — para poder mostrar tendencia, no solo el total.
+      comparativo: {
+        clientesAtendidosPrevTotal,
+        nuevosClientesPrevTotal,
+        numeroQuejasPrevTotal: quejasPrevTotal,
+      },
     };
   }
 }
