@@ -4,6 +4,12 @@
 /build
 *.tsbuildinfo
 
+# Scripts sueltos de prueba/debug compilados en la raíz del backend
+# (fuera de /dist y /test, no deberían versionarse)
+/test.js
+/test.js.map
+/test.d.ts
+
 # Logs
 logs
 *.log
