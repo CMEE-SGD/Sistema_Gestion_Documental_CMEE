@@ -4,16 +4,16 @@
 // pdfkit, dibujando los operadores PDF a mano.
 import { construirBloqueQr } from './crearBloqueQr';
 
-const RELLENO = 8;
-const GAP_QR_TEXTO = 10;
-const QR_MODULO_PT = 2.2;
-const QR_ZONA_SILENCIO_MODULOS = 4; // recomendado por ISO/IEC 18004 para códigos impresos/fotocopiados
+const RELLENO = 5;
+const GAP_QR_TEXTO = 6;
+const QR_MODULO_PT = 1.4;
+const QR_ZONA_SILENCIO_MODULOS = 4; // recomendado por ISO/IEC 18004 para códigos impresos/fotocopiados — no bajar de 4, o el QR deja de leerse bien fotocopiado
 
 const LABEL_FONT_SIZE = 5.5;
 const NAME_FONT_SIZE = 7.5;
 const NAME_LINE_HEIGHT = 8.5;
 const LABEL_NAME_GAP = 3;
-const MAX_ANCHO_COLUMNA_TEXTO = 230;
+const MAX_ANCHO_COLUMNA_TEXTO = 140;
 const COLOR_ETIQUETA = '0.42 0.42 0.42'; // gris — contraste "delgado" contra el nombre en negro
 
 /** Convierte cada carácter a su byte WinAnsi/Latin-1 y escapa los caracteres

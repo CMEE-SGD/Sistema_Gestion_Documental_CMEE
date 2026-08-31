@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { FileSignature, Loader2, Upload, X, XCircle } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
+import { generarUuidV4 } from '../../../shared/utils/uuid';
 import type { PosicionFirma } from '../../../shared/components/organisms/SelectorPosicionFirma';
 
 // Carga diferida: pdfjs-dist (~350KB + worker) solo se descarga cuando
@@ -174,7 +175,7 @@ export default function FirmarDocumentoModal({
     // Carga diferida: las librerías de firma (~350KB) solo se descargan
     // cuando alguien realmente va a firmar, no en el bundle principal.
     const { firmarPdfConP12 } = await import('../../../shared/utils/firmarPdf');
-    const codigoVerificacion = crypto.randomUUID();
+    const codigoVerificacion = generarUuidV4();
     const qrUrl = `${window.location.origin}/verificar-documento/${codigoVerificacion}`;
     const pdfFirmado = await firmarPdfConP12(
       pdfDescargado,
