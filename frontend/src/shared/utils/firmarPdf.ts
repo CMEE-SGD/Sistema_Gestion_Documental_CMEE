@@ -49,7 +49,8 @@ export function extraerTitularCertificado(
  *   con el nombre real del titular del certificado (no el usuario de la sesión).
  *   `qrUrl`, si se provee, dibuja un QR a la izquierda del sello — solo tiene
  *   sentido cuando existe una página pública de verificación para ese documento
- *   (hoy: Certificados; Gestor Documental no pasa qrUrl y el sello sale sin QR).
+ *   (Certificados apunta a /verificar/:codigo, Gestor Documental a
+ *   /verificar-documento/:codigo).
  */
 export async function firmarPdfConP12(
   pdfBytes: Uint8Array,

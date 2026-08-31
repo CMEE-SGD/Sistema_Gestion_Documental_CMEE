@@ -85,9 +85,14 @@ export default function FirmarDocumentoModal({
         const { construirAparienciaSello } = await import(
           '../../../shared/utils/firma-pdf/crearAparienciaSello'
         );
+        // El código real se genera recién al firmar (handleFirmar), pero su
+        // longitud (UUID) es fija — un placeholder del mismo largo basta para
+        // que el bloque QR estimado aquí salga del mismo tamaño que el real.
+        const qrUrlEstimado = `${window.location.origin}/verificar-documento/00000000-0000-0000-0000-000000000000`;
         const { ancho, alto } = construirAparienciaSello({
           etiqueta: 'Firmado electrónicamente por:',
           nombre: nombre ?? 'Titular del certificado',
+          qrUrl: qrUrlEstimado,
         });
         if (!cancelado) setTamanoSello({ ancho, alto });
       } catch {
