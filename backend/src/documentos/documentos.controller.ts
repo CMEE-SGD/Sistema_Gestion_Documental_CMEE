@@ -22,11 +22,11 @@ import { RequireAccess } from '../auth/decorators/access.decorator';
 
 /** Módulo controlador o servicio para gestionar la entidad Documentos. */
 @Controller('documentos')
-@UseGuards(JwtAuthGuard, AccessGuard) // Activa la seguridad global del controlador
 export class DocumentosController {
   constructor(private readonly documentosService: DocumentosService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 5) // Nivel 5: Subir un nuevo documento
   @UseInterceptors(FileInterceptor('archivo'))
   async create(
@@ -41,6 +41,7 @@ export class DocumentosController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 2) // Nivel 2: Ver documentos
   findAll(@Query('carpeta_id') carpetaId?: string) {
     // carpeta_id es obligatorio: sin filtro, Prisma interpreta
@@ -53,12 +54,14 @@ export class DocumentosController {
   }
 
   @Get('circuitos')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 2)
   getCircuitos() {
     return this.documentosService.getCircuitos();
   }
 
   @Post(':id/versiones')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 5)
   @UseInterceptors(FileInterceptor('archivo'))
   async createVersion(
@@ -76,12 +79,14 @@ export class DocumentosController {
   }
 
   @Get(':id/versiones')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 2)
   getVersiones(@Param('id') id: string) {
     return this.documentosService.getVersiones(+id);
   }
 
   @Post(':id/versiones/:versionId/restaurar')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 4)
   restaurarVersion(
     @Param('id') id: string,
@@ -91,6 +96,7 @@ export class DocumentosController {
   }
 
   @Get(':id/workflow')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 2)
   getWorkflow(@Param('id') id: string) {
     return this.documentosService.getWorkflow(+id);
@@ -100,38 +106,49 @@ export class DocumentosController {
   // navegador del firmante con su .p12 personal; este endpoint solo
   // verifica criptográficamente esa firma y avanza el workflow.
   @Post(':id/workflow/firmar')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 4)
   @UseInterceptors(FileInterceptor('archivo'))
   async firmarFase(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
     @Req() req: any,
   ) {
     if (!file) {
       throw new BadRequestException('El PDF firmado es obligatorio y debe ser un archivo PDF.');
     }
-    return this.documentosService.firmarFase(+id, file, req.user);
+    return this.documentosService.firmarFase(+id, file, body, req.user);
   }
 
   @Post(':id/workflow/rechazar')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 4)
   rechazarFase(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.documentosService.rechazarFase(+id, body, req.user);
   }
 
+  @Get('verificar/:codigo')
+  verificar(@Param('codigo') codigo: string) {
+    return this.documentosService.verificar(codigo);
+  }
+
   @Get(':id')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 2) // Nivel 2: Ver detalle del documento
   findOne(@Param('id') id: string) {
     return this.documentosService.findOne(+id);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 4) // Nivel 4: Modificar metadatos del documento
   update(@Param('id') id: string, @Body() data: any) {
     return this.documentosService.update(+id, data);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 5) // Nivel 5: Eliminar documento
   remove(@Param('id') id: string) {
     return this.documentosService.remove(+id);

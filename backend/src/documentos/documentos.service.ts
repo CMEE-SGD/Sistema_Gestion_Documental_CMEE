@@ -267,7 +267,7 @@ export class DocumentosService {
    * actualiza en cada paso para que el siguiente firmante reciba
    * automáticamente el PDF con la firma anterior ya incluida.
    */
-  async firmarFase(documentoId: number, file: Express.Multer.File, user: HydratedUser) {
+  async firmarFase(documentoId: number, file: Express.Multer.File, body: any, user: HydratedUser) {
     const doc = await this.prisma.documento.findUnique({ where: { id: documentoId } });
     if (!doc) throw new NotFoundException('Documento no encontrado');
 
@@ -324,7 +324,13 @@ export class DocumentosService {
 
       // El archivo "actual" del documento avanza con cada firma, para que el
       // siguiente firmante reciba automáticamente el PDF ya co-firmado.
-      await tx.documento.update({ where: { id: documentoId }, data: { archivo_url: urlParaBD } });
+      const updateData: any = { archivo_url: urlParaBD };
+      if (body?.codigo_verificacion) {
+        updateData.codigo_verificacion = body.codigo_verificacion as string;
+      } else if (!doc.codigo_verificacion) {
+        updateData.codigo_verificacion = crypto.randomUUID();
+      }
+      await tx.documento.update({ where: { id: documentoId }, data: updateData });
 
       const idxActual = workflow.fases.findIndex((f) => f.id === faseActual.id);
       const siguienteFase = workflow.fases[idxActual + 1];
@@ -338,7 +344,10 @@ export class DocumentosService {
       } else {
         await tx.documentoWorkflow.update({ where: { id: workflow.id }, data: { estado: 'COMPLETADO' } });
       }
-      return tx.documentoWorkflow.findUnique({ where: { id: workflow.id }, include: { circuito: true, fases: { orderBy: { id: 'asc' } } } });
+
+      const docActualizado = await tx.documento.findUnique({ where: { id: documentoId }, select: { codigo_verificacion: true } });
+      const result = await tx.documentoWorkflow.findUnique({ where: { id: workflow.id }, include: { circuito: true, fases: { orderBy: { id: 'asc' } } } });
+      return { ...result, codigo_verificacion: docActualizado?.codigo_verificacion };
     });
   }
 
@@ -346,8 +355,7 @@ export class DocumentosService {
     const workflow = await this.prisma.documentoWorkflow.findUnique({
       where: { documento_id: documentoId },
       include: { fases: { orderBy: { id: 'asc' } } },
-    });
-    if (!workflow || workflow.estado !== 'EN_CURSO') throw new BadRequestException('Workflow no válido');
+    });    if (!workflow || workflow.estado !== 'EN_CURSO') throw new BadRequestException('Workflow no válido');
 
     const faseActual = workflow.fases.find((f) => f.estado === 'EN_CURSO');
     const faseAnterior = [...workflow.fases].reverse().find((f) => f.estado === 'COMPLETADO');
@@ -494,5 +502,56 @@ export class DocumentosService {
     const eliminado = await this.prisma.documento.delete({ where: { id } });
     if (doc.archivo_url && fs.existsSync(path.resolve(doc.archivo_url))) fs.unlinkSync(path.resolve(doc.archivo_url));
     return eliminado;
+  }
+
+  async verificar(codigo: string) {
+    const doc = await this.prisma.documento.findUnique({
+      where: { codigo_verificacion: codigo },
+      include: {
+        workflow: {
+          include: {
+            fases: {
+              orderBy: { id: 'asc' },
+              include: {
+                fase: { select: { nombre: true } },
+                firmas: {
+                  select: {
+                    certificado_titular: true,
+                    certificado_emisor: true,
+                    certificado_numero_serie: true,
+                    certificado_valido_desde: true,
+                    certificado_valido_hasta: true,
+                    hash_documento: true,
+                    fecha_firma: true,
+                    firmante: { select: { nombre: true, apellidos: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!doc) throw new NotFoundException('Documento no encontrado o código inválido');
+
+    const fases = doc.workflow?.fases ?? [];
+    return {
+      codigo_verificacion: doc.codigo_verificacion,
+      nombre: doc.nombre,
+      version: doc.version,
+      fecha_documento: doc.fecha_documento,
+      empresa: doc.empresa,
+      estado_workflow: doc.workflow?.estado ?? null,
+      firmas: fases.flatMap((f) =>
+        f.firmas.map((firma) => ({
+          firmante: `${firma.firmante.nombre} ${firma.firmante.apellidos}`,
+          fase: f.fase?.nombre ?? null,
+          fecha: firma.fecha_firma,
+          certificado_titular: firma.certificado_titular,
+          certificado_emisor: firma.certificado_emisor,
+          certificado_numero_serie: firma.certificado_numero_serie,
+        })),
+      ),
+    };
   }
 }

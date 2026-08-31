@@ -169,12 +169,14 @@ export default function FirmarDocumentoModal({
     // Carga diferida: las librerías de firma (~350KB) solo se descargan
     // cuando alguien realmente va a firmar, no en el bundle principal.
     const { firmarPdfConP12 } = await import('../../../shared/utils/firmarPdf');
+    const codigoVerificacion = crypto.randomUUID();
+    const qrUrl = `${window.location.origin}/verificar-documento/${codigoVerificacion}`;
     const pdfFirmado = await firmarPdfConP12(
       pdfDescargado,
       p12File,
       password,
       tituloAccion,
-      { posicion: posicionFirma },
+      { posicion: posicionFirma, qrUrl },
     );
 
     setPaso('subiendo');
@@ -184,6 +186,7 @@ export default function FirmarDocumentoModal({
       new Blob([pdfFirmado], { type: 'application/pdf' }),
       'documento_firmado.pdf',
     );
+    formData.append('codigo_verificacion', codigoVerificacion);
     const resSubida = await fetch(
       `${API_BASE}/documentos/${documentoId}/workflow/firmar`,
       {
