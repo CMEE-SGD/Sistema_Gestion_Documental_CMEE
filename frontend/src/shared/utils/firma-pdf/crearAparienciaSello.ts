@@ -13,7 +13,6 @@ const LABEL_FONT_SIZE = 5.5;
 const NAME_FONT_SIZE = 7.5;
 const NAME_LINE_HEIGHT = 8.5;
 const LABEL_NAME_GAP = 3;
-const MAX_ANCHO_COLUMNA_TEXTO = 140;
 const COLOR_ETIQUETA = '0.42 0.42 0.42'; // gris — contraste "delgado" contra el nombre en negro
 
 /** Convierte cada carácter a su byte WinAnsi/Latin-1 y escapa los caracteres
@@ -39,24 +38,19 @@ function medirAnchoCourier(texto: string, fontSize: number): number {
   return texto.length * fontSize * 0.6;
 }
 
-/** Envuelve el texto en tantas líneas como haga falta para no superar
- * `anchoMaximo` — nunca corta una palabra ni trunca el texto: si una sola
- * palabra ya excede el ancho máximo, se deja igual en su propia línea. */
-function envolverTexto(texto: string, fontSize: number, anchoMaximo: number): string[] {
-  const palabras = texto.trim().split(/\s+/).filter(Boolean);
-  const lineas: string[] = [];
-  let actual = '';
-  for (const palabra of palabras) {
-    const candidata = actual ? `${actual} ${palabra}` : palabra;
-    if (medirAnchoCourier(candidata, fontSize) <= anchoMaximo || !actual) {
-      actual = candidata;
-    } else {
-      lineas.push(actual);
-      actual = palabra;
-    }
-  }
-  if (actual) lineas.push(actual);
-  return lineas;
+/** Separa el nombre completo en dos líneas — nombres arriba, apellidos
+ * abajo — como en un sello de firma tradicional (ej. "SEGUNDO MARIANO" /
+ * "DIAZ SANDOVAL"), en vez de envolver por ancho disponible. Asume el
+ * formato típico de 2 nombres + 2 apellidos; si el total de palabras es
+ * impar, la palabra sobrante queda del lado de los apellidos. */
+function dividirNombreEnDosLineas(nombreCompleto: string): string[] {
+  const palabras = nombreCompleto.trim().split(/\s+/).filter(Boolean);
+  if (palabras.length <= 1) return palabras;
+  const mitad = Math.floor(palabras.length / 2);
+  return [
+    palabras.slice(0, mitad).join(' '),
+    palabras.slice(mitad).join(' '),
+  ];
 }
 
 export interface DatosSello {
@@ -77,7 +71,7 @@ export interface AparienciaSello {
 
 export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
   const nombreMayus = datos.nombre.trim().toUpperCase();
-  const lineasNombre = envolverTexto(nombreMayus, NAME_FONT_SIZE, MAX_ANCHO_COLUMNA_TEXTO);
+  const lineasNombre = dividirNombreEnDosLineas(nombreMayus);
 
   const anchoEtiqueta = medirAnchoCourier(datos.etiqueta, LABEL_FONT_SIZE);
   const anchoNombre = Math.max(...lineasNombre.map((l) => medirAnchoCourier(l, NAME_FONT_SIZE)));
