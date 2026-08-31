@@ -98,6 +98,7 @@ import DashboardClientes from '../../modules/inicio/pages/DashboardClientes';
 
 // --- PÚBLICO (sin sesión) ---
 import VerificarCertificadoPage from '../../modules/publico/pages/VerificarCertificadoPage';
+import VerificarDocumentoPage from '../../modules/publico/pages/VerificarDocumentoPage';
 
 const AppRouter = () => {
   return (
@@ -108,6 +109,7 @@ const AppRouter = () => {
         <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/403" element={<AccesoDenegadoPage />} />
         <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
+        <Route path="/verificar-documento/:codigo" element={<VerificarDocumentoPage />} />
 
         <Route path="/usuarios" element={<UsuariosLayout />}>
           <Route index element={<UsuariosPage />} />
