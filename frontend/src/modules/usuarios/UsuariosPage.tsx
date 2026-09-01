@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Edit2, Trash2, Search, Users, ArchiveRestore } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, Search, Users, ArchiveRestore, MonitorX, LogOut } from 'lucide-react';
 import api from '../../core/api/axios';
 import { encodeId } from '../../shared/utils/ids';
 import { tienePermiso } from '../../shared/utils/auth';
@@ -18,10 +18,15 @@ export const UsuariosPage = () => {
     // 👇 1. Nuevo estado para el filtro de eliminados
     const [mostrarInactivos, setMostrarInactivos] = useState(false);
 
+    // 👇 Estado para el control de sesiones activas
+    const [sesiones, setSesiones] = useState<any[]>([]);
+    const [cargandoSesiones, setCargandoSesiones] = useState(false);
+
     const puedeCrear = tienePermiso('Gestion de Usuarios', 5);
     const puedeEditar = tienePermiso('Gestion de Usuarios', 4);
     const puedeEliminar = tienePermiso('Gestion de Usuarios', 5);
     const mostrarAcciones = puedeEditar || puedeEliminar;
+    const puedeCerrarSesiones = tienePermiso('Gestion de Usuarios', 5);
 
     useEffect(() => {
         const fetchUsuarios = async () => {
@@ -37,6 +42,47 @@ export const UsuariosPage = () => {
         };
         fetchUsuarios();
     }, []);
+
+    // 👇 Carga de sesiones activas
+    useEffect(() => {
+        if (!puedeCerrarSesiones) return;
+        const fetchSesiones = async () => {
+            try {
+                setCargandoSesiones(true);
+                const res = await api.get('/usuarios/sesiones');
+                setSesiones(res.data);
+            } catch (error) {
+                console.error("Error al cargar sesiones activas", error);
+            } finally {
+                setCargandoSesiones(false);
+            }
+        };
+        fetchSesiones();
+    }, [puedeCerrarSesiones]);
+
+    const formatFecha = (fecha: string) => {
+        if (!fecha) return '—';
+        const d = new Date(fecha);
+        if (isNaN(d.getTime())) return fecha;
+        return d.toLocaleString('es-ES', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+        });
+    };
+
+    const handleCerrarSesiones = async (usuario: any) => {
+        const nombre = usuario?.persona?.nombre
+            ? `${usuario.persona.nombre} ${usuario.persona.apellidos ?? ''}`.trim()
+            : usuario?.nombre_usuario ?? 'este usuario';
+        if (!await confirm({ message: `¿Cerrar todas las sesiones activas de ${nombre}? Se revocará su acceso al instante.` })) return;
+        try {
+            await api.post(`/usuarios/${usuario.id}/cerrar-sesiones`);
+            setSesiones(sesiones.filter(s => s.usuario_id !== usuario.id));
+            toast({ message: `Sesiones de ${nombre} cerradas correctamente.` });
+        } catch (error) {
+            await alert({ message: "Error al cerrar las sesiones" });
+        }
+    };
 
     // 👇 2. Lógica de filtrado combinada (Texto + Estado)
     const usuariosFiltrados = usuarios.filter(u => {
@@ -212,6 +258,89 @@ export const UsuariosPage = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* 👇 Sesiones activas — control de acceso */}
+            {puedeCerrarSesiones && (
+                <div className="mt-10">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                                <MonitorX className="w-5 h-5 text-primary" />
+                                Sesiones Activas
+                            </h2>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Usuarios con sesión iniciada en el sistema. Puedes revocar su acceso al instante.
+                            </p>
+                        </div>
+                        <span className="text-xs font-medium bg-secondary text-secondary-foreground px-2.5 py-1 rounded-full border border-border">
+                            {sesiones.length} sesión{sesiones.length !== 1 ? 'es' : ''} activa{sesiones.length !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+
+                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-muted/50 border-b border-border">
+                                <tr>
+                                    <th className="px-6 py-3 font-semibold text-muted-foreground">Usuario</th>
+                                    <th className="px-6 py-3 font-semibold text-muted-foreground">IP</th>
+                                    <th className="px-6 py-3 font-semibold text-muted-foreground">Inicio</th>
+                                    <th className="px-6 py-3 font-semibold text-muted-foreground">Expiración</th>
+                                    <th className="px-6 py-3 font-semibold text-muted-foreground text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                                {cargandoSesiones ? (
+                                    <tr><td colSpan={5} className="text-center py-10 text-muted-foreground">Cargando sesiones...</td></tr>
+                                ) : sesiones.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="py-10">
+                                            <div className="flex flex-col items-center justify-center text-center">
+                                                <div className="bg-muted p-3 rounded-full mb-3">
+                                                    <LogOut className="w-6 h-6 text-muted-foreground" />
+                                                </div>
+                                                <p className="text-sm font-medium text-foreground">No hay sesiones activas</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Los usuarios que se conecten aparecerán aquí.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    sesiones.map(sesion => (
+                                        <tr key={sesion.id} className="hover:bg-muted/30 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <span className="font-medium text-foreground">{sesion.usuario?.nombre_usuario}</span>
+                                                <span className="block text-xs text-muted-foreground">
+                                                    {sesion.usuario?.persona
+                                                        ? `${sesion.usuario.persona.apellidos}, ${sesion.usuario.persona.nombre}`
+                                                        : ''}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="font-mono text-xs bg-muted px-2 py-1 rounded-md text-muted-foreground">
+                                                    {sesion.ip ?? '—'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-muted-foreground">{formatFecha(sesion.fecha_inicio)}</td>
+                                            <td className="px-6 py-4 text-muted-foreground">{formatFecha(sesion.fecha_expiracion)}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex justify-center gap-1">
+                                                    {/* Cerrar todas las sesiones del usuario */}
+                                                    <button
+                                                        onClick={() => handleCerrarSesiones(sesion.usuario)}
+                                                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-md transition-colors"
+                                                        title="Cerrar todas las sesiones de este usuario"
+                                                    >
+                                                        <LogOut className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
