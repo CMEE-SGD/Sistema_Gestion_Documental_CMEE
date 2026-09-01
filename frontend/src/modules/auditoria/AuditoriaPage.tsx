@@ -8,6 +8,7 @@ import Navbar from '../../shared/components/organisms/Navbar'; // 👇 Importamo
 
 const MODULOS: { value: string; label: string }[] = [
     { value: '', label: 'Todos los módulos' },
+    { value: 'ACCESOS', label: 'Accesos' },
     { value: 'RECEPCION-EQUIPOS', label: 'Recepción de Equipos' },
     { value: 'CERTIFICADOS', label: 'Certificados' },
     { value: 'CLIENTES-INSTITUCIONALES', label: 'Clientes Institucionales' },
