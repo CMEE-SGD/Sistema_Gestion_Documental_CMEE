@@ -50,10 +50,14 @@ export class UsuariosController {
   @Post('login')
   @ApiOperation({ summary: 'Login con nombre de usuario y contraseña' })
   login(@Body() loginDto: LoginDto, @Req() req: any) {
+    // La IP nunca debe salir de lo que reporta el propio cliente en el
+    // body — es trivialmente falseable. Además, WebRTC sin STUN (como se
+    // intentó antes) solo puede descubrir la IP LAN del equipo, nunca la
+    // pública real, así que ese dato es doblemente inútil aquí.
     return this.usuariosService.login(
       loginDto.nombre_usuario,
       loginDto.clave,
-      loginDto.ip_cliente || this.obtenerIpReal(req),
+      this.obtenerIpReal(req),
       req.headers?.['user-agent'] as string | undefined,
     );
   }

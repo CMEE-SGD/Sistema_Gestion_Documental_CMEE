@@ -2,8 +2,6 @@ import {
   IsString,
   IsNotEmpty,
   MinLength,
-  IsOptional,
-  MaxLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -19,10 +17,4 @@ export class LoginDto {
   @IsString({ message: 'La contraseña debe ser un texto válido.' })
   @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres.' })
   clave: string;
-
-  @ApiProperty({ example: '192.168.1.10', required: false })
-  @IsOptional()
-  @IsString({ message: 'La IP debe ser un texto válido.' })
-  @MaxLength(45, { message: 'La IP no puede superar los 45 caracteres.' })
-  ip_cliente?: string;
 }
