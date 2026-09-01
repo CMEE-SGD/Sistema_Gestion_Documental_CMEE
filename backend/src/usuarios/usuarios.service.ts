@@ -415,6 +415,24 @@ export class UsuariosService {
       },
     });
 
+    // Registra el acceso en la bitácora general (Auditoria)
+    const personaNombre = usuario.persona
+      ? `${usuario.persona.nombre ?? ''} ${usuario.persona.apellidos ?? ''}`.trim()
+      : null;
+    await this.prisma.auditoria
+      .create({
+        data: {
+          usuario_id: usuario.id,
+          modulo: 'ACCESOS',
+          accion: 'Acceso a la plataforma',
+          descripcion: `Inicio de sesión exitoso de ${personaNombre || nombre_usuario}${ip ? ` — IP: ${ip}` : ''}.`,
+          entidad_id: usuario.id,
+        },
+      })
+      .catch((err) =>
+        console.error('Error guardando acceso en auditoría:', err),
+      );
+
     const payload = { sub: usuario.id, isGod: false };
 
     const laboratorioId =

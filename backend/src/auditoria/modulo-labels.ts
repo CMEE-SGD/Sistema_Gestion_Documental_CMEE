@@ -1,5 +1,6 @@
 /** Traduce el segmento de URL (ej. "recepcion-equipos") a un nombre legible para la bitácora. */
 export const MODULO_LABELS: Record<string, string> = {
+  ACCESOS: 'Accesos',
   'RECEPCION-EQUIPOS': 'Recepción de Equipos',
   CERTIFICADOS: 'Certificados',
   'CLIENTES-INSTITUCIONALES': 'Clientes Institucionales',
