@@ -591,4 +591,25 @@ export class UsuariosService {
 
     return { cerradas: resultado.count };
   }
+
+  /**
+   * Cierra la sesión del usuario que hace logout (la suya propia),
+   * marcando `fecha_cierre`. El jti viene dentro del token (JwtStrategy
+   * lo expone en req.user.jti); si no existe (god/before), no-op.
+   * @param jti - Identificador de la sesión vigente
+   */
+  async cerrarPropiaSesion(jti?: string) {
+    if (!jti) return { cerradas: 0 };
+    const resultado = await this.prisma.sesionActiva.updateMany({
+      where: {
+        token_jti: jti,
+        fecha_cierre: null,
+      },
+      data: {
+        fecha_cierre: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+    return { cerradas: resultado.count };
+  }
 }
