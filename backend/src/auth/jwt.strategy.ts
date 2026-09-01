@@ -44,6 +44,32 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           'Su acceso está pendiente de aprobación por un administrador.',
         );
       }
+
+      // Un usuario SOLO puede tener una sesión activa. Si por cualquier
+      // motivo (p.ej. dos inicios simultáneos) existen dos, se cierran todas
+      // automáticamente y la solicitud actual queda sin sesión válida.
+      const sesionesActivas = await this.prisma.sesionActiva.count({
+        where: {
+          usuario_id: sesion.usuario_id,
+          fecha_cierre: null,
+          en_espera: false,
+        },
+      });
+      if (sesionesActivas > 1) {
+        await this.prisma.sesionActiva.updateMany({
+          where: {
+            usuario_id: sesion.usuario_id,
+            fecha_cierre: null,
+          },
+          data: {
+            fecha_cierre: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+        throw new UnauthorizedException(
+          'Se detectaron sesiones duplicadas. Vuelva a iniciar sesión.',
+        );
+      }
     }
 
     // Retornamos el ID, la bandera isGod y el jti (si existe)

@@ -425,6 +425,8 @@ export class UsuariosService {
       }
     }
 
+    await this.cerrarSesionesDeUsuarioSiNecesario(usuario.id, enEspera);
+
     await this.prisma.sesionActiva.create({
       data: {
         usuario_id: usuario.id,
@@ -628,7 +630,7 @@ export class UsuariosService {
       throw new BadRequestException('La sesión no está en espera de aprobación');
     }
 
-    return this.prisma.sesionActiva.update({
+    const sesionAprobada = await this.prisma.sesionActiva.update({
       where: { id: sesionId },
       data: {
         en_espera: false,
@@ -637,6 +639,55 @@ export class UsuariosService {
         updatedAt: new Date(),
       },
     });
+
+    // Al pasar a activa, se cierran las demás sesiones del usuario, para que
+    // solo exista una sesión activa por usuario.
+    await this.cerrarSesionesDeUsuario(sesion.usuario_id, sesionId);
+
+    return sesionAprobada;
+  }
+
+  /**
+   * Garantiza que un usuario tenga como máximo UNA sesión activa: si una
+   * nueva sesión pasa a estar activa (login dentro de rango o aprobación),
+   * se cierran todas las demás sesiones pendientes o activas del usuario.
+   * Las sesiones `en_espera` (aún sin aprobar) no evictan nada.
+   * @param usuarioId - Usuario dueño de las sesiones
+   * @param laNuevaEstaActiva - Si la nueva sesión ya está activa (no en espera)
+   */
+  private async cerrarSesionesDeUsuarioSiNecesario(
+    usuarioId: number,
+    laNuevaEstaActiva: boolean,
+  ) {
+    if (!laNuevaEstaActiva) return 0;
+    return this.cerrarSesionesDeUsuario(usuarioId);
+  }
+
+  /**
+   * Cierra TODAS las sesiones abiertas de un usuario (activas o en espera),
+   * notificándolo en vivo por WebSocket. Devuelve cuántas cerró.
+   * @param usuarioId - Usuario al que se le cierran las sesiones
+   * @param exceptoId - ID de sesión que no se debe cerrar (opcional)
+   */
+  private async cerrarSesionesDeUsuario(usuarioId: number, exceptoId?: number) {
+    const where: Prisma.SesionActivaWhereInput = {
+      usuario_id: usuarioId,
+      fecha_cierre: null,
+      ...(exceptoId ? { id: { not: exceptoId } } : {}),
+    };
+
+    const resultado = await this.prisma.sesionActiva.updateMany({
+      where,
+      data: {
+        fecha_cierre: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    if (resultado.count > 0) {
+      this.notificacionesGateway.emitirSesionCerrada(usuarioId);
+    }
+    return resultado.count;
   }
 
   /**
