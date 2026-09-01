@@ -38,6 +38,7 @@ export class UsuariosController {
       loginDto.nombre_usuario,
       loginDto.clave,
       req.ip,
+      req.headers?.['user-agent'] as string | undefined,
     );
   }
 
@@ -90,6 +91,32 @@ export class UsuariosController {
   @ApiOperation({ summary: 'Actualizar idioma y/o contraseña propios' })
   actualizarPerfilPropio(@Req() req: any, @Body() dto: UpdatePerfilDto) {
     return this.usuariosService.actualizarPerfilPropio(req.user.id, dto);
+  }
+
+  /**
+   * Obtiene el listado de sesiones activas (control de acceso).
+   * @returns Objeto complejo / PrismaResponse
+   */
+  @Get('sesiones')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Gestion de Usuarios', 5)
+  @ApiOperation({ summary: 'Listar sesiones activas' })
+  listarSesiones() {
+    return this.usuariosService.listarSesionesActivas();
+  }
+
+  /**
+   * Cierra todas las sesiones activas de un usuario.
+   * @param id - Datos o identificador requerido (number)
+   * @param req - Petición HTTP (para saber quién ejecuta la acción)
+   * @returns Objeto complejo / PrismaResponse
+   */
+  @Post(':id/cerrar-sesiones')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Gestion de Usuarios', 5)
+  @ApiOperation({ summary: 'Cerrar todas las sesiones activas de un usuario' })
+  cerrarSesiones(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.usuariosService.cerrarSesiones(id, req.user.id);
   }
 
   /**

@@ -200,6 +200,7 @@ model Usuario {
   auditorias     Auditoria[]
   notificaciones Notificacion[]
   intentos_login IntentoLogin[]
+  sesiones_activas SesionActiva[]
 
   idioma              String? @db.VarChar(50)
   acceso_preferencias Boolean @default(false)
@@ -597,6 +598,39 @@ model IntentoLogin {
   @@index([usuario_id])
   @@index([fecha_hora])
   @@map("intento_login")
+}
+
+// ==========================================
+// SESIÓN ACTIVA
+// ==========================================
+// Un JWT es stateless, así que por sí solo no se puede revocar. Esta tabla
+// hace que cada login deje una "sesión" que el guard de autenticación
+// valida en cada request: si el administrador la cierra (fecha_cierre), el
+// token deja de ser aceptado al instante — sin esperar la expiración de 8h.
+model SesionActiva {
+  id         Int  @id @default(autoincrement())
+  usuario_id Int
+  usuario    Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  // Identificador único que viaja dentro del JWT (claim "jti").
+  token_jti String @unique @db.VarChar(100)
+
+  ip           String?  @db.VarChar(45)
+  user_agent   String?  @db.VarChar(300)
+
+  fecha_inicio      DateTime @default(now()) @map("fecha_inicio") @db.Timestamptz
+  fecha_expiracion  DateTime @map("fecha_expiracion") @db.Timestamptz
+  // Cuando se cierra la sesión (logout o cierre forzado del admin).
+  fecha_cierre      DateTime? @map("fecha_cierre") @db.Timestamptz
+  // Quién la cerró: propio usuario o el admin que la revocó.
+  cerrada_por_id    Int? @map("cerrada_por_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([usuario_id])
+  @@index([token_jti])
+  @@map("sesion_activa")
 }
 
 // ==========================================

@@ -11,6 +11,7 @@ import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { UpdatePerfilDto } from './dto/update-perfil.dto';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 
 /** Módulo controlador o servicio para gestionar la entidad Usuarios. */
 @Injectable()
@@ -255,7 +256,7 @@ export class UsuariosService {
    * @param ip - Dirección IP del cliente que realiza el intento (string)
    * @returns Objeto complejo / PrismaResponse
    */
-  async login(nombre_usuario: string, clave: string, ip?: string) {
+  async login(nombre_usuario: string, clave: string, ip?: string, userAgent?: string) {
     // 1. Intercepción del Usuario "Dios" (En Memoria)
     const godUsername = process.env.GOD_USERNAME;
     const godPassword = process.env.GOD_PASSWORD;
@@ -266,6 +267,8 @@ export class UsuariosService {
       nombre_usuario === godUsername &&
       clave === godPassword
     ) {
+      const jti = randomUUID();
+
       // Construimos un payload virtual con permisos máximos (Nivel 5)
       const godPayload = {
         id: -1, // ID ficticio negativo para evitar choques con la BD
@@ -297,7 +300,12 @@ export class UsuariosService {
 
       return {
         ...godPayload,
-        token: this.jwtService.sign({ sub: -1, isGod: true }), // Firmamos el token con el ID ficticio
+        token: this.jwtService.sign(
+          { sub: -1, isGod: true },
+          { expiresIn: '8h', jwtid: jti },
+        ),
+        // El dios no tiene sesión en BD (no existe como registro de usuario);
+        // el guard acepta su token con isGod:true como hoy.
       };
     }
 
@@ -391,7 +399,23 @@ export class UsuariosService {
     });
 
     const { password_hash, ...result } = usuario;
-    const payload = { sub: usuario.id };
+
+    // Nuevo: sesión activa con JTI revocable (control de acceso)
+    const jti = randomUUID();
+    const fechaExpiracion = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    await this.prisma.sesionActiva.create({
+      data: {
+        usuario_id: usuario.id,
+        token_jti: jti,
+        ip: ip ?? null,
+        user_agent: userAgent ?? null,
+        fecha_inicio: new Date(),
+        fecha_expiracion: fechaExpiracion,
+        updatedAt: new Date(),
+      },
+    });
+
+    const payload = { sub: usuario.id, isGod: false };
 
     const laboratorioId =
       usuario.persona?.puestos?.[0]?.departamento?.laboratorio?.id ?? null;
@@ -399,7 +423,10 @@ export class UsuariosService {
     return {
       ...result,
       laboratorio_id: laboratorioId,
-      token: this.jwtService.sign(payload),
+      token: this.jwtService.sign(payload, {
+        expiresIn: '8h',
+        jwtid: jti,
+      }),
     };
   }
 
@@ -508,5 +535,60 @@ export class UsuariosService {
 
     const { password_hash, ...result } = actualizado;
     return result;
+  }
+
+  /**
+   * Lista las sesiones activas de usuarios (no expiradas, no cerradas),
+   * con datos del usuario para mostrarlas en control de acceso.
+   */
+  async listarSesionesActivas() {
+    return this.prisma.sesionActiva.findMany({
+      where: {
+        fecha_cierre: null,
+        fecha_expiracion: { gt: new Date() },
+      },
+      orderBy: { fecha_inicio: 'desc' },
+      include: {
+        usuario: {
+          select: {
+            id: true,
+            nombre_usuario: true,
+            persona: {
+              select: {
+                nombre: true,
+                apellidos: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Cierra todas las sesiones activas de un usuario, revocando su token
+   * al instante (el JWT queda huérfano y JwtStrategy lo rechaza).
+   * @param usuarioId - Usuario al que se le cierran las sesiones
+   * @param cerradaPorId - ID del administrador que ejecuta la acción
+   */
+  async cerrarSesiones(usuarioId: number, cerradaPorId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+    });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    const resultado = await this.prisma.sesionActiva.updateMany({
+      where: {
+        usuario_id: usuarioId,
+        fecha_cierre: null,
+      },
+      data: {
+        fecha_cierre: new Date(),
+        cerrada_por_id: cerradaPorId,
+        updatedAt: new Date(),
+      },
+    });
+
+    return { cerradas: resultado.count };
   }
 }
