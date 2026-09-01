@@ -59,6 +59,12 @@ export class CertificadosService {
     const puesto = user.puesto ?? '';
     const labId: number | null = user.laboratorio_id ?? null;
 
+    if (!user.isGod && !personaId) {
+      throw new ForbiddenException(
+        'No se pudo determinar la persona asociada a este usuario',
+      );
+    }
+
     if (!user.isGod) {
       const n = puesto
         .toLowerCase()
