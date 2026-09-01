@@ -21,6 +21,12 @@ export const useSocket = (
     socket.on('connect', () => {});
     socket.on('connect_error', () => {});
 
+    // Si la sesión es revocada por un administrador, se cierra la sesión en vivo.
+    socket.on('sesion-cerrada', () => {
+      localStorage.removeItem('token');
+      window.location.href = '/';
+    });
+
     if (onNotificacion) socket.on('notificacion', onNotificacion);
     if (onNoLeidas) socket.on('no-leidas', onNoLeidas);
 

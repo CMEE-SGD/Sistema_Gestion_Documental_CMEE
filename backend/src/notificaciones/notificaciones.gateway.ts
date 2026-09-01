@@ -41,4 +41,9 @@ export class NotificacionesGateway implements OnGatewayConnection, OnGatewayDisc
   emitirConteo(usuarioId: number, noLeidas: number) {
     this.server.to(`user_${usuarioId}`).emit('no-leidas', noLeidas);
   }
+
+  /** Avisa al usuario en vivo que su sesión fue cerrada/revocada. */
+  emitirSesionCerrada(usuarioId: number) {
+    this.server.to(`user_${usuarioId}`).emit('sesion-cerrada');
+  }
 }
