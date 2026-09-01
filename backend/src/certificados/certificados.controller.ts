@@ -1,4 +1,4 @@
-import { createReadStream } from 'fs';
+import { createReadStream, existsSync } from 'fs';
 import {
   Controller,
   Get,
@@ -10,6 +10,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  NotFoundException,
   ParseIntPipe,
   Req,
   Res,
@@ -88,12 +89,28 @@ export class CertificadosController {
     @Res() res: any,
   ) {
     const filePath = await this.certificadosService.download(id, req.user);
+    if (!existsSync(filePath)) {
+      throw new NotFoundException(
+        'El archivo del certificado ya no está disponible en el servidor',
+      );
+    }
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
       `inline; filename="certificado_${id}.pdf"`,
     );
     const stream = createReadStream(filePath);
+    // Sin este handler, un error del stream (archivo borrado tras el check
+    // de arriba, permisos, disco) tumba TODO el proceso de Node — un
+    // EventEmitter con un 'error' sin listener relanza y crashea el server
+    // completo, no solo esta petición.
+    stream.on('error', () => {
+      if (!res.headersSent) {
+        res.status(500).end();
+      } else {
+        res.end();
+      }
+    });
     stream.pipe(res);
   }
 

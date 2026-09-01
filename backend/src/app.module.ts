@@ -13,8 +13,6 @@ import { GruposModule } from './grupos/grupos.module';
 import { AplicacionesModule } from './aplicaciones/aplicaciones.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
-import { ServeStaticModule } from '@nestjs/serve-static'; // <- NUEVO
-import { join } from 'path'; // <- NUEVO
 import { LaboratoriosModule } from './laboratorios/laboratorios.module';
 import { CircuitosModule } from './circuitos/circuitos.module';
 import { EquiposModule } from './equipos/equipos.module';
@@ -34,14 +32,6 @@ import { CapacitacionesModule } from './capacitaciones/capacitaciones.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-    }),
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
-      serveRoot: '/uploads',
-      serveStaticOptions: {
-        index: false,
-        redirect: false,
-      },
     }),
     PrismaModule,
     RolesModule,

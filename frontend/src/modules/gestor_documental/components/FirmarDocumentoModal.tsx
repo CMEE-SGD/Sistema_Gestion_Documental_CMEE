@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { FileSignature, Loader2, Upload, X, XCircle } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
+import { generarUuidV4 } from '../../../shared/utils/uuid';
 import type { PosicionFirma } from '../../../shared/components/organisms/SelectorPosicionFirma';
 
 // Carga diferida: pdfjs-dist (~350KB + worker) solo se descarga cuando
@@ -85,9 +86,14 @@ export default function FirmarDocumentoModal({
         const { construirAparienciaSello } = await import(
           '../../../shared/utils/firma-pdf/crearAparienciaSello'
         );
+        // El código real se genera recién al firmar (handleFirmar), pero su
+        // longitud (UUID) es fija — un placeholder del mismo largo basta para
+        // que el bloque QR estimado aquí salga del mismo tamaño que el real.
+        const qrUrlEstimado = `${window.location.origin}/verificar-documento/00000000-0000-0000-0000-000000000000`;
         const { ancho, alto } = construirAparienciaSello({
           etiqueta: 'Firmado electrónicamente por:',
           nombre: nombre ?? 'Titular del certificado',
+          qrUrl: qrUrlEstimado,
         });
         if (!cancelado) setTamanoSello({ ancho, alto });
       } catch {
@@ -169,7 +175,7 @@ export default function FirmarDocumentoModal({
     // Carga diferida: las librerías de firma (~350KB) solo se descargan
     // cuando alguien realmente va a firmar, no en el bundle principal.
     const { firmarPdfConP12 } = await import('../../../shared/utils/firmarPdf');
-    const codigoVerificacion = crypto.randomUUID();
+    const codigoVerificacion = generarUuidV4();
     const qrUrl = `${window.location.origin}/verificar-documento/${codigoVerificacion}`;
     const pdfFirmado = await firmarPdfConP12(
       pdfDescargado,
