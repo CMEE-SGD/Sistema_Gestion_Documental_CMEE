@@ -8,6 +8,7 @@ import {
   Delete,
   ParseIntPipe,
   Req,
+  Query,
 } from '@nestjs/common';
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
@@ -122,14 +123,29 @@ export class UsuariosController {
 
   /**
    * Obtiene el listado de sesiones activas (control de acceso).
+   * @param espera - Si 'true', devuelve solo las sesiones en espera de aprobación.
    * @returns Objeto complejo / PrismaResponse
    */
   @Get('sesiones')
   @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestion de Usuarios', 5)
-  @ApiOperation({ summary: 'Listar sesiones activas' })
-  listarSesiones() {
-    return this.usuariosService.listarSesionesActivas();
+  @ApiOperation({ summary: 'Listar sesiones activas (control de acceso)' })
+  listarSesiones(@Query('espera') espera?: string) {
+    return this.usuariosService.listarSesionesActivas(espera === 'true');
+  }
+
+  /**
+   * Aprueba una sesión pendiente (acceso desde IP fuera de rango).
+   * @param id - Datos o identificador requerido (number)
+   * @param req - Petición HTTP (para saber quién aprueba)
+   * @returns Objeto complejo / PrismaResponse
+   */
+  @Post('sesiones/:id/aprobar')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Gestion de Usuarios', 5)
+  @ApiOperation({ summary: 'Aprobar una sesión en espera' })
+  aprobarSesion(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.usuariosService.aprobarSesion(id, req.user.id);
   }
 
   /**

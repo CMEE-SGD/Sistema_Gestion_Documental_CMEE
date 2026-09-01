@@ -9,6 +9,7 @@ export const ConfiguracionGeneralPage = () => {
     const [guardando, setGuardando] = useState(false);
     const [nombreInstitucion, setNombreInstitucion] = useState('');
     const [maxIntentosFallidosLogin, setMaxIntentosFallidosLogin] = useState(5);
+    const [ipRangosPermitidos, setIpRangosPermitidos] = useState('');
 
     useEffect(() => {
         const fetchConfig = async () => {
@@ -16,6 +17,7 @@ export const ConfiguracionGeneralPage = () => {
                 const res = await api.get('/configuracion-general');
                 setNombreInstitucion(res.data.nombre_institucion);
                 setMaxIntentosFallidosLogin(res.data.max_intentos_fallidos_login);
+                setIpRangosPermitidos(res.data.ip_rangos_permitidos ?? '');
             } catch (error) {
                 console.error('Error al cargar la configuración general', error);
             } finally {
@@ -32,6 +34,7 @@ export const ConfiguracionGeneralPage = () => {
             await api.patch('/configuracion-general', {
                 nombre_institucion: nombreInstitucion,
                 max_intentos_fallidos_login: maxIntentosFallidosLogin,
+                ip_rangos_permitidos: ipRangosPermitidos.trim(),
             });
             toast({ message: 'Configuración general actualizada correctamente.' });
         } catch (error) {
@@ -91,6 +94,26 @@ export const ConfiguracionGeneralPage = () => {
                         onChange={(e) => setMaxIntentosFallidosLogin(Number(e.target.value))}
                         required
                         className="w-32 px-3 py-2 bg-background border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">
+                        Rangos de IP con acceso directo
+                    </label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                        IPs o rangos (CIDR) autorizados a entrar directamente, uno por línea o separados por coma. Los usuarios que se conecten desde una IP fuera de estos rangos quedarán <strong>en espera</strong> hasta que un administrador apruebe su sesión desde "Usuarios → Sesiones Activas".
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                        Ejemplos: <code className="bg-muted px-1.5 py-0.5 rounded">192.168.1.0/24</code>, <code className="bg-muted px-1.5 py-0.5 rounded">10.0.0.5</code>. Dejar vacío desactiva la restricción (todo entra directo).
+                    </p>
+                    <textarea
+                        value={ipRangosPermitidos}
+                        onChange={(e) => setIpRangosPermitidos(e.target.value)}
+                        rows={4}
+                        maxLength={1000}
+                        placeholder={'192.168.1.0/24\n10.0.0.5'}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono resize-y"
                     />
                 </div>
 

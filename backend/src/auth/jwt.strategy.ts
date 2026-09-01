@@ -39,6 +39,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (sesion.fecha_expiracion < new Date()) {
         throw new UnauthorizedException('Sesión expirada');
       }
+      if (sesion.en_espera) {
+        throw new UnauthorizedException(
+          'Su acceso está pendiente de aprobación por un administrador.',
+        );
+      }
     }
 
     // Retornamos el ID, la bandera isGod y el jti (si existe)

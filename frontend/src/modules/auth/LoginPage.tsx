@@ -77,6 +77,19 @@ export default function LoginPage() {
           }
         }
 
+        if (resData.acceso_pendiente) {
+          // La sesión de esta IP está fuera de rango: guardamos el token
+          // (se activará cuando el admin la apruebe) y vamos a la pantalla
+          // de espera.
+          localStorage.setItem('token', resData.token);
+          localStorage.setItem('usuario', JSON.stringify({
+            id: resData.id,
+            nombre_usuario: resData.nombre_usuario,
+          }));
+          navigate('/espera');
+          return;
+        }
+
         // 4. Guardar y navegar
         localStorage.setItem('token', resData.token);
         localStorage.setItem('usuario', JSON.stringify(userData));

@@ -625,6 +625,12 @@ model SesionActiva {
   // Quién la cerró: propio usuario o el admin que la revocó.
   cerrada_por_id    Int? @map("cerrada_por_id")
 
+  // Control de acceso por rango de IP: si la IP viene de fuera de los rangos
+  // permitidos, la sesión queda en espera hasta que el admin la apruebe.
+  en_espera           Boolean   @default(false) @map("en_espera")
+  aprobada_por_id     Int?      @map("aprobada_por_id")
+  fecha_aprobacion    DateTime? @map("fecha_aprobacion") @db.Timestamptz
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -982,6 +988,11 @@ model ConfiguracionGeneral {
   // Intentos fallidos de login consecutivos antes de bloquear la cuenta
   // automáticamente — ver evaluarBloqueoAutomatico() en usuarios.service.ts.
   max_intentos_fallidos_login Int @default(5) @db.SmallInt
+
+  // Rangos de IP con acceso directo a la plataforma (una por línea o
+  // separadas por coma). Formato: 192.168.1.0/24 o 10.0.0.5. Las IPs fuera
+  // de estos rangos quedan en lista de espera hasta aprobación de un admin.
+  ip_rangos_permitidos String? @db.VarChar(1000)
 
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
