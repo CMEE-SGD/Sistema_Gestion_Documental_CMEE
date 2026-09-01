@@ -27,6 +27,22 @@ export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   /**
+   * Extrae la IP real del cliente. `req.ip` puede devolver la del socket
+   * directo (proxy/Vite/::1); se prioriza `x-forwarded-for`.
+   */
+  private obtenerIpReal(req: any): string {
+    const xff = req.headers?.['x-forwarded-for'];
+    if (typeof xff === 'string' && xff.trim()) {
+      return xff.split(',')[0].trim();
+    }
+    const xReal = req.headers?.['x-real-ip'];
+    if (typeof xReal === 'string' && xReal.trim()) {
+      return xReal.trim();
+    }
+    return req.ip || '';
+  }
+
+  /**
    * Crea un nuevo registro o procesa una acción en el sistema.
    * @param loginDto - Datos o identificador requerido (Entidad | PrismaResponse)
    * @returns Objeto complejo / PrismaResponse
@@ -37,7 +53,7 @@ export class UsuariosController {
     return this.usuariosService.login(
       loginDto.nombre_usuario,
       loginDto.clave,
-      req.ip,
+      this.obtenerIpReal(req),
       req.headers?.['user-agent'] as string | undefined,
     );
   }
