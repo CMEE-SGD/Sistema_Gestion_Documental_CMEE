@@ -373,6 +373,29 @@ export class DashboardService {
         tecnico: { select: { id: true, grado: true, nombre: true, apellidos: true } },
       },
     });
+
+    // "Calibraciones por servicio" — equipos finalizados en el período
+    // agrupados por el procedimiento (servicio) seleccionado al subir el
+    // certificado. Los equipos sin procedimiento asociado (históricos) se
+    // agrupan como "Sin procedimiento".
+    const finalizadosConServicio = await this.prisma.equipoRecepcion.findMany({
+      where: { estado: 'FINALIZADO', updatedAt: dateFilter, ...labFilter },
+      select: {
+        servicio_id: true,
+        servicio: { select: { nombre: true, magnitud: true } },
+      },
+    });
+    const servicioMap = new Map<string, { nombre: string; calibrados: number }>();
+    finalizadosConServicio.forEach(f => {
+      const nombre = f.servicio?.nombre?.trim()
+        ? f.servicio.nombre
+        : f.servicio_id
+          ? `Procedimiento #${f.servicio_id}`
+          : 'Sin procedimiento';
+      const e = servicioMap.get(nombre) || { nombre, calibrados: 0 };
+      e.calibrados++;
+      servicioMap.set(nombre, e);
+    });
     const personalMap = new Map<string, { nombre: string; equipos: number }>();
     enTramiteConTecnico.forEach(t => {
       if (!t.tecnico) return;
@@ -447,6 +470,11 @@ export class DashboardService {
       // carga de trabajo (más equipos primero).
       personalCalibrando: Array.from(personalMap.values())
         .sort((a, b) => b.equipos - a.equipos),
+
+      // Calibraciones del período por procedimiento/servicio, ordenadas por
+      // cantidad (más calibradas primero).
+      calibradosPorServicio: Array.from(servicioMap.values())
+        .sort((a, b) => b.calibrados - a.calibrados),
 
       porLaboratorio: Array.from(labMap.values())
         .sort((a, b) => b.enTramite - a.enTramite),

@@ -8,7 +8,7 @@ import {
   Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, XAxis, YAxis,
 } from 'recharts';
 import {
-  Package, BadgeCheck, Clock, Percent, TrendingUp, TrendingDown, Minus, FlaskConical, UserCog,
+  Package, BadgeCheck, Clock, Percent, TrendingUp, TrendingDown, Minus, FlaskConical, UserCog, ClipboardList,
 } from 'lucide-react';
 
 type Periodo = 'ultimos30' | 'esteMes' | 'mesAnterior' | 'esteAnio' | 'personalizado';
@@ -29,6 +29,7 @@ const chartConfig: ChartConfig = {
   recibidos: { label: 'Recibidos', theme: { light: '#2a78d6', dark: '#3987e5' } },
   calibrados: { label: 'Calibrados', theme: { light: '#1baf7a', dark: '#199e70' } },
   personal: { label: 'Equipos en trámite', theme: { light: '#e0762b', dark: '#cf6a24' } },
+  servicio: { label: 'Calibrados', theme: { light: '#7c3aed', dark: '#8b5cf6' } },
 };
 
 const ESTADO_LABELS: Record<string, string> = {
@@ -524,6 +525,61 @@ export default function DashboardLaboratorios() {
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              Calibraciones por Servicio
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Equipos finalizados en el período, agrupados por procedimiento utilizado
+            </p>
+          </CardHeader>
+          <CardContent>
+            {stats.calibradosPorServicio && stats.calibradosPorServicio.length > 0 && stats.calibradosPorServicio.some((s: { calibrados: number }) => s.calibrados > 0) ? (
+              <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                <BarChart
+                  data={stats.calibradosPorServicio}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 10, bottom: 0 }}
+                >
+                  <CartesianGrid horizontal={false} stroke="var(--color-border)" />
+                  <XAxis
+                    type="number"
+                    allowDecimals={false}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="nombre"
+                    width={150}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                  />
+                  <ChartTooltip
+                    cursor={{ fill: 'var(--color-accent)' }}
+                    content={<ChartTooltipContent />}
+                  />
+                  <Bar dataKey="calibrados" name="Calibrados" fill="var(--color-servicio)" radius={[0, 4, 4, 0]} barSize={18}>
+                    <LabelList
+                      dataKey="calibrados"
+                      position="right"
+                      style={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-xs text-muted-foreground">
+                Sin equipos finalizados con procedimiento en este período
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
