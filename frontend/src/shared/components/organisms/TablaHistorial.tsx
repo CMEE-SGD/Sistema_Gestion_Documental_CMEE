@@ -9,6 +9,8 @@ interface LogAuditoria {
     detalle?: string | null;
     fecha_hora: string;
     usuario?: { nombre_usuario: string };
+    /** Nombre legible de la entidad afectada (resuelto por el backend). */
+    entidad_nombre?: string | null;
 }
 
 interface PaginacionServidor {
@@ -26,12 +28,67 @@ interface TablaHistorialProps {
     paginacionServidor?: PaginacionServidor;
 }
 
+function etiquetaCampo(campo: string): string {
+    return campo
+        .slice(campo.startsWith('_') ? 1 : 0)
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function valorTexto(valor: unknown): string {
+    if (valor === null || valor === undefined) return '—';
+    if (typeof valor === 'boolean') return valor ? 'Sí' : 'No';
+    if (typeof valor === 'number' || typeof valor === 'string') return String(valor);
+    return String(valor);
+}
+
+/** Convierte el detalle JSON a un texto plano legible (`Campo: valor`). */
 function formatearDetalle(detalle: string): string {
+    let body: unknown;
     try {
-        return JSON.stringify(JSON.parse(detalle), null, 2);
+        body = JSON.parse(detalle);
     } catch {
         return detalle;
     }
+
+    const lineas: string[] = [];
+    const recorrer = (objeto: any, indent: number, claveRaiz?: string) => {
+        const pad = '  '.repeat(indent);
+        const etiqueta = claveRaiz ? `${etiquetaCampo(claveRaiz)}` : '';
+
+        if (Array.isArray(objeto)) {
+            if (objeto.length === 0) {
+                lineas.push(`${pad}${etiqueta}${etiqueta ? ': ' : ''}(vacío)`);
+                return;
+            }
+            objeto.forEach((item, i) => {
+                if (item !== null && typeof item === 'object') {
+                    lineas.push(`${pad}${etiqueta}${etiqueta ? ' ' : ''}${i + 1}:`);
+                    recorrer(item, indent + 1);
+                } else {
+                    lineas.push(`${pad}${etiqueta}${etiqueta ? ' ' : ''}${i + 1}: ${valorTexto(item)}`);
+                }
+            });
+            return;
+        }
+
+        if (objeto !== null && typeof objeto === 'object') {
+            for (const [clave, valor] of Object.entries(objeto)) {
+                if (valor !== null && typeof valor === 'object') {
+                    lineas.push(`${pad}${etiquetaCampo(clave)}:`);
+                    recorrer(valor, indent + 1);
+                } else {
+                    lineas.push(`${pad}${etiquetaCampo(clave)}: ${valorTexto(valor)}`);
+                }
+            }
+            return;
+        }
+
+        lineas.push(`${pad}${String(objeto)}`);
+    };
+
+    recorrer(body, 0);
+    return lineas.join('\n');
 }
 
 export const TablaHistorial = ({ logs, loading, esGlobal = false, paginacionServidor }: TablaHistorialProps) => {
@@ -84,7 +141,7 @@ export const TablaHistorial = ({ logs, loading, esGlobal = false, paginacionServ
         }
     };
 
-    const colSpan = esGlobal ? 6 : 3;
+    const colSpan = esGlobal ? 7 : 3;
 
     return (
         <div className="flex flex-col gap-3">
@@ -127,6 +184,7 @@ export const TablaHistorial = ({ logs, loading, esGlobal = false, paginacionServ
                             <th className="px-4 py-2.5 border-r border-[#004d00]">Usuario</th>
                             {esGlobal && <th className="px-4 py-2.5 border-r border-[#004d00]">Módulo</th>}
                             <th className="px-4 py-2.5 border-r border-[#004d00]">Acción</th>
+                            {esGlobal && <th className="px-4 py-2.5 border-r border-[#004d00]">Entidad</th>}
                             {esGlobal && <th className="px-4 py-2.5 border-r border-[#004d00]">Detalle</th>}
                             {esGlobal && <th className="px-4 py-2.5 w-8"></th>}
                         </tr>
@@ -165,6 +223,11 @@ export const TablaHistorial = ({ logs, loading, esGlobal = false, paginacionServ
                                                 </span>
                                             </td>
                                             {esGlobal && (
+                                                <td className="px-4 py-2.5 border-r border-gray-200 font-medium text-gray-800">
+                                                    {log.entidad_nombre || <span className="text-gray-400">—</span>}
+                                                </td>
+                                            )}
+                                            {esGlobal && (
                                                 <td className="px-4 py-2.5 text-gray-600 text-[10px] truncate max-w-md" title={log.descripcion}>
                                                     {log.descripcion}
                                                 </td>
@@ -182,9 +245,9 @@ export const TablaHistorial = ({ logs, loading, esGlobal = false, paginacionServ
                                         {filaExpandida && tieneDetalle && (
                                             <tr>
                                                 <td colSpan={colSpan} className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                                                    <pre className="text-[10px] text-gray-700 whitespace-pre-wrap font-mono bg-white border border-gray-200 rounded p-2 max-w-2xl">
-                                                        {formatearDetalle(log.detalle!)}
-                                                    </pre>
+                                                    <div className="text-[11px] text-gray-700 whitespace-pre-wrap bg-white border border-gray-200 rounded p-2 max-w-2xl">
+                                                    {formatearDetalle(log.detalle!)}
+                                                </div>
                                                 </td>
                                             </tr>
                                         )}

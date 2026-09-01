@@ -2,9 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { AuditoriaInterceptor } from './auditoria/auditoria.interceptor';
-import { AuditoriaService } from './auditoria/auditoria.service';
-import { PrismaService } from './prisma/prisma.service';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 
@@ -46,12 +43,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  // 6. Inyección de Interceptor Global de Auditoría
-  const prismaService = app.get(PrismaService);
-  const auditoriaService = new AuditoriaService(prismaService);
-  app.useGlobalInterceptors(new AuditoriaInterceptor(auditoriaService));
-
-  // 7. Inicialización del servidor
+  // 6. Inicialización del servidor
   const port = process.env.PORT || 3001;
   await app.listen(port);
 
