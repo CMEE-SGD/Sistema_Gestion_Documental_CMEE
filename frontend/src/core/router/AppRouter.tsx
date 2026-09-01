@@ -29,6 +29,7 @@ import { NuevaPersonaPage } from '../../modules/rrhh/pages/persona/NuevaPersonaP
 import { DetallePersonaPage } from '../../modules/rrhh/pages/persona/DetallePersonaPage';
 import { EditarPersonaPage } from '../../modules/rrhh/pages/persona/EditarPersonaPage';
 import AccesoDenegadoPage from '../../modules/auth/AccesoDenegadoPage';
+import { AccesoPendientePage } from '../../modules/auth/AccesoPendientePage';
 import { DocumentosPersonaPage } from '../../modules/rrhh/pages/persona/DocumentosPersonaPage';
 import { CapacitacionesPersonaPage } from '../../modules/rrhh/pages/persona/CapacitacionesPersonaPage';
 import { CapacitacionesPage } from '../../modules/rrhh/pages/capacitacion/CapacitacionesPage';
@@ -109,6 +110,7 @@ const AppRouter = () => {
         <Route path="/" element={<LoginPage />} />
         <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/403" element={<AccesoDenegadoPage />} />
+        <Route path="/espera" element={<AccesoPendientePage />} />
         <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
         <Route path="/verificar-documento/:codigo" element={<VerificarDocumentoPage />} />
 

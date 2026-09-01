@@ -12,6 +12,10 @@ import { UpdatePerfilDto } from './dto/update-perfil.dto';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import {
+  ipEnRangosPermitidos,
+  esLoopback,
+} from '../common/ip-ranges';
 
 /** Módulo controlador o servicio para gestionar la entidad Usuarios. */
 @Injectable()
@@ -403,6 +407,22 @@ export class UsuariosService {
     // Nuevo: sesión activa con JTI revocable (control de acceso)
     const jti = randomUUID();
     const fechaExpiracion = new Date(Date.now() + 8 * 60 * 60 * 1000);
+
+    // Control de acceso por rango de IP: si la IP viene de fuera de los
+    // rangos permitidos, la sesión queda en espera de aprobación.
+    let enEspera = false;
+    if (ip) {
+      const config = await this.prisma.configuracionGeneral.findUnique({
+        where: { id: 1 },
+        select: { ip_rangos_permitidos: true },
+      });
+      const rangos = config?.ip_rangos_permitidos ?? null;
+      // Sin rangos configurados → acceso directo. Loopback (dev local) → directo.
+      if (rangos && rangos.trim() && !esLoopback(ip)) {
+        enEspera = !ipEnRangosPermitidos(ip, rangos);
+      }
+    }
+
     await this.prisma.sesionActiva.create({
       data: {
         usuario_id: usuario.id,
@@ -411,6 +431,7 @@ export class UsuariosService {
         user_agent: userAgent ?? null,
         fecha_inicio: new Date(),
         fecha_expiracion: fechaExpiracion,
+        en_espera: enEspera,
         updatedAt: new Date(),
       },
     });
@@ -441,6 +462,7 @@ export class UsuariosService {
     return {
       ...result,
       laboratorio_id: laboratorioId,
+      acceso_pendiente: enEspera,
       token: this.jwtService.sign(payload, {
         expiresIn: '8h',
         jwtid: jti,
@@ -558,12 +580,14 @@ export class UsuariosService {
   /**
    * Lista las sesiones activas de usuarios (no expiradas, no cerradas),
    * con datos del usuario para mostrarlas en control de acceso.
+   * @param soloEspera - Si true, devuelve únicamente las sesiones en espera de aprobación.
    */
-  async listarSesionesActivas() {
+  async listarSesionesActivas(soloEspera?: boolean) {
     return this.prisma.sesionActiva.findMany({
       where: {
         fecha_cierre: null,
         fecha_expiracion: { gt: new Date() },
+        ...(soloEspera ? { en_espera: true } : {}),
       },
       orderBy: { fecha_inicio: 'desc' },
       include: {
@@ -579,6 +603,36 @@ export class UsuariosService {
             },
           },
         },
+      },
+    });
+  }
+
+  /**
+   * Aprueba una sesión que estaba en espera de aprobación (acceso desde IP
+   * fuera de rango). Solo afecta a ESA sesión — el siguiente login desde la
+   * misma IP volverá a requerir aprobación.
+   * @param sesionId - ID de la sesión a aprobar
+   * @param aprobadaPorId - ID del administrador que aprueba
+   */
+  async aprobarSesion(sesionId: number, aprobadaPorId: number) {
+    const sesion = await this.prisma.sesionActiva.findUnique({
+      where: { id: sesionId },
+    });
+    if (!sesion) throw new NotFoundException('Sesión no encontrada');
+    if (sesion.fecha_cierre) {
+      throw new BadRequestException('La sesión ya fue cerrada');
+    }
+    if (!sesion.en_espera) {
+      throw new BadRequestException('La sesión no está en espera de aprobación');
+    }
+
+    return this.prisma.sesionActiva.update({
+      where: { id: sesionId },
+      data: {
+        en_espera: false,
+        aprobada_por_id: aprobadaPorId,
+        fecha_aprobacion: new Date(),
+        updatedAt: new Date(),
       },
     });
   }
