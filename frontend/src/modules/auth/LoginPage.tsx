@@ -7,7 +7,6 @@ import { laboratorio } from "../../assets";
 import api from "../../core/api/axios";
 import { AlertCircle, Eye, EyeOff } from 'lucide-react'; // 👇 1. Importamos el ícono de alerta
 import { useConfiguracionGeneral } from "../../shared/hooks/useConfiguracionGeneral";
-import { obtenerIpCliente } from "../../shared/utils/ip";
 
 export default function LoginPage() {
   const { nombreInstitucion } = useConfiguracionGeneral();
@@ -28,11 +27,12 @@ export default function LoginPage() {
     try {
       // 1. Intentar autenticación con el backend
       try {
-        const ipCliente = await obtenerIpCliente();
+        // La IP la calcula el backend a partir de X-Forwarded-For (ver
+        // usuarios.controller.ts) — el navegador no puede reportar su
+        // propia IP pública de forma confiable.
         const response = await api.post('/usuarios/login', {
           nombre_usuario: username,
           clave: password,
-          ip_cliente: ipCliente ?? undefined,
         });
 
         const resData = response.data;
