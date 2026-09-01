@@ -189,7 +189,7 @@ export default function DashboardClientes() {
               <option value="esteMes">Este mes</option>
               <option value="mesAnterior">Mes anterior</option>
               <option value="esteAnio">Este año</option>
-              <option value="personalizado">Personalizado</option>
+                  <option value="personalizado">Personalizado</option>
             </select>
           </div>
 
@@ -213,13 +213,6 @@ export default function DashboardClientes() {
               </div>
             </>
           )}
-
-          <button
-            onClick={fetchData}
-            className="px-5 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
-          >
-            Aplicar
-          </button>
         </div>
       </div>
 

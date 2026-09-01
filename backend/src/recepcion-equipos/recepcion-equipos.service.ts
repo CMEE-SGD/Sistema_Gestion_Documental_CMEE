@@ -23,6 +23,9 @@ const ORDEN_INCLUDE = {
       },
       tecnico: { select: { id: true, nombre: true, apellidos: true } },
       certificados: { select: { id: true } },
+      servicio: {
+        select: { id: true, nombre: true, magnitud: true, laboratorio_id: true },
+      },
     },
     orderBy: { id: 'asc' as const },
   },
@@ -32,6 +35,9 @@ const EQUIPO_INCLUDE = {
   laboratorio: { select: { id: true, nombre: true, responsable_id: true } },
   tecnico: { select: { id: true, nombre: true, apellidos: true } },
   certificados: { select: { id: true } },
+  servicio: {
+    select: { id: true, nombre: true, magnitud: true, laboratorio_id: true },
+  },
   orden_trabajo: {
     select: {
       id: true,

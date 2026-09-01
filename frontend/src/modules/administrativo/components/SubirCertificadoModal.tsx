@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UploadCloud, FileText, X, Loader2 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
@@ -9,15 +9,25 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   recepcionId: number | null;
+  laboratorioId?: number | null;
   onSuccess: () => void;
 }
 
 const API_BASE = (import.meta as any).env.VITE_API_URL;
 
+interface ServicioOption {
+  id: number;
+  nombre: string | null;
+  magnitud: string | null;
+  laboratorio_id: number;
+  activo: boolean;
+}
+
 export default function SubirCertificadoModal({
   isOpen,
   onClose,
   recepcionId,
+  laboratorioId,
   onSuccess,
 }: Props) {
   const queryClient = useQueryClient();
@@ -25,6 +35,30 @@ export default function SubirCertificadoModal({
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [servicioId, setServicioId] = useState<string>('');
+
+  const { data: servicios } = useQuery({
+    queryKey: ['servicios', 'subir-certificado', laboratorioId],
+    queryFn: async () => {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/servicios`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw err ?? { message: `Error HTTP ${res.status}` };
+      }
+      return res.json() as Promise<ServicioOption[]>;
+    },
+    enabled: isOpen,
+  });
+
+  const serviciosDelLab =
+    servicios?.filter(
+      (s) =>
+        s.activo &&
+        (laboratorioId == null || s.laboratorio_id === laboratorioId),
+    ) ?? [];
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -32,6 +66,7 @@ export default function SubirCertificadoModal({
       const formData = new FormData();
       formData.append('file', file);
       formData.append('recepcion_equipo_id', recepcionId.toString());
+      if (servicioId) formData.append('servicio_id', servicioId);
 
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE}/certificados/upload`, {
@@ -86,6 +121,7 @@ export default function SubirCertificadoModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
+    if (!servicioId) return;
     mutation.mutate();
   };
 
@@ -113,6 +149,41 @@ export default function SubirCertificadoModal({
               Seleccione el archivo PDF del certificado de calibración para
               finalizar el proceso.
             </p>
+
+            {/* Procedimiento */}
+            <div>
+              <label
+                htmlFor="procedimiento"
+                className="mb-1.5 block text-sm font-medium text-foreground"
+              >
+                Procedimiento utilizado{' '}
+                <span className="text-destructive">*</span>
+              </label>
+              <select
+                id="procedimiento"
+                value={servicioId}
+                onChange={(e) => setServicioId(e.target.value)}
+                className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Seleccione el procedimiento...</option>
+                {serviciosDelLab.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre ?? `Procedimiento #${s.id}`}
+                    {s.magnitud ? ` — ${s.magnitud}` : ''}
+                  </option>
+                ))}
+              </select>
+              {serviciosDelLab.length === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  No hay procedimientos activos para este laboratorio.
+                </p>
+              )}
+              {!servicioId && (
+                <p className="mt-1 text-xs text-destructive">
+                  Debe seleccionar el procedimiento al subir el certificado
+                </p>
+              )}
+            </div>
 
             {/* Drop zone / file input */}
             <div
@@ -184,7 +255,7 @@ export default function SubirCertificadoModal({
             </button>
             <button
               type="submit"
-              disabled={!file || mutation.isPending}
+              disabled={!file || !servicioId || mutation.isPending}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-50"
             >
               {mutation.isPending ? (

@@ -15,7 +15,7 @@ const PROVINCIAS_ECUADOR = [
 const GRADOS = [
     "Sr.", "Sra.", "Srta.", "Dr.", "Dra.", "Ing.", "Lic.", "Msc.", "PhD.",
     "Crnl.", "Tcrn.", "Mayo.", "Capt.", "Tnte.", "Subt.",
-    "Subof. M.", "Subof. 1", "Subof. 2", "Sgop.", "Sgos.", "Cbop.", "Cbos.", "Sold."
+    "Subof. M.", "SubP", "SubS", "Sgop.", "Sgos.", "Cbop.", "Cbos.", "Sldo."
 ];
 
 const FormPersona = ({
