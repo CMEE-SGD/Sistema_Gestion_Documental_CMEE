@@ -38,6 +38,7 @@ export class CertificadosService {
     file: Express.Multer.File,
     equipoRecepcionId: number,
     user: HydratedUser,
+    servicioId?: number,
   ) {
     const equipo = await this.prisma.equipoRecepcion.findUnique({
       where: { id: equipoRecepcionId },
@@ -52,6 +53,26 @@ export class CertificadosService {
     if (equipo.estado !== EstadoRecepcion.EN_CALIBRACION) {
       throw new BadRequestException(
         'El equipo no se encuentra en estado de calibración activa',
+      );
+    }
+
+    if (!servicioId) {
+      throw new BadRequestException(
+        'Debe seleccionar el procedimiento de calibración',
+      );
+    }
+
+    const servicio = await this.prisma.servicio.findFirst({
+      where: {
+        id: servicioId,
+        laboratorio_id: equipo.laboratorio_id,
+        activo: true,
+      },
+    });
+
+    if (!servicio) {
+      throw new BadRequestException(
+        'El procedimiento seleccionado no pertenece al laboratorio del equipo o no está activo',
       );
     }
 
@@ -93,7 +114,10 @@ export class CertificadosService {
 
       await tx.equipoRecepcion.update({
         where: { id: equipoRecepcionId },
-        data: { estado: EstadoRecepcion.REVISION_OBT },
+        data: {
+          estado: EstadoRecepcion.REVISION_OBT,
+          servicio_id: servicioId,
+        },
       });
 
       await tx.historialEstado.create({

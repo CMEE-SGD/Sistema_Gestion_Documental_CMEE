@@ -16,4 +16,16 @@ export class DashboardController {
   ) {
     return this.dashboardService.getClientesStats(periodo, mes, anio);
   }
+
+  @Get('laboratorios/stats')
+  getLaboratoriosStats(
+    @Query('periodo') periodo?: string,
+    @Query('mes') mes?: string,
+    @Query('anio') anio?: string,
+    @Query('fechaInicio') fechaInicio?: string,
+    @Query('fechaFin') fechaFin?: string,
+    @Query('laboratorioId') laboratorioId?: string,
+  ) {
+    return this.dashboardService.getLaboratoriosStats(periodo, mes, anio, fechaInicio, fechaFin, laboratorioId);
+  }
 }

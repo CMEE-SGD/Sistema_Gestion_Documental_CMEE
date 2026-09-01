@@ -32,11 +32,17 @@ export class CertificadosController {
     @UploadedFile() file: Express.Multer.File,
     @Body('recepcion_equipo_id', ParseIntPipe) recepcionEquipoId: number,
     @Req() req: any,
+    @Body('servicio_id') servicioId?: string,
   ) {
     if (!file) {
       throw new BadRequestException('El archivo PDF del certificado es obligatorio.');
     }
-    return this.certificadosService.upload(file, recepcionEquipoId, req.user);
+    return this.certificadosService.upload(
+      file,
+      recepcionEquipoId,
+      req.user,
+      servicioId ? Number(servicioId) : undefined,
+    );
   }
 
   // Firma digital real (PAdES/PKCS#7) — el PDF ya llega firmado desde el

@@ -659,6 +659,8 @@ model Servicio {
   laboratorio_id Int
   laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id], onDelete: Restrict)
 
+  equipos_recepcion EquipoRecepcion[]
+
   activo    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -810,6 +812,12 @@ model EquipoRecepcion {
   // Técnico asignado para la calibración de este equipo
   tecnico_id Int?
   tecnico    Persona? @relation("TecnicoRecepcion", fields: [tecnico_id], references: [id])
+
+  // Procedimiento de calibración elegido por el Observador Técnico (OBT)
+  // cuando aprueba la revisión REVISION_OBT. Apunta al catálogo de servicios
+  // (procedimiento) del laboratorio al que se derive el equipo.
+  servicio_id Int?
+  servicio    Servicio? @relation(fields: [servicio_id], references: [id])
 
   certificados     Certificado[]
   historial_estado HistorialEstado[]

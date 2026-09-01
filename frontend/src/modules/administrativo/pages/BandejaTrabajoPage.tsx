@@ -551,8 +551,8 @@ export default function BandejaTrabajoPage() {
     laboratorioId: number | null;
   } | null>(null);
   const [isCertificadoModalOpen, setIsCertificadoModalOpen] = useState(false);
-  const [selectedCertificadoRecepcionId, setSelectedCertificadoRecepcionId] =
-    useState<number | null>(null);
+  const [selectedCertificadoRecepcion, setSelectedCertificadoRecepcion] =
+    useState<{ id: number; laboratorioId: number | null } | null>(null);
   const [isValidacionModalOpen, setIsValidacionModalOpen] = useState(false);
   const [selectedValidacionRecepcion, setSelectedValidacionRecepcion] =
     useState<{ id: number; estado: string; titulo: string } | null>(null);
@@ -826,7 +826,10 @@ export default function BandejaTrabajoPage() {
                               variant="default"
                               size="default"
                               onClick={() => {
-                                setSelectedCertificadoRecepcionId(req.id);
+                                setSelectedCertificadoRecepcion({
+                                  id: req.id,
+                                  laboratorioId: req.laboratorio?.id ?? null,
+                                });
                                 setIsCertificadoModalOpen(true);
                               }}
                               title="Subir certificado"
@@ -991,9 +994,10 @@ export default function BandejaTrabajoPage() {
         isOpen={isCertificadoModalOpen}
         onClose={() => {
           setIsCertificadoModalOpen(false);
-          setSelectedCertificadoRecepcionId(null);
+          setSelectedCertificadoRecepcion(null);
         }}
-        recepcionId={selectedCertificadoRecepcionId}
+        recepcionId={selectedCertificadoRecepcion?.id ?? null}
+        laboratorioId={selectedCertificadoRecepcion?.laboratorioId ?? null}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
         }}

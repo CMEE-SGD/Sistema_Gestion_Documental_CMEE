@@ -208,4 +208,258 @@ export class DashboardService {
       },
     };
   }
+
+  async getLaboratoriosStats(
+    periodo: string = 'ultimos30',
+    mes?: string,
+    anio?: string,
+    fechaInicio?: string,
+    fechaFin?: string,
+    laboratorioId?: string,
+  ) {
+    const today = new Date();
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    // Filtro opcional por laboratorio (se aplica a todas las consultas).
+    const labFilter = laboratorioId
+      ? { laboratorio_id: parseInt(laboratorioId, 10) }
+      : {};
+
+    // Lógica idéntica a la de clientes: calcula startDate/endDate/bucketsMap
+    // por período y reutiliza getBucketKey para agrupar por día o por mes.
+    let startDate: Date;
+    let endDate: Date;
+    const bucketsMap = new Map<string, number>();
+
+    switch (periodo) {
+      case 'esteMes': {
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+        const daysInMonth = endDate.getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dt = new Date(today.getFullYear(), today.getMonth(), d);
+          bucketsMap.set(`${dt.getDate()} ${monthNames[dt.getMonth()]}`, 0);
+        }
+        break;
+      }
+      case 'mesAnterior': {
+        const prevMonth = today.getMonth() === 0 ? 11 : today.getMonth() - 1;
+        const prevYear = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear();
+        startDate = new Date(prevYear, prevMonth, 1);
+        endDate = new Date(prevYear, prevMonth + 1, 0, 23, 59, 59);
+        const daysInMonth = endDate.getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dt = new Date(prevYear, prevMonth, d);
+          bucketsMap.set(`${dt.getDate()} ${monthNames[dt.getMonth()]}`, 0);
+        }
+        break;
+      }
+      case 'esteAnio': {
+        startDate = new Date(today.getFullYear(), 0, 1);
+        endDate = new Date(today.getFullYear(), 11, 31, 23, 59, 59);
+        for (let m = 0; m < 12; m++) {
+          bucketsMap.set(`${monthNames[m]} ${today.getFullYear().toString().slice(-2)}`, 0);
+        }
+        break;
+      }
+      case 'personalizado': {
+        // Rango libre: fecha de inicio y fecha de fin (YYYY-MM-DD). Con
+        // hasta ~62 días se asignan todos los días; por encima se agrupa por
+        // semana para no saturar el eje X de la gráfica.
+        const ini = fechaInicio ? new Date(`${fechaInicio}T00:00:00`) : new Date(today.getFullYear(), 0, 1);
+        const fin = fechaFin ? new Date(`${fechaFin}T23:59:59`) : new Date(today.getFullYear(), 11, 31, 23, 59, 59);
+        startDate = ini;
+        endDate = fin;
+        const duracionDias = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1);
+        if (duracionDias > 62) {
+          // Grupos semanales "12 Ene", "19 Ene", ...
+          const inicioSemana = new Date(ini);
+          inicioSemana.setDate(ini.getDate() - ((ini.getDay() + 6) % 7));
+          for (let d = 0; d < duracionDias; d += 7) {
+            const dt = new Date(inicioSemana);
+            dt.setDate(inicioSemana.getDate() + d);
+            if (dt > endDate) break;
+            bucketsMap.set(`${dt.getDate()}-${dt.getMonth() + 1}-${dt.getFullYear().toString().slice(-2)}`, 0);
+          }
+        } else {
+          for (let d = 0; d < duracionDias; d++) {
+            const dt = new Date(ini);
+            dt.setDate(ini.getDate() + d);
+            bucketsMap.set(`${dt.getDate()}-${dt.getMonth() + 1}-${dt.getFullYear().toString().slice(-2)}`, 0);
+          }
+        }
+        break;
+      }
+      default: {
+        // ultimos30
+        startDate = new Date();
+        startDate.setDate(today.getDate() - 29);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+        for (let i = 29; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(today.getDate() - i);
+          bucketsMap.set(`${d.getDate()} ${monthNames[d.getMonth()]}`, 0);
+        }
+        break;
+      }
+    }
+
+    const dateFilter = { gte: startDate, lte: endDate };
+
+    const getBucketKey = (d: Date) => {
+      if (periodo === 'esteAnio') return `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+      if (periodo === 'personalizado') {
+        // Para rangos diarios o semanales. Los buckets de día usan "d MMM"
+        // indistintamente del año; para evitar colisiones entre dos períodos
+        // con el mismo día en distinto año (p.ej. rango 20 Dic 2025 - 10 Ene
+        // 2026) normalizamos el formato a d-M-yy.
+        return `${d.getDate()}-${d.getMonth() + 1}-${d.getFullYear().toString().slice(-2)}`;
+      }
+      return `${d.getDate()} ${monthNames[d.getMonth()]}`;
+    };
+
+    // Comparativo: misma duración del período, inmediatamente anterior.
+    const duracionMs = endDate.getTime() - startDate.getTime();
+    const prevEnd = new Date(startDate.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - duracionMs);
+    const prevFilter = { gte: prevStart, lte: prevEnd };
+
+    const [recibidos, prevRecibidos, prevFinalizados] = await Promise.all([
+      // Equipos ingresados (recibidos) en el período — el "volumen que entra".
+      this.prisma.equipoRecepcion.findMany({
+        where: { createdAt: dateFilter, ...labFilter },
+        select: {
+          id: true, laboratorio_id: true, estado: true, createdAt: true,
+          laboratorio: { select: { nombre: true } },
+        },
+      }),
+      this.prisma.equipoRecepcion.count({ where: { createdAt: prevFilter, ...labFilter } }),
+      // Calibrados en el período previo = finalizados (updatedAt marca el
+      // momento en que el equipo llegó a FINALIZADO).
+      this.prisma.equipoRecepcion.count({
+        where: { estado: 'FINALIZADO', updatedAt: prevFilter, ...labFilter },
+      }),
+    ]);
+
+    // "Calibrados en el período" = equipos que alcanzaron FINALIZADO durante
+    // el período seleccionado (updatedAt, no createdAt). Un equipo recibido
+    // en un mes anterior y finalizado ahora sí aparece aquí.
+    const finalizados = await this.prisma.equipoRecepcion.findMany({
+      where: { estado: 'FINALIZADO', updatedAt: dateFilter, ...labFilter },
+      select: {
+        id: true, laboratorio_id: true, updatedAt: true,
+        laboratorio: { select: { nombre: true } },
+      },
+    });
+
+    // "En trámite / calibrándose" — foto del momento actual, no del período.
+    // Incluye todo el pipeline hasta antes de FINALIZADO (el único estado
+    // terminal). Se agrupa por laboratorio para la tabla.
+    const enTramiteAhora = await this.prisma.equipoRecepcion.findMany({
+      where: { estado: { not: 'FINALIZADO' }, ...labFilter },
+      select: {
+        laboratorio_id: true, estado: true,
+        laboratorio: { select: { nombre: true } },
+      },
+    });
+
+    // "Personal calibrando" — equipos en trámite agrupados por técnico
+    // asignado. Foto del momento actual, respeta el filtro por laboratorio.
+    const enTramiteConTecnico = await this.prisma.equipoRecepcion.findMany({
+      where: { estado: { not: 'FINALIZADO' }, ...labFilter },
+      select: {
+        tecnico_id: true,
+        tecnico: { select: { id: true, grado: true, nombre: true, apellidos: true } },
+      },
+    });
+    const personalMap = new Map<string, { nombre: string; equipos: number }>();
+    enTramiteConTecnico.forEach(t => {
+      if (!t.tecnico) return;
+      const rotulo = `${t.tecnico.grado ? t.tecnico.grado + ' ' : ''}${t.tecnico.nombre} ${t.tecnico.apellidos}`.trim();
+      const e = personalMap.get(rotulo) || { nombre: rotulo, equipos: 0 };
+      e.equipos++;
+      personalMap.set(rotulo, e);
+    });
+
+    // 1. Serie: Recibidos vs. Calibrados por bucket (día o mes según período).
+    const recibidosBuckets = new Map(bucketsMap);
+    recibidos.forEach(r => {
+      const key = getBucketKey(r.createdAt);
+      if (recibidosBuckets.has(key)) {
+        recibidosBuckets.set(key, recibidosBuckets.get(key)! + 1);
+      }
+    });
+
+    const finalizadosBuckets = new Map(bucketsMap);
+    finalizados.forEach(f => {
+      const key = getBucketKey(f.updatedAt);
+      if (finalizadosBuckets.has(key)) {
+        finalizadosBuckets.set(key, finalizadosBuckets.get(key)! + 1);
+      }
+    });
+
+    // 2. Por laboratorio: recibido en el período, calibrado en el período y
+    // en trámite ahora mismo. Se deriva de las 3 consultas.
+    const labMap = new Map<number, {
+      laboratorio_id: number;
+      nombre: string;
+      recibidos: number;
+      calibrados: number;
+      enTramite: number;
+    }>();
+
+    const ensureLab = (id: number, nombre: string) => {
+      let e = labMap.get(id);
+      if (!e) {
+        e = { laboratorio_id: id, nombre, recibidos: 0, calibrados: 0, enTramite: 0 };
+        labMap.set(id, e);
+      }
+      return e;
+    };
+
+    recibidos.forEach(r => ensureLab(r.laboratorio_id, r.laboratorio.nombre).recibidos++);
+    finalizados.forEach(f => ensureLab(f.laboratorio_id, f.laboratorio.nombre).calibrados++);
+    enTramiteAhora.forEach(t => ensureLab(t.laboratorio_id, t.laboratorio.nombre).enTramite++);
+
+    // 3. Pipeline por estado (del flujo de recepción) — dónde está el flujo
+    // bloqueado ahora mismo.
+    const pipelineMap = new Map<string, number>();
+    enTramiteAhora.forEach(t => {
+      pipelineMap.set(t.estado, (pipelineMap.get(t.estado) || 0) + 1);
+    });
+    // Incluir FINALIZADO en el pipeline con el total histórico (no período).
+    const totalFinalizadosHist = await this.prisma.equipoRecepcion.count({
+      where: { estado: 'FINALIZADO', ...labFilter },
+    });
+    pipelineMap.set('FINALIZADO', totalFinalizadosHist);
+
+    return {
+      equiposRecibidosTotal: recibidos.length,
+      equiposRecibidosSerie: Array.from(recibidosBuckets, ([fecha, count]) => ({ fecha, count })),
+
+      equiposCalibradosTotal: finalizados.length,
+      equiposCalibradosSerie: Array.from(finalizadosBuckets, ([fecha, count]) => ({ fecha, count })),
+
+      equiposEnTramiteTotal: enTramiteAhora.length,
+
+      // Personal con equipos en trámite asignados ahora mismo, ordenado por
+      // carga de trabajo (más equipos primero).
+      personalCalibrando: Array.from(personalMap.values())
+        .sort((a, b) => b.equipos - a.equipos),
+
+      porLaboratorio: Array.from(labMap.values())
+        .sort((a, b) => b.enTramite - a.enTramite),
+      // Orden estable por nombre siempre que el frontend no cuente con orderBy.
+      pipelinePorEstado: Array.from(
+        pipelineMap,
+        ([estado, count]) => ({ estado, count }),
+      ),
+
+      comparativo: {
+        equiposRecibidosPrevTotal: prevRecibidos,
+        equiposCalibradosPrevTotal: prevFinalizados,
+      },
+    };
+  }
 }
