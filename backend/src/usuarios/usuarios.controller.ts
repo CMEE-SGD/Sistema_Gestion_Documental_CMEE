@@ -53,7 +53,7 @@ export class UsuariosController {
     return this.usuariosService.login(
       loginDto.nombre_usuario,
       loginDto.clave,
-      this.obtenerIpReal(req),
+      loginDto.ip_cliente || this.obtenerIpReal(req),
       req.headers?.['user-agent'] as string | undefined,
     );
   }
@@ -63,6 +63,13 @@ export class UsuariosController {
    * @param createUsuarioDto - Datos o identificador requerido (Entidad | PrismaResponse)
    * @returns Objeto complejo / PrismaResponse
    */
+  @Post('logout')
+  @UseGuards(JwtAuthGuard) // Solo exige token válido; cierra la sesión propia
+  @ApiOperation({ summary: 'Cerrar la sesión actual (logout)' })
+  logout(@Req() req: any) {
+    return this.usuariosService.cerrarPropiaSesion(req.user?.jti);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestion de Usuarios', 5)
