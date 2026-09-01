@@ -31,15 +31,6 @@ export class UsuariosController {
    * directo (proxy/Vite/::1); se prioriza `x-forwarded-for`.
    */
   private obtenerIpReal(req: any): string {
-    // TEMPORAL — diagnóstico de por qué la IP capturada no coincide con la
-    // IP pública real del cliente en producción. Quitar una vez resuelto.
-    console.log('[DEBUG-IP]', {
-      'x-forwarded-for': req.headers?.['x-forwarded-for'],
-      'x-real-ip': req.headers?.['x-real-ip'],
-      'req.ip': req.ip,
-      'req.socket.remoteAddress': req.socket?.remoteAddress,
-    });
-
     const xff = req.headers?.['x-forwarded-for'];
     if (typeof xff === 'string' && xff.trim()) {
       return xff.split(',')[0].trim();
