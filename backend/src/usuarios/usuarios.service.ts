@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificacionesGateway } from '../notificaciones/notificaciones.gateway';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { UpdatePerfilDto } from './dto/update-perfil.dto';
@@ -23,6 +24,7 @@ export class UsuariosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly notificacionesGateway: NotificacionesGateway,
   ) {}
 
   /**
@@ -660,6 +662,10 @@ export class UsuariosService {
         updatedAt: new Date(),
       },
     });
+
+    if (resultado.count > 0) {
+      this.notificacionesGateway.emitirSesionCerrada(usuarioId);
+    }
 
     return { cerradas: resultado.count };
   }

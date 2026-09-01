@@ -43,21 +43,27 @@ export const UsuariosPage = () => {
         fetchUsuarios();
     }, []);
 
-    // 👇 Carga de sesiones activas
+    // 👇 Carga de sesiones activas (con sondeo automático cada 8 s)
     useEffect(() => {
         if (!puedeCerrarSesiones) return;
-        const fetchSesiones = async () => {
+        let activo = true;
+        const fetchSesiones = async (inicial = false) => {
             try {
-                setCargandoSesiones(true);
+                if (inicial) setCargandoSesiones(true);
                 const res = await api.get('/usuarios/sesiones');
-                setSesiones(res.data);
+                if (activo) setSesiones(res.data);
             } catch (error) {
                 console.error("Error al cargar sesiones activas", error);
             } finally {
-                setCargandoSesiones(false);
+                if (inicial && activo) setCargandoSesiones(false);
             }
         };
-        fetchSesiones();
+        fetchSesiones(true);
+        const intervalo = setInterval(() => fetchSesiones(false), 8000);
+        return () => {
+            activo = false;
+            clearInterval(intervalo);
+        };
     }, [puedeCerrarSesiones]);
 
     const formatFecha = (fecha: string) => {
