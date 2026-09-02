@@ -422,7 +422,6 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
                 <th className="px-3 py-3 min-w-[150px]">Accesorios</th>
                 <th className="px-3 py-3 min-w-[150px]">Req. Calibración</th>
                 <th className="px-3 py-3 min-w-[180px]">Laboratorio Destino</th>
-                <th className="px-3 py-3 min-w-[150px]">Sub-área</th>
                 <th className="px-3 py-3 min-w-[150px]">Fecha Ingreso Lab</th>
                 <th className="px-3 py-3 min-w-[60px] text-center">Acción</th>
               </tr>
@@ -540,27 +539,23 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
                         {errors[`equipos.${i}.laboratorio_id`]}
                       </p>
                     )}
-                  </td>
-                  <td className="px-3 py-2.5 align-top">
                     {(() => {
                       const opciones = eq.laboratorio_id
                         ? subAreasPorLab[Number(eq.laboratorio_id)]
                         : undefined;
-                      // Solo tiene sentido elegir si el laboratorio realmente
-                      // se divide en más de una sub-área — la inmensa
-                      // mayoría no, así que no se muestra nada para esos.
-                      if (!opciones || opciones.length < 2) {
-                        return <span className="text-xs text-muted-foreground">—</span>;
-                      }
+                      // Solo se despliega si el laboratorio elegido
+                      // realmente se divide en más de una sub-área — la
+                      // inmensa mayoría no, así que no aparece nada extra.
+                      if (!opciones || opciones.length < 2) return null;
                       return (
                         <select
                           value={eq.sub_area_id}
                           onChange={(e) =>
                             handleEquipoChange(i, 'sub_area_id', e.target.value)
                           }
-                          className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="mt-1.5 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          <option value="">Sin especificar</option>
+                          <option value="">Sub-área: sin especificar</option>
                           {opciones.map((d) => (
                             <option key={d.id} value={d.id}>
                               {d.nombre}
