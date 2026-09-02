@@ -406,6 +406,24 @@ export class UsuariosService {
 
     const { password_hash, ...result } = usuario;
 
+    // Nueva lógica: una sola sesión activa por usuario. Si el usuario ya tiene
+    // una sesión activa (aprobada/dentro de rango), se rechaza el ingreso desde
+    // otro dispositivo con un código específico (409) para que el frontend
+    // muestre el aviso y ofrezca volver al índice.
+    const sesionActivaExistente = await this.prisma.sesionActiva.findFirst({
+      where: {
+        usuario_id: usuario.id,
+        en_espera: false,
+        fecha_cierre: null,
+        fecha_expiracion: { gt: new Date() },
+      },
+    });
+    if (sesionActivaExistente) {
+      throw new ConflictException(
+        'El usuario ya está activo en otro dispositivo. Cierre la sesión anterior o espere unos minutos antes de volver a ingresar.',
+      );
+    }
+
     // Nuevo: sesión activa con JTI revocable (control de acceso)
     const jti = randomUUID();
     const fechaExpiracion = new Date(Date.now() + 8 * 60 * 60 * 1000);

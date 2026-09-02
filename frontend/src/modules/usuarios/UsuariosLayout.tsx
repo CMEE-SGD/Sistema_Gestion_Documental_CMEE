@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Users, UsersRound, Settings } from 'lucide-react';
+import { Users, UsersRound, Settings, MonitorX } from 'lucide-react';
 import Navbar from '../../shared/components/organisms/Navbar';
 import { tienePermiso } from '../../shared/utils/auth';
 
@@ -12,7 +12,10 @@ export const UsuariosLayout = () => {
         { name: 'Usuarios', path: '/usuarios', icon: <Users className="w-4 h-4" /> },
         { name: 'Grupos', path: '/usuarios/grupos', icon: <UsersRound className="w-4 h-4" /> },
         ...(tienePermiso('Gestion de Usuarios', 5)
-            ? [{ name: 'Configuración General', path: '/usuarios/configuracion', icon: <Settings className="w-4 h-4" /> }]
+            ? [
+                { name: 'Sesiones Activas', path: '/usuarios/sesiones', icon: <MonitorX className="w-4 h-4" /> },
+                { name: 'Configuración General', path: '/usuarios/configuracion', icon: <Settings className="w-4 h-4" /> },
+            ]
             : []),
     ];
 
