@@ -48,6 +48,7 @@ import { UsuarioFormPage } from '../../modules/usuarios/UsuarioFormPage';
 import { UsuariosLayout } from '../../modules/usuarios/UsuariosLayout';
 import { UsuariosPage } from '../../modules/usuarios/UsuariosPage';
 import { UsuariosGruposPage } from '../../modules/usuarios/UsuariosGrupoPage';
+import { SesionesActivasPage } from '../../modules/usuarios/SesionesActivasPage';
 import { GrupoFormPage } from '../../modules/usuarios/GrupoFormPage';
 import { ConfiguracionGeneralPage } from '../../modules/usuarios/ConfiguracionGeneralPage';
 import { PreferenciasPage } from '../../modules/usuarios/PreferenciasPage';
@@ -121,6 +122,7 @@ const AppRouter = () => {
           <Route path="grupos" element={<UsuariosGruposPage />} />
           <Route path="grupos/nuevo" element={<GrupoFormPage />} />
           <Route path="grupos/editar/:id" element={<GrupoFormPage />} />
+          <Route path="sesiones" element={<SesionesActivasPage />} />
           <Route path="configuracion" element={<ConfiguracionGeneralPage />} />
         </Route>
 
