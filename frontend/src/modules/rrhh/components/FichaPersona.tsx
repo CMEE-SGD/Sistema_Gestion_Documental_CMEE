@@ -214,7 +214,9 @@ const FichaPersona = ({ persona, documentos, capacitaciones, mostrarLogs, logsPe
 
                     <DataRow label="Nombre de usuario" value={persona.usuario?.nombre_usuario || '-'} />
                     <DataRow label="Perfil">
-                        {persona.roles && persona.roles.length > 0 ? persona.roles.map((r: any) => r.nombre).join(', ') : '-'}
+                        {persona.usuario?.grupos && persona.usuario.grupos.length > 0
+                            ? persona.usuario.grupos.map((g: any) => g.nombre).join(', ')
+                            : '-'}
                     </DataRow>
                     <DataRow label="Interfaz" value="SI-CMEE" />
                 </div>
