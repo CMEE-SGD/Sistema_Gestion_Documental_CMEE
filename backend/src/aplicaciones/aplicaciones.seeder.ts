@@ -45,6 +45,10 @@ export class AplicacionesSeeder implements OnModuleInit {
         nombre: 'Gestion de Calidad',
         descripcion: 'Auditorías internas, no conformidades y acciones correctivas',
       },
+      {
+        nombre: 'Resumen',
+        descripcion: 'Dashboards del sistema por clientes y laboratorios',
+      },
     ];
 
     for (const app of aplicacionesBase) {
