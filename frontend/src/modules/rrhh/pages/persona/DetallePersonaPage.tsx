@@ -17,6 +17,12 @@ interface DocumentoAdjunto {
     ruta: string;
 }
 
+interface CapacitacionAdjunto {
+    id: number;
+    nombre_archivo: string;
+    ruta: string;
+}
+
 export const DetallePersonaPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
@@ -29,6 +35,7 @@ export const DetallePersonaPage = () => {
     const [logsPersona, setLogsPersona] = useState([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
     const [documentos, setDocumentos] = useState<DocumentoAdjunto[]>([]);
+    const [capacitaciones, setCapacitaciones] = useState<CapacitacionAdjunto[]>([]);
 
     useEffect(() => {
         const fetchPersonaDetalle = async () => {
@@ -36,6 +43,7 @@ export const DetallePersonaPage = () => {
                 const response = await api.get(`/personas/${id}`);
                 setPersona(response.data);
                 if (response.data.documentos) setDocumentos(response.data.documentos);
+                if (response.data.capacitaciones_archivos) setCapacitaciones(response.data.capacitaciones_archivos);
             } catch (error) {
                 console.error('Error cargando los detalles de la persona', error);
             } finally {
@@ -112,6 +120,7 @@ export const DetallePersonaPage = () => {
                 <FichaPersona 
                     persona={persona} 
                     documentos={documentos}
+                    capacitaciones={capacitaciones}
                     mostrarLogs={mostrarLogs}
                     logsPersona={logsPersona}
                     loadingLogs={loadingLogs}
