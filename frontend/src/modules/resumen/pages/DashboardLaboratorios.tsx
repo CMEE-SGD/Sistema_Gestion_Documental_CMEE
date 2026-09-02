@@ -1,6 +1,4 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '../../../shared/components/atoms/button';
 import api from '../../../core/api/axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -116,7 +114,6 @@ function StatTile({ titulo, icon, color, iconClassName, valor, subtitulo, delta 
 }
 
 export default function DashboardLaboratorios() {
-  const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [laboratorios, setLaboratorios] = useState<any[]>([]);
@@ -186,13 +183,6 @@ export default function DashboardLaboratorios() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-3xl font-bold">Dashboard de Laboratorios</h1>
-          <Button
-            variant="outline"
-            onClick={() => navigate('/laboratorios')}
-            className="border-gray-200 hover:bg-gray-50"
-          >
-            ← Volver a Laboratorios
-          </Button>
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-end gap-3 p-4 bg-card border border-border rounded-lg shadow-sm">
