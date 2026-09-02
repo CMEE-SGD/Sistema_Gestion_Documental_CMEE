@@ -17,10 +17,10 @@ interface DocumentoAdjunto {
     ruta: string;
 }
 
-interface CapacitacionAdjunto {
+interface CapacitacionItem {
     id: number;
-    nombre_archivo: string;
-    ruta: string;
+    nombre: string;
+    participantes: { persona: { id: number }; certificado?: string | null }[];
 }
 
 export const DetallePersonaPage = () => {
@@ -35,7 +35,7 @@ export const DetallePersonaPage = () => {
     const [logsPersona, setLogsPersona] = useState([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
     const [documentos, setDocumentos] = useState<DocumentoAdjunto[]>([]);
-    const [capacitaciones, setCapacitaciones] = useState<CapacitacionAdjunto[]>([]);
+    const [capacitaciones, setCapacitaciones] = useState<CapacitacionItem[]>([]);
 
     useEffect(() => {
         const fetchPersonaDetalle = async () => {
@@ -43,7 +43,15 @@ export const DetallePersonaPage = () => {
                 const response = await api.get(`/personas/${id}`);
                 setPersona(response.data);
                 if (response.data.documentos) setDocumentos(response.data.documentos);
-                if (response.data.capacitaciones_archivos) setCapacitaciones(response.data.capacitaciones_archivos);
+                // Carga las capacitaciones desde el módulo de capacitaciones
+                // (solo se muestran los nombres; al hacer clic se abre el certificado).
+                try {
+                    const capsRes = await api.get(`/capacitaciones/persona/${id}`);
+                    setCapacitaciones(capsRes.data);
+                } catch {
+                    console.error('Error cargando las capacitaciones de la persona');
+                    setCapacitaciones([]);
+                }
             } catch (error) {
                 console.error('Error cargando los detalles de la persona', error);
             } finally {

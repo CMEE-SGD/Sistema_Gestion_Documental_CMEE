@@ -10,16 +10,16 @@ interface DocumentoAdjunto {
     ruta: string;
 }
 
-interface CapacitacionAdjunto {
+interface CapacitacionItem {
     id: number;
-    nombre_archivo: string;
-    ruta: string;
+    nombre: string;
+    participantes: { persona: { id: number }; certificado?: string | null }[];
 }
 
 interface FichaPersonaProps {
     persona: any;
     documentos: DocumentoAdjunto[];
-    capacitaciones: CapacitacionAdjunto[];
+    capacitaciones: CapacitacionItem[];
     mostrarLogs: boolean;
     logsPersona: any[];
     loadingLogs: boolean;
@@ -158,7 +158,7 @@ const FichaPersona = ({ persona, documentos, capacitaciones, mostrarLogs, logsPe
                     </DataRow>
                 </div>
 
-                {/* 4b. CAPACITACIONES ADJUNTAS */}
+                {/* 4b. CAPACITACIONES (desde el módulo de capacitaciones) */}
                 <div className="mb-8 mt-10">
                     <div className="flex items-center gap-2 mb-4">
                         <GraduationCap className="w-4 h-4 text-[#8eb8d5]" />
@@ -166,21 +166,40 @@ const FichaPersona = ({ persona, documentos, capacitaciones, mostrarLogs, logsPe
                     </div>
 
                     <DataRow label="Capacitaciones">
-                        <div className="flex flex-col gap-2.5 max-w-4xl">
+                        <div className="flex flex-col gap-1.5 max-w-4xl">
                             {capacitaciones.length > 0 ? (
-                                capacitaciones.map((cap) => (
-                                    <div key={cap.id} className="flex items-center justify-between bg-white border border-gray-300 px-3 py-1.5 rounded-sm">
+                                capacitaciones.map((cap) => {
+                                    const participante = cap.participantes?.find(
+                                        (p) => p.persona.id === persona.id,
+                                    );
+                                    const certificado = participante?.certificado;
+                                    const contenido = (
+                                        <span className="text-blue-600 underline hover:text-blue-800 text-[11px]">
+                                            {cap.nombre}
+                                        </span>
+                                    );
+                                    const nombre = certificado ? (
                                         <a
-                                            href={buildFileUrl(cap.ruta) ?? undefined} target="_blank"
+                                            href={buildFileUrl(certificado) ?? undefined}
+                                            target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-blue-600 underline hover:text-blue-800 text-[11px]"
                                         >
-                                            {cap.nombre_archivo}
+                                            {contenido}
                                         </a>
-                                    </div>
-                                ))
+                                    ) : (
+                                        contenido
+                                    );
+                                    return (
+                                        <div key={cap.id} className="flex items-center justify-between bg-white border border-gray-300 px-3 py-1.5 rounded-sm">
+                                            {nombre}
+                                            {!certificado && (
+                                                <span className="text-[10px] text-gray-400 italic">Sin certificado</span>
+                                            )}
+                                        </div>
+                                    );
+                                })
                             ) : (
-                                <span className="text-gray-500 italic">No hay capacitaciones adjuntas.</span>
+                                <span className="text-gray-500 italic">No hay capacitaciones registradas.</span>
                             )}
                         </div>
                     </DataRow>

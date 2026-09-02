@@ -1,5 +1,6 @@
 import React from 'react';
 import { useConfiguracionGeneral } from '../../hooks/useConfiguracionGeneral';
+import { logoCentro } from '../../../assets';
 
 interface PrintHeaderProps {
     tituloPrincipal?: string;
@@ -22,9 +23,13 @@ const PrintHeader: React.FC<PrintHeaderProps> = ({
                         {subtitulo}
                     </h2>
                 </div>
-                {/* Contenedor del Logo */}
-                <div className="w-16 h-16 bg-gray-200 border border-gray-300 flex items-center justify-center text-xs text-gray-500 rounded-full">
-                    LOGO
+                {/* Logo del centro (impresión) */}
+                <div className="w-16 h-16 flex items-center justify-center">
+                    <img
+                        src={logoCentro}
+                        alt="Logo CMEE"
+                        className="w-full h-full object-contain"
+                    />
                 </div>
             </div>
             
