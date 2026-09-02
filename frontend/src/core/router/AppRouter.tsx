@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useInactividad } from '../../shared/hooks/useInactividad';
 
@@ -43,7 +43,6 @@ import { LaboratoriosPage } from '../../modules/laboratorios/pages/LaboratoriosP
 import { LaboratoriosLayout } from '../../modules/laboratorios/LaboratoriosLayout';
 import { EquiposPage } from '../../modules/laboratorios/pages/equipos/EquiposPages';
 import { ServiciosPage } from '../../modules/laboratorios/pages/servicios/ServiciosPage';
-import DashboardLaboratorios from '../../modules/laboratorios/pages/DashboardLaboratorios';
 
 // --- IMPORTACIONES DE USUARIOS ---
 import { UsuarioFormPage } from '../../modules/usuarios/UsuarioFormPage';
@@ -99,7 +98,11 @@ import RecepcionesPage from '../../modules/administrativo/pages/RecepcionesPage'
 import ClientesPage from '../../modules/administrativo/pages/ClientesPage';
 import CertificadosPage from '../../modules/administrativo/pages/CertificadosPage';
 import ReportesPage from '../../modules/administrativo/pages/ReportesPage';
-import DashboardClientes from '../../modules/inicio/pages/DashboardClientes';
+
+// --- MÓDULO RESUMEN (dashboards) ---
+import { ResumenLayout } from '../../modules/resumen/ResumenLayout';
+import DashboardClientes from '../../modules/resumen/pages/DashboardClientes';
+import DashboardLaboratorios from '../../modules/resumen/pages/DashboardLaboratorios';
 
 // --- PÚBLICO (sin sesión) ---
 import VerificarCertificadoPage from '../../modules/publico/pages/VerificarCertificadoPage';
@@ -164,7 +167,6 @@ const AppContenido = () => {
           <Route index element={<LaboratoriosPage />} />
           <Route path="equipos" element={<EquiposPage />} />
           <Route path="servicios" element={<ServiciosPage />} />
-          <Route path="dashboard" element={<DashboardLaboratorios />} />
         </Route>
         
         <Route path="/gestordocumental" element={<GestorDocumentalLayout />}>
@@ -219,7 +221,13 @@ const AppContenido = () => {
           <Route path="clientes" element={<ClientesPage />} />
           <Route path="certificados" element={<CertificadosPage />} />
           <Route path="reportes" element={<ReportesPage />} />
-          <Route path="dashboard-clientes" element={<DashboardClientes />} />
+        </Route>
+
+        {/* --- MÓDULO RESUMEN (dashboards) --- */}
+        <Route path="/resumen" element={<ResumenLayout />}>
+          <Route index element={<Navigate to="clientes" replace />} />
+          <Route path="clientes" element={<DashboardClientes />} />
+          <Route path="laboratorios" element={<DashboardLaboratorios />} />
         </Route>
         </Route>
 

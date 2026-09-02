@@ -19,7 +19,7 @@ const getModuleStyle = (name: string) => {
             return { icon: ClipboardList, colorClass: 'text-cyan-600 bg-cyan-50 group-hover:bg-cyan-100' };
         case 'Gestion de Calidad':
             return { icon: ClipboardCheck, colorClass: 'text-teal-600 bg-teal-50 group-hover:bg-teal-100' };
-        case 'Dashboard':
+        case 'Resumen':
             return { icon: LayoutDashboard, colorClass: 'text-slate-600 bg-slate-50 group-hover:bg-slate-100' };
         default:
             return { icon: LayoutDashboard, colorClass: 'text-gray-600 bg-gray-50 group-hover:bg-gray-100' };
