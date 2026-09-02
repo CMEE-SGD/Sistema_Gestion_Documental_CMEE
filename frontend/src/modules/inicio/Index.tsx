@@ -3,6 +3,7 @@ import Navbar from '../../shared/components/organisms/Navbar';
 import WelcomeHeader from './components/WelcomeHeader';
 import ModuleCard from './components/ModuleCard';
 import api from '../../core/api/axios';
+import { tienePermiso } from '../../shared/utils/auth';
 
 const MODULES = [
   { id: 1, name: 'Gestion de Usuarios', path: '/usuarios' },
@@ -73,7 +74,9 @@ const Index = () => {
 
             <div className="p-8 bg-card/50">
               <div className="flex flex-wrap gap-6 justify-center md:justify-start">
-                {MODULES.map((mod) => (
+                {MODULES.filter(
+                  (mod) => mod.name !== 'Resumen' || tienePermiso('Resumen', 1),
+                ).map((mod) => (
                   <ModuleCard key={mod.id} mod={mod} />
                 ))}
               </div>

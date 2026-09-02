@@ -1,14 +1,16 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-// Puedes agregar decoradores de Swagger aquí
+import { AccessGuard } from '../auth/guards/access.guard';
+import { RequireAccess } from '../auth/decorators/access.decorator';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, AccessGuard)
 @Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('clientes/stats')
+  @RequireAccess('Resumen', 1)
   getClientesStats(
     @Query('periodo') periodo?: string,
     @Query('mes') mes?: string,
@@ -18,6 +20,7 @@ export class DashboardController {
   }
 
   @Get('laboratorios/stats')
+  @RequireAccess('Resumen', 1)
   getLaboratoriosStats(
     @Query('periodo') periodo?: string,
     @Query('mes') mes?: string,
