@@ -30,6 +30,7 @@ import { DetallePersonaPage } from '../../modules/rrhh/pages/persona/DetallePers
 import { EditarPersonaPage } from '../../modules/rrhh/pages/persona/EditarPersonaPage';
 import AccesoDenegadoPage from '../../modules/auth/AccesoDenegadoPage';
 import { AccesoPendientePage } from '../../modules/auth/AccesoPendientePage';
+import { RutaProtegida } from './RutaProtegida';
 import { DocumentosPersonaPage } from '../../modules/rrhh/pages/persona/DocumentosPersonaPage';
 import { CapacitacionesPersonaPage } from '../../modules/rrhh/pages/persona/CapacitacionesPersonaPage';
 import { CapacitacionesPage } from '../../modules/rrhh/pages/capacitacion/CapacitacionesPage';
@@ -109,12 +110,16 @@ const AppRouter = () => {
     <Router>
       <Routes>
         <Route path="/" element={<LoginPage />} />
-        <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/403" element={<AccesoDenegadoPage />} />
         <Route path="/espera" element={<AccesoPendientePage />} />
         <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
         <Route path="/verificar-documento/:codigo" element={<VerificarDocumentoPage />} />
 
+        {/* Rutas privadas: RutaProtegida valida sesión real (incluyendo al
+            volver de la caché del navegador con Atrás/Adelante) antes de
+            dejar pasar a cualquiera de estas. */}
+        <Route element={<RutaProtegida />}>
+        <Route path="/welcome" element={<WelcomePage />} />
         <Route path="/usuarios" element={<UsuariosLayout />}>
           <Route index element={<UsuariosPage />} />
           <Route path="nuevo" element={<UsuarioFormPage />} />
@@ -216,7 +221,8 @@ const AppRouter = () => {
           <Route path="reportes" element={<ReportesPage />} />
           <Route path="dashboard-clientes" element={<DashboardClientes />} />
         </Route>
-        
+        </Route>
+
       </Routes>
     </Router>
     </QueryClientProvider>

@@ -97,14 +97,14 @@ export default function LoginPage() {
             id: resData.id,
             nombre_usuario: resData.nombre_usuario,
           }));
-          navigate('/espera');
+          navigate('/espera', { replace: true });
           return;
         }
 
         // 4. Guardar y navegar
         localStorage.setItem('token', resData.token);
         localStorage.setItem('usuario', JSON.stringify(userData));
-        navigate('/welcome');
+        navigate('/welcome', { replace: true });
         return;
 
       } catch (backendError: any) {
