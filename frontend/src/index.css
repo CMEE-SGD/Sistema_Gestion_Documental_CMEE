@@ -135,16 +135,41 @@
 @media print {
     @page { 
         size: auto; 
-        margin: 0;
+        margin: 1.5cm;
     }
     
     body { 
-        margin: 1.5cm !important;
+        margin: 0 !important;
         padding: 0 !important; 
     }
     
     aside, nav, header { display: none !important; }
     main, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+
+    /* Evita que los contenedores con overflow o altura fija recorten el
+       contenido al imprimir; así el documento fluye en varias hojas: */
+    html, body, #root, main,
+    *[class*="overflow-hidden"],
+    *[class*="overflow-y-auto"],
+    *[class*="overflow-x-auto"],
+    *[class*="overflow-auto"],
+    *[class*="h-screen"],
+    *[class*="min-h-screen"] {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+    }
+
+    /* Permite que el contenido fluya en varias páginas: */
+    tr, thead, tfoot {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+    .print-full {
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+    }
 }
 
 .react-quill {
