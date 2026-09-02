@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useInactividad } from '../../shared/hooks/useInactividad';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -104,11 +105,10 @@ import DashboardClientes from '../../modules/inicio/pages/DashboardClientes';
 import VerificarCertificadoPage from '../../modules/publico/pages/VerificarCertificadoPage';
 import VerificarDocumentoPage from '../../modules/publico/pages/VerificarDocumentoPage';
 
-const AppRouter = () => {
+const AppContenido = () => {
+  useInactividad();
   return (
-    <QueryClientProvider client={queryClient}>
-    <Router>
-      <Routes>
+    <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/403" element={<AccesoDenegadoPage />} />
         <Route path="/espera" element={<AccesoPendientePage />} />
@@ -224,7 +224,15 @@ const AppRouter = () => {
         </Route>
 
       </Routes>
-    </Router>
+  );
+};
+
+const AppRouter = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <AppContenido />
+      </Router>
     </QueryClientProvider>
   );
 };
