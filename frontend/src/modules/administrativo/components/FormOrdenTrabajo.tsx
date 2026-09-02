@@ -22,6 +22,12 @@ interface LaboratorioOption {
   nombre: string;
 }
 
+interface DepartamentoOption {
+  id: number;
+  codigo: string;
+  nombre: string;
+}
+
 interface EquipoForm {
   equipo_descripcion: string;
   marca: string;
@@ -31,6 +37,7 @@ interface EquipoForm {
   accesorios: string;
   requerimientos_calibracion: string;
   laboratorio_id: string;
+  departamento_id: string;
   fecha_ingreso_laboratorio: string;
 }
 
@@ -62,6 +69,27 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
   const [laboratorios, setLaboratorios] = useState<LaboratorioOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Sub-áreas (Departamento) por laboratorio — cargadas bajo demanda cuando
+  // se elige un laboratorio en alguna fila; casi todos los laboratorios no
+  // tienen ninguna, así que la columna se mantiene oculta para esos casos.
+  const [departamentosPorLab, setDepartamentosPorLab] = useState<
+    Record<number, DepartamentoOption[]>
+  >({});
+
+  const cargarDepartamentos = useCallback(
+    async (laboratorioId: number) => {
+      if (departamentosPorLab[laboratorioId]) return;
+      try {
+        const res = await api.get(`/laboratorios/${laboratorioId}/departamentos`);
+        setDepartamentosPorLab((prev) => ({ ...prev, [laboratorioId]: res.data }));
+      } catch {
+        // Sin sub-áreas para elegir; el equipo sigue quedando asignado al
+        // laboratorio igual, solo sin distinguir sub-área.
+      }
+    },
+    [departamentosPorLab],
+  );
+
   // PATCH: Header state — recibe_responsable_id se auto-asigna del usuario logueado
   const [header, setHeader] = useState<HeaderForm>({
     orden_trabajo_fisica: '',
@@ -82,6 +110,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
       accesorios: '',
       requerimientos_calibracion: '',
       laboratorio_id: '',
+      departamento_id: '',
       fecha_ingreso_laboratorio: '',
     },
   ]);
@@ -141,6 +170,17 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
     field: keyof EquipoForm,
     value: string,
   ) => {
+    if (field === 'laboratorio_id') {
+      // La sub-área es específica del laboratorio — al cambiarlo, la
+      // elección anterior deja de tener sentido.
+      setEquipos((prev) =>
+        prev.map((eq, i) =>
+          i === index ? { ...eq, laboratorio_id: value, departamento_id: '' } : eq,
+        ),
+      );
+      if (value) cargarDepartamentos(Number(value));
+      return;
+    }
     setEquipos((prev) =>
       prev.map((eq, i) => (i === index ? { ...eq, [field]: value } : eq)),
     );
@@ -158,6 +198,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
         accesorios: '',
         requerimientos_calibracion: '',
         laboratorio_id: '',
+        departamento_id: '',
         fecha_ingreso_laboratorio: '',
       },
     ]);
@@ -215,6 +256,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
           requerimientos_calibracion:
             eq.requerimientos_calibracion.trim() || undefined,
           laboratorio_id: Number(eq.laboratorio_id),
+          departamento_id: eq.departamento_id ? Number(eq.departamento_id) : undefined,
           fecha_ingreso_laboratorio:
             eq.fecha_ingreso_laboratorio || undefined,
         })),
@@ -380,6 +422,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
                 <th className="px-3 py-3 min-w-[150px]">Accesorios</th>
                 <th className="px-3 py-3 min-w-[150px]">Req. Calibración</th>
                 <th className="px-3 py-3 min-w-[180px]">Laboratorio Destino</th>
+                <th className="px-3 py-3 min-w-[150px]">Sub-área</th>
                 <th className="px-3 py-3 min-w-[150px]">Fecha Ingreso Lab</th>
                 <th className="px-3 py-3 min-w-[60px] text-center">Acción</th>
               </tr>
@@ -497,6 +540,35 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
                         {errors[`equipos.${i}.laboratorio_id`]}
                       </p>
                     )}
+                  </td>
+                  <td className="px-3 py-2.5 align-top">
+                    {(() => {
+                      const opciones = eq.laboratorio_id
+                        ? departamentosPorLab[Number(eq.laboratorio_id)]
+                        : undefined;
+                      // Solo tiene sentido elegir si el laboratorio realmente
+                      // se divide en más de una sub-área — la inmensa
+                      // mayoría no, así que no se muestra nada para esos.
+                      if (!opciones || opciones.length < 2) {
+                        return <span className="text-xs text-muted-foreground">—</span>;
+                      }
+                      return (
+                        <select
+                          value={eq.departamento_id}
+                          onChange={(e) =>
+                            handleEquipoChange(i, 'departamento_id', e.target.value)
+                          }
+                          className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <option value="">Sin especificar</option>
+                          {opciones.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2.5 align-top">
                     <input

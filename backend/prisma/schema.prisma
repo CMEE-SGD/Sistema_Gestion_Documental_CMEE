@@ -71,6 +71,7 @@ model Departamento {
 
   puestos_asignados PersonaPuesto[]
   carpetas_permisos CarpetaPermiso[]
+  equipos_recepcion EquipoRecepcion[]
 
   @@index([dependencia_id])
   @@index([laboratorio_id])
@@ -843,6 +844,13 @@ model EquipoRecepcion {
   laboratorio_id Int
   laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id])
 
+  // Sub-área dentro del laboratorio (ej. laboratorios que internamente se
+  // dividen en más de un Departamento, cada uno con su propio encargado,
+  // aunque de cara a acreditación sigan siendo un solo laboratorio). Nulo
+  // para la inmensa mayoría de laboratorios, que no se dividen así.
+  departamento_id Int?
+  departamento    Departamento? @relation(fields: [departamento_id], references: [id])
+
   // Fecha en que el equipo ingresó físicamente al laboratorio
   fecha_ingreso_laboratorio DateTime? @db.Date
 
@@ -868,6 +876,7 @@ model EquipoRecepcion {
   @@index([orden_trabajo_id])
   @@index([tecnico_id])
   @@index([laboratorio_id])
+  @@index([departamento_id])
   @@index([codigo_cmee])
   @@map("equipos_recepcion")
 }

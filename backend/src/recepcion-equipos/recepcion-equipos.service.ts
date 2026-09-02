@@ -21,6 +21,7 @@ const ORDEN_INCLUDE = {
       laboratorio: {
         select: { id: true, nombre: true, responsable_id: true },
       },
+      departamento: { select: { id: true, nombre: true } },
       tecnico: { select: { id: true, nombre: true, apellidos: true } },
       certificados: { select: { id: true } },
       servicio: {
@@ -33,6 +34,7 @@ const ORDEN_INCLUDE = {
 
 const EQUIPO_INCLUDE = {
   laboratorio: { select: { id: true, nombre: true, responsable_id: true } },
+  departamento: { select: { id: true, nombre: true } },
   tecnico: { select: { id: true, nombre: true, apellidos: true } },
   certificados: { select: { id: true } },
   servicio: {
@@ -103,6 +105,8 @@ export class RecepcionEquiposService {
 
     const { equipos, ...header } = dto;
 
+    await this.validarDepartamentosDeEquipos(equipos);
+
     return this.prisma.ordenTrabajo.create({
       data: {
         ...header,
@@ -116,6 +120,32 @@ export class RecepcionEquiposService {
       },
       include: ORDEN_INCLUDE,
     });
+  }
+
+  // Evita que un equipo quede etiquetado con una sub-área (Departamento)
+  // que en realidad pertenece a otro laboratorio distinto al que se le
+  // asignó — mismo criterio que ya se usa para validar servicio_id en
+  // certificados.service.ts.
+  private async validarDepartamentosDeEquipos(
+    equipos: { laboratorio_id: number; departamento_id?: number }[],
+  ) {
+    const conDepartamento = equipos.filter((e) => e.departamento_id != null);
+    if (conDepartamento.length === 0) return;
+
+    const departamentos = await this.prisma.departamento.findMany({
+      where: { id: { in: conDepartamento.map((e) => e.departamento_id!) } },
+      select: { id: true, laboratorio_id: true },
+    });
+    const porId = new Map(departamentos.map((d) => [d.id, d]));
+
+    for (const equipo of conDepartamento) {
+      const depto = porId.get(equipo.departamento_id!);
+      if (!depto || depto.laboratorio_id !== equipo.laboratorio_id) {
+        throw new BadRequestException(
+          'La sub-área seleccionada no pertenece al laboratorio elegido para ese equipo.',
+        );
+      }
+    }
   }
 
   async findAll(user?: {

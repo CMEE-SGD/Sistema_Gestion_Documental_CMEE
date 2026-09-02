@@ -254,25 +254,31 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
             <div className="flex flex-col gap-1.5 border border-gray-200 rounded-md p-3 bg-gray-50">
                 <label className="text-sm font-medium text-gray-700">Departamento(s) vinculado(s)</label>
 
-                {laboratorioId && departamentos.length > 0 ? (
-                    // Ya tiene departamento — no se muestra el selector de vinculación:
-                    // ofrecerlo aquí solo confunde, da a entender que hace falta algo más.
+                {departamentos.length > 0 && (
                     <ul className="text-sm text-gray-700 list-disc list-inside">
                         {departamentos.map(d => (
                             <li key={d.id}>{d.nombre} ({d.codigo})</li>
                         ))}
                     </ul>
-                ) : (
-                    <>
-                        <p className="text-xs text-gray-500">
-                            Un laboratorio solo puede tener Responsable Técnico y usuarios (Observador Técnico, etc.)
-                            a través de un Departamento vinculado a él — sin esto, las personas que asignes en RRHH
-                            no quedarán asociadas a este laboratorio.
-                        </p>
-                        {laboratorioId && (
-                            <p className="text-xs text-amber-600">Este laboratorio todavía no tiene ningún departamento vinculado.</p>
-                        )}
+                )}
 
+                {/* En edición siempre se puede vincular otro departamento más —
+                    útil para laboratorios que internamente se dividen en más de
+                    una sub-área (cada una con su propio responsable). En
+                    creación solo se pre-selecciona uno, que se vincula al
+                    guardar; los demás se agregan luego editando. */}
+                {(!laboratorioId || departamentos.length === 0) && (
+                    <p className="text-xs text-gray-500">
+                        Un laboratorio solo puede tener Responsable Técnico y usuarios (Observador Técnico, etc.)
+                        a través de un Departamento vinculado a él — sin esto, las personas que asignes en RRHH
+                        no quedarán asociadas a este laboratorio.
+                    </p>
+                )}
+                {laboratorioId && departamentos.length === 0 && (
+                    <p className="text-xs text-amber-600">Este laboratorio todavía no tiene ningún departamento vinculado.</p>
+                )}
+
+                <>
                         {!modoCrearNuevoDepartamento ? (
                             <div className="flex flex-wrap items-end gap-2 mt-2">
                                 <div className="flex flex-col gap-1">
@@ -344,8 +350,7 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
                                 Se vinculará automáticamente al guardar este laboratorio (déjalo sin seleccionar si no quieres vincular uno todavía).
                             </p>
                         )}
-                    </>
-                )}
+                </>
             </div>
 
             <div className="flex flex-col gap-1.5">
