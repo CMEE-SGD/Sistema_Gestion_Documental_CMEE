@@ -193,6 +193,7 @@ export default function FirmarDocumentoModal({
       'documento_firmado.pdf',
     );
     formData.append('codigo_verificacion', codigoVerificacion);
+    formData.append('comentario', observaciones.trim());
     const resSubida = await fetch(
       `${API_BASE}/documentos/${documentoId}/workflow/firmar`,
       {
@@ -354,6 +355,24 @@ export default function FirmarDocumentoModal({
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={enviando}
                       className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="comentario-firma-doc"
+                      className="mb-1.5 block text-sm font-medium text-foreground"
+                    >
+                      Comentario <span className="text-muted-foreground font-normal">(opcional)</span>
+                    </label>
+                    <textarea
+                      id="comentario-firma-doc"
+                      rows={3}
+                      placeholder="Escriba un comentario sobre la firma..."
+                      value={observaciones}
+                      onChange={(e) => setObservaciones(e.target.value)}
+                      disabled={enviando}
+                      className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground resize-none disabled:opacity-50"
                     />
                   </div>
                 </div>
