@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Contact, ShieldAlert, BookOpen, UserCog } from 'lucide-react';
+import { User, Contact, ShieldAlert, BookOpen, UserCog, GraduationCap } from 'lucide-react';
 import DataRow from './DataRow';
 import { TablaHistorial } from '../../../shared/components/organisms/TablaHistorial';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
@@ -10,15 +10,22 @@ interface DocumentoAdjunto {
     ruta: string;
 }
 
+interface CapacitacionAdjunto {
+    id: number;
+    nombre_archivo: string;
+    ruta: string;
+}
+
 interface FichaPersonaProps {
     persona: any;
     documentos: DocumentoAdjunto[];
+    capacitaciones: CapacitacionAdjunto[];
     mostrarLogs: boolean;
     logsPersona: any[];
     loadingLogs: boolean;
 }
 
-const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLogs }: FichaPersonaProps) => {
+const FichaPersona = ({ persona, documentos, capacitaciones, mostrarLogs, logsPersona, loadingLogs }: FichaPersonaProps) => {
 
     const formatFecha = (fecha?: string) => {
         if (!fecha) return '-';
@@ -146,6 +153,34 @@ const FichaPersona = ({ persona, documentos, mostrarLogs, logsPersona, loadingLo
                                 ))
                             ) : (
                                 <span className="text-gray-500 italic">No hay documentos adjuntos.</span>
+                            )}
+                        </div>
+                    </DataRow>
+                </div>
+
+                {/* 4b. CAPACITACIONES ADJUNTAS */}
+                <div className="mb-8 mt-10">
+                    <div className="flex items-center gap-2 mb-4">
+                        <GraduationCap className="w-4 h-4 text-[#8eb8d5]" />
+                        <h3 className="font-bold text-[12px] text-gray-900">Capacitaciones</h3>
+                    </div>
+
+                    <DataRow label="Capacitaciones">
+                        <div className="flex flex-col gap-2.5 max-w-4xl">
+                            {capacitaciones.length > 0 ? (
+                                capacitaciones.map((cap) => (
+                                    <div key={cap.id} className="flex items-center justify-between bg-white border border-gray-300 px-3 py-1.5 rounded-sm">
+                                        <a
+                                            href={buildFileUrl(cap.ruta) ?? undefined} target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 underline hover:text-blue-800 text-[11px]"
+                                        >
+                                            {cap.nombre_archivo}
+                                        </a>
+                                    </div>
+                                ))
+                            ) : (
+                                <span className="text-gray-500 italic">No hay capacitaciones adjuntas.</span>
                             )}
                         </div>
                     </DataRow>

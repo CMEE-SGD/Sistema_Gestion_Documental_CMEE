@@ -33,4 +33,15 @@ export class UpdateConfiguracionGeneralDto {
   @IsString()
   @MaxLength(1000)
   ip_rangos_permitidos?: string;
+
+  @ApiPropertyOptional({
+    example: 20,
+    description:
+      'Minutos de inactividad dentro de la plataforma antes de cerrar la sesión automáticamente. 0 desactiva el cierre por inactividad.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(180)
+  tiempo_inactividad_minutos?: number;
 }

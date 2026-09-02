@@ -10,6 +10,7 @@ export const ConfiguracionGeneralPage = () => {
     const [nombreInstitucion, setNombreInstitucion] = useState('');
     const [maxIntentosFallidosLogin, setMaxIntentosFallidosLogin] = useState(5);
     const [ipRangosPermitidos, setIpRangosPermitidos] = useState('');
+    const [tiempoInactividadMinutos, setTiempoInactividadMinutos] = useState(20);
 
     useEffect(() => {
         const fetchConfig = async () => {
@@ -18,6 +19,7 @@ export const ConfiguracionGeneralPage = () => {
                 setNombreInstitucion(res.data.nombre_institucion);
                 setMaxIntentosFallidosLogin(res.data.max_intentos_fallidos_login);
                 setIpRangosPermitidos(res.data.ip_rangos_permitidos ?? '');
+                setTiempoInactividadMinutos(res.data.tiempo_inactividad_minutos ?? 20);
             } catch (error) {
                 console.error('Error al cargar la configuración general', error);
             } finally {
@@ -35,6 +37,7 @@ export const ConfiguracionGeneralPage = () => {
                 nombre_institucion: nombreInstitucion,
                 max_intentos_fallidos_login: maxIntentosFallidosLogin,
                 ip_rangos_permitidos: ipRangosPermitidos.trim(),
+                tiempo_inactividad_minutos: tiempoInactividadMinutos,
             });
             toast({ message: 'Configuración general actualizada correctamente.' });
         } catch (error) {
@@ -114,6 +117,24 @@ export const ConfiguracionGeneralPage = () => {
                         maxLength={1000}
                         placeholder={'192.168.1.0/24\n10.0.0.5'}
                         className="w-full px-3 py-2 bg-background border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono resize-y"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">
+                        Tiempo de inactividad (minutos)
+                    </label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                        Si el usuario permanece inactivo dentro de la plataforma este tiempo (sin mover el ratón, teclado o hacer clic), su sesión se cierra automáticamente y debe volver a ingresar. <strong>0 desactiva</strong> el cierre por inactividad.
+                    </p>
+                    <input
+                        type="number"
+                        min={0}
+                        max={180}
+                        value={tiempoInactividadMinutos}
+                        onChange={(e) => setTiempoInactividadMinutos(Number(e.target.value))}
+                        required
+                        className="w-32 px-3 py-2 bg-background border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
                 </div>
 

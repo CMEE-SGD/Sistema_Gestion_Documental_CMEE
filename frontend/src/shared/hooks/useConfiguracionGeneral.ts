@@ -7,6 +7,7 @@ export const NOMBRE_INSTITUCION_DEFECTO =
 interface ConfiguracionGeneral {
   nombre_institucion: string;
   max_intentos_fallidos_login: number;
+  tiempo_inactividad_minutos: number;
 }
 
 /** Configuración institucional editable — pública, no requiere sesión (la usa la pantalla de login). */
@@ -22,6 +23,7 @@ export const useConfiguracionGeneral = () => {
   return {
     nombreInstitucion: config?.nombre_institucion ?? NOMBRE_INSTITUCION_DEFECTO,
     maxIntentosFallidosLogin: config?.max_intentos_fallidos_login ?? null,
+    tiempoInactividadMinutos: config?.tiempo_inactividad_minutos ?? 20,
     config,
   };
 };
