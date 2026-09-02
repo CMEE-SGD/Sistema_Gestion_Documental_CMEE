@@ -22,7 +22,7 @@ interface LaboratorioOption {
   nombre: string;
 }
 
-interface DepartamentoOption {
+interface SubAreaOption {
   id: number;
   codigo: string;
   nombre: string;
@@ -37,7 +37,7 @@ interface EquipoForm {
   accesorios: string;
   requerimientos_calibracion: string;
   laboratorio_id: string;
-  departamento_id: string;
+  sub_area_id: string;
   fecha_ingreso_laboratorio: string;
 }
 
@@ -69,25 +69,25 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
   const [laboratorios, setLaboratorios] = useState<LaboratorioOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Sub-áreas (Departamento) por laboratorio — cargadas bajo demanda cuando
-  // se elige un laboratorio en alguna fila; casi todos los laboratorios no
-  // tienen ninguna, así que la columna se mantiene oculta para esos casos.
-  const [departamentosPorLab, setDepartamentosPorLab] = useState<
-    Record<number, DepartamentoOption[]>
+  // Sub-áreas por laboratorio — cargadas bajo demanda cuando se elige un
+  // laboratorio en alguna fila; casi todos los laboratorios no tienen
+  // ninguna, así que la columna se mantiene oculta para esos casos.
+  const [subAreasPorLab, setSubAreasPorLab] = useState<
+    Record<number, SubAreaOption[]>
   >({});
 
-  const cargarDepartamentos = useCallback(
+  const cargarSubAreas = useCallback(
     async (laboratorioId: number) => {
-      if (departamentosPorLab[laboratorioId]) return;
+      if (subAreasPorLab[laboratorioId]) return;
       try {
-        const res = await api.get(`/laboratorios/${laboratorioId}/departamentos`);
-        setDepartamentosPorLab((prev) => ({ ...prev, [laboratorioId]: res.data }));
+        const res = await api.get(`/laboratorios/${laboratorioId}/sub-areas`);
+        setSubAreasPorLab((prev) => ({ ...prev, [laboratorioId]: res.data }));
       } catch {
         // Sin sub-áreas para elegir; el equipo sigue quedando asignado al
         // laboratorio igual, solo sin distinguir sub-área.
       }
     },
-    [departamentosPorLab],
+    [subAreasPorLab],
   );
 
   // PATCH: Header state — recibe_responsable_id se auto-asigna del usuario logueado
@@ -110,7 +110,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
       accesorios: '',
       requerimientos_calibracion: '',
       laboratorio_id: '',
-      departamento_id: '',
+      sub_area_id: '',
       fecha_ingreso_laboratorio: '',
     },
   ]);
@@ -175,10 +175,10 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
       // elección anterior deja de tener sentido.
       setEquipos((prev) =>
         prev.map((eq, i) =>
-          i === index ? { ...eq, laboratorio_id: value, departamento_id: '' } : eq,
+          i === index ? { ...eq, laboratorio_id: value, sub_area_id: '' } : eq,
         ),
       );
-      if (value) cargarDepartamentos(Number(value));
+      if (value) cargarSubAreas(Number(value));
       return;
     }
     setEquipos((prev) =>
@@ -198,7 +198,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
         accesorios: '',
         requerimientos_calibracion: '',
         laboratorio_id: '',
-        departamento_id: '',
+        sub_area_id: '',
         fecha_ingreso_laboratorio: '',
       },
     ]);
@@ -256,7 +256,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
           requerimientos_calibracion:
             eq.requerimientos_calibracion.trim() || undefined,
           laboratorio_id: Number(eq.laboratorio_id),
-          departamento_id: eq.departamento_id ? Number(eq.departamento_id) : undefined,
+          sub_area_id: eq.sub_area_id ? Number(eq.sub_area_id) : undefined,
           fecha_ingreso_laboratorio:
             eq.fecha_ingreso_laboratorio || undefined,
         })),
@@ -544,7 +544,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
                   <td className="px-3 py-2.5 align-top">
                     {(() => {
                       const opciones = eq.laboratorio_id
-                        ? departamentosPorLab[Number(eq.laboratorio_id)]
+                        ? subAreasPorLab[Number(eq.laboratorio_id)]
                         : undefined;
                       // Solo tiene sentido elegir si el laboratorio realmente
                       // se divide en más de una sub-área — la inmensa
@@ -554,9 +554,9 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
                       }
                       return (
                         <select
-                          value={eq.departamento_id}
+                          value={eq.sub_area_id}
                           onChange={(e) =>
-                            handleEquipoChange(i, 'departamento_id', e.target.value)
+                            handleEquipoChange(i, 'sub_area_id', e.target.value)
                           }
                           className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >

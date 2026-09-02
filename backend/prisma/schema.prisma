@@ -71,7 +71,6 @@ model Departamento {
 
   puestos_asignados PersonaPuesto[]
   carpetas_permisos CarpetaPermiso[]
-  equipos_recepcion EquipoRecepcion[]
 
   @@index([dependencia_id])
   @@index([laboratorio_id])
@@ -163,6 +162,7 @@ model Persona {
   roles                    Rol[]                @relation("PersonaRoles")
   carpetas_permisos        CarpetaPermiso[]
   laboratorios_responsable Laboratorio[]
+  sub_areas_responsable    SubAreaLaboratorio[]
   logs_recibidos           Auditoria[]          @relation("LogPersonaAfectada")
   fases_participadas       FaseParticipante[]
   equipos_tecnicos         EquipoRecepcion[]    @relation("TecnicoRecepcion")
@@ -657,12 +657,41 @@ model Laboratorio {
   servicios         Servicio[]
   equipos_recibidos EquipoRecepcion[]
   departamentos     Departamento[]
+  sub_areas         SubAreaLaboratorio[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([responsable_id])
   @@map("laboratorio")
+}
+
+// Sub-área interna de un laboratorio (ej. "Tiempo" y "Baja Frecuencia" dentro
+// del Laboratorio Nacional Designado de Tiempo y Frecuencia): un catálogo
+// liviano propio de Laboratorios, sin relación con el organigrama de RRHH
+// (Departamento) — para laboratorios que internamente distinguen sub-áreas
+// con su propio encargado, aunque de cara a acreditación sigan siendo un
+// solo laboratorio con un único Responsable Técnico.
+model SubAreaLaboratorio {
+  id     Int    @id @default(autoincrement())
+  nombre String @db.VarChar(100)
+
+  laboratorio_id Int
+  laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id], onDelete: Cascade)
+
+  responsable_id Int?
+  responsable    Persona? @relation(fields: [responsable_id], references: [id], onDelete: SetNull)
+
+  activo Boolean @default(true)
+
+  equipos_recepcion EquipoRecepcion[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([laboratorio_id, nombre])
+  @@index([laboratorio_id])
+  @@map("sub_area_laboratorio")
 }
 
 // ==========================================
@@ -844,12 +873,14 @@ model EquipoRecepcion {
   laboratorio_id Int
   laboratorio    Laboratorio @relation(fields: [laboratorio_id], references: [id])
 
-  // Sub-área dentro del laboratorio (ej. laboratorios que internamente se
-  // dividen en más de un Departamento, cada uno con su propio encargado,
-  // aunque de cara a acreditación sigan siendo un solo laboratorio). Nulo
-  // para la inmensa mayoría de laboratorios, que no se dividen así.
-  departamento_id Int?
-  departamento    Departamento? @relation(fields: [departamento_id], references: [id])
+  // Sub-área interna del laboratorio (ej. laboratorios que internamente se
+  // dividen en más de una sección, cada una con su propio encargado, aunque
+  // de cara a acreditación sigan siendo un solo laboratorio con un único
+  // Responsable Técnico). No tiene relación con el organigrama de RRHH —
+  // es un catálogo propio de Laboratorios. Nulo para la inmensa mayoría de
+  // laboratorios, que no se dividen así.
+  sub_area_id Int?
+  sub_area    SubAreaLaboratorio? @relation(fields: [sub_area_id], references: [id])
 
   // Fecha en que el equipo ingresó físicamente al laboratorio
   fecha_ingreso_laboratorio DateTime? @db.Date
@@ -876,7 +907,7 @@ model EquipoRecepcion {
   @@index([orden_trabajo_id])
   @@index([tecnico_id])
   @@index([laboratorio_id])
-  @@index([departamento_id])
+  @@index([sub_area_id])
   @@index([codigo_cmee])
   @@map("equipos_recepcion")
 }

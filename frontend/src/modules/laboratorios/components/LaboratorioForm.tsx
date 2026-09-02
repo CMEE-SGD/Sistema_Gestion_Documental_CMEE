@@ -58,6 +58,15 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
     const [codigoDepartamentoEditadoManualmente, setCodigoDepartamentoEditadoManualmente] = useState(false);
     const [guardandoDepartamento, setGuardandoDepartamento] = useState(false);
 
+    // Sub-áreas internas (ej. "Tiempo" / "Baja Frecuencia") — catálogo propio
+    // de Laboratorios, sin relación con el organigrama de RRHH ni con
+    // Departamento: solo sirve para etiquetar equipos y asignar un
+    // encargado local, para laboratorios que aún no tienen esa división
+    // formalmente regularizada.
+    const [subAreas, setSubAreas] = useState<{ id: number; nombre: string; responsable_id: number | null; responsable: { id: number; nombre: string; apellidos: string } | null }[]>([]);
+    const [nuevaSubArea, setNuevaSubArea] = useState({ nombre: '', responsable_id: '' });
+    const [guardandoSubArea, setGuardandoSubArea] = useState(false);
+
     useEffect(() => {
         const cargarDatos = async () => {
             setLoading(true);
@@ -83,6 +92,9 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
 
                     const resDepartamentos = await api.get(`/laboratorios/${laboratorioId}/departamentos`);
                     setDepartamentos(resDepartamentos.data);
+
+                    const resSubAreas = await api.get(`/laboratorios/${laboratorioId}/sub-areas`);
+                    setSubAreas(resSubAreas.data);
                 }
             } catch (error) {
                 console.error('Error al cargar datos', error);
@@ -159,6 +171,29 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
             await alert({ title: 'Error', message: mensaje });
         } finally {
             setGuardandoDepartamento(false);
+        }
+    };
+
+    const handleAgregarSubArea = async () => {
+        if (!laboratorioId) return;
+        if (!nuevaSubArea.nombre.trim()) {
+            await alert({ title: 'Datos incompletos', message: 'Ingresa el nombre de la sub-área (ej. "Tiempo", "Baja Frecuencia").' });
+            return;
+        }
+        setGuardandoSubArea(true);
+        try {
+            const res = await api.post(`/laboratorios/${laboratorioId}/sub-areas`, {
+                nombre: nuevaSubArea.nombre.trim(),
+                responsable_id: nuevaSubArea.responsable_id ? Number(nuevaSubArea.responsable_id) : undefined,
+            });
+            setSubAreas(prev => [...prev, res.data]);
+            setNuevaSubArea({ nombre: '', responsable_id: '' });
+            toast({ message: 'Sub-área agregada.' });
+        } catch (error) {
+            const mensaje = extraerMensajeError(error, 'No se pudo agregar la sub-área.');
+            await alert({ title: 'Error', message: mensaje });
+        } finally {
+            setGuardandoSubArea(false);
         }
     };
 
@@ -254,31 +289,25 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
             <div className="flex flex-col gap-1.5 border border-gray-200 rounded-md p-3 bg-gray-50">
                 <label className="text-sm font-medium text-gray-700">Departamento(s) vinculado(s)</label>
 
-                {departamentos.length > 0 && (
+                {laboratorioId && departamentos.length > 0 ? (
+                    // Ya tiene departamento — no se muestra el selector de vinculación:
+                    // ofrecerlo aquí solo confunde, da a entender que hace falta algo más.
                     <ul className="text-sm text-gray-700 list-disc list-inside">
                         {departamentos.map(d => (
                             <li key={d.id}>{d.nombre} ({d.codigo})</li>
                         ))}
                     </ul>
-                )}
+                ) : (
+                    <>
+                        <p className="text-xs text-gray-500">
+                            Un laboratorio solo puede tener Responsable Técnico y usuarios (Observador Técnico, etc.)
+                            a través de un Departamento vinculado a él — sin esto, las personas que asignes en RRHH
+                            no quedarán asociadas a este laboratorio.
+                        </p>
+                        {laboratorioId && (
+                            <p className="text-xs text-amber-600">Este laboratorio todavía no tiene ningún departamento vinculado.</p>
+                        )}
 
-                {/* En edición siempre se puede vincular otro departamento más —
-                    útil para laboratorios que internamente se dividen en más de
-                    una sub-área (cada una con su propio responsable). En
-                    creación solo se pre-selecciona uno, que se vincula al
-                    guardar; los demás se agregan luego editando. */}
-                {(!laboratorioId || departamentos.length === 0) && (
-                    <p className="text-xs text-gray-500">
-                        Un laboratorio solo puede tener Responsable Técnico y usuarios (Observador Técnico, etc.)
-                        a través de un Departamento vinculado a él — sin esto, las personas que asignes en RRHH
-                        no quedarán asociadas a este laboratorio.
-                    </p>
-                )}
-                {laboratorioId && departamentos.length === 0 && (
-                    <p className="text-xs text-amber-600">Este laboratorio todavía no tiene ningún departamento vinculado.</p>
-                )}
-
-                <>
                         {!modoCrearNuevoDepartamento ? (
                             <div className="flex flex-wrap items-end gap-2 mt-2">
                                 <div className="flex flex-col gap-1">
@@ -350,8 +379,59 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
                                 Se vinculará automáticamente al guardar este laboratorio (déjalo sin seleccionar si no quieres vincular uno todavía).
                             </p>
                         )}
-                </>
+                    </>
+                )}
             </div>
+
+            {laboratorioId && (
+                <div className="flex flex-col gap-1.5 border border-gray-200 rounded-md p-3 bg-gray-50">
+                    <label className="text-sm font-medium text-gray-700">Sub-áreas internas</label>
+                    <p className="text-xs text-gray-500">
+                        Para laboratorios que internamente distinguen más de una sección (ej. "Tiempo" y "Baja Frecuencia"),
+                        cada una con su propio encargado, aunque de cara a acreditación sigan siendo un solo laboratorio
+                        con un único Responsable Técnico. Es opcional — la mayoría de laboratorios no la necesita.
+                    </p>
+
+                    {subAreas.length > 0 && (
+                        <ul className="text-sm text-gray-700 list-disc list-inside">
+                            {subAreas.map(s => (
+                                <li key={s.id}>
+                                    {s.nombre}
+                                    {s.responsable && ` — ${s.responsable.nombre} ${s.responsable.apellidos}`}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
+                    <div className="flex flex-wrap items-end gap-2 mt-2">
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs text-gray-600">Nombre de la sub-área</label>
+                            <input
+                                type="text" value={nuevaSubArea.nombre}
+                                onChange={(e) => setNuevaSubArea(prev => ({ ...prev, nombre: e.target.value }))}
+                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-48"
+                                placeholder="Ej: Tiempo"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs text-gray-600">Encargado</label>
+                            <select
+                                value={nuevaSubArea.responsable_id}
+                                onChange={(e) => setNuevaSubArea(prev => ({ ...prev, responsable_id: e.target.value }))}
+                                className="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-56 bg-white"
+                            >
+                                <option value="">-- Sin asignar --</option>
+                                {personas.map(p => (
+                                    <option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <Button type="button" variant="outline" onClick={handleAgregarSubArea} disabled={guardandoSubArea}>
+                            {guardandoSubArea ? 'Agregando...' : '+ Agregar sub-área'}
+                        </Button>
+                    </div>
+                </div>
+            )}
 
             <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-gray-700">Descripción General</label>

@@ -41,13 +41,12 @@ export class CreateEquipoRecepcionDto {
   @IsNotEmpty({ message: 'Debe asignar el equipo a un laboratorio' })
   laboratorio_id: number;
 
-  // Sub-área dentro del laboratorio, para los pocos laboratorios que
-  // internamente se dividen en más de un Departamento (cada uno con su
-  // propio encargado). Opcional: la inmensa mayoría de laboratorios no la
-  // usa.
+  // Sub-área interna del laboratorio, para los pocos laboratorios que
+  // internamente se dividen en más de una sección (cada una con su propio
+  // encargado). Opcional: la inmensa mayoría de laboratorios no la usa.
   @IsInt()
   @IsOptional()
-  departamento_id?: number;
+  sub_area_id?: number;
 
   @IsDateString()
   @IsOptional()

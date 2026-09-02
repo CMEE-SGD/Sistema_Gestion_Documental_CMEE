@@ -9,6 +9,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateLaboratorioDto } from './dto/create-laboratorio.dto';
 import { UpdateLaboratorioDto } from './dto/update-laboratorio.dto';
 import { CrearDepartamentoVinculadoDto } from './dto/crear-departamento-vinculado.dto';
+import { CreateSubAreaLaboratorioDto } from './dto/create-sub-area-laboratorio.dto';
+import { UpdateSubAreaLaboratorioDto } from './dto/update-sub-area-laboratorio.dto';
 import type { HydratedUser } from '../common/helpers/lab-scope';
 import { isRestrictedToLab } from '../common/helpers/lab-scope';
 
@@ -184,6 +186,81 @@ export class LaboratoriosService {
         laboratorio_id: laboratorioId,
       },
       select: { id: true, codigo: true, nombre: true },
+    });
+  }
+
+  // Sub-áreas internas de este laboratorio (ej. "Tiempo" y "Baja
+  // Frecuencia") — un catálogo propio de Laboratorios, sin relación con el
+  // organigrama de RRHH (Departamento). Sirven para etiquetar equipos y
+  // asignar un encargado local cuando un laboratorio internamente distingue
+  // más de una sección, aunque de cara a acreditación siga siendo un solo
+  // laboratorio con un único Responsable Técnico.
+  async getSubAreasVinculadas(laboratorioId: number) {
+    await this.findOneSimple(laboratorioId);
+    return this.prisma.subAreaLaboratorio.findMany({
+      where: { laboratorio_id: laboratorioId, activo: true },
+      select: {
+        id: true,
+        nombre: true,
+        responsable_id: true,
+        responsable: { select: { id: true, nombre: true, apellidos: true } },
+      },
+      orderBy: { nombre: 'asc' },
+    });
+  }
+
+  async crearSubArea(laboratorioId: number, dto: CreateSubAreaLaboratorioDto) {
+    await this.findOneSimple(laboratorioId);
+
+    const existe = await this.prisma.subAreaLaboratorio.findFirst({
+      where: { laboratorio_id: laboratorioId, nombre: dto.nombre },
+    });
+    if (existe) {
+      throw new ConflictException(
+        `Ya existe una sub-área "${dto.nombre}" en este laboratorio.`,
+      );
+    }
+
+    return this.prisma.subAreaLaboratorio.create({
+      data: {
+        nombre: dto.nombre,
+        laboratorio_id: laboratorioId,
+        responsable_id: dto.responsable_id,
+      },
+      select: {
+        id: true,
+        nombre: true,
+        responsable_id: true,
+        responsable: { select: { id: true, nombre: true, apellidos: true } },
+      },
+    });
+  }
+
+  async actualizarSubArea(
+    laboratorioId: number,
+    subAreaId: number,
+    dto: UpdateSubAreaLaboratorioDto,
+  ) {
+    const subArea = await this.prisma.subAreaLaboratorio.findUnique({
+      where: { id: subAreaId },
+      select: { id: true, laboratorio_id: true },
+    });
+    if (!subArea || subArea.laboratorio_id !== laboratorioId) {
+      throw new NotFoundException(
+        `Sub-área con ID ${subAreaId} no encontrada en este laboratorio`,
+      );
+    }
+
+    return this.prisma.subAreaLaboratorio.update({
+      where: { id: subAreaId },
+      data: dto,
+      select: {
+        id: true,
+        nombre: true,
+        responsable_id: true,
+        activo: true,
+        responsable: { select: { id: true, nombre: true, apellidos: true } },
+      },
     });
   }
 

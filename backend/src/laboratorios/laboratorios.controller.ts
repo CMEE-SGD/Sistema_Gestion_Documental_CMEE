@@ -15,6 +15,8 @@ import { LaboratoriosService } from './laboratorios.service';
 import { CreateLaboratorioDto } from './dto/create-laboratorio.dto';
 import { UpdateLaboratorioDto } from './dto/update-laboratorio.dto';
 import { CrearDepartamentoVinculadoDto } from './dto/crear-departamento-vinculado.dto';
+import { CreateSubAreaLaboratorioDto } from './dto/create-sub-area-laboratorio.dto';
+import { UpdateSubAreaLaboratorioDto } from './dto/update-sub-area-laboratorio.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
@@ -130,5 +132,33 @@ export class LaboratoriosController {
     @Body() dto: CrearDepartamentoVinculadoDto,
   ) {
     return this.laboratoriosService.crearDepartamentoVinculado(id, dto);
+  }
+
+  // Sub-áreas internas del laboratorio (ej. "Tiempo" / "Baja Frecuencia") —
+  // catálogo propio de Laboratorios, sin relación con el organigrama de
+  // RRHH ni con Departamento.
+  @Get(':id/sub-areas')
+  @RequireAccess('Laboratorios', 2)
+  getSubAreas(@Param('id', ParseIntPipe) id: number) {
+    return this.laboratoriosService.getSubAreasVinculadas(id);
+  }
+
+  @Post(':id/sub-areas')
+  @RequireAccess('Laboratorios', 4)
+  crearSubArea(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateSubAreaLaboratorioDto,
+  ) {
+    return this.laboratoriosService.crearSubArea(id, dto);
+  }
+
+  @Patch(':id/sub-areas/:subAreaId')
+  @RequireAccess('Laboratorios', 4)
+  actualizarSubArea(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('subAreaId', ParseIntPipe) subAreaId: number,
+    @Body() dto: UpdateSubAreaLaboratorioDto,
+  ) {
+    return this.laboratoriosService.actualizarSubArea(id, subAreaId, dto);
   }
 }

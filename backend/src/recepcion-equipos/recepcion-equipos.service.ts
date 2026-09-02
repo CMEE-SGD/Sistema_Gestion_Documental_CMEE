@@ -21,7 +21,7 @@ const ORDEN_INCLUDE = {
       laboratorio: {
         select: { id: true, nombre: true, responsable_id: true },
       },
-      departamento: { select: { id: true, nombre: true } },
+      sub_area: { select: { id: true, nombre: true } },
       tecnico: { select: { id: true, nombre: true, apellidos: true } },
       certificados: { select: { id: true } },
       servicio: {
@@ -34,7 +34,7 @@ const ORDEN_INCLUDE = {
 
 const EQUIPO_INCLUDE = {
   laboratorio: { select: { id: true, nombre: true, responsable_id: true } },
-  departamento: { select: { id: true, nombre: true } },
+  sub_area: { select: { id: true, nombre: true } },
   tecnico: { select: { id: true, nombre: true, apellidos: true } },
   certificados: { select: { id: true } },
   servicio: {
@@ -105,7 +105,7 @@ export class RecepcionEquiposService {
 
     const { equipos, ...header } = dto;
 
-    await this.validarDepartamentosDeEquipos(equipos);
+    await this.validarSubAreasDeEquipos(equipos);
 
     return this.prisma.ordenTrabajo.create({
       data: {
@@ -122,25 +122,24 @@ export class RecepcionEquiposService {
     });
   }
 
-  // Evita que un equipo quede etiquetado con una sub-área (Departamento)
-  // que en realidad pertenece a otro laboratorio distinto al que se le
-  // asignó — mismo criterio que ya se usa para validar servicio_id en
-  // certificados.service.ts.
-  private async validarDepartamentosDeEquipos(
-    equipos: { laboratorio_id: number; departamento_id?: number }[],
+  // Evita que un equipo quede etiquetado con una sub-área que en realidad
+  // pertenece a otro laboratorio distinto al que se le asignó — mismo
+  // criterio que ya se usa para validar servicio_id en certificados.service.ts.
+  private async validarSubAreasDeEquipos(
+    equipos: { laboratorio_id: number; sub_area_id?: number }[],
   ) {
-    const conDepartamento = equipos.filter((e) => e.departamento_id != null);
-    if (conDepartamento.length === 0) return;
+    const conSubArea = equipos.filter((e) => e.sub_area_id != null);
+    if (conSubArea.length === 0) return;
 
-    const departamentos = await this.prisma.departamento.findMany({
-      where: { id: { in: conDepartamento.map((e) => e.departamento_id!) } },
+    const subAreas = await this.prisma.subAreaLaboratorio.findMany({
+      where: { id: { in: conSubArea.map((e) => e.sub_area_id!) } },
       select: { id: true, laboratorio_id: true },
     });
-    const porId = new Map(departamentos.map((d) => [d.id, d]));
+    const porId = new Map(subAreas.map((s) => [s.id, s]));
 
-    for (const equipo of conDepartamento) {
-      const depto = porId.get(equipo.departamento_id!);
-      if (!depto || depto.laboratorio_id !== equipo.laboratorio_id) {
+    for (const equipo of conSubArea) {
+      const subArea = porId.get(equipo.sub_area_id!);
+      if (!subArea || subArea.laboratorio_id !== equipo.laboratorio_id) {
         throw new BadRequestException(
           'La sub-área seleccionada no pertenece al laboratorio elegido para ese equipo.',
         );
