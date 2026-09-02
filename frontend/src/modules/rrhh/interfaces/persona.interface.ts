@@ -26,7 +26,11 @@ export interface Persona {
   created_at: string;
   updated_at: string;
 
-  usuario?: { nombre_usuario: string; estado_cuenta?: boolean; } | null;
+  usuario?: {
+    nombre_usuario: string;
+    estado_cuenta?: boolean;
+    grupos?: { id: number; nombre: string }[];
+  } | null;
   esUsuarioExterno?: boolean;
   roles?: { id: number; nombre: string; }[];
   puestos?: {

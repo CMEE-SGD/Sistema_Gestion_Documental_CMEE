@@ -306,6 +306,7 @@ export class DocumentosService {
           estado: 'COMPLETADO',
           archivo_url: urlParaBD,
           procesado_por: resultado.certificado!.titular,
+          comentario: body?.comentario?.trim() ? body.comentario.trim() : null,
         },
       });
 

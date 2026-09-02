@@ -142,7 +142,13 @@ export class PersonasService {
       include: {
         roles: { select: { id: true, nombre: true } },
         puestos: { include: { puesto: true, departamento: true } },
-        usuario: { select: { nombre_usuario: true, estado_cuenta: true } },
+        usuario: {
+          select: {
+            nombre_usuario: true,
+            estado_cuenta: true,
+            grupos: { select: { id: true, nombre: true } },
+          },
+        },
         documentos: true,
         capacitaciones_archivos: { where: { activo: true } },
       },
