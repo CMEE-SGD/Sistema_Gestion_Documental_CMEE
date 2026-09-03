@@ -42,8 +42,14 @@ export class LaboratoriosController {
    * Obtiene información de múltiples registros.
    * @returns Array<Entidad>
    */
+  // Recepción de Equipos también necesita este listado (desplegable de
+  // laboratorio destino al crear una orden de trabajo), sin depender de
+  // tener además permiso de Laboratorios.
   @Get()
-  @RequireAccess('Laboratorios', 2)
+  @RequireAccess([
+    { app: 'Laboratorios', level: 2 },
+    { app: 'Recepcion Equipos', level: 1 },
+  ])
   findAll(@Req() req: any) {
     return this.laboratoriosService.findAll(req.user);
   }
@@ -136,9 +142,13 @@ export class LaboratoriosController {
 
   // Sub-áreas internas del laboratorio (ej. "Tiempo" / "Baja Frecuencia") —
   // catálogo propio de Laboratorios, sin relación con el organigrama de
-  // RRHH ni con Departamento.
+  // RRHH ni con Departamento. También lo usa Recepción de Equipos para su
+  // propio desplegable de sub-área, igual que el listado de arriba.
   @Get(':id/sub-areas')
-  @RequireAccess('Laboratorios', 2)
+  @RequireAccess([
+    { app: 'Laboratorios', level: 2 },
+    { app: 'Recepcion Equipos', level: 1 },
+  ])
   getSubAreas(@Param('id', ParseIntPipe) id: number) {
     return this.laboratoriosService.getSubAreasVinculadas(id);
   }

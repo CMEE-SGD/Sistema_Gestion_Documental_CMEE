@@ -124,8 +124,15 @@ export class PersonasController {
     );
   }
 
+  // Calidad y Gestor Documental también usan este listado como selector
+  // genérico de "responsable" en sus formularios, sin depender de tener
+  // además permiso de Recursos Humanos.
   @Get()
-  @RequireAccess('Recursos Humanos', 1)
+  @RequireAccess([
+    { app: 'Recursos Humanos', level: 1 },
+    { app: 'Gestion de Calidad', level: 2 },
+    { app: 'Gestor Documental', level: 2 },
+  ])
   findAll(@Query('laboratorio_id') laboratorioId?: string) {
     return this.personasService.findAll(
       laboratorioId ? +laboratorioId : undefined,

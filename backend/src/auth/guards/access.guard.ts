@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AccessRequirement } from '../decorators/access.decorator';
 
 /** Módulo controlador o servicio para gestionar la entidad AccessGuard. */
 @Injectable()
@@ -21,8 +22,9 @@ export class AccessGuard implements CanActivate {
    * @returns Promise<boolean>
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // 1. Leemos qué exige la ruta
-    const requiredAccess = this.reflector.get<{ app: string; level: number }>(
+    // 1. Leemos qué exige la ruta (una o varias alternativas — basta con
+    // cumplir una sola, ver access.decorator.ts)
+    const requiredAccess = this.reflector.get<AccessRequirement[]>(
       'access',
       context.getHandler(),
     );
@@ -86,19 +88,22 @@ export class AccessGuard implements CanActivate {
     request.user.laboratorio_id =
       puestoActivo?.departamento?.laboratorio_id ?? null;
 
-    // 5. Verificamos los niveles
-    const tienePermiso = usuario.grupos.some((grupo) =>
-      grupo.aplicaciones.some(
-        (appConfig) =>
-          appConfig.aplicacion.nombre === requiredAccess.app &&
-          appConfig.nivel >= requiredAccess.level,
+    // 5. Verificamos los niveles: basta con cumplir UNA de las alternativas
+    const tienePermiso = requiredAccess.some((req) =>
+      usuario.grupos.some((grupo) =>
+        grupo.aplicaciones.some(
+          (appConfig) =>
+            appConfig.aplicacion.nombre === req.app &&
+            appConfig.nivel >= req.level,
+        ),
       ),
     );
 
     if (!tienePermiso) {
-      throw new ForbiddenException(
-        `Acceso denegado: Requiere nivel ${requiredAccess.level} en ${requiredAccess.app}`,
-      );
+      const detalle = requiredAccess
+        .map((req) => `nivel ${req.level} en ${req.app}`)
+        .join(' o ');
+      throw new ForbiddenException(`Acceso denegado: Requiere ${detalle}`);
     }
 
     return true;

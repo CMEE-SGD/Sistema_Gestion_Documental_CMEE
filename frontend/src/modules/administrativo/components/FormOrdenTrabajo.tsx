@@ -131,12 +131,19 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
   }, []);
 
   useEffect(() => {
-    Promise.all([fetchClientes(), api.get('/laboratorios')]).then(
-      ([, resLabs]) => {
+    Promise.all([fetchClientes(), api.get('/laboratorios')])
+      .then(([, resLabs]) => {
         setLaboratorios(resLabs.data);
-      },
-    );
-  }, [fetchClientes]);
+      })
+      .catch(async (err: unknown) => {
+        const apiErr = err as { response?: { data?: { message?: string } } };
+        await alert({
+          message:
+            apiErr?.response?.data?.message ||
+            'No se pudieron cargar los catálogos de clientes/laboratorios.',
+        });
+      });
+  }, [fetchClientes, alert]);
 
   // ------------------------------------------------------------------
   // Alta rápida de cliente — refresca el catálogo y selecciona el nuevo

@@ -29,7 +29,7 @@ export class CircuitosController {
    * @returns Objeto complejo / PrismaResponse
    */
   @Post()
-  @RequireAccess('Recursos Humanos', 5) // Nivel 5: Creación
+  @RequireAccess('Gestor Documental', 5) // Nivel 5: Creación
   create(@Body() createCircuitoDto: CreateCircuitoDto) {
     return this.circuitosService.create(createCircuitoDto);
   }
@@ -39,7 +39,7 @@ export class CircuitosController {
    * @returns Array<Entidad>
    */
   @Get()
-  @RequireAccess('Recursos Humanos', 2) // Nivel 2: Lectura
+  @RequireAccess('Gestor Documental', 2) // Nivel 2: Lectura
   findAll() {
     return this.circuitosService.findAll();
   }
@@ -50,7 +50,7 @@ export class CircuitosController {
    * @returns Entidad | PrismaResponse
    */
   @Get(':id')
-  @RequireAccess('Recursos Humanos', 2)
+  @RequireAccess('Gestor Documental', 2)
   findOne(@Param('id') id: string) {
     return this.circuitosService.findOne(+id);
   }
@@ -62,7 +62,7 @@ export class CircuitosController {
    * @returns Entidad | PrismaResponse
    */
   @Patch(':id')
-  @RequireAccess('Recursos Humanos', 4) // Nivel 4: Edición
+  @RequireAccess('Gestor Documental', 4) // Nivel 4: Edición
   update(
     @Param('id') id: string,
     @Body() updateCircuitoDto: UpdateCircuitoDto,
@@ -76,7 +76,7 @@ export class CircuitosController {
    * @returns Entidad | PrismaResponse
    */
   @Delete(':id')
-  @RequireAccess('Recursos Humanos', 5) // Nivel 5: Eliminación
+  @RequireAccess('Gestor Documental', 5) // Nivel 5: Eliminación
   remove(@Param('id') id: string) {
     return this.circuitosService.remove(+id);
   }
@@ -88,7 +88,7 @@ export class CircuitosController {
    * @returns Promise<void>
    */
   @Post(':id/fases')
-  @RequireAccess('Recursos Humanos', 4) // Nivel 4: Modificar fases es una edición
+  @RequireAccess('Gestor Documental', 4) // Nivel 4: Modificar fases es una edición
   saveFase(@Param('id') id: string, @Body() data: any) {
     return this.circuitosService.saveFase(+id, data);
   }
@@ -99,7 +99,7 @@ export class CircuitosController {
    * @returns Array<Entidad>
    */
   @Get(':circuitoId/fases')
-  @RequireAccess('Recursos Humanos', 2)
+  @RequireAccess('Gestor Documental', 2)
   getFases(@Param('circuitoId') circuitoId: string) {
     return this.circuitosService.getFases(+circuitoId);
   }
@@ -110,7 +110,7 @@ export class CircuitosController {
    * @returns Objeto complejo / PrismaResponse
    */
   @Get(':circuitoId/fases/:faseId')
-  @RequireAccess('Recursos Humanos', 2)
+  @RequireAccess('Gestor Documental', 2)
   getFase(@Param('faseId') faseId: string) {
     return this.circuitosService.getFase(+faseId);
   }

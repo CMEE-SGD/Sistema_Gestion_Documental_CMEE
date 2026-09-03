@@ -16,11 +16,10 @@ export const IndexRRHHPage = () => {
     const fetchStats = async () => {
       try {
         // Hacemos todas las peticiones en paralelo para cargar rápido
-        const [pRes, puRes, rRes, , gRes] = await Promise.all([
+        const [pRes, puRes, rRes, gRes] = await Promise.all([
           api.get('/personas'),
           api.get('/puestos'),
           api.get('/roles'),
-          api.get('/carpetas'), 
           api.get('/departamentos')
         ]);
 
