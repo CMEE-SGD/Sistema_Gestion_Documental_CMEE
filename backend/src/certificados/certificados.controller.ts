@@ -6,16 +6,18 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   BadRequestException,
   NotFoundException,
   ParseIntPipe,
   Req,
   Res,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { CertificadosService } from './certificados.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
@@ -28,18 +30,32 @@ export class CertificadosController {
   @Post('upload')
   @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Recepcion Equipos', 3)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'reporte', maxCount: 1 },
+      { name: 'certificado', maxCount: 1 },
+    ]),
+  )
   async upload(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles()
+    files: {
+      reporte?: Express.Multer.File[];
+      certificado?: Express.Multer.File[];
+    },
     @Body('recepcion_equipo_id', ParseIntPipe) recepcionEquipoId: number,
     @Req() req: any,
     @Body('servicio_id') servicioId?: string,
   ) {
-    if (!file) {
-      throw new BadRequestException('El archivo PDF del certificado es obligatorio.');
+    const fileReporte = files?.reporte?.[0];
+    const fileCertificado = files?.certificado?.[0];
+    if (!fileReporte || !fileCertificado) {
+      throw new BadRequestException(
+        'Debe adjuntar el PDF del reporte y el PDF del certificado.',
+      );
     }
     return this.certificadosService.upload(
-      file,
+      fileReporte,
+      fileCertificado,
       recepcionEquipoId,
       req.user,
       servicioId ? Number(servicioId) : undefined,
@@ -85,10 +101,11 @@ export class CertificadosController {
   @RequireAccess('Recepcion Equipos', 2)
   async download(
     @Param('id', ParseIntPipe) id: number,
+    @Query('tipo') tipo: string,
     @Req() req: any,
     @Res() res: any,
   ) {
-    const filePath = await this.certificadosService.download(id, req.user);
+    const filePath = await this.certificadosService.download(id, tipo, req.user);
     if (!existsSync(filePath)) {
       throw new NotFoundException(
         'El archivo del certificado ya no está disponible en el servidor',
@@ -97,7 +114,7 @@ export class CertificadosController {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="certificado_${id}.pdf"`,
+      `inline; filename="${tipo}_${id}.pdf"`,
     );
     const stream = createReadStream(filePath);
     // Sin este handler, un error del stream (archivo borrado tras el check

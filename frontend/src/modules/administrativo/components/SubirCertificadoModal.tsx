@@ -23,6 +23,77 @@ interface ServicioOption {
   activo: boolean;
 }
 
+function ZonaArchivo({
+  file,
+  inputRef,
+  onSelect,
+  onChange,
+  onDrop,
+}: {
+  file: File | null;
+  inputRef: React.RefObject<HTMLInputElement>;
+  onSelect: (file: File | null) => void;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onDrop: (e: React.DragEvent) => void;
+}) {
+  return (
+    <div
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={onDrop}
+      onClick={() => inputRef.current?.click()}
+      className={cn(
+        'relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors',
+        file
+          ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20'
+          : 'border-muted-foreground/30 hover:border-muted-foreground/50 hover:bg-accent/30',
+      )}
+    >
+      {file ? (
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+            <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <p className="text-sm font-medium text-foreground">{file.name}</p>
+          <p className="text-xs text-muted-foreground">
+            {(file.size / 1024).toFixed(1)} KB
+          </p>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(null);
+              if (inputRef.current) inputRef.current.value = '';
+            }}
+            className="text-xs text-destructive hover:underline"
+          >
+            Quitar archivo
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+            <UploadCloud className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-medium text-foreground">
+            Haga clic o arrastre un archivo
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Solo PDF &middot; Máximo 10 MB
+          </p>
+        </div>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
 export default function SubirCertificadoModal({
   isOpen,
   onClose,
@@ -33,8 +104,10 @@ export default function SubirCertificadoModal({
   const queryClient = useQueryClient();
   const { alert } = useAlert();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const reporteInputRef = useRef<HTMLInputElement>(null);
+  const certificadoInputRef = useRef<HTMLInputElement>(null);
+  const [fileReporte, setFileReporte] = useState<File | null>(null);
+  const [fileCertificado, setFileCertificado] = useState<File | null>(null);
   const [servicioId, setServicioId] = useState<string>('');
 
   const { data: servicios } = useQuery({
@@ -62,9 +135,10 @@ export default function SubirCertificadoModal({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!file || !recepcionId) return;
+      if (!fileReporte || !fileCertificado || !recepcionId) return;
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('reporte', fileReporte);
+      formData.append('certificado', fileCertificado);
       formData.append('recepcion_equipo_id', recepcionId.toString());
       if (servicioId) formData.append('servicio_id', servicioId);
 
@@ -97,19 +171,28 @@ export default function SubirCertificadoModal({
     },
   });
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    tipo: 'reporte' | 'certificado',
+  ) => {
+    const inputRef = tipo === 'reporte' ? reporteInputRef : certificadoInputRef;
+    const setFile = tipo === 'reporte' ? setFileReporte : setFileCertificado;
     const selected = e.target.files?.[0] ?? null;
     if (selected && selected.type !== 'application/pdf') {
       await alert({ message: 'Solo se permiten archivos PDF' });
       setFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (inputRef.current) inputRef.current.value = '';
       return;
     }
     setFile(selected);
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const handleDrop = async (
+    e: React.DragEvent,
+    tipo: 'reporte' | 'certificado',
+  ) => {
     e.preventDefault();
+    const setFile = tipo === 'reporte' ? setFileReporte : setFileCertificado;
     const dropped = e.dataTransfer.files?.[0] ?? null;
     if (dropped && dropped.type !== 'application/pdf') {
       await alert({ message: 'Solo se permiten archivos PDF' });
@@ -120,7 +203,7 @@ export default function SubirCertificadoModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return;
+    if (!fileReporte || !fileCertificado) return;
     if (!servicioId) return;
     mutation.mutate();
   };
@@ -146,8 +229,10 @@ export default function SubirCertificadoModal({
         <form onSubmit={handleSubmit}>
           <div className="p-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Seleccione el archivo PDF del certificado de calibración para
-              finalizar el proceso.
+              Seleccione el PDF del reporte de calibración y el PDF del
+              certificado para finalizar el proceso. Son dos documentos
+              distintos: el reporte lo firman el técnico y el jefe de
+              laboratorio; el certificado lo firma el director.
             </p>
 
             {/* Procedimiento */}
@@ -185,61 +270,31 @@ export default function SubirCertificadoModal({
               )}
             </div>
 
-            {/* Drop zone / file input */}
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={cn(
-                'relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors',
-                file
-                  ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20'
-                  : 'border-muted-foreground/30 hover:border-muted-foreground/50 hover:bg-accent/30',
-              )}
-            >
-              {file ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
-                    <FileText className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <p className="text-sm font-medium text-foreground">
-                    {file.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {(file.size / 1024).toFixed(1)} KB
-                  </p>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFile(null);
-                      if (fileInputRef.current) fileInputRef.current.value = '';
-                    }}
-                    className="text-xs text-destructive hover:underline"
-                  >
-                    Quitar archivo
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm font-medium text-foreground">
-                    Haga clic o arrastre un archivo
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Solo PDF &middot; Máximo 10 MB
-                  </p>
-                </div>
-              )}
+            {/* Reporte de calibración */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Reporte de calibración <span className="text-destructive">*</span>
+              </label>
+              <ZonaArchivo
+                file={fileReporte}
+                inputRef={reporteInputRef}
+                onSelect={setFileReporte}
+                onChange={(e) => handleFileChange(e, 'reporte')}
+                onDrop={(e) => handleDrop(e, 'reporte')}
+              />
+            </div>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={handleFileChange}
+            {/* Certificado de calibración */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Certificado de calibración <span className="text-destructive">*</span>
+              </label>
+              <ZonaArchivo
+                file={fileCertificado}
+                inputRef={certificadoInputRef}
+                onSelect={setFileCertificado}
+                onChange={(e) => handleFileChange(e, 'certificado')}
+                onDrop={(e) => handleDrop(e, 'certificado')}
               />
             </div>
           </div>
@@ -255,7 +310,7 @@ export default function SubirCertificadoModal({
             </button>
             <button
               type="submit"
-              disabled={!file || !servicioId || mutation.isPending}
+              disabled={!fileReporte || !fileCertificado || !servicioId || mutation.isPending}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-50"
             >
               {mutation.isPending ? (

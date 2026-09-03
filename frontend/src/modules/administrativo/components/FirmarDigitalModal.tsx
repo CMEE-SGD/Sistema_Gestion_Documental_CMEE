@@ -18,6 +18,9 @@ interface Props {
   recepcionId: number | null;
   /** ID del Certificado cuyo PDF hay que descargar, firmar y volver a subir. */
   certificadoId: number | null;
+  /** Técnico y Jefe firman el reporte; el Director firma el certificado —
+   * son dos documentos distintos, no el mismo archivo con tres firmas. */
+  tipoDocumento: 'reporte' | 'certificado';
   tituloAccion: string;
   onSuccess: () => void;
 }
@@ -38,6 +41,7 @@ export default function FirmarDigitalModal({
   onClose,
   recepcionId,
   certificadoId,
+  tipoDocumento,
   tituloAccion,
   onSuccess,
 }: Props) {
@@ -115,7 +119,7 @@ export default function FirmarDigitalModal({
       const token = localStorage.getItem('token');
       try {
         const res = await fetch(
-          `${API_BASE}/certificados/download/${certificadoId}`,
+          `${API_BASE}/certificados/download/${certificadoId}?tipo=${tipoDocumento}`,
           { headers: { Authorization: `Bearer ${token}` } },
         );
         if (!res.ok) throw new Error('No se pudo descargar el documento a firmar.');
@@ -132,7 +136,7 @@ export default function FirmarDigitalModal({
     return () => {
       cancelado = true;
     };
-  }, [accion, certificadoId, pdfDescargado]);
+  }, [accion, certificadoId, pdfDescargado, tipoDocumento]);
 
   // Efecto aparte (con su propia bandera de cancelación): si viviera en el
   // mismo efecto que la descarga del PDF, el `setPdfDescargado` de arriba
@@ -225,7 +229,7 @@ export default function FirmarDigitalModal({
     formData.append(
       'file',
       new Blob([pdfFirmado], { type: 'application/pdf' }),
-      'certificado_firmado.pdf',
+      `${tipoDocumento}_firmado.pdf`,
     );
     const resSubida = await fetch(
       `${API_BASE}/certificados/${certificadoId}/firmar`,
@@ -298,9 +302,13 @@ export default function FirmarDigitalModal({
         <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden">
           <div className="p-6 space-y-4 overflow-y-auto">
             <p className="text-sm text-muted-foreground">
-              Firme con su certificado personal (.p12). El archivo y la
-              contraseña no se envían al servidor — la firma se calcula en
-              este navegador.
+              Va a firmar el{' '}
+              <strong>
+                {tipoDocumento === 'certificado' ? 'certificado' : 'reporte'}
+              </strong>{' '}
+              con su certificado personal (.p12). El archivo y la contraseña
+              no se envían al servidor — la firma se calcula en este
+              navegador.
             </p>
 
             <div>
