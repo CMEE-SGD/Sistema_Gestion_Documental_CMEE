@@ -294,15 +294,21 @@ export class DocumentosService {
     const rutaDestinoAbsoluta = path.resolve(process.cwd(), rutaDestinoRelativa);
     if (!fs.existsSync(rutaDestinoAbsoluta)) fs.mkdirSync(rutaDestinoAbsoluta, { recursive: true });
 
-    // Conserva el nombre original del archivo en uploads y lo sobrescribe en
-    // cada firma con el nuevo PDF co-firmado, en vez de ir creando ficheros
-    // con nombres distintos (firma_<id>_...). Así el documento físico siempre
-    // es el mismo archivo, solo que su contenido avanza con la firma.
-    const nombreActual = doc.archivo_url ? path.basename(doc.archivo_url) : file.filename;
-    const rutaFisicaFinal = path.join(rutaDestinoAbsoluta, nombreActual);
+    // Cada fase firmada guarda su PROPIO archivo físico (no se sobrescribe
+    // el de una fase anterior). El modal de firma descarga el PDF base una
+    // sola vez al abrirse y le aplica una actualización incremental con la
+    // firma; si esa operación escribiera sobre el mismo archivo que otra
+    // fase sigue referenciando, el xref de la actualización incremental
+    // termina apuntando a offsets que ya no corresponden al archivo
+    // guardado, dejando el PDF corrupto (xref roto) para quien lo abra.
+    // Mantener un archivo por fase también preserva el historial: el "Ver
+    // PDF" de cada fase completada sigue mostrando exactamente lo que se
+    // firmó en ese momento.
+    const nombreArchivo = `firma_${faseActual.id}_${file.filename}`;
+    const rutaFisicaFinal = path.join(rutaDestinoAbsoluta, nombreArchivo);
     fs.writeFileSync(rutaFisicaFinal, pdfBuffer);
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-    const urlParaBD = path.join(rutaDestinoRelativa, nombreActual).replace(/\\/g, '/');
+    const urlParaBD = path.join(rutaDestinoRelativa, nombreArchivo).replace(/\\/g, '/');
 
     return this.prisma.$transaction(async (tx) => {
       await tx.documentoWorkflowFase.update({
