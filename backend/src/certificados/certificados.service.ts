@@ -27,6 +27,24 @@ function conNumeroFormateado<
   };
 }
 
+/**
+ * Qué documento firma cada etapa: técnico y jefe firman el reporte de
+ * calibración; el director firma únicamente el certificado final. No son
+ * el mismo archivo con tres firmas encima, son dos documentos distintos.
+ */
+function campoArchivoParaEtapa(etapa: EtapaFirma) {
+  return etapa === EtapaFirma.DIRECTOR
+    ? { ruta: 'ruta_archivo_certificado', nombre: 'nombre_original_certificado' }
+    : { ruta: 'ruta_archivo_reporte', nombre: 'nombre_original_reporte' };
+}
+
+const TIPOS_DOCUMENTO = ['reporte', 'certificado'] as const;
+type TipoDocumento = (typeof TIPOS_DOCUMENTO)[number];
+
+function esTipoDocumentoValido(valor: unknown): valor is TipoDocumento {
+  return TIPOS_DOCUMENTO.includes(valor as TipoDocumento);
+}
+
 @Injectable()
 export class CertificadosService {
   constructor(
@@ -35,7 +53,8 @@ export class CertificadosService {
   ) {}
 
   async upload(
-    file: Express.Multer.File,
+    fileReporte: Express.Multer.File,
+    fileCertificado: Express.Multer.File,
     equipoRecepcionId: number,
     user: HydratedUser,
     servicioId?: number,
@@ -112,8 +131,10 @@ export class CertificadosService {
       const certificado = await tx.certificado.create({
         data: {
           equipo_recepcion_id: equipoRecepcionId,
-          ruta_archivo: file.path,
-          nombre_original: file.originalname,
+          ruta_archivo_reporte: fileReporte.path,
+          nombre_original_reporte: fileReporte.originalname,
+          ruta_archivo_certificado: fileCertificado.path,
+          nombre_original_certificado: fileCertificado.originalname,
           tecnico_id: user.isGod ? 1 : personaId,
         },
       });
@@ -272,10 +293,15 @@ export class CertificadosService {
       .digest('hex');
     const firmanteId = user.isGod ? 1 : (personaId as number);
 
+    const campo = campoArchivoParaEtapa(etapa);
+
     const resultadoFirma = await this.prisma.$transaction(async (tx) => {
       await tx.certificado.update({
         where: { id: certificadoId },
-        data: { ruta_archivo: file.path, nombre_original: file.originalname },
+        data: {
+          [campo.ruta]: file.path,
+          [campo.nombre]: file.originalname,
+        },
       });
 
       const firma = await tx.firmaDigital.create({
@@ -330,7 +356,12 @@ export class CertificadosService {
     return resultadoFirma;
   }
 
-  async download(id: number, user: HydratedUser) {
+  async download(id: number, tipo: unknown, user: HydratedUser) {
+    if (!esTipoDocumentoValido(tipo)) {
+      throw new BadRequestException(
+        `El parámetro "tipo" debe ser "reporte" o "certificado"`,
+      );
+    }
     const certificado = await this.prisma.certificado.findUnique({
       where: { id },
       include: {
@@ -384,7 +415,11 @@ export class CertificadosService {
       }
     }
 
-    return path.resolve(certificado.ruta_archivo);
+    const ruta =
+      tipo === 'certificado'
+        ? certificado.ruta_archivo_certificado
+        : certificado.ruta_archivo_reporte;
+    return path.resolve(ruta);
   }
 
   /**
@@ -433,6 +468,9 @@ export class CertificadosService {
       equipo: certificado.equipo_recepcion.equipo_descripcion,
       firmas: certificado.firmas.map((f) => ({
         etapa: f.etapa,
+        // El técnico y el jefe firman el reporte; el director firma el
+        // certificado — dos documentos distintos bajo el mismo código.
+        documento: f.etapa === EtapaFirma.DIRECTOR ? 'certificado' : 'reporte',
         titular: f.certificado_titular,
         fecha_firma: f.fecha_firma,
       })),

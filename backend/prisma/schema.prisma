@@ -916,8 +916,16 @@ model Certificado {
   id                  Int             @id @default(autoincrement())
   equipo_recepcion_id Int
   equipo_recepcion    EquipoRecepcion @relation(fields: [equipo_recepcion_id], references: [id])
-  ruta_archivo        String          @db.VarChar(500)
-  nombre_original     String          @db.VarChar(255)
+
+  // Dos documentos con firmantes distintos, no uno solo: el reporte lo
+  // firman el técnico que calibró y el jefe de laboratorio; el certificado
+  // final lo firma únicamente el director. Ambos se suben juntos cuando el
+  // técnico termina la calibración.
+  ruta_archivo_reporte        String @db.VarChar(500)
+  nombre_original_reporte     String @db.VarChar(255)
+  ruta_archivo_certificado    String @db.VarChar(500)
+  nombre_original_certificado String @db.VarChar(255)
+
   fecha_subida        DateTime        @default(now()) @db.Timestamptz
   tecnico_id          Int
   tecnico             Persona         @relation("TecnicoCertificado", fields: [tecnico_id], references: [id])

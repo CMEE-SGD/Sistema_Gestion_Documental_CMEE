@@ -359,6 +359,12 @@ export class RecepcionEquiposService {
         }
         break;
 
+      // PENDIENTE_FIRMA_TECNICO, REVISION_JEFE y REVISION_DIRECTOR avanzan
+      // ÚNICAMENTE firmando de verdad (ver certificados.service.ts#firmar,
+      // que exige un PDF con firma PAdES verificada criptográficamente antes
+      // de tocar el estado). Este endpoint genérico solo puede rechazar en
+      // estos tres pasos — de lo contrario un certificado podía terminar
+      // "aprobado" sin que nadie lo hubiera firmado realmente.
       case EstadoRecepcion.PENDIENTE_FIRMA_TECNICO:
         if (!esTecnico) {
           throw new ForbiddenException(
@@ -371,10 +377,11 @@ export class RecepcionEquiposService {
           );
         }
         if (accion === 'APROBAR') {
-          estadoNuevo = EstadoRecepcion.REVISION_JEFE;
-        } else {
-          estadoNuevo = EstadoRecepcion.EN_CALIBRACION;
+          throw new BadRequestException(
+            'Este paso requiere firmar digitalmente el reporte, no se puede aprobar sin firma',
+          );
         }
+        estadoNuevo = EstadoRecepcion.EN_CALIBRACION;
         break;
 
       case EstadoRecepcion.REVISION_JEFE:
@@ -384,10 +391,11 @@ export class RecepcionEquiposService {
           );
         }
         if (accion === 'APROBAR') {
-          estadoNuevo = EstadoRecepcion.REVISION_DIRECTOR;
-        } else {
-          estadoNuevo = EstadoRecepcion.REVISION_OBT;
+          throw new BadRequestException(
+            'Este paso requiere firmar digitalmente el reporte, no se puede aprobar sin firma',
+          );
         }
+        estadoNuevo = EstadoRecepcion.REVISION_OBT;
         break;
 
       case EstadoRecepcion.REVISION_DIRECTOR:
@@ -397,10 +405,11 @@ export class RecepcionEquiposService {
           );
         }
         if (accion === 'APROBAR') {
-          estadoNuevo = EstadoRecepcion.LISTO_PARA_ENTREGA;
-        } else {
-          estadoNuevo = EstadoRecepcion.REVISION_JEFE;
+          throw new BadRequestException(
+            'Este paso requiere firmar digitalmente el certificado, no se puede aprobar sin firma',
+          );
         }
+        estadoNuevo = EstadoRecepcion.REVISION_JEFE;
         break;
 
       case EstadoRecepcion.LISTO_PARA_ENTREGA:

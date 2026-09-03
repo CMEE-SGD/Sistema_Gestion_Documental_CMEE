@@ -15,9 +15,11 @@ import api from '../../../core/api/axios';
 import { logoCentro } from '../../../assets';
 
 type Etapa = 'TECNICO' | 'JEFE' | 'DIRECTOR';
+type Documento = 'reporte' | 'certificado';
 
 interface FirmaVerificada {
   etapa: Etapa;
+  documento: Documento;
   titular: string;
   fecha_firma: string;
 }
@@ -35,6 +37,11 @@ const ETAPA_LABEL: Record<Etapa, string> = {
   TECNICO: 'Técnico',
   JEFE: 'Jefe de Laboratorio',
   DIRECTOR: 'Director',
+};
+
+const DOCUMENTO_LABEL: Record<Documento, string> = {
+  reporte: 'Reporte',
+  certificado: 'Certificado',
 };
 
 function formatearFecha(iso: string): string {
@@ -55,7 +62,7 @@ function FilaFirma({ firma }: { firma: FirmaVerificada }) {
       </div>
       <div className="min-w-0">
         <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-          {ETAPA_LABEL[firma.etapa]}
+          {ETAPA_LABEL[firma.etapa]} · {DOCUMENTO_LABEL[firma.documento]}
         </p>
         <p className="truncate text-sm font-semibold text-slate-800">{firma.titular}</p>
         <p className="text-xs text-slate-500">{formatearFecha(firma.fecha_firma)}</p>

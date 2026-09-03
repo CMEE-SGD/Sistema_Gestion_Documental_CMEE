@@ -560,14 +560,18 @@ export default function BandejaTrabajoPage() {
   const [selectedFirma, setSelectedFirma] = useState<{
     recepcionId: number;
     certificadoId: number | null;
+    tipoDocumento: 'reporte' | 'certificado';
     titulo: string;
   } | null>(null);
 
-  const handleVerCertificado = async (certificadoId: number) => {
+  const handleVerCertificado = async (
+    certificadoId: number,
+    tipo: 'reporte' | 'certificado',
+  ) => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/certificados/download/${certificadoId}`,
+        `${import.meta.env.VITE_API_URL}/certificados/download/${certificadoId}?tipo=${tipo}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -581,7 +585,9 @@ export default function BandejaTrabajoPage() {
       window.open(url, '_blank');
     } catch (err) {
       console.error('Error al descargar certificado:', err);
-      await alert({ message: 'No se pudo abrir el certificado' });
+      await alert({
+        message: `No se pudo abrir el ${tipo === 'certificado' ? 'certificado' : 'reporte'}`,
+      });
     }
   };
 
@@ -871,6 +877,7 @@ export default function BandejaTrabajoPage() {
                                   setSelectedFirma({
                                     recepcionId: req.id,
                                     certificadoId: req.certificados?.[0]?.id ?? null,
+                                    tipoDocumento: 'reporte',
                                     titulo: 'Firma del Técnico',
                                   });
                                   setIsFirmaModalOpen(true);
@@ -892,6 +899,7 @@ export default function BandejaTrabajoPage() {
                                 setSelectedFirma({
                                   recepcionId: req.id,
                                   certificadoId: req.certificados?.[0]?.id ?? null,
+                                  tipoDocumento: 'reporte',
                                   titulo: 'Firma del Jefe de Laboratorio',
                                 });
                                 setIsFirmaModalOpen(true);
@@ -913,6 +921,7 @@ export default function BandejaTrabajoPage() {
                                 setSelectedFirma({
                                   recepcionId: req.id,
                                   certificadoId: req.certificados?.[0]?.id ?? null,
+                                  tipoDocumento: 'certificado',
                                   titulo: 'Firma del Director',
                                 });
                                 setIsFirmaModalOpen(true);
@@ -946,19 +955,38 @@ export default function BandejaTrabajoPage() {
                             </Button>
                           )}
 
-                          {/* Ver Certificado (siempre que exista) */}
+                          {/* Ver Reporte / Ver Certificado (siempre que exista) */}
                           {req.certificados && req.certificados.length > 0 && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                handleVerCertificado(req.certificados![0].id)
-                              }
-                              title="Ver certificado"
-                            >
-                              <Eye className="h-4 w-4" />
-                              Ver Certificado
-                            </Button>
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleVerCertificado(
+                                    req.certificados![0].id,
+                                    'reporte',
+                                  )
+                                }
+                                title="Ver reporte"
+                              >
+                                <Eye className="h-4 w-4" />
+                                Ver Reporte
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleVerCertificado(
+                                    req.certificados![0].id,
+                                    'certificado',
+                                  )
+                                }
+                                title="Ver certificado"
+                              >
+                                <Eye className="h-4 w-4" />
+                                Ver Certificado
+                              </Button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -1025,6 +1053,7 @@ export default function BandejaTrabajoPage() {
         }}
         recepcionId={selectedFirma?.recepcionId ?? null}
         certificadoId={selectedFirma?.certificadoId ?? null}
+        tipoDocumento={selectedFirma?.tipoDocumento ?? 'reporte'}
         tituloAccion={selectedFirma?.titulo ?? ''}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });

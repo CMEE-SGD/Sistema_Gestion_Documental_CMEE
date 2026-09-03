@@ -36,7 +36,8 @@ interface CertificadoListado {
   numero_certificado: number;
   numero_certificado_formateado: string;
   codigo_verificacion: string;
-  nombre_original: string;
+  nombre_original_reporte: string;
+  nombre_original_certificado: string;
   fecha_subida: string;
   tecnico: TecnicoResumen;
   equipo_recepcion: {
@@ -112,10 +113,13 @@ function useCertificados() {
   });
 }
 
-async function verCertificado(certificadoId: number) {
+async function verCertificado(
+  certificadoId: number,
+  tipo: 'reporte' | 'certificado',
+) {
   const token = localStorage.getItem('token');
   const res = await fetch(
-    `${import.meta.env.VITE_API_URL}/certificados/download/${certificadoId}`,
+    `${import.meta.env.VITE_API_URL}/certificados/download/${certificadoId}?tipo=${tipo}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!res.ok) {
@@ -235,13 +239,15 @@ export default function CertificadosPage() {
     });
   }, [certificados, busqueda, laboratorioId]);
 
-  const handleVer = async (id: number) => {
+  const handleVer = async (id: number, tipo: 'reporte' | 'certificado') => {
     setErrorAccion(null);
     try {
-      await verCertificado(id);
+      await verCertificado(id, tipo);
     } catch (err) {
       setErrorAccion(
-        err instanceof Error ? err.message : 'No se pudo abrir el certificado',
+        err instanceof Error
+          ? err.message
+          : `No se pudo abrir el ${tipo === 'certificado' ? 'certificado' : 'reporte'}`,
       );
     }
   };
@@ -392,12 +398,21 @@ export default function CertificadosPage() {
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => handleVer(c.id)}
+                          onClick={() => handleVer(c.id, 'reporte')}
+                          title="Ver reporte"
+                          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Reporte
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleVer(c.id, 'certificado')}
                           title="Ver certificado"
                           className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          Ver
+                          Certificado
                         </button>
                         <button
                           type="button"
