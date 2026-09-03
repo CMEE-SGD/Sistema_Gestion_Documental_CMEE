@@ -294,10 +294,15 @@ export class DocumentosService {
     const rutaDestinoAbsoluta = path.resolve(process.cwd(), rutaDestinoRelativa);
     if (!fs.existsSync(rutaDestinoAbsoluta)) fs.mkdirSync(rutaDestinoAbsoluta, { recursive: true });
 
-    const nombreArchivo = `firma_${faseActual.id}_${file.filename}`;
-    const rutaFisicaFinal = path.join(rutaDestinoAbsoluta, nombreArchivo);
-    fs.renameSync(file.path, rutaFisicaFinal);
-    const urlParaBD = path.join(rutaDestinoRelativa, nombreArchivo).replace(/\\/g, '/');
+    // Conserva el nombre original del archivo en uploads y lo sobrescribe en
+    // cada firma con el nuevo PDF co-firmado, en vez de ir creando ficheros
+    // con nombres distintos (firma_<id>_...). Así el documento físico siempre
+    // es el mismo archivo, solo que su contenido avanza con la firma.
+    const nombreActual = doc.archivo_url ? path.basename(doc.archivo_url) : file.filename;
+    const rutaFisicaFinal = path.join(rutaDestinoAbsoluta, nombreActual);
+    fs.writeFileSync(rutaFisicaFinal, pdfBuffer);
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    const urlParaBD = path.join(rutaDestinoRelativa, nombreActual).replace(/\\/g, '/');
 
     return this.prisma.$transaction(async (tx) => {
       await tx.documentoWorkflowFase.update({
@@ -370,12 +375,20 @@ export class DocumentosService {
     });
     const nombreRechazante = persona ? `${persona.nombre} ${persona.apellidos}` : null;
 
+    const doc = await this.prisma.documento.findUnique({ where: { id: documentoId } });
+
     return this.prisma.$transaction(async (tx) => {
       await tx.documentoWorkflowFase.update({
         where: { id: faseActual.id },
         data: { estado: 'RECHAZADO', procesado_por: nombreRechazante, comentario: data.comentario || null },
       });
-      if (faseAnterior) await tx.documentoWorkflowFase.update({ where: { id: faseAnterior.id }, data: { estado: 'EN_CURSO' } });
+      if (faseAnterior) {
+        await tx.documentoWorkflowFase.update({ where: { id: faseAnterior.id }, data: { estado: 'EN_CURSO' } });
+        const participantes = await tx.faseParticipante.findMany({ where: { fase_id: faseAnterior.fase_id }, select: { persona_id: true } });
+        for (const p of participantes) {
+          await this.notificacionesService.crear('workflow_avance', `Revisión rechazada: "${doc?.nombre}"`, p.persona_id, documentoId);
+        }
+      }
       return tx.documentoWorkflow.findUnique({ where: { id: workflow.id }, include: { circuito: true, fases: { orderBy: { id: 'asc' } } } });
     });
   }
