@@ -74,9 +74,7 @@ const Index = () => {
 
             <div className="p-8 bg-card/50">
               <div className="flex flex-wrap gap-6 justify-center md:justify-start">
-                {MODULES.filter(
-                  (mod) => mod.name !== 'Resumen' || tienePermiso('Resumen', 1),
-                ).map((mod) => (
+                {MODULES.filter((mod) => tienePermiso(mod.name, 1)).map((mod) => (
                   <ModuleCard key={mod.id} mod={mod} />
                 ))}
               </div>
