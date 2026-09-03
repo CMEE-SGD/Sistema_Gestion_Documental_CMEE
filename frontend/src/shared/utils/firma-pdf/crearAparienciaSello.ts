@@ -6,17 +6,21 @@ import { construirBloqueQr } from './crearBloqueQr';
 
 const RELLENO = 5;
 const GAP_QR_TEXTO = 6;
-// A 1.4pt/módulo el QR salía ~2.5x más alto que el bloque de texto (etiqueta +
-// nombre en 2 líneas) y en formatos con recuadro de firma pequeño se salía del
-// borde. 1.1pt (~0.39mm/módulo) sigue por encima del mínimo típico recomendado
-// para lectura confiable (~0.3-0.35mm) incluso fotocopiado, y reduce el sello
-// en conjunto ~20%. La zona de silencio se deja igual (no bajar de 4).
-const QR_MODULO_PT = 1.1;
-const QR_ZONA_SILENCIO_MODULOS = 4; // recomendado por ISO/IEC 18004 para códigos impresos/fotocopiados — no bajar de 4, o el QR deja de leerse bien fotocopiado
+// El QR debe quedar más o menos a la misma altura que el bloque de texto
+// (etiqueta + nombre en 2 líneas), no más grande — si no, en formatos con
+// recuadro de firma chico el sello se sale del borde. Para lograrlo sin dejar
+// el QR demasiado denso se combinan tres ajustes: nivel de corrección 'L' en
+// vez de 'M' (menos módulos para la misma URL), texto un poco más grande
+// (agranda el objetivo de altura en vez de exigirle todo el ajuste al QR), y
+// 0.68pt/módulo (~0.24mm). Es más chico que el mínimo "cómodo" recomendado
+// para impresión (~0.3mm) — probar escaneando un documento firmado real antes
+// de confiar en esto a ciegas; si falla, subir QR_MODULO_PT de a poco.
+const QR_MODULO_PT = 0.68;
+const QR_ZONA_SILENCIO_MODULOS = 4; // recomendado por ISO/IEC 18004 — no bajar de 4, o el QR deja de leerse bien fotocopiado
 
-const LABEL_FONT_SIZE = 5.5;
-const NAME_FONT_SIZE = 7.5;
-const NAME_LINE_HEIGHT = 8.5;
+const LABEL_FONT_SIZE = 6;
+const NAME_FONT_SIZE = 8.5;
+const NAME_LINE_HEIGHT = 9.5;
 const LABEL_NAME_GAP = 3;
 const COLOR_ETIQUETA = '0.42 0.42 0.42'; // gris — contraste "delgado" contra el nombre en negro
 
