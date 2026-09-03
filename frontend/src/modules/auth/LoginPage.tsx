@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { Button } from "../../shared/components/atoms/button";
-import { users } from "../../shared/data/users"; 
-import { logoCentro } from "../../assets";
-import { laboratorio } from "../../assets";
+import { users } from "../../shared/data/users";
+import { logoCentro, fotosLogin } from "../../assets";
 import api from "../../core/api/axios";
+import LoginCarousel from "./components/LoginCarousel";
 import { AlertCircle, Eye, EyeOff } from 'lucide-react'; // 👇 1. Importamos el ícono de alerta
 import { useConfiguracionGeneral } from "../../shared/hooks/useConfiguracionGeneral";
+import '@fontsource-variable/big-shoulders-display';
+import '@fontsource/ibm-plex-mono/500.css';
+
+const fontDisplay = { fontFamily: "'Big Shoulders Display Variable', sans-serif" };
+const fontMono = { fontFamily: "'IBM Plex Mono', ui-monospace, monospace" };
 
 export default function LoginPage() {
   const { nombreInstitucion } = useConfiguracionGeneral();
@@ -172,17 +177,19 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen w-full bg-slate-100">
+    <div className="h-screen w-full bg-[#0c1620]">
       <div className="flex h-full">
 
         {/* PANEL IZQUIERDO */}
-        <div className="hidden md:flex w-[55%] relative overflow-hidden bg-slate-800">
-          <img
-            src={laboratorio}
-            alt="Laboratorio"
-            className="absolute inset-0 w-full h-full object-cover"
+        <div className="hidden md:flex w-[55%] relative overflow-hidden">
+          <LoginCarousel imagenes={fotosLogin} />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(9,16,24,0.55) 0%, rgba(9,16,24,0.1) 25%, rgba(9,16,24,0.2) 55%, rgba(9,16,24,0.88) 100%)",
+            }}
           />
-          <div className="absolute inset-0 bg-slate-900/45" />
           <div className="absolute inset-0 opacity-10"
             style={{
               backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
@@ -190,58 +197,84 @@ export default function LoginPage() {
             }}
           />
           <div className="relative z-10 flex flex-col justify-end p-12 text-white">
-            <h2 className="text-4xl font-bold mb-4">
+            <p style={fontMono} className="text-[#f0c563] text-xs tracking-[0.25em] uppercase mb-3">
+              Calibración · Ensayos · Trazabilidad
+            </p>
+            <h2 style={fontDisplay} className="text-5xl font-extrabold uppercase leading-[0.95] mb-4">
               Sistema Informático
             </h2>
-            <p className="text-slate-200 text-lg max-w-lg">
+            <p className="text-[#93a7ba] text-lg max-w-lg">
               {nombreInstitucion}
             </p>
           </div>
         </div>
 
         {/* PANEL DERECHO */}
-        <div className="flex-1 bg-slate-50 flex items-center justify-center px-8">
-          <div className="w-full max-w-md">
+        <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-[#101f33] to-[#0c1620] flex items-center justify-center px-8">
+          <div className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
+              backgroundSize: "24px 24px",
+            }}
+          />
+
+          {/* ORBES DE LUZ: sin esto el vidrio no tiene nada que reflejar y se
+              ve como un panel plano. También suavizan (desvanecen) la unión
+              con el panel de la foto en vez de dejar un corte duro. */}
+          <div className="pointer-events-none absolute -left-32 -top-24 w-[440px] h-[440px] rounded-full bg-[#dba62e]/25 blur-[110px]" />
+          <div className="pointer-events-none absolute -right-24 -bottom-24 w-[400px] h-[400px] rounded-full bg-[#4a7ba8]/25 blur-[110px]" />
+          <div className="pointer-events-none absolute left-1/3 top-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-[#f0c563]/10 blur-[100px]" />
+
+          {/* TARJETA DE VIDRIO: solo el bloque de login tiene el efecto
+              esmerilado + borde ámbar, el resto del panel se queda sólido. */}
+          <div className="relative w-full max-w-md rounded-2xl border border-[#dba62e]/25 border-t-2 border-t-[#dba62e] bg-white/[0.08] backdrop-blur-xl shadow-[0_30px_70px_-20px_rgba(0,0,0,0.65)] px-8 py-10">
+            {/* brillo de vidrio (reflejo diagonal) */}
+            <div className="pointer-events-none absolute inset-0 rounded-2xl overflow-hidden"
+              style={{
+                background:
+                  "linear-gradient(125deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 26%, rgba(255,255,255,0) 74%, rgba(255,255,255,0.05) 100%)",
+              }}
+            />
 
             {/* LOGO */}
-            <div className="flex justify-center mb-6">
+            <div className="relative flex justify-center mb-6">
               <img
                 src={logoCentro}
                 alt="Logo CMEE"
-                className="h-20 w-auto"
+                className="h-20 w-auto drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)]"
               />
             </div>
 
             {/* TITULO */}
-            <div className="text-center mb-10">
-              <h1 className="text-4xl font-bold text-slate-800 mb-2">
+            <div className="relative text-center mb-10">
+              <h1 style={fontDisplay} className="text-4xl font-extrabold uppercase text-[#f4f1e8] mb-2">
                 Iniciar Sesión
               </h1>
-              <p className="text-slate-500">
+              <p className="text-[#93a7ba]">
                 Ingrese sus credenciales para continuar
               </p>
-              <div className="w-20 h-1 bg-[#1e3a5f] rounded-full mx-auto mt-4" />
+              <div className="w-20 h-1 bg-gradient-to-r from-[#dba62e] to-[#f0c563] rounded-full mx-auto mt-4" />
             </div>
 
             {sesionActivaExistente ? (
               /* 👇 AVISO: usuario ya activo en otro dispositivo */
-              <div className="bg-amber-50 border border-amber-300 rounded-xl p-6 text-center animate-in fade-in zoom-in duration-300">
-                <div className="bg-amber-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-6 text-center animate-in fade-in zoom-in duration-300">
+                <div className="bg-amber-500/15 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-[#f0c563]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-amber-800 mb-2">
+                <h2 className="text-xl font-bold text-[#f0c563] mb-2">
                   El usuario ya está activo
                 </h2>
-                <p className="text-sm text-amber-700 mb-6">
+                <p className="text-sm text-[#c3c9c2] mb-6">
                   Ya existe una sesión activa de este usuario en otro dispositivo.
                   Cierre la sesión anterior o espere unos minutos antes de volver a ingresar.
                 </p>
                 <Button
                   type="button"
                   onClick={resetForm}
-                  className="w-full h-12 bg-[#1e3a5f] hover:bg-[#16324d] text-white rounded-xl font-medium"
+                  className="w-full h-12 bg-gradient-to-b from-[#f0c563] to-[#dba62e] hover:brightness-105 text-[#1c1300] rounded-xl font-semibold"
                 >
                   Volver al índice
                 </Button>
@@ -252,11 +285,11 @@ export default function LoginPage() {
 
               {/* USUARIO */}
               <div>
-                <label className="block mb-2 text-sm font-medium text-slate-700">
+                <label className="block mb-2 text-sm font-medium text-[#93a7ba]">
                   Usuario
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#526175]">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
@@ -266,18 +299,18 @@ export default function LoginPage() {
                     placeholder="Nombre de usuario"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20 focus:border-[#1e3a5f] transition-all"
+                    className="w-full pl-10 pr-4 py-3 bg-[#0a1420]/60 border border-[#3d5470]/40 rounded-xl text-[#f4f1e8] placeholder:text-[#526175] focus:outline-none focus:ring-2 focus:ring-[#dba62e]/25 focus:border-[#dba62e] transition-all"
                   />
                 </div>
               </div>
 
               {/* CONTRASEÑA */}
               <div>
-                <label className="block mb-2 text-sm font-medium text-slate-700">
+                <label className="block mb-2 text-sm font-medium text-[#93a7ba]">
                   Contraseña
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#526175]">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
@@ -290,13 +323,13 @@ export default function LoginPage() {
                     // Edge/IE inyectan su propio ícono de "mostrar contraseña"
                     // (::-ms-reveal) dentro de todo <input type="password">,
                     // que se sumaba al botón de abajo y aparecían dos ojos.
-                    className="w-full pl-10 pr-12 py-3 bg-white border border-slate-300 rounded-xl text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/20 focus:border-[#1e3a5f] transition-all [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
+                    className="w-full pl-10 pr-12 py-3 bg-[#0a1420]/60 border border-[#3d5470]/40 rounded-xl text-[#f4f1e8] placeholder:text-[#526175] focus:outline-none focus:ring-2 focus:ring-[#dba62e]/25 focus:border-[#dba62e] transition-all [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#526175] hover:text-[#f0c563]"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -305,13 +338,13 @@ export default function LoginPage() {
 
               {/* 👇 4. NUEVO DISEÑO DE ERRORES */}
               {errores.length > 0 && (
-                <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start gap-3 w-full animate-in fade-in zoom-in duration-300">
-                  <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 flex items-start gap-3 w-full animate-in fade-in zoom-in duration-300">
+                  <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
                   <div className="flex flex-col">
-                    <h3 className="text-sm font-bold text-rose-800 mb-1">
+                    <h3 className="text-sm font-bold text-rose-300 mb-1">
                       No se pudo iniciar sesión
                     </h3>
-                    <ul className="text-sm text-rose-600 font-medium space-y-1">
+                    <ul className="text-sm text-rose-200 font-medium space-y-1">
                       {errores.map((err, index) => (
                         <li key={index} className="flex items-start gap-1.5">
                           <span className="text-rose-400 mt-0.5">•</span>
@@ -327,7 +360,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 bg-[#1e3a5f] hover:bg-[#16324d] text-white rounded-xl font-medium disabled:opacity-50"
+                className="w-full h-12 bg-gradient-to-b from-[#f0c563] to-[#dba62e] hover:brightness-105 text-[#1c1300] rounded-xl font-semibold disabled:opacity-50"
               >
                 {loading ? "Validando..." : "Acceder"}
               </Button>
