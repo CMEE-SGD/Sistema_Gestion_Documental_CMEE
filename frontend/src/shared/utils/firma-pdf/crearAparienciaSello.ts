@@ -6,7 +6,12 @@ import { construirBloqueQr } from './crearBloqueQr';
 
 const RELLENO = 5;
 const GAP_QR_TEXTO = 6;
-const QR_MODULO_PT = 1.4;
+// A 1.4pt/módulo el QR salía ~2.5x más alto que el bloque de texto (etiqueta +
+// nombre en 2 líneas) y en formatos con recuadro de firma pequeño se salía del
+// borde. 1.1pt (~0.39mm/módulo) sigue por encima del mínimo típico recomendado
+// para lectura confiable (~0.3-0.35mm) incluso fotocopiado, y reduce el sello
+// en conjunto ~20%. La zona de silencio se deja igual (no bajar de 4).
+const QR_MODULO_PT = 1.1;
 const QR_ZONA_SILENCIO_MODULOS = 4; // recomendado por ISO/IEC 18004 para códigos impresos/fotocopiados — no bajar de 4, o el QR deja de leerse bien fotocopiado
 
 const LABEL_FONT_SIZE = 5.5;
