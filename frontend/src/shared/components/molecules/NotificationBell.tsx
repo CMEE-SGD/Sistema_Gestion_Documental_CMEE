@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useSocket } from '../../hooks/useSocket';
+import { encodeId } from '../../utils/ids';
 
 interface Notificacion {
   id: number;
@@ -58,7 +59,9 @@ const NotificationBell = () => {
   const handleClick = (n: Notificacion) => {
     if (!n.leido) handleMarcarLeida(n.id);
     if (n.referencia_id && n.tipo.startsWith('workflow')) {
-      navigate(`/gestordocumental/documento/${n.referencia_id}`);
+      navigate(`/gestordocumental/documento/${encodeId(n.referencia_id)}`);
+    } else if (n.tipo === 'recepcion_equipos') {
+      navigate('/administrativo/recepciones');
     }
     setOpen(false);
   };

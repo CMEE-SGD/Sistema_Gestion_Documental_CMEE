@@ -342,6 +342,19 @@ export const DetalleDocumentoPage = () => {
     const nombreFichero = documento.archivo_url ? documento.archivo_url.split('/').pop() : 'Sin archivo físico';
     const fechaCreacion = documento.created_at ? new Date(documento.created_at).toLocaleDateString('es-ES') : '';
 
+    // La fase de elaboración es la primera del circuito (menor orden de fase).
+    // Solo en esa fase se permite subir una nueva versión del documento.
+    const workflowFases: any[] = documento.workflow?.fases ?? [];
+    const faseElaboracion = workflowFases.reduce(
+        (menor: any, f: any) =>
+            !menor || (f.fase?.orden ?? f.fase_id) < (menor.fase?.orden ?? menor.fase_id)
+                ? f
+                : menor,
+        null as any,
+    );
+    const faseActiva = workflowFases.find((f: any) => f.estado === 'EN_CURSO');
+    const enFaseElaboracion = !!faseActiva && faseActiva.fase_id === faseElaboracion?.fase_id;
+
     return (
         <div className="flex flex-col w-full min-h-screen bg-white p-6 text-[13px] text-gray-800">
 
@@ -362,9 +375,10 @@ export const DetalleDocumentoPage = () => {
                     Editar
                 </button>
                 <button
-                    disabled={nivelPermiso < 3}
+                    disabled={nivelPermiso < 3 || !enFaseElaboracion}
                     onClick={() => { setShowVersionForm(!showVersionForm); setShowEditForm(false); }}
-                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 3 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
+                    title={enFaseElaboracion ? undefined : 'Solo disponible en la fase de elaboración'}
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 3 && enFaseElaboracion ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Nueva versión
                 </button>
