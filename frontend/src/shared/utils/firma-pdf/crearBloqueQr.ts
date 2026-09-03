@@ -13,8 +13,10 @@ export interface BloqueQr {
   operadores: Buffer;
 }
 
-/** Balance robustez/tamaño razonable para un sello que puede terminar impreso o fotocopiado. */
-const NIVEL_CORRECCION = 'M';
+// 'L' en vez de 'M': menos redundancia, pero genera bastantes menos módulos
+// para la misma URL — necesario para que el QR no le gane en tamaño al
+// bloque de texto (ver nota en crearAparienciaSello.ts).
+const NIVEL_CORRECCION = 'L';
 
 /**
  * Construye el bloque QR que codifica `url`. `moduloPt` es el tamaño de cada
