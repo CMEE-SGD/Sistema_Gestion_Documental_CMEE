@@ -11,6 +11,7 @@ import { P12Signer } from '@signpdf/signer-p12';
 import * as forge from 'node-forge';
 import { FirmaPdfError } from './FirmaPdfError';
 import { agregarSelloYPlaceholder } from './firma-pdf/agregarSelloYPlaceholder';
+import { asegurarXrefClasico } from './firma-pdf/asegurarXrefClasico';
 import type { PosicionFirma } from '../components/organisms/SelectorPosicionFirma';
 
 export { FirmaPdfError };
@@ -83,8 +84,9 @@ export async function firmarPdfConP12(
   // otros firmantes en el mismo documento quedan intactas.
   let pdfConPlaceholder: Buffer;
   try {
+    const pdfBufferClasico = await asegurarXrefClasico(pdfBuffer);
     pdfConPlaceholder = agregarSelloYPlaceholder({
-      pdfBuffer,
+      pdfBuffer: pdfBufferClasico,
       reason: razon,
       contactInfo: '',
       name: '',
@@ -92,7 +94,9 @@ export async function firmarPdfConP12(
       signatureLength: 8192,
       sello: selloParaPlaceholder,
     });
-  } catch {
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('No se pudo preparar el PDF para la firma:', err);
     throw new FirmaPdfError(
       'No se pudo preparar el PDF para la firma. Verifique que el archivo no esté dañado.',
     );
