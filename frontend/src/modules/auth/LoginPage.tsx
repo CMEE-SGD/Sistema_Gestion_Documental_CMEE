@@ -181,7 +181,7 @@ export default function LoginPage() {
       <div className="flex h-full">
 
         {/* PANEL IZQUIERDO */}
-        <div className="hidden md:flex w-[70%] relative overflow-hidden">
+        <div className="hidden md:flex w-[65%] relative overflow-hidden">
           <LoginCarousel imagenes={fotosLogin} />
           <div
             className="absolute inset-0"
