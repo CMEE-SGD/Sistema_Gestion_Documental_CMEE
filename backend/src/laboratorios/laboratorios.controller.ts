@@ -44,11 +44,13 @@ export class LaboratoriosController {
    */
   // Recepción de Equipos también necesita este listado (desplegable de
   // laboratorio destino al crear una orden de trabajo), sin depender de
-  // tener además permiso de Laboratorios.
+  // tener además permiso de Laboratorios. El Dashboard de Laboratorios
+  // (módulo Resumen) también lo usa para el filtro por laboratorio.
   @Get()
   @RequireAccess([
     { app: 'Laboratorios', level: 2 },
     { app: 'Recepcion Equipos', level: 1 },
+    { app: 'Resumen', level: 1 },
   ])
   findAll(@Req() req: any) {
     return this.laboratoriosService.findAll(req.user);
