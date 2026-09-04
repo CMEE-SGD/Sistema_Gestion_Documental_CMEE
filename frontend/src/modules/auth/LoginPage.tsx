@@ -181,7 +181,7 @@ export default function LoginPage() {
       <div className="flex h-full">
 
         {/* PANEL IZQUIERDO */}
-        <div className="hidden md:flex w-[55%] relative overflow-hidden">
+        <div className="hidden md:flex w-[70%] relative overflow-hidden">
           <LoginCarousel imagenes={fotosLogin} />
           <div
             className="absolute inset-0"
@@ -198,7 +198,7 @@ export default function LoginPage() {
           />
           <div className="relative z-10 flex flex-col justify-end p-12 text-white">
             <p style={fontMono} className="text-[#f0c563] text-xs tracking-[0.25em] uppercase mb-3">
-              Calibración · Ensayos · Trazabilidad
+              Calibración · Ensayos
             </p>
             <h2 style={fontDisplay} className="text-5xl font-extrabold uppercase leading-[0.95] mb-4">
               Sistema Informático
@@ -210,7 +210,7 @@ export default function LoginPage() {
         </div>
 
         {/* PANEL DERECHO */}
-        <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-[#101f33] to-[#0c1620] flex items-center justify-center px-8">
+        <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-[#101f33] to-[#0c1620] flex items-center justify-center px-4">
           <div className="absolute inset-0 opacity-[0.04]"
             style={{
               backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
