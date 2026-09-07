@@ -12,7 +12,10 @@ import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
 import { EstadoRecepcion } from '@prisma/client';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
-import { notificarResponsablesEquipo } from '../common/helpers/notificar-responsables-equipo';
+import {
+  notificarResponsablesEquipo,
+  resolverDestinatarios,
+} from '../common/helpers/notificar-responsables-equipo';
 
 const ORDEN_INCLUDE = {
   cliente: { select: { id: true, nombre: true, tipo: true } },
@@ -249,6 +252,19 @@ export class RecepcionEquiposService {
       throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
     }
     return equipo;
+  }
+
+  /**
+   * Diagnóstico: quién sería notificado para un equipo si llegara (o
+   * volviera a llegar) a `estado`, sin crear ninguna notificación de
+   * verdad. Existe porque "a X no le llega la notificación" no se puede
+   * depurar solo leyendo el código — hay que poder ver en vivo qué
+   * devuelve la resolución de destinatarios contra los datos reales
+   * (puesto, departamento, vínculo departamento↔laboratorio).
+   */
+  async previsualizarNotificacion(equipoId: number, estado: EstadoRecepcion) {
+    const equipo = await this.findOneEquipo(equipoId);
+    return resolverDestinatarios(this.prisma, equipo, estado);
   }
 
   // También se usa para REASIGNAR: si el OBT eligió mal al técnico, puede

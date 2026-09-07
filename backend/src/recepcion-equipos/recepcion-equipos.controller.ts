@@ -5,10 +5,12 @@ import {
   Body,
   Patch,
   Param,
+  Query,
   Delete,
   UseGuards,
   Req,
 } from '@nestjs/common';
+import { EstadoRecepcion } from '@prisma/client';
 import { RecepcionEquiposService } from './recepcion-equipos.service';
 import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
@@ -61,6 +63,18 @@ export class RecepcionEquiposController {
     @Req() req: any,
   ) {
     return this.recepcionService.transicionEstado(+id, dto, req.user);
+  }
+
+  // Diagnóstico de notificaciones: quién sería notificado para este equipo
+  // si llegara a `estado`, sin crear ninguna notificación real. Nivel 5
+  // (el más alto) a propósito, solo para administrar/depurar el flujo.
+  @Get(':id/notificar-preview')
+  @RequireAccess('Recepcion Equipos', 5)
+  notificarPreview(
+    @Param('id') id: string,
+    @Query('estado') estado: EstadoRecepcion,
+  ) {
+    return this.recepcionService.previsualizarNotificacion(+id, estado);
   }
 
   @Delete(':id')
