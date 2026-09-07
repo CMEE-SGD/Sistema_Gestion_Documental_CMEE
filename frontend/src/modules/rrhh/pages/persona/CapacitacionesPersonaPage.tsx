@@ -117,8 +117,8 @@ export const CapacitacionesPersonaPage = () => {
                                                 >
                                                     {c.nombre}
                                                 </td>
-                                                <td className="py-2.5 px-3">{new Date(c.fecha_inicio).toLocaleDateString('es-ES')}</td>
-                                                <td className="py-2.5 px-3">{new Date(c.fecha_fin).toLocaleDateString('es-ES')}</td>
+                                                <td className="py-2.5 px-3">{new Date(c.fecha_inicio).toLocaleDateString('es-ES', { timeZone: 'UTC' })}</td>
+                                                <td className="py-2.5 px-3">{new Date(c.fecha_fin).toLocaleDateString('es-ES', { timeZone: 'UTC' })}</td>
                                                 <td className="py-2.5 px-3">{c.horas}</td>
                                                 <td className="py-2.5 px-3">{c.proveedor || '-'}</td>
                                                 <td className="py-2.5 px-3">

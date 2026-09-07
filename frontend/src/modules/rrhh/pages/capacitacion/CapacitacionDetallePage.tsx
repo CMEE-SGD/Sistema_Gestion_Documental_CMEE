@@ -90,9 +90,9 @@ export const CapacitacionDetallePage = () => {
         </div>
         <div className="grid grid-cols-2 gap-0 text-sm">
           <div className="p-3 border-r border-b border-gray-200 font-medium text-gray-500">Fecha inicio</div>
-          <div className="p-3 border-b border-gray-200">{new Date(cap.fecha_inicio).toLocaleDateString('es-ES')}</div>
+          <div className="p-3 border-b border-gray-200">{new Date(cap.fecha_inicio).toLocaleDateString('es-ES', { timeZone: 'UTC' })}</div>
           <div className="p-3 border-r border-b border-gray-200 font-medium text-gray-500">Fecha fin</div>
-          <div className="p-3 border-b border-gray-200">{new Date(cap.fecha_fin).toLocaleDateString('es-ES')}</div>
+          <div className="p-3 border-b border-gray-200">{new Date(cap.fecha_fin).toLocaleDateString('es-ES', { timeZone: 'UTC' })}</div>
           <div className="p-3 border-r border-b border-gray-200 font-medium text-gray-500">Horas</div>
           <div className="p-3 border-b border-gray-200">{cap.horas}</div>
           <div className="p-3 border-r border-b border-gray-200 font-medium text-gray-500">Proveedor</div>
