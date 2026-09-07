@@ -19,6 +19,7 @@ import {
   Handshake,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
+import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
 import api from '../../../core/api/axios';
 import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
@@ -568,21 +569,10 @@ export default function BandejaTrabajoPage() {
     certificadoId: number,
     tipo: 'reporte' | 'certificado',
   ) => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(
+      await abrirPdfProtegido(
         `${import.meta.env.VITE_API_URL}/certificados/download/${certificadoId}?tipo=${tipo}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
       );
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.message || `Error HTTP ${res.status}`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
     } catch (err) {
       console.error('Error al descargar certificado:', err);
       await alert({

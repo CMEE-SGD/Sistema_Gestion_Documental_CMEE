@@ -9,6 +9,7 @@ import {
   Search,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
+import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
 import api from '../../../core/api/axios';
 
 // ---------------------------------------------------------------------------
@@ -117,18 +118,9 @@ async function verCertificado(
   certificadoId: number,
   tipo: 'reporte' | 'certificado',
 ) {
-  const token = localStorage.getItem('token');
-  const res = await fetch(
+  await abrirPdfProtegido(
     `${import.meta.env.VITE_API_URL}/certificados/download/${certificadoId}?tipo=${tipo}`,
-    { headers: { Authorization: `Bearer ${token}` } },
   );
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.message || `Error HTTP ${res.status}`);
-  }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
 }
 
 // ---------------------------------------------------------------------------
