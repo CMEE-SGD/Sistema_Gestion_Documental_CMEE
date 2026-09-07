@@ -99,8 +99,8 @@ export const CapacitacionesPage = () => {
                 className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
               >
                 <td className="p-3 font-semibold">{c.nombre}</td>
-                <td className="p-3">{new Date(c.fecha_inicio).toLocaleDateString('es-ES')}</td>
-                <td className="p-3">{new Date(c.fecha_fin).toLocaleDateString('es-ES')}</td>
+                <td className="p-3">{new Date(c.fecha_inicio).toLocaleDateString('es-ES', { timeZone: 'UTC' })}</td>
+                <td className="p-3">{new Date(c.fecha_fin).toLocaleDateString('es-ES', { timeZone: 'UTC' })}</td>
                 <td className="p-3">{c.horas}</td>
                 <td className="p-3">{c.proveedor || '-'}</td>
                 <td className="p-3">{c.participantes?.length || 0}</td>
