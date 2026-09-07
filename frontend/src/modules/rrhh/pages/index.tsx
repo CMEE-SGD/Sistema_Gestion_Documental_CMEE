@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, Briefcase, UserCog, Building2 } from 'lucide-react';
+import { Users, Briefcase, UserCog, Building2, GraduationCap } from 'lucide-react';
 import api from '../../../core/api/axios';
 import RRHHHeader from '../components/RRHHHeader';
 import StatCard from '../components/StatCard';
@@ -9,25 +9,27 @@ export const IndexRRHHPage = () => {
     personas: 0,
     puestos: 0,
     roles: 0,
-    grupos: 0
+    grupos: 0,
+    capacitaciones: 0
   });
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Hacemos todas las peticiones en paralelo para cargar rápido
-        const [pRes, puRes, rRes, gRes] = await Promise.all([
+        const [pRes, puRes, rRes, gRes, cRes] = await Promise.all([
           api.get('/personas'),
           api.get('/puestos'),
           api.get('/roles'),
-          api.get('/departamentos')
+          api.get('/departamentos'),
+          api.get('/capacitaciones')
         ]);
 
         setStats({
           personas: Array.isArray(pRes.data) ? pRes.data.filter((i: any) => i.estado === 'ACTIVO').length : 0,
           puestos: Array.isArray(puRes.data) ? puRes.data.filter((i: any) => i.activo).length : 0,
           roles: Array.isArray(rRes.data) ? rRes.data.filter((i: any) => i.activo).length : 0,
-          grupos: Array.isArray(gRes.data) ? gRes.data.filter((i: any) => i.activo).length : 0
+          grupos: Array.isArray(gRes.data) ? gRes.data.filter((i: any) => i.activo).length : 0,
+          capacitaciones: Array.isArray(cRes.data) ? cRes.data.length : 0
         });
       } catch (error) {
         console.error('Error al cargar estadísticas', error);
@@ -72,6 +74,13 @@ export const IndexRRHHPage = () => {
             icon={Building2} 
             iconColor="text-teal-600" 
             path="/rrhh/grupos" 
+          />
+          <StatCard 
+            title="Capacitaciones" 
+            value={stats.capacitaciones} 
+            icon={GraduationCap} 
+            iconColor="text-purple-600" 
+            path="/rrhh/capacitaciones" 
           />
         </div>
       </div>
