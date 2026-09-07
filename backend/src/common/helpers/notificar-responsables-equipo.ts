@@ -28,11 +28,20 @@ const RESPONSABLES_POR_ESTADO: Partial<
   [EstadoRecepcion.EN_CALIBRACION]: 'tecnico',
   [EstadoRecepcion.REVISION_OBT]: [
     { palabraClave: 'observador', alcanceLaboratorio: true },
-    { palabraClave: 'jefe', excluir: 'calidad', alcanceLaboratorio: true },
+    // El "Jefe" (Jefe del Departamento Técnico) es un único puesto para
+    // todo el CMEE, no uno por laboratorio — su departamento en RRHH es un
+    // departamento general, no el de ningún laboratorio específico, así
+    // que nunca cumplía alcanceLaboratorio:true y nunca recibía la
+    // notificación. El propio control de acceso de esta misma acción
+    // (esJefe en recepcion-equipos.service.ts) ya lo trata así, sin
+    // restringir por laboratorio — se iguala el criterio de notificación al
+    // de Director, que tiene la misma naturaleza (un solo puesto, sin
+    // alcance por laboratorio).
+    { palabraClave: 'jefe', excluir: 'calidad', alcanceLaboratorio: false },
   ],
   [EstadoRecepcion.PENDIENTE_FIRMA_TECNICO]: 'tecnico',
   [EstadoRecepcion.REVISION_JEFE]: [
-    { palabraClave: 'jefe', excluir: 'calidad', alcanceLaboratorio: true },
+    { palabraClave: 'jefe', excluir: 'calidad', alcanceLaboratorio: false },
   ],
   [EstadoRecepcion.REVISION_DIRECTOR]: [
     { palabraClave: 'director', alcanceLaboratorio: false },
@@ -41,6 +50,66 @@ const RESPONSABLES_POR_ESTADO: Partial<
     { palabraClave: 'responsable servicio al cliente', alcanceLaboratorio: false },
   ],
 };
+
+export interface DetalleCriterioResuelto {
+  palabraClave: string;
+  excluir?: string;
+  alcanceLaboratorio: boolean;
+  encontrados: number[];
+}
+
+export interface DestinatariosResueltos {
+  criterio: 'tecnico' | CriterioRol[] | null;
+  personaIds: number[];
+  detalle?: DetalleCriterioResuelto[];
+}
+
+/**
+ * Resuelve QUIÉN debe ser notificado para un estadoNuevo dado, sin efectos
+ * secundarios (no crea notificaciones). Separado de notificarResponsablesEquipo
+ * para poder reutilizarlo también como previsualización de diagnóstico (ver
+ * RecepcionEquiposController#notificarPreview) — cuando "a X no le llega la
+ * notificación" no alcanza con revisar el código a ojo, hay que poder ver
+ * en vivo qué devuelve esta resolución contra los datos reales.
+ */
+export async function resolverDestinatarios(
+  prisma: PrismaService,
+  equipo: EquipoParaNotificar,
+  estadoNuevo: EstadoRecepcion,
+): Promise<DestinatariosResueltos> {
+  const criterio = RESPONSABLES_POR_ESTADO[estadoNuevo] ?? null;
+  if (!criterio) return { criterio: null, personaIds: [] };
+
+  if (criterio === 'tecnico') {
+    return {
+      criterio,
+      personaIds: equipo.tecnico_id ? [equipo.tecnico_id] : [],
+    };
+  }
+
+  const personaIds = new Set<number>();
+  const detalle: DetalleCriterioResuelto[] = [];
+  for (const { palabraClave, excluir, alcanceLaboratorio } of criterio) {
+    const asignaciones = await prisma.personaPuesto.findMany({
+      where: {
+        activo: true,
+        puesto: { nombre: { contains: palabraClave, mode: 'insensitive' } },
+        ...(excluir
+          ? { NOT: { puesto: { nombre: { contains: excluir, mode: 'insensitive' } } } }
+          : {}),
+        ...(alcanceLaboratorio
+          ? { departamento: { laboratorio_id: equipo.laboratorio_id } }
+          : {}),
+      },
+      select: { persona_id: true },
+    });
+    const encontrados = asignaciones.map((a) => a.persona_id);
+    encontrados.forEach((id) => personaIds.add(id));
+    detalle.push({ palabraClave, excluir, alcanceLaboratorio, encontrados });
+  }
+
+  return { criterio, personaIds: [...personaIds], detalle };
+}
 
 /**
  * Notifica a quien deba actuar a continuación tras un cambio de estado de un
@@ -61,36 +130,10 @@ export async function notificarResponsablesEquipo(
   estadoNuevo: EstadoRecepcion,
 ): Promise<void> {
   try {
-    const criterio = RESPONSABLES_POR_ESTADO[estadoNuevo];
-    if (!criterio) return;
+    const { personaIds } = await resolverDestinatarios(prisma, equipo, estadoNuevo);
+    if (personaIds.length === 0) return;
 
     const mensaje = `Equipo "${equipo.equipo_descripcion}" pendiente de su revisión (${estadoNuevo}).`;
-
-    if (criterio === 'tecnico') {
-      if (equipo.tecnico_id) {
-        await notificaciones.crear('recepcion_equipos', mensaje, equipo.tecnico_id, equipo.id);
-      }
-      return;
-    }
-
-    const personaIds = new Set<number>();
-    for (const { palabraClave, excluir, alcanceLaboratorio } of criterio) {
-      const asignaciones = await prisma.personaPuesto.findMany({
-        where: {
-          activo: true,
-          puesto: { nombre: { contains: palabraClave, mode: 'insensitive' } },
-          ...(excluir
-            ? { NOT: { puesto: { nombre: { contains: excluir, mode: 'insensitive' } } } }
-            : {}),
-          ...(alcanceLaboratorio
-            ? { departamento: { laboratorio_id: equipo.laboratorio_id } }
-            : {}),
-        },
-        select: { persona_id: true },
-      });
-      asignaciones.forEach((a) => personaIds.add(a.persona_id));
-    }
-
     for (const personaId of personaIds) {
       await notificaciones.crear('recepcion_equipos', mensaje, personaId, equipo.id);
     }
