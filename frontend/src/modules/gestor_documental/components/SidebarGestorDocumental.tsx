@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Settings, FolderPlus, Folder, ChevronRight, ChevronDown } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
+import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 
 interface SidebarGestorDocumentalProps {
   mobile?: boolean;
@@ -12,6 +13,11 @@ interface SidebarGestorDocumentalProps {
 const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDocumentalProps) => {
     const navigate = useNavigate();
     const location = useLocation();
+
+    const usuario = getUsuarioActual();
+    const esAdministrador = Array.isArray(usuario?.grupos)
+        ? usuario.grupos.some((g: any) => typeof g?.nombre === 'string' && g.nombre.toLowerCase() === 'administrador')
+        : false;
 
     const [carpetas, setCarpetas] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -137,13 +143,18 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
 
                 <div className={`p-3 flex flex-col gap-3 flex-1 min-h-0 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => { navigate('/gestordocumental/configuracion'); onNavigate?.(); }}
-                            className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"
-                            title="Administración"
-                        >
-                            <Settings className="w-4 h-4 text-gray-600" />
-                        </button>                        <button onClick={() => { navigate('/gestordocumental/nueva-carpeta'); onNavigate?.(); }} className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><FolderPlus className="w-4 h-4 text-gray-600" /></button>
+                        <div className="flex items-center gap-1">
+                        {esAdministrador && (
+                            <button
+                                onClick={() => { navigate('/gestordocumental/configuracion'); onNavigate?.(); }}
+                                className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"
+                                title="Administración"
+                            >
+                                <Settings className="w-4 h-4 text-gray-600" />
+                            </button>
+                        )}
+                        <button onClick={() => { navigate('/gestordocumental/nueva-carpeta'); onNavigate?.(); }} className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><FolderPlus className="w-4 h-4 text-gray-600" /></button>
+                    </div>
                     </div>
 
                     <input
