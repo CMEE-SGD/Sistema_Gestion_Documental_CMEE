@@ -57,7 +57,7 @@ export const QuejasPage = () => {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Quejas</h1>
           <p className="text-sm text-gray-500">Recepción, análisis y cierre de quejas (AC1.3.F1-3)</p>
@@ -80,8 +80,8 @@ export const QuejasPage = () => {
       {loading ? (
         <div className="text-center py-10 text-gray-400">Cargando...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+          <table className="w-full text-sm min-w-[760px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Código</th>

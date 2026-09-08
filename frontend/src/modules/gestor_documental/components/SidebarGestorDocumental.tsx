@@ -4,7 +4,12 @@ import { Settings, FolderPlus, Folder, ChevronRight, ChevronDown } from 'lucide-
 import api from '../../../core/api/axios';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 
-const SidebarGestorDocumental = () => {
+interface SidebarGestorDocumentalProps {
+  mobile?: boolean;
+  onNavigate?: () => void;
+}
+
+const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDocumentalProps) => {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -89,6 +94,7 @@ const SidebarGestorDocumental = () => {
                             <div
                                 onClick={() => {
                                     navigate(`/gestordocumental/carpeta/${encodeId(carpeta.id)}`);
+                                    onNavigate?.();
                                     if (hasChildren) {
                                         setExpandedFolders(prev => {
                                             const isOpening = !prev[carpeta.id];
@@ -130,7 +136,7 @@ const SidebarGestorDocumental = () => {
     return (
         <aside
             className={`${sidebarOpen ? 'w-72 border-r' : 'w-12 border-r'
-                } transition-all duration-300 ease-in-out bg-white shrink-0 overflow-hidden border-gray-200 relative shadow-sm z-10`}
+                } transition-all duration-300 ease-in-out bg-white shrink-0 overflow-hidden border-gray-200 relative shadow-sm z-10 ${mobile ? 'h-full' : ''}`}
         >
             <div className="w-72 h-full absolute top-0 left-0 flex flex-col">
                 {/* Cabecera del Sidebar */}
@@ -147,12 +153,12 @@ const SidebarGestorDocumental = () => {
                 <div className={`p-3 flex flex-col gap-3 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     <div className="flex items-center gap-1">
                         <button
-                            onClick={() => navigate('/gestordocumental/configuracion')}
+                            onClick={() => { navigate('/gestordocumental/configuracion'); onNavigate?.(); }}
                             className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"
                             title="Administración"
                         >
                             <Settings className="w-4 h-4 text-gray-600" />
-                        </button>                        <button onClick={() => navigate('/gestordocumental/nueva-carpeta')} className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><FolderPlus className="w-4 h-4 text-gray-600" /></button>
+                        </button>                        <button onClick={() => { navigate('/gestordocumental/nueva-carpeta'); onNavigate?.(); }} className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors"><FolderPlus className="w-4 h-4 text-gray-600" /></button>
                     </div>
 
                     <input

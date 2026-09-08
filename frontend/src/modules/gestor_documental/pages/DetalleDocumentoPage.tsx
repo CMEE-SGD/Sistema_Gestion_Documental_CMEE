@@ -356,11 +356,11 @@ export const DetalleDocumentoPage = () => {
     const enFaseElaboracion = !!faseActiva && faseActiva.fase_id === faseElaboracion?.fase_id;
 
     return (
-        <div className="flex flex-col w-full min-h-screen bg-white p-6 text-[13px] text-gray-800">
+        <div className="flex flex-col w-full min-w-0 bg-white p-4 md:p-6 text-[13px] text-gray-800">
 
             {/* 👉 TÍTULO ACTUALIZADO CON LA RUTA AL LADO */}
-            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-3">
-                Información del documento <span className="text-sm text-gray-500 font-normal">{getBreadcrumb(documento.carpeta_id)}/{documento.nombre}</span>
+            <h2 className="text-lg font-bold text-gray-800 mb-4 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                Información del documento <span className="text-sm text-gray-500 font-normal break-all">{getBreadcrumb(documento.carpeta_id)}/{documento.nombre}</span>
 
 
             </h2>
@@ -542,42 +542,42 @@ export const DetalleDocumentoPage = () => {
             )}
 
             {/* Sección de Datos */}
-            <div className="flex flex-col border border-gray-200">
+            <div className="flex flex-col border border-gray-200 rounded-lg overflow-hidden">
 
-                <div className="grid grid-cols-12 bg-gray-100 font-bold text-gray-600 uppercase text-xs border-b border-gray-200">
-                    <div className="col-span-5 p-2 border-r border-gray-200">Título</div>
-                    <div className="col-span-2 p-2 border-r border-gray-200">Versión</div>
-                    <div className="col-span-3 p-2 border-r border-gray-200">Fecha Creación</div>
-                    <div className="col-span-2 p-2">Fase</div>
+                <div className="grid grid-cols-2 md:grid-cols-12 bg-gray-100 font-bold text-gray-600 uppercase text-xs border-b border-gray-200">
+                    <div className="md:col-span-5 p-2 md:border-r border-gray-200">Título</div>
+                    <div className="md:col-span-2 p-2 md:border-r border-gray-200">Versión</div>
+                    <div className="md:col-span-3 p-2 md:border-r border-gray-200">Fecha Creación</div>
+                    <div className="md:col-span-2 p-2">Fase</div>
                 </div>
-                <div className="grid grid-cols-12 bg-white border-b border-gray-200">
-                    <div className="col-span-5 p-2 border-r border-gray-200 uppercase">{documento.nombre}</div>
-                    <div className="col-span-2 p-2 border-r border-gray-200">{documento.version || '1'}</div>
-                    <div className="col-span-3 p-2 border-r border-gray-200">{fechaCreacion}</div>
-                    <div className="col-span-2 p-2">{documento.workflow?.fases?.find((f: any) => f.estado === 'EN_CURSO')?.fase?.nombre || documento.workflow?.estado || ''}</div>
+                <div className="grid grid-cols-2 md:grid-cols-12 bg-white border-b border-gray-200">
+                    <div className="md:col-span-5 p-2 md:border-r border-gray-200 uppercase break-all">{documento.nombre}</div>
+                    <div className="md:col-span-2 p-2 md:border-r border-gray-200">{documento.version || '1'}</div>
+                    <div className="md:col-span-3 p-2 md:border-r border-gray-200">{fechaCreacion}</div>
+                    <div className="md:col-span-2 p-2">{documento.workflow?.fases?.find((f: any) => f.estado === 'EN_CURSO')?.fase?.nombre || documento.workflow?.estado || ''}</div>
                 </div>
 
-                <div className="grid grid-cols-12 bg-gray-100 font-bold text-gray-600 uppercase text-xs border-b border-gray-200">
-                    <div className="col-span-7 p-2 border-r border-gray-200">Empresa</div>
-                    <div className="col-span-5 p-2">Fichero</div>
+                <div className="grid grid-cols-2 md:grid-cols-12 bg-gray-100 font-bold text-gray-600 uppercase text-xs border-b border-gray-200">
+                    <div className="md:col-span-7 p-2 md:border-r border-gray-200">Empresa</div>
+                    <div className="md:col-span-5 p-2">Fichero</div>
                 </div>
-                <div className="grid grid-cols-12 bg-white border-b border-gray-200">
-                    <div className="col-span-7 p-2 border-r border-gray-200">{documento.empresa || 'Centro de Metrología del Ejército Ecuatoriano'}</div>
+                <div className="grid grid-cols-2 md:grid-cols-12 bg-white border-b border-gray-200">
+                    <div className="md:col-span-7 p-2 md:border-r border-gray-200 break-words">{documento.empresa || 'Centro de Metrología del Ejército Ecuatoriano'}</div>
                     <div
                         onClick={handleAbrirFichero}
-                        className="col-span-5 p-2 text-blue-600 cursor-pointer hover:underline font-bold"
+                        className="md:col-span-5 p-2 text-blue-600 cursor-pointer hover:underline font-bold break-all"
                         title="Clic para abrir en una nueva pestaña"
                     >
                         {nombreFichero}
                     </div>                </div>
 
-                <div className="grid grid-cols-12 bg-gray-100 font-bold text-gray-600 uppercase text-xs border-b border-gray-200">
-                    <div className="col-span-7 p-2 border-r border-gray-200">Circuito</div>
-                    <div className="col-span-5 p-2">Estado</div>
+                <div className="grid grid-cols-2 md:grid-cols-12 bg-gray-100 font-bold text-gray-600 uppercase text-xs border-b border-gray-200">
+                    <div className="md:col-span-7 p-2 md:border-r border-gray-200">Circuito</div>
+                    <div className="md:col-span-5 p-2">Estado</div>
                 </div>
-                <div className="grid grid-cols-12 bg-white border-b border-gray-200">
-                    <div className="col-span-7 p-2 border-r border-gray-200">{documento.circuito?.nombre || 'SIN CLASIFICAR'}</div>
-                    <div className="col-span-5 p-2">{documento.activo ? 'Activo' : 'Inactivo'}</div>
+                <div className="grid grid-cols-2 md:grid-cols-12 bg-white border-b border-gray-200">
+                    <div className="md:col-span-7 p-2 md:border-r border-gray-200 break-words">{documento.circuito?.nombre || 'SIN CLASIFICAR'}</div>
+                    <div className="md:col-span-5 p-2">{documento.activo ? 'Activo' : 'Inactivo'}</div>
                 </div>
 
                 <div className="bg-gray-100 font-bold text-gray-600 uppercase text-xs border-b border-gray-200 p-2">
@@ -585,8 +585,8 @@ export const DetalleDocumentoPage = () => {
                 </div>
                 {documento.workflow ? (
                     <div>
-                        <div className="bg-white p-2">
-                            <table className="w-full text-left">
+                        <div className="bg-white p-2 overflow-x-auto">
+                            <table className="w-full text-left min-w-max whitespace-nowrap">
                                 <thead>
                                     <tr className="font-bold text-gray-800 border-b border-gray-200 text-xs">
                                         <th className="w-8 pb-2"></th>
@@ -690,13 +690,13 @@ export const DetalleDocumentoPage = () => {
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
-                        <div className="p-5 overflow-y-auto text-sm">
+                        <div className="p-5 overflow-auto text-sm">
                             {loadingLogs ? (
                                 <p className="text-gray-500">Cargando historial...</p>
                             ) : logs.length === 0 ? (
                                 <p className="text-gray-500">No hay registros de auditoría para este documento.</p>
                             ) : (
-                                <table className="w-full text-left text-xs">
+                                <table className="w-full text-left text-xs min-w-[520px]">
                                     <thead>
                                         <tr className="font-bold text-gray-800 border-b border-gray-200">
                                             <th className="p-2">Fecha</th>
@@ -731,9 +731,9 @@ export const DetalleDocumentoPage = () => {
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
-                        <div className="overflow-y-auto text-sm">
+                        <div className="overflow-auto text-sm">
                             {documento.versiones && documento.versiones.length > 0 ? (
-                                <table className="w-full text-left">
+                                <table className="w-full text-left min-w-[560px]">
                                     <thead>
                                         <tr className="font-bold text-gray-800 border-b border-gray-200 text-xs">
                                             <th className="p-3">Versión</th>

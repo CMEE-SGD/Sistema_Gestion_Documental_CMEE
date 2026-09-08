@@ -65,7 +65,7 @@ export const AuditoriasPage = () => {
 
     return (
         <div className="p-6">
-            <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">Auditorías</h1>
                     <p className="text-sm text-gray-500">Planificación, ejecución y seguimiento de auditorías internas y evaluaciones externas</p>
@@ -88,8 +88,8 @@ export const AuditoriasPage = () => {
                 </select>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <table className="w-full text-left text-sm">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full text-left text-sm min-w-[820px]">
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
                         <tr>
                             <th className="px-4 py-3 font-semibold">Código</th>

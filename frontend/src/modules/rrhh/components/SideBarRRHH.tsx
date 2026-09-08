@@ -11,14 +11,20 @@ const menuItems = [
 ];
 
 // 1. Quitamos la palabra "export" de aquí
-const SidebarRRHH = () => {
+interface SidebarRRHHProps {
+  mobile?: boolean;
+  onNavigate?: () => void;
+}
+
+const SidebarRRHH = ({ mobile = false, onNavigate }: SidebarRRHHProps) => {
     return (
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
+        <aside className={`w-64 bg-white border-r border-gray-200 flex flex-col ${mobile ? 'h-full' : 'min-h-screen'}`}>
             {/* Header con enlace al Index */}
             <div className="p-4 border-b border-gray-200">
                 <NavLink
                     to="/rrhh"
                     end // Solo se marca como activo en la ruta exacta
+                    onClick={onNavigate}
                     className={({ isActive }) =>
                         `text-lg font-bold flex items-center gap-2 transition-colors cursor-pointer ${
                             isActive
@@ -38,6 +44,7 @@ const SidebarRRHH = () => {
                         <li key={item.path}>
                             <NavLink
                                 to={item.path}
+                                onClick={onNavigate}
                                 className={({ isActive }) =>
                                 `flex items-center gap-3 px-4 py-2 text-sm font-medium transition-colors ${
                                     isActive

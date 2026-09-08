@@ -122,8 +122,8 @@ export const UsuariosPage = () => {
             </div>
 
             {/* Tabla */}
-            <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                <table className="w-full text-left text-sm">
+            <div className="bg-card border border-border rounded-xl shadow-sm overflow-x-auto">
+                <table className="w-full text-left text-sm min-w-max whitespace-nowrap">
                     <thead className="bg-muted/50 border-b border-border">
                         <tr>
                             <th className="px-6 py-3 font-semibold text-muted-foreground">Usuario</th>

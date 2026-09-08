@@ -12,7 +12,7 @@ const BrandLogo = () => {
       <div className="bg-white/10 p-1.5 rounded-lg group-hover:bg-white/20 transition-colors">
         <img src={logoCentro} alt="Logo CMEE" className="h-7 w-auto drop-shadow-sm" />
       </div>
-      <span className="text-primary-foreground font-bold text-sm tracking-[0.15em] uppercase">
+      <span className="hidden sm:inline text-primary-foreground font-bold text-sm tracking-[0.15em] uppercase">
         SI-CMEE
       </span>
     </div>
