@@ -183,7 +183,7 @@ export const DocumentosPersonaPage = () => {
             <div className="p-4">
                 <div className="border border-gray-300 shadow-sm">
                     <div className="bg-[#8eb8d5] text-white font-bold px-4 py-2 text-sm">
-                        Listado de Documentos
+                        Listado de Documentos ({documentos.length})
                     </div>
 
                     <div className="p-4 bg-white">

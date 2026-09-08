@@ -431,7 +431,7 @@ export const GestorDocumentalPage = () => {
                         </label>
                     </div>
 
-                    <div className="overflow-auto bg-white rounded-lg pb-10">
+                    <div className="overflow-auto bg-white rounded-lg pb-10 max-h-[calc(100vh-190px)]">
                         {loading ? (
                             <div className="flex justify-center text-gray-400 p-10">Cargando árbol documental...</div>
                         ) : carpetas.length === 0 ? (

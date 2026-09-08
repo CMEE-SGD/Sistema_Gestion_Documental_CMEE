@@ -25,9 +25,6 @@ export class CarpetaPermisoDto {
 
   @IsOptional() @IsBoolean()
   permiso_carpetas?: boolean;
-
-  @IsOptional() @IsBoolean()
-  permiso_extra?: boolean;
 }
 
 /** Módulo controlador o servicio para gestionar la entidad CreateCarpetaDto. */

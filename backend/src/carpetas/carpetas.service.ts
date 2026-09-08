@@ -156,7 +156,6 @@ export class CarpetasService {
         nivel_permiso: p.nivel_permiso ?? 1,
         permiso_docs: p.permiso_docs ?? false,
         permiso_carpetas: p.permiso_carpetas ?? false,
-        permiso_extra: p.permiso_extra ?? false,
       }));
       await this.prisma.carpetaPermiso.createMany({ data: permisosData });
     }
@@ -202,7 +201,6 @@ export class CarpetasService {
           nivel_permiso: p.nivel_permiso ?? 1,
           permiso_docs: p.permiso_docs ?? false,
           permiso_carpetas: p.permiso_carpetas ?? false,
-          permiso_extra: p.permiso_extra ?? false,
         }));
         await this.prisma.carpetaPermiso.createMany({ data: permisosData });
       }
