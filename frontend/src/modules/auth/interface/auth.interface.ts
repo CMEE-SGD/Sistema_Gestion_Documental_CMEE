@@ -4,6 +4,8 @@ export interface UserInfo {
   id: number;
   persona_id?: number;
   nombre_usuario: string;
+  rol?: string;
+  grupos?: { id: number; nombre: string }[];
   laboratorio_id?: number | null;
   persona?: {
     nombre: string;
