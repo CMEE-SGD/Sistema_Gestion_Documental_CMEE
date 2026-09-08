@@ -410,7 +410,8 @@ export const DetalleDocumentoPage = () => {
                 </button>
                 <button 
                     onClick={handleImprimir}
-                    className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                    disabled={nivelPermiso < 2}
+                    className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 2 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Imprimir
                 </button>

@@ -25,6 +25,9 @@ export const GestorDocumentalPage = () => {
     const [expandedFolders, setExpandedFolders] = useState<Record<number, boolean>>({});
     const carpetaSeleccionada = id ? carpetas.find(c => c.id.toString() === id) : null;
     const esSubcarpeta = carpetaSeleccionada?.tipo === 'SUBCARPETA';
+    const puedeMover = misPermisos.nivel_permiso >= 4;
+    const puedeEliminar = misPermisos.nivel_permiso >= 5;
+    const puedeImprimir = misPermisos.nivel_permiso >= 2;
 
     const fetchDatos = useCallback(async () => {
         try {
@@ -294,16 +297,18 @@ export const GestorDocumentalPage = () => {
                             </button>
                             <button
                                 onClick={handleMoverDocumentos}
-                                className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                                disabled={!puedeMover}
+                                className={`px-3 py-1.5 text-sm border rounded transition-colors shadow-sm ${puedeMover ? 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50' : 'text-gray-300 bg-gray-50 border-gray-200 cursor-not-allowed'}`}
                             >
                                 Mover {documentosSeleccionados.length > 0 && `(${documentosSeleccionados.length})`}
                             </button>                            <button
                                 onClick={handleEliminarDocumentos}
-                                className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm"
+                                disabled={!puedeEliminar}
+                                className={`px-3 py-1.5 text-sm border rounded transition-colors shadow-sm ${puedeEliminar ? 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50' : 'text-gray-300 bg-gray-50 border-gray-200 cursor-not-allowed'}`}
                             >
                                 Eliminar {documentosSeleccionados.length > 0 && `(${documentosSeleccionados.length})`}
                             </button>
-                            <button onClick={handleImprimirDocumentos} className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Imprimir</button>
+                            <button onClick={handleImprimirDocumentos} disabled={!puedeImprimir} className={`px-3 py-1.5 text-sm border rounded transition-colors shadow-sm ${puedeImprimir ? 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50' : 'text-gray-300 bg-gray-50 border-gray-200 cursor-not-allowed'}`}>Imprimir</button>
                             <button
                                 disabled={!misPermisos.permiso_carpetas}
                                 onClick={() => navigate('/gestordocumental/nueva-carpeta', {
