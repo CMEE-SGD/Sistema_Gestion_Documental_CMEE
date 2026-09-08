@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Folder, Pencil } from 'lucide-react';
+import { Folder, Pencil, Move } from 'lucide-react';
 import api from '../../../../core/api/axios';
 import { EditCarpetaModal } from '../../components/EditCarpetaModal';
+import { MoverCarpetaModal } from '../../components/MoverCarpetaModal';
 
 export const CarpetasConfigPage = () => {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export const CarpetasConfigPage = () => {
   const [libreriaId, setLibreriaId] = useState('');
   const [areaId, setAreaId] = useState('');
   const [editId, setEditId] = useState<number | null>(null);
+  const [moverId, setMoverId] = useState<number | null>(null);
 
   const fetchCarpetas = async () => {
     try {
@@ -60,6 +62,7 @@ export const CarpetasConfigPage = () => {
   };
 
   const estructuraPlana = areaId ? obtenerSubcarpetasAnidadas(Number(areaId)) : [];
+  const moverItem = moverId ? carpetas.find(c => c.id === moverId) : null;
 
   return (
     <div className="bg-white">
@@ -124,6 +127,9 @@ export const CarpetasConfigPage = () => {
                         <button onClick={() => setEditId(carpeta.id)} className="px-2 py-1 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center gap-1">
                           <Pencil className="w-3 h-3" /> Editar
                         </button>
+                        <button onClick={() => setMoverId(carpeta.id)} className="px-2 py-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 transition-colors flex items-center gap-1">
+                          <Move className="w-3 h-3" /> Mover
+                        </button>
                         <button onClick={() => navigate('/gestordocumental/nueva-carpeta', { state: { carpetaPadreId: carpeta.id, carpetaPadreNombre: carpeta.nombre } })} className="px-2 py-1 text-[11px] text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">
                           Nueva subcarpeta
                         </button>
@@ -138,6 +144,14 @@ export const CarpetasConfigPage = () => {
       )}
 
       {editId && <EditCarpetaModal carpetaId={editId} onClose={() => setEditId(null)} onSaved={() => { setEditId(null); fetchCarpetas(); }} />}
+      {moverItem && (
+        <MoverCarpetaModal
+          item={moverItem}
+          carpetas={carpetas}
+          onClose={() => setMoverId(null)}
+          onMoved={() => { setMoverId(null); fetchCarpetas(); }}
+        />
+      )}
     </div>
   );
 };
