@@ -294,23 +294,25 @@ export class DocumentosService {
     const rutaDestinoAbsoluta = path.resolve(process.cwd(), rutaDestinoRelativa);
     if (!fs.existsSync(rutaDestinoAbsoluta)) fs.mkdirSync(rutaDestinoAbsoluta, { recursive: true });
 
-    // Cada fase firmada guarda su PROPIO archivo físico (no se sobrescribe
-    // el de una fase anterior). El modal de firma descarga el PDF base una
-    // sola vez al abrirse y le aplica una actualización incremental con la
-    // firma; si esa operación escribiera sobre el mismo archivo que otra
-    // fase sigue referenciando, el xref de la actualización incremental
-    // termina apuntando a offsets que ya no corresponden al archivo
-    // guardado, dejando el PDF corrupto (xref roto) para quien lo abra.
-    // Mantener un archivo por fase también preserva el historial: el "Ver
-    // PDF" de cada fase completada sigue mostrando exactamente lo que se
-    // firmó en ese momento.
-    const nombreArchivo = `firma_${faseActual.id}_${file.filename}`;
-    const rutaFisicaFinal = path.join(rutaDestinoAbsoluta, nombreArchivo);
+    // Conserva el nombre original del documento en uploads y sobrescribe el
+    // mismo archivo físico en cada firma (eliminando la versión anterior),
+    // en vez de ir creando ficheros acumulados tipo firma_<id>_...
+    const nombreOriginal = doc.archivo_url ? path.basename(doc.archivo_url) : file.filename;
+    const rutaFisicaFinal = path.join(rutaDestinoAbsoluta, nombreOriginal);
+    if (fs.existsSync(rutaFisicaFinal)) fs.unlinkSync(rutaFisicaFinal);
     fs.writeFileSync(rutaFisicaFinal, pdfBuffer);
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-    const urlParaBD = path.join(rutaDestinoRelativa, nombreArchivo).replace(/\\/g, '/');
+    const urlParaBD = path.join(rutaDestinoRelativa, nombreOriginal).replace(/\\/g, '/');
 
     return this.prisma.$transaction(async (tx) => {
+      // Solo la fase recién firmada conserva el archivo PDF. Se limpia el
+      // archivo_url de las demás fases para que en la vista del documento
+      // únicamente la firma actual muestre "Ver PDF"/"Descargar"; las fases
+      // anteriores dejan de exponer el documento.
+      await tx.documentoWorkflowFase.updateMany({
+        where: { workflow_id: workflow.id, estado: { in: ['COMPLETADO', 'RECHAZADO'] } },
+        data: { archivo_url: null },
+      });
       await tx.documentoWorkflowFase.update({
         where: { id: faseActual.id },
         data: {

@@ -3,25 +3,43 @@ import { useNavigate } from 'react-router-dom';
 import { RefreshCcw } from 'lucide-react';
 import api from '../../../../core/api/axios';
 import { encodeId } from '../../../../shared/utils/ids';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 
 export const CircuitosConfigPage = () => {
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
     const [circuitos, setCircuitos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const fetchCircuitos = async () => {
+        try {
+            const res = await api.get('/circuitos');
+            setCircuitos(Array.isArray(res.data) ? res.data : []);
+        } catch (error) {
+            console.error("Error al cargar circuitos:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchCircuitos = async () => {
-            try {
-                const res = await api.get('/circuitos');
-                setCircuitos(Array.isArray(res.data) ? res.data : []);
-            } catch (error) {
-                console.error("Error al cargar circuitos:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchCircuitos();
     }, []);
+
+    const handleEliminar = async (circuito: any) => {
+        const confirmacion = await confirm({
+            title: 'Eliminar circuito',
+            message: `¿Está seguro de eliminar el circuito "${circuito.nombre}"? Se eliminarán también todas sus fases. Esta acción no se puede deshacer.`,
+        });
+        if (!confirmacion) return;
+        try {
+            await api.delete(`/circuitos/${circuito.id}`);
+            setCircuitos(prev => prev.filter(c => c.id !== circuito.id));
+        } catch (error: any) {
+            console.error("Error al eliminar circuito:", error);
+            await alert({ message: error?.response?.data?.message || 'Ocurrió un error al eliminar el circuito.' });
+        }
+    };
 
     return (
         <div className="bg-white">
@@ -69,6 +87,12 @@ export const CircuitosConfigPage = () => {
                                             className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm text-gray-700 font-medium"
                                         >
                                             Fases
+                                        </button>
+                                        <button
+                                            onClick={() => handleEliminar(circuito)}
+                                            className="px-3 py-1 ml-2 bg-red-600 text-white border border-red-600 rounded hover:bg-red-700 shadow-sm"
+                                        >
+                                            Eliminar
                                         </button>
                                     </td>
                                 </tr>

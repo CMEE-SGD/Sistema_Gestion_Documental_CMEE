@@ -3,30 +3,48 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Settings, Users } from 'lucide-react'; 
 import api from '../../../../core/api/axios';
 import { encodeId, decodeId } from '../../../../shared/utils/ids';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 
 export const FasesConfigPage = () => {
     const { circuitoId: rawCircuitoId } = useParams();
     const circuitoId = rawCircuitoId ? decodeId(rawCircuitoId) : undefined;
     const location = useLocation();
     const navigate = useNavigate();
+    const { alert, confirm } = useAlert();
     
     const nombreCircuito = location.state?.nombreCircuito || 'Desconocido';
     const [fases, setFases] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const fetchFases = async () => {
+        try {
+            const res = await api.get(`/circuitos/${circuitoId}/fases`);
+            setFases(Array.isArray(res.data) ? res.data : []);
+        } catch (error) {
+            console.error("Error al cargar fases:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchFases = async () => {
-            try {
-                const res = await api.get(`/circuitos/${circuitoId}/fases`);
-                setFases(Array.isArray(res.data) ? res.data : []);
-            } catch (error) {
-                console.error("Error al cargar fases:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         if (circuitoId) fetchFases();
     }, [circuitoId]);
+
+    const handleEliminar = async (fase: any) => {
+        const confirmacion = await confirm({
+            title: 'Eliminar fase',
+            message: `¿Está seguro de eliminar la fase "${fase.nombre}"? Esta acción no se puede deshacer.`,
+        });
+        if (!confirmacion) return;
+        try {
+            await api.delete(`/circuitos/${circuitoId}/fases/${fase.id}`);
+            setFases(prev => prev.filter(f => f.id !== fase.id));
+        } catch (error: any) {
+            console.error("Error al eliminar fase:", error);
+            await alert({ message: error?.response?.data?.message || 'Ocurrió un error al eliminar la fase.' });
+        }
+    };
 
     return (
         <div className="bg-white">
@@ -98,6 +116,12 @@ export const FasesConfigPage = () => {
                                                 className="px-3 py-1 mr-2 bg-white border border-gray-300 rounded hover:bg-gray-50 shadow-sm text-gray-700"
                                             >
                                                 Editar
+                                            </button>
+                                            <button 
+                                                onClick={() => handleEliminar(fase)}
+                                                className="px-3 py-1 bg-red-600 text-white border border-red-600 rounded hover:bg-red-700 shadow-sm"
+                                            >
+                                                Eliminar
                                             </button>
                                         </td>
                                     </tr>
