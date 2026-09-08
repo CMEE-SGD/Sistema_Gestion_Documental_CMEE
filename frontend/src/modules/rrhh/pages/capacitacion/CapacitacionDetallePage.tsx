@@ -73,12 +73,12 @@ export const CapacitacionDetallePage = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-6">
         <button onClick={() => navigate('/rrhh/capacitaciones')} className="p-1.5 hover:bg-gray-200 rounded-full text-gray-500">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <GraduationCap className="w-5 h-5 text-blue-600" />
-        <h1 className="text-lg font-bold text-gray-800">{cap.nombre}</h1>
+        <GraduationCap className="w-5 h-5 text-blue-600 shrink-0" />
+        <h1 className="text-lg font-bold text-gray-800 break-words">{cap.nombre}</h1>
         <span className={`ml-2 px-2 py-0.5 rounded text-xs font-semibold ${estadoColors[cap.estado] || 'bg-gray-100'}`}>
           {cap.estado?.replace('_', ' ')}
         </span>
@@ -105,7 +105,8 @@ export const CapacitacionDetallePage = () => {
           Participantes ({cap.participantes?.length || 0})
         </div>
         {cap.participantes?.length > 0 ? (
-          <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-gray-200 text-xs text-gray-600">
                 <th className="p-3">#</th>
@@ -166,6 +167,7 @@ export const CapacitacionDetallePage = () => {
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <div className="p-3 text-sm text-gray-500">Sin participantes registrados</div>
         )}

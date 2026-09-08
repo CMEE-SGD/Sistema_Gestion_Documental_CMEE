@@ -83,13 +83,13 @@ export const CapacitacionesPersonaPage = () => {
             <div className="p-4">
                 <div className="border border-gray-300 shadow-sm">
                     <div className="bg-[#8eb8d5] text-white font-bold px-4 py-2 text-sm">
-                        Capacitaciones en las que participa
+                        Capacitaciones en las que participa ({capacitaciones.length})
                     </div>
-                    <div className="p-4 bg-white">
+                    <div className="p-4 bg-white overflow-x-auto">
                         {capacitaciones.length === 0 ? (
                             <div className="text-gray-500 italic text-[12px] p-2">Esta persona no tiene capacitaciones registradas.</div>
                         ) : (
-                            <table className="w-full text-left text-[12px] border-collapse">
+                            <table className="w-full text-left text-[12px] border-collapse min-w-[880px]">
                                 <thead>
                                     <tr className="border-b-2 border-gray-300 bg-gray-100 text-gray-700">
                                         <th className="py-2.5 px-3 font-bold">Nombre</th>
