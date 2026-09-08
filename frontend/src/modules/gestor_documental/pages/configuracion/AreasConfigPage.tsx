@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FolderTree, Pencil } from 'lucide-react';
+import { FolderTree, Pencil, Move } from 'lucide-react';
 import api from '../../../../core/api/axios';
 import { EditCarpetaModal } from '../../components/EditCarpetaModal';
+import { MoverCarpetaModal } from '../../components/MoverCarpetaModal';
 
 export const AreasConfigPage = () => {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export const AreasConfigPage = () => {
   const [loading, setLoading] = useState(true);
   const [libreriaId, setLibreriaId] = useState('');
   const [editId, setEditId] = useState<number | null>(null);
+  const [moverId, setMoverId] = useState<number | null>(null);
 
   const fetchDatos = async () => {
     try {
@@ -32,6 +34,7 @@ export const AreasConfigPage = () => {
 
   const librerias = carpetas.filter(c => c.tipo === 'LIBRERIA').sort((a, b) => (a.orden || 0) - (b.orden || 0));
   const areasFiltradas = carpetas.filter(c => c.tipo === 'AREA' && c.carpeta_padre_id === Number(libreriaId)).sort((a, b) => (a.orden || 0) - (b.orden || 0));
+  const moverItem = moverId ? carpetas.find(c => c.id === moverId) : null;
 
   return (
     <div className="bg-white">
@@ -87,9 +90,14 @@ export const AreasConfigPage = () => {
                     <td className="px-3 py-1.5 text-center">{area.orden || 10}</td>
                     <td className="px-3 py-1.5 text-center">{area.activo ? 'Activo' : 'Inactivo'}</td>
                     <td className="px-3 py-1.5 text-center">
-                      <button onClick={() => setEditId(area.id)} className="px-2 py-1 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center gap-1 mx-auto">
-                        <Pencil className="w-3 h-3" /> Editar
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => setEditId(area.id)} className="px-2 py-1 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center gap-1">
+                          <Pencil className="w-3 h-3" /> Editar
+                        </button>
+                        <button onClick={() => setMoverId(area.id)} className="px-2 py-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 transition-colors flex items-center gap-1">
+                          <Move className="w-3 h-3" /> Mover
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -100,6 +108,14 @@ export const AreasConfigPage = () => {
       )}
 
       {editId && <EditCarpetaModal carpetaId={editId} onClose={() => setEditId(null)} onSaved={() => { setEditId(null); fetchDatos(); }} />}
+      {moverItem && (
+        <MoverCarpetaModal
+          item={moverItem}
+          carpetas={carpetas}
+          onClose={() => setMoverId(null)}
+          onMoved={() => { setMoverId(null); fetchDatos(); }}
+        />
+      )}
     </div>
   );
 };

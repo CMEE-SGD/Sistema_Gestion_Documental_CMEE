@@ -66,15 +66,6 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
         });
     }, [location.pathname, carpetas]);
 
-    const obtenerTodosLosDescendientes = useCallback((parentId: number): number[] => {
-        let hijos = carpetas.filter(c => c.carpeta_padre_id === parentId);
-        let descendientes = hijos.map(h => h.id);
-        hijos.forEach(h => {
-            descendientes = [...descendientes, ...obtenerTodosLosDescendientes(h.id)];
-        });
-        return descendientes;
-    }, [carpetas]);
-
     const RenderTree = ({ parentId, depth = 0 }: { parentId: number | null, depth?: number }) => {
         const children = parentId === null
             ? carpetas.filter(c => c.tipo === 'LIBRERIA')
@@ -95,28 +86,22 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
                                 onClick={() => {
                                     navigate(`/gestordocumental/carpeta/${encodeId(carpeta.id)}`);
                                     onNavigate?.();
-                                    if (hasChildren) {
-                                        setExpandedFolders(prev => {
-                                            const isOpening = !prev[carpeta.id];
-                                            const newState = { ...prev, [carpeta.id]: isOpening };
-                                            if (carpeta.tipo === 'AREA' && isOpening) {
-                                                const descendientes = obtenerTodosLosDescendientes(carpeta.id);
-                                                descendientes.forEach(id => { newState[id] = true; });
-                                            } else if (carpeta.tipo === 'AREA' && !isOpening) {
-                                                const descendientes = obtenerTodosLosDescendientes(carpeta.id);
-                                                descendientes.forEach(id => { newState[id] = false; });
-                                            }
-                                            return newState;
-                                        });
-                                    }
                                 }}
                                 className={`flex items-center gap-1.5 font-medium py-1.5 px-2 rounded cursor-pointer transition-colors ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
                                     }`}
                             >
                                 {hasChildren ? (
-                                    <div className="p-0.5 rounded text-gray-400">
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedFolders(prev => ({ ...prev, [carpeta.id]: !prev[carpeta.id] }));
+                                        }}
+                                        className="p-0.5 rounded text-gray-400 hover:text-gray-700"
+                                        title={isExpanded ? 'Contraer' : 'Desplegar'}
+                                    >
                                         {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                                    </div>
+                                    </button>
                                 ) : (
                                     <div className="w-4 h-4 shrink-0" />
                                 )}

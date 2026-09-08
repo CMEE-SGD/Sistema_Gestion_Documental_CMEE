@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -184,7 +184,29 @@ export class CarpetasService {
   }
 
   async update(id: number, data: any) {
-    const { permisos, ...carpetaData } = data;
+    const { permisos, carpeta_padre_id, ...carpetaData } = data;
+
+    if (carpeta_padre_id !== undefined) {
+      const nuevoPadre = carpeta_padre_id ? Number(carpeta_padre_id) : null;
+      if (nuevoPadre) {
+        const padreExiste = await this.prisma.carpeta.findUnique({ where: { id: nuevoPadre } });
+        if (!padreExiste) throw new NotFoundException('La carpeta destino no existe');
+      }
+      if (nuevoPadre === Number(id)) throw new BadRequestException('No puedes mover una carpeta dentro de sí misma');
+      let actual: number | null = nuevoPadre;
+      const visitados = new Set<number>();
+      while (actual) {
+        if (actual === Number(id)) throw new BadRequestException('No puedes mover una carpeta dentro de sus propias subcarpetas');
+        if (visitados.has(actual)) break;
+        visitados.add(actual);
+        const padre = await this.prisma.carpeta.findUnique({
+          where: { id: actual },
+          select: { carpeta_padre_id: true },
+        });
+        actual = padre?.carpeta_padre_id ?? null;
+      }
+      carpetaData.carpeta_padre_id = nuevoPadre;
+    }
 
     const updated = await this.prisma.carpeta.update({
       where: { id },
