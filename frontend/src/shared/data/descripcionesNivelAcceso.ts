@@ -74,3 +74,49 @@ export const DESCRIPCION_NIVELES: Record<string, Partial<Record<number, string>>
 export function descripcionNivel(nombreAplicacion: string, nivel: number): string {
   return DESCRIPCION_NIVELES[nombreAplicacion]?.[nivel] ?? '';
 }
+
+export interface NivelTier {
+  nivel: number;
+  texto: string;
+}
+
+/**
+ * Colapsa los 5 niveles de una aplicación a solo las opciones que de verdad
+ * son distintas entre sí. Como el acceso es acumulativo (@RequireAccess
+ * exige nivel >= N), un nivel sin ningún endpoint propio da exactamente el
+ * mismo resultado que el nivel definido anterior — mostrarlo aparte en el
+ * selector solo confunde ("¿por qué se repite esto?"), así que se colapsa
+ * a una sola opción. Cada opción queda anclada al nivel numérico MÁS BAJO
+ * que ya alcanza esa capacidad, que es el valor que se guarda al elegirla.
+ */
+export function tiersDeAplicacion(nombreAplicacion: string): NivelTier[] {
+  const niveles = DESCRIPCION_NIVELES[nombreAplicacion];
+  if (!niveles) {
+    return [1, 2, 3, 4, 5].map((n) => ({ nivel: n, texto: `Nivel ${n}` }));
+  }
+
+  const tiers: NivelTier[] = [];
+  for (let n = 1; n <= 5; n += 1) {
+    const texto = niveles[n];
+    if (texto === undefined) continue;
+    if (tiers.length > 0 && tiers[tiers.length - 1].texto === texto) continue;
+    tiers.push({ nivel: n, texto });
+  }
+  return tiers;
+}
+
+/**
+ * A qué nivel "de verdad" equivale el nivel guardado, para casos ya
+ * existentes en la base de datos que hayan quedado en un nivel "hueco"
+ * (ej. nivel 3 en una app que solo distingue 2 y 4) — se ancla al tier
+ * definido más alto que sea <= al valor guardado, así el selector siempre
+ * muestra una opción real en vez de quedar vacío.
+ */
+export function nivelEfectivo(nombreAplicacion: string, nivel: number): number {
+  const tiers = tiersDeAplicacion(nombreAplicacion);
+  let efectivo = tiers[0]?.nivel ?? nivel;
+  for (const tier of tiers) {
+    if (tier.nivel <= nivel) efectivo = tier.nivel;
+  }
+  return efectivo;
+}

@@ -5,7 +5,7 @@ import api from '../../core/api/axios';
 import { encodeId, decodeId } from '../../shared/utils/ids';
 import { useAlert } from '../../shared/components/molecules/AlertModal';
 import { useToast } from '../../shared/components/molecules/Toast';
-import { descripcionNivel } from '../../shared/data/descripcionesNivelAcceso';
+import { tiersDeAplicacion, nivelEfectivo } from '../../shared/data/descripcionesNivelAcceso';
 
 // Componente Toggle reutilizable modernizado
 const Toggle = ({ label, checked, onChange }: any) => (
@@ -271,12 +271,12 @@ export const GrupoFormPage = () => {
                                                 </div>
                                                 <div className="sm:col-span-5">
                                                     <select
-                                                        value={app.nivel}
+                                                        value={nivelEfectivo(app.nombre, app.nivel)}
                                                         onChange={(e) => handleAppChange(app.aplicacion_id, 'nivel', Number(e.target.value))}
                                                         className="w-full border border-input rounded-md px-3 py-2 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
                                                     >
-                                                        {[1, 2, 3, 4, 5].map(n => (
-                                                            <option key={n} value={n}>{`Nivel ${n}: ${descripcionNivel(app.nombre, n)}`}</option>
+                                                        {tiersDeAplicacion(app.nombre).map(({ nivel, texto }) => (
+                                                            <option key={nivel} value={nivel}>{`Nivel ${nivel}: ${texto}`}</option>
                                                         ))}
                                                     </select>
                                                 </div>
