@@ -5,6 +5,7 @@ import api from '../../core/api/axios';
 import { encodeId, decodeId } from '../../shared/utils/ids';
 import { useAlert } from '../../shared/components/molecules/AlertModal';
 import { useToast } from '../../shared/components/molecules/Toast';
+import { descripcionNivel } from '../../shared/data/descripcionesNivelAcceso';
 
 // Componente Toggle reutilizable modernizado
 const Toggle = ({ label, checked, onChange }: any) => (
@@ -262,34 +263,41 @@ export const GrupoFormPage = () => {
 
                                     <div className="divide-y divide-border">
                                         {formData.aplicaciones.map(app => (
-                                            <div key={app.aplicacion_id} className="grid grid-cols-12 gap-4 items-center px-4 py-3 hover:bg-muted/10 transition-colors">
-                                                <div className="col-span-5 text-sm font-medium text-foreground flex items-center">
-                                                    <div className="px-2.5 py-1 bg-secondary text-secondary-foreground rounded-md border border-border">
-                                                        {app.nombre}
+                                            <div key={app.aplicacion_id} className="px-4 py-3 hover:bg-muted/10 transition-colors">
+                                                <div className="grid grid-cols-12 gap-4 items-center">
+                                                    <div className="col-span-5 text-sm font-medium text-foreground flex items-center">
+                                                        <div className="px-2.5 py-1 bg-secondary text-secondary-foreground rounded-md border border-border">
+                                                            {app.nombre}
+                                                        </div>
+                                                    </div>
+                                                    <div className="col-span-3 px-2">
+                                                        <select
+                                                            value={app.nivel}
+                                                            onChange={(e) => handleAppChange(app.aplicacion_id, 'nivel', Number(e.target.value))}
+                                                            className="w-full border border-input rounded-md px-2 py-1.5 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
+                                                        >
+                                                            {[1, 2, 3, 4, 5].map(n => (
+                                                                <option key={n} value={n}>{`Nivel ${n}: ${descripcionNivel(app.nombre, n)}`}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div className="col-span-3 px-2">
+                                                        <input
+                                                            type="number"
+                                                            value={app.orden}
+                                                            onChange={(e) => handleAppChange(app.aplicacion_id, 'orden', Number(e.target.value))}
+                                                            className="w-full border border-input rounded-md px-3 py-1.5 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-1 flex justify-center">
+                                                        <button type="button" onClick={() => handleRemoveApp(app.aplicacion_id)} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-md transition-colors">
+                                                            <X className="w-4 h-4" />
+                                                        </button>
                                                     </div>
                                                 </div>
-                                                <div className="col-span-3 px-2">
-                                                    <select 
-                                                        value={app.nivel} 
-                                                        onChange={(e) => handleAppChange(app.aplicacion_id, 'nivel', Number(e.target.value))}
-                                                        className="w-full border border-input rounded-md px-2 py-1.5 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
-                                                    >
-                                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>Nivel {n}</option>)}
-                                                    </select>
-                                                </div>
-                                                <div className="col-span-3 px-2">
-                                                    <input 
-                                                        type="number" 
-                                                        value={app.orden} 
-                                                        onChange={(e) => handleAppChange(app.aplicacion_id, 'orden', Number(e.target.value))}
-                                                        className="w-full border border-input rounded-md px-3 py-1.5 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
-                                                    />
-                                                </div>
-                                                <div className="col-span-1 flex justify-center">
-                                                    <button type="button" onClick={() => handleRemoveApp(app.aplicacion_id)} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-md transition-colors">
-                                                        <X className="w-4 h-4" />
-                                                    </button>
-                                                </div>
+                                                <p className="mt-2 pl-2 text-xs text-muted-foreground leading-relaxed">
+                                                    {descripcionNivel(app.nombre, app.nivel)}
+                                                </p>
                                             </div>
                                         ))}
                                     </div>
