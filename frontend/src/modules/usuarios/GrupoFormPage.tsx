@@ -254,50 +254,45 @@ export const GrupoFormPage = () => {
 
                             {formData.aplicaciones.length > 0 && (
                                 <div className="border border-border rounded-xl overflow-hidden mt-2">
-                                    <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                        <div className="col-span-5">Aplicación</div>
-                                        <div className="col-span-3 text-center">Nivel de Acceso</div>
-                                        <div className="col-span-3 text-center">Orden Visual</div>
+                                    <div className="hidden sm:grid grid-cols-12 gap-4 px-5 py-3 bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                        <div className="col-span-4">Aplicación</div>
+                                        <div className="col-span-5 text-center">Nivel de Acceso</div>
+                                        <div className="col-span-2 text-center">Orden Visual</div>
                                         <div className="col-span-1 text-center">X</div>
                                     </div>
 
                                     <div className="divide-y divide-border">
                                         {formData.aplicaciones.map(app => (
-                                            <div key={app.aplicacion_id} className="px-4 py-3 hover:bg-muted/10 transition-colors">
-                                                <div className="grid grid-cols-12 gap-4 items-center">
-                                                    <div className="col-span-5 text-sm font-medium text-foreground flex items-center">
-                                                        <div className="px-2.5 py-1 bg-secondary text-secondary-foreground rounded-md border border-border">
-                                                            {app.nombre}
-                                                        </div>
-                                                    </div>
-                                                    <div className="col-span-3 px-2">
-                                                        <select
-                                                            value={app.nivel}
-                                                            onChange={(e) => handleAppChange(app.aplicacion_id, 'nivel', Number(e.target.value))}
-                                                            className="w-full border border-input rounded-md px-2 py-1.5 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
-                                                        >
-                                                            {[1, 2, 3, 4, 5].map(n => (
-                                                                <option key={n} value={n}>{`Nivel ${n}: ${descripcionNivel(app.nombre, n)}`}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                    <div className="col-span-3 px-2">
-                                                        <input
-                                                            type="number"
-                                                            value={app.orden}
-                                                            onChange={(e) => handleAppChange(app.aplicacion_id, 'orden', Number(e.target.value))}
-                                                            className="w-full border border-input rounded-md px-3 py-1.5 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-1 flex justify-center">
-                                                        <button type="button" onClick={() => handleRemoveApp(app.aplicacion_id)} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-md transition-colors">
-                                                            <X className="w-4 h-4" />
-                                                        </button>
+                                            <div key={app.aplicacion_id} className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 sm:items-center px-5 py-4 hover:bg-muted/10 transition-colors">
+                                                <div className="sm:col-span-4 text-sm font-medium text-foreground flex items-center">
+                                                    <div className="px-2.5 py-1 bg-secondary text-secondary-foreground rounded-md border border-border">
+                                                        {app.nombre}
                                                     </div>
                                                 </div>
-                                                <p className="mt-2 pl-2 text-xs text-muted-foreground leading-relaxed">
-                                                    {descripcionNivel(app.nombre, app.nivel)}
-                                                </p>
+                                                <div className="sm:col-span-5">
+                                                    <select
+                                                        value={app.nivel}
+                                                        onChange={(e) => handleAppChange(app.aplicacion_id, 'nivel', Number(e.target.value))}
+                                                        className="w-full border border-input rounded-md px-3 py-2 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
+                                                    >
+                                                        {[1, 2, 3, 4, 5].map(n => (
+                                                            <option key={n} value={n}>{`Nivel ${n}: ${descripcionNivel(app.nombre, n)}`}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="sm:col-span-2">
+                                                    <input
+                                                        type="number"
+                                                        value={app.orden}
+                                                        onChange={(e) => handleAppChange(app.aplicacion_id, 'orden', Number(e.target.value))}
+                                                        className="w-full border border-input rounded-md px-3 py-2 text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/20"
+                                                    />
+                                                </div>
+                                                <div className="sm:col-span-1 flex sm:justify-center">
+                                                    <button type="button" onClick={() => handleRemoveApp(app.aplicacion_id)} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-md transition-colors">
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
