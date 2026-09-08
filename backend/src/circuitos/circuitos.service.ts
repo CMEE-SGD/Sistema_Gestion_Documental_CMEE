@@ -181,4 +181,26 @@ export class CircuitosService {
       include: { participantes: true }, // Trae a los usuarios asignados
     });
   }
+
+  /**
+   * Elimina una fase de un circuito.
+   * @param circuitoId - Identificador del circuito al que pertenece.
+   * @param faseId - Identificador de la fase a eliminar.
+   * @returns La fase eliminada.
+   */
+  async removeFase(circuitoId: number, faseId: number) {
+    const circuito = await this.prisma.circuito.findUnique({
+      where: { id: circuitoId },
+    });
+    if (!circuito) throw new NotFoundException('Circuito no encontrado');
+
+    const fase = await this.prisma.fase.findFirst({
+      where: { id: faseId, circuito_id: circuitoId },
+    });
+    if (!fase) throw new NotFoundException('Fase no encontrada en este circuito');
+
+    return this.prisma.fase.delete({
+      where: { id: faseId },
+    });
+  }
 }

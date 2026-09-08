@@ -114,4 +114,19 @@ export class CircuitosController {
   getFase(@Param('faseId') faseId: string) {
     return this.circuitosService.getFase(+faseId);
   }
+
+  /**
+   * Elimina una fase de un circuito en el sistema.
+   * @param circuitoId - Identificador del circuito.
+   * @param faseId - Identificador de la fase.
+   * @returns La fase eliminada.
+   */
+  @Delete(':circuitoId/fases/:faseId')
+  @RequireAccess('Gestor Documental', 5) // Nivel 5: Eliminación
+  removeFase(
+    @Param('circuitoId') circuitoId: string,
+    @Param('faseId') faseId: string,
+  ) {
+    return this.circuitosService.removeFase(+circuitoId, +faseId);
+  }
 }
