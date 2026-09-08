@@ -150,7 +150,7 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
                     </span>
                 </div>
 
-                <div className={`p-3 flex flex-col gap-3 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                <div className={`p-3 flex flex-col gap-3 flex-1 min-h-0 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     <div className="flex items-center gap-1">
                         <button
                             onClick={() => { navigate('/gestordocumental/configuracion'); onNavigate?.(); }}
@@ -166,7 +166,7 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
                         className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-500"
                     />
 
-                    <div className="flex flex-col gap-1 mt-2 overflow-y-auto pb-20">
+                    <div className="flex flex-col gap-1 mt-2 overflow-y-auto pb-20 flex-1 min-h-0">
                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Estructura Documental</h4>
                         {loading ? (
                             <span className="text-xs text-gray-400 italic">Cargando estructura...</span>
