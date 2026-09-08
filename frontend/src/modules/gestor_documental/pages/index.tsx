@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { HelpCircle, Folder } from 'lucide-react';
+import { HelpCircle, Folder, ChevronRight, ChevronDown } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
@@ -207,15 +207,6 @@ export const GestorDocumentalPage = () => {
         });
     };
 
-    const obtenerTodosLosDescendientes = useCallback((parentId: number): number[] => {
-        let hijos = carpetas.filter(c => c.carpeta_padre_id === parentId);
-        let descendientes = hijos.map(h => h.id);
-        hijos.forEach(h => {
-            descendientes = [...descendientes, ...obtenerTodosLosDescendientes(h.id)];
-        });
-        return descendientes;
-    }, [carpetas]);
-
     const RenderTreeView = ({ parentId, depth = 0 }: { parentId: number | null, depth?: number }) => {
         const rawChildren = parentId === null
             ? carpetas.filter(c => c.tipo === 'LIBRERIA')
@@ -233,28 +224,27 @@ export const GestorDocumentalPage = () => {
                     return (
                         <div key={carpeta.id} className="flex flex-col">
                             <div
-                                className="flex items-center gap-2 py-1 hover:bg-blue-50 cursor-pointer rounded px-2 w-max transition-colors"
-                                onClick={() => {
-                                    navigate(`/gestordocumental/carpeta/${encodeId(carpeta.id)}`);
-                                    if (hasChildren) {
-                                        setExpandedFolders(prev => {
-                                            const isOpening = !prev[carpeta.id];
-                                            const newState = { ...prev, [carpeta.id]: isOpening };
-                                            if (carpeta.tipo === 'AREA' && isOpening) {
-                                                const descendientes = obtenerTodosLosDescendientes(carpeta.id);
-                                                descendientes.forEach(id => { newState[id] = true; });
-                                            } else if (carpeta.tipo === 'AREA' && !isOpening) {
-                                                const descendientes = obtenerTodosLosDescendientes(carpeta.id);
-                                                descendientes.forEach(id => { newState[id] = false; });
-                                            }
-                                            return newState;
-                                        });
-                                    }
-                                }}
+                                className="flex items-center gap-1 py-1 hover:bg-blue-50 cursor-pointer rounded px-2 w-max transition-colors"
+                                onClick={() => navigate(`/gestordocumental/carpeta/${encodeId(carpeta.id)}`)}
                             >
-                                <div style={{ paddingLeft: `${depth * 24}px` }} className="flex items-center">
+                                <div style={{ paddingLeft: `${depth * 24}px` }} className="flex items-center gap-1">
+                                    {hasChildren ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setExpandedFolders(prev => ({ ...prev, [carpeta.id]: !prev[carpeta.id] }));
+                                            }}
+                                            className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-700"
+                                            title={isExpanded ? 'Contraer' : 'Desplegar'}
+                                        >
+                                            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                        </button>
+                                    ) : (
+                                        <div className="w-4 h-4 shrink-0" />
+                                    )}
                                     {depth > 0 && (
-                                        <span className="text-gray-300 font-mono text-xs tracking-widest mr-2 select-none">
+                                        <span className="text-gray-300 font-mono text-xs tracking-widest mr-1 select-none">
                                             L...
                                         </span>
                                     )}
