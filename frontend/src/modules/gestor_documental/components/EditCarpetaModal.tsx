@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, FileText, Plus, X, Trash2 } from 'lucide-react';
+import { Folder, FileText, X, Trash2 } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
@@ -11,7 +11,6 @@ interface PermisoRow {
   nivel_permiso: number;
   permiso_docs: boolean;
   permiso_carpetas: boolean;
-  permiso_extra: boolean;
 }
 
 interface EditCarpetaModalProps {
@@ -59,7 +58,6 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
               nivel_permiso: p.nivel_permiso || 1,
               permiso_docs: p.permiso_docs ?? false,
               permiso_carpetas: p.permiso_carpetas ?? false,
-              permiso_extra: p.permiso_extra ?? false,
             };
           }
         });
@@ -90,7 +88,6 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
         nivel_permiso: val.nivel_permiso,
         permiso_docs: val.permiso_docs,
         permiso_carpetas: val.permiso_carpetas,
-        permiso_extra: val.permiso_extra,
       }));
 
       await api.patch(`/carpetas/${carpetaId}`, {
@@ -164,7 +161,6 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
                   <div className="flex-1 flex justify-around">
                     <span title="Crear Documentos"><FileText className="w-4 h-4 text-blue-800" /></span>
                     <span title="Crear Carpetas"><Folder className="w-4 h-4 text-yellow-600" /></span>
-                    <span title="Permisos Extra"><Plus className="w-4 h-4 text-green-600" /></span>
                   </div>
                 </div>
 
@@ -182,7 +178,7 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
                             <input type="checkbox" checked={todosSeleccionados} onChange={(e) => {
                               if (e.target.checked) {
                                 const nuevos: Record<string, PermisoRow> = {};
-                                unicos.forEach((p: any) => { nuevos[`p_${p.id}`] = { persona_id: p.id, nivel_permiso: 5, permiso_docs: true, permiso_carpetas: true, permiso_extra: true }; });
+                                unicos.forEach((p: any) => { nuevos[`p_${p.id}`] = { persona_id: p.id, nivel_permiso: 5, permiso_docs: true, permiso_carpetas: true }; });
                                 setPermisos(prev => ({ ...prev, ...nuevos }));
                               } else {
                                 const rest = { ...permisos };
@@ -198,7 +194,7 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
                           <div className="bg-gray-50 border-t border-gray-100">
                             {unicos.map((persona: any) => {
                               const userKey = `p_${persona.id}`;
-                              const userPerm = permisos[userKey] || { persona_id: persona.id, nivel_permiso: 5, permiso_docs: true, permiso_carpetas: true, permiso_extra: true };
+                              const userPerm = permisos[userKey] || { persona_id: persona.id, nivel_permiso: 5, permiso_docs: true, permiso_carpetas: true };
                               return (
                                 <div key={persona.id} className="flex items-center px-10 py-1.5 hover:bg-white text-xs">
                                   <div className="w-1/3 flex items-center gap-2">
@@ -224,7 +220,6 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
                                   <div className="flex-1 flex justify-around">
                                     <input type="checkbox" checked={userPerm.permiso_docs} onChange={(e) => setPermisos(prev => ({ ...prev, [userKey]: { ...userPerm, permiso_docs: e.target.checked } }))} disabled={!permisos[userKey]} className="w-4 h-4 text-blue-600 rounded border-gray-300 disabled:opacity-40" />
                                     <input type="checkbox" checked={userPerm.permiso_carpetas} onChange={(e) => setPermisos(prev => ({ ...prev, [userKey]: { ...userPerm, permiso_carpetas: e.target.checked } }))} disabled={!permisos[userKey]} className="w-4 h-4 text-blue-600 rounded border-gray-300 disabled:opacity-40" />
-                                    <input type="checkbox" checked={userPerm.permiso_extra} onChange={(e) => setPermisos(prev => ({ ...prev, [userKey]: { ...userPerm, permiso_extra: e.target.checked } }))} disabled={!permisos[userKey]} className="w-4 h-4 text-blue-600 rounded border-gray-300 disabled:opacity-40" />
                                   </div>
                                 </div>
                               );
