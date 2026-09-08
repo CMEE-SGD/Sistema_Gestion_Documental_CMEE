@@ -18,31 +18,61 @@ function dividirEnReferencias(contenido: string): string[] {
   return referencias;
 }
 
-export function getPageRef(pdfBuffer: Buffer, info: ReadPdfReturnType, paginaIndex = 0): string {
-  const pagesRef = getPagesDictionaryRef(info);
-  const pagesDictionary = findObject(pdfBuffer, info.xref, pagesRef);
-  const kidsPosition = pagesDictionary.indexOf('/Kids');
-  if (kidsPosition === -1) {
-    throw new FirmaPdfError('El PDF no tiene un árbol de páginas /Kids reconocible.');
-  }
-  const kidsStart = pagesDictionary.indexOf('[', kidsPosition) + 1;
-  const kidsEnd = pagesDictionary.indexOf(']', kidsPosition);
-  const kids = dividirEnReferencias(pagesDictionary.slice(kidsStart, kidsEnd).toString());
+function extraerKids(dictionary: Buffer): string[] {
+  const kidsPosition = dictionary.indexOf('/Kids');
+  if (kidsPosition === -1) return [];
+  const kidsStart = dictionary.indexOf('[', kidsPosition) + 1;
+  const kidsEnd = dictionary.indexOf(']', kidsPosition);
+  return dividirEnReferencias(dictionary.slice(kidsStart, kidsEnd).toString());
+}
 
-  const referenciaPagina = kids[paginaIndex];
-  if (!referenciaPagina) {
+/**
+ * El árbol de páginas de un PDF no siempre es un único /Kids plano con
+ * todas las páginas — documentos de varias páginas (sobre todo plantillas
+ * armadas por Word/herramientas de fusión) suelen anidar nodos /Pages
+ * intermedios, cada uno con su propio /Kids. Se recorre en preorden,
+ * contando únicamente las hojas /Type /Page en el orden real del
+ * documento, hasta llegar al índice buscado — así "página 9" encuentra la
+ * novena hoja del árbol sin importar cuántos niveles de /Pages haya en el
+ * camino.
+ */
+function buscarPaginaEnArbol(
+  pdfBuffer: Buffer,
+  info: ReadPdfReturnType,
+  nodoRef: string,
+  objetivo: number,
+  contador: { actual: number },
+): string | null {
+  const dictionary = findObject(pdfBuffer, info.xref, nodoRef);
+  const esHoja = /\/Type\s*\/Page(?!s)/.test(dictionary.toString());
+
+  if (esHoja) {
+    if (contador.actual === objetivo) return nodoRef;
+    contador.actual += 1;
+    return null;
+  }
+
+  const kids = extraerKids(dictionary);
+  if (kids.length === 0) {
     throw new FirmaPdfError(
-      `El PDF no tiene una página en la posición ${paginaIndex + 1} (tiene ${kids.length}).`,
+      'El árbol de páginas de este PDF tiene una estructura no reconocible; no se puede colocar el sello ahí.',
     );
   }
+  for (const kidRef of kids) {
+    const encontrada = buscarPaginaEnArbol(pdfBuffer, info, kidRef, objetivo, contador);
+    if (encontrada) return encontrada;
+  }
+  return null;
+}
 
-  // El objeto referenciado debe ser una página de verdad (/Type /Page), no un nodo
-  // intermedio del árbol (/Type /Pages) — este parser simplificado no soporta
-  // recorrer árboles de páginas anidados.
-  const paginaDictionary = findObject(pdfBuffer, info.xref, referenciaPagina).toString();
-  if (!/\/Type\s*\/Page(?!s)/.test(paginaDictionary)) {
+export function getPageRef(pdfBuffer: Buffer, info: ReadPdfReturnType, paginaIndex = 0): string {
+  const pagesRef = getPagesDictionaryRef(info);
+  const contador = { actual: 0 };
+  const referenciaPagina = buscarPaginaEnArbol(pdfBuffer, info, pagesRef, paginaIndex, contador);
+
+  if (!referenciaPagina) {
     throw new FirmaPdfError(
-      'El árbol de páginas de este PDF tiene una estructura anidada no soportada; no se puede colocar el sello ahí.',
+      `El PDF no tiene una página en la posición ${paginaIndex + 1} (tiene ${contador.actual}).`,
     );
   }
 
