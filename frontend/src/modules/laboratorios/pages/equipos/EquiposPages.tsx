@@ -98,14 +98,14 @@ export const EquiposPage = () => {
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
-            <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">Inventario de Equipos</h1>
                     <p className="text-sm text-gray-500">{labIdFiltro ? 'Mostrando equipos filtrados por laboratorio' : 'Gestión de instrumentos por laboratorio'}</p>
                 </div>
                 
                 {/* 👇 Botones unificados */}
-                <div className="flex gap-3 items-center">
+                <div className="flex flex-wrap gap-3 items-center">
                     <Button variant="outline" onClick={() => navigate('/laboratorios')}>Ver Laboratorios</Button>
                     
                     {labIdFiltro && (
@@ -141,8 +141,8 @@ export const EquiposPage = () => {
                 />
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <table className="w-full text-left text-sm text-gray-600">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-600 min-w-[680px]">
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
                         <tr>
                             <th className="px-6 py-4 font-semibold">Código CMEE</th>

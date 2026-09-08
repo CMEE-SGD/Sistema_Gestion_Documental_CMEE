@@ -87,14 +87,14 @@ export const LaboratoriosPage = () => {
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
-            <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">Laboratorios</h1>
                     <p className="text-sm text-gray-500">Gestión de laboratorios acreditados del Centro de Metrología</p>
                 </div>
                 
                 {/* 👇 Aplicamos los nuevos estilos de botones unificados */}
-                <div className="flex gap-3 items-center">
+                <div className="flex flex-wrap gap-3 items-center">
                     <Button variant="outline" onClick={() => navigate('/welcome')}>Volver al Inicio</Button>
 
                     <Button 
@@ -154,8 +154,8 @@ export const LaboratoriosPage = () => {
                 </select>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <table className="w-full text-left text-sm text-gray-600">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-600 min-w-[640px]">
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
                         <tr>
                             <th className="px-6 py-4 font-semibold">Código</th>

@@ -7,7 +7,7 @@ export const ResumenLayout = () => {
     <div className="flex flex-col min-h-screen bg-background">
       <Navbar />
       <ResumenTabs />
-      <main className="flex-1 p-6 bg-gray-50">
+      <main className="flex-1 p-4 md:p-6 bg-gray-50 min-w-0 overflow-x-auto">
         <Outlet />
       </main>
     </div>

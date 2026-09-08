@@ -8,13 +8,19 @@ const menuItems = [
     { name: 'Circuitos', path: '/gestordocumental/configuracion/circuitos', icon: GitBranch },
 ];
 
-const SiderBarConfiguracion = () => {
+interface SiderBarConfiguracionProps {
+  mobile?: boolean;
+  onNavigate?: () => void;
+}
+
+const SiderBarConfiguracion = ({ mobile = false, onNavigate }: SiderBarConfiguracionProps) => {
     return (
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
+        <aside className={`w-64 bg-white border-r border-gray-200 flex flex-col ${mobile ? 'h-full' : 'min-h-screen'}`}>
             {/* Cabecera para regresar al Gestor Principal */}
             <div className="p-4 border-b border-gray-200 bg-gray-50">
                 <NavLink
                     to="/gestordocumental"
+                    onClick={onNavigate}
                     className="text-xs font-bold flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors uppercase tracking-wider"
                 >
                     <ArrowLeft className="w-4 h-4" />
@@ -32,6 +38,7 @@ const SiderBarConfiguracion = () => {
                             <NavLink
                                 to={item.path}
                                 end={item.end}
+                                onClick={onNavigate}
                                 className={({ isActive }) =>
                                     `flex items-center gap-3 px-4 py-2 text-sm font-medium transition-colors ${
                                         isActive
