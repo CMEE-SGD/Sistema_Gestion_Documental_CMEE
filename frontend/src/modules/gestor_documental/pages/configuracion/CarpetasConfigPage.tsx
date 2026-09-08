@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Folder, Pencil, Move } from 'lucide-react';
+import { Folder, Pencil, Move, ChevronRight, ChevronDown } from 'lucide-react';
 import api from '../../../../core/api/axios';
 import { EditCarpetaModal } from '../../components/EditCarpetaModal';
 import { MoverCarpetaModal } from '../../components/MoverCarpetaModal';
@@ -14,6 +14,7 @@ export const CarpetasConfigPage = () => {
   const [areaId, setAreaId] = useState('');
   const [editId, setEditId] = useState<number | null>(null);
   const [moverId, setMoverId] = useState<number | null>(null);
+  const [expandidos, setExpandidos] = useState<Record<number, boolean>>({});
 
   const fetchCarpetas = async () => {
     try {
@@ -42,6 +43,7 @@ export const CarpetasConfigPage = () => {
   const handleLibreriaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLibId = e.target.value;
     setLibreriaId(newLibId);
+    setExpandidos({});
     const areasDeEstaLib = carpetas.filter(c => c.tipo === 'AREA' && c.carpeta_padre_id === Number(newLibId)).sort((a, b) => (a.orden || 0) - (b.orden || 0));
     setAreaId(areasDeEstaLib.length > 0 ? areasDeEstaLib[0].id.toString() : '');
   };
@@ -51,18 +53,66 @@ export const CarpetasConfigPage = () => {
   const libSeleccionada = librerias.find(l => l.id.toString() === libreriaId);
   const areaSeleccionada = areas.find(a => a.id.toString() === areaId);
 
-  const obtenerSubcarpetasAnidadas = (parentId: number, depth: number = 0): any[] => {
-    const hijos = carpetas.filter(c => c.carpeta_padre_id === parentId).sort((a, b) => (a.orden || 0) - (b.orden || 0));
-    let resultado: any[] = [];
-    hijos.forEach(hijo => {
-      resultado.push({ ...hijo, depth });
-      resultado = resultado.concat(obtenerSubcarpetasAnidadas(hijo.id, depth + 1));
-    });
-    return resultado;
+  const moverItem = moverId ? carpetas.find(c => c.id === moverId) : null;
+
+  const RenderFilas = ({ parentId, depth }: { parentId: number; depth: number }) => {
+    const hijos = carpetas
+      .filter(c => c.carpeta_padre_id === parentId)
+      .sort((a, b) => ((a.orden || 0) - (b.orden || 0)) || a.nombre.localeCompare(b.nombre));
+    if (hijos.length === 0) return null;
+
+    return (
+      <Fragment>
+        {hijos.map(c => {
+          const tieneHijos = carpetas.some(x => x.carpeta_padre_id === c.id);
+          const abierto = !!expandidos[c.id];
+          return (
+            <Fragment key={c.id}>
+              <tr className="border-b border-gray-200 transition-colors even:bg-gray-100 odd:bg-white hover:bg-gray-200">
+                <td className="px-3 py-1.5">
+                  <div style={{ marginLeft: `${depth * 20}px` }} className="flex items-center gap-1.5">
+                    {tieneHijos ? (
+                      <button
+                        type="button"
+                        onClick={() => setExpandidos(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
+                        className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-700"
+                        title={abierto ? 'Contraer' : 'Desplegar'}
+                      >
+                        {abierto ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                      </button>
+                    ) : (
+                      <div className="w-4 h-4 shrink-0" />
+                    )}
+                    <Folder className="w-3.5 h-3.5 text-gray-800 fill-current shrink-0" />
+                    <span className="font-medium">{c.nombre}</span>
+                  </div>
+                </td>
+                <td className="px-3 py-1.5 text-center">{c.codigo || '-'}</td>
+                <td className="px-3 py-1.5 text-center">Sin categoría</td>
+                <td className="px-3 py-1.5 text-center">{c.activo ? 'Activa' : 'Inactiva'}</td>
+                <td className="px-3 py-1.5 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <button onClick={() => setEditId(c.id)} className="px-2 py-1 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center gap-1">
+                      <Pencil className="w-3 h-3" /> Editar
+                    </button>
+                    <button onClick={() => setMoverId(c.id)} className="px-2 py-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 transition-colors flex items-center gap-1">
+                      <Move className="w-3 h-3" /> Mover
+                    </button>
+                    <button onClick={() => navigate('/gestordocumental/nueva-carpeta', { state: { carpetaPadreId: c.id, carpetaPadreNombre: c.nombre } })} className="px-2 py-1 text-[11px] text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">
+                      Nueva subcarpeta
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {abierto && <RenderFilas parentId={c.id} depth={depth + 1} />}
+            </Fragment>
+          );
+        })}
+      </Fragment>
+    );
   };
 
-  const estructuraPlana = areaId ? obtenerSubcarpetasAnidadas(Number(areaId)) : [];
-  const moverItem = moverId ? carpetas.find(c => c.id === moverId) : null;
+  const hijasDelArea = areaId ? carpetas.filter(c => c.carpeta_padre_id === Number(areaId)) : [];
 
   return (
     <div className="bg-white">
@@ -75,7 +125,7 @@ export const CarpetasConfigPage = () => {
           {librerias.length === 0 && <option value="">-- No hay librerías --</option>}
           {librerias.map(lib => <option key={lib.id} value={lib.id}>{lib.nombre}</option>)}
         </select>
-        <select value={areaId} onChange={(e) => setAreaId(e.target.value)} disabled={!libreriaId} className="border border-gray-300 rounded px-3 py-1.5 min-w-[250px] outline-none focus:border-blue-500 text-sm disabled:bg-gray-100">
+        <select value={areaId} onChange={(e) => { setAreaId(e.target.value); setExpandidos({}); }} disabled={!libreriaId} className="border border-gray-300 rounded px-3 py-1.5 min-w-[250px] outline-none focus:border-blue-500 text-sm disabled:bg-gray-100">
           {areas.length === 0 && <option value="">-- No hay áreas --</option>}
           {areas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
         </select>
@@ -103,40 +153,14 @@ export const CarpetasConfigPage = () => {
               </tr>
             </thead>
             <tbody>
-              {estructuraPlana.length === 0 ? (
+              {hijasDelArea.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-4 text-gray-500 italic border-b-[4px] border-[#006400]">
                     Esta área está vacía.
                   </td>
                 </tr>
               ) : (
-                estructuraPlana.map((carpeta, idx) => (
-                  <tr key={carpeta.id} className={`border-b border-gray-200 transition-colors ${idx === estructuraPlana.length - 1 ? 'border-b-[4px] border-b-[#006400]' : ''} even:bg-gray-100 odd:bg-white hover:bg-gray-200`}>
-                    <td className="px-3 py-1.5">
-                      <div style={{ marginLeft: `${carpeta.depth * 20}px` }} className="flex items-center gap-2">
-                        {carpeta.depth > 0 && <span className="text-gray-400 tracking-tighter">└─</span>}
-                        <Folder className="w-3.5 h-3.5 text-gray-800 fill-current shrink-0" />
-                        <span className="font-medium">{carpeta.nombre}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-1.5 text-center">{carpeta.codigo || '-'}</td>
-                    <td className="px-3 py-1.5 text-center">Sin categoría</td>
-                    <td className="px-3 py-1.5 text-center">{carpeta.activo ? 'Activa' : 'Inactiva'}</td>
-                    <td className="px-3 py-1.5 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => setEditId(carpeta.id)} className="px-2 py-1 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center gap-1">
-                          <Pencil className="w-3 h-3" /> Editar
-                        </button>
-                        <button onClick={() => setMoverId(carpeta.id)} className="px-2 py-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 transition-colors flex items-center gap-1">
-                          <Move className="w-3 h-3" /> Mover
-                        </button>
-                        <button onClick={() => navigate('/gestordocumental/nueva-carpeta', { state: { carpetaPadreId: carpeta.id, carpetaPadreNombre: carpeta.nombre } })} className="px-2 py-1 text-[11px] text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">
-                          Nueva subcarpeta
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                <RenderFilas parentId={Number(areaId)} depth={0} />
               )}
             </tbody>
           </table>
