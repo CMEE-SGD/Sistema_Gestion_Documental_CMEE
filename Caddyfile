@@ -1,8 +1,4 @@
-# Sin dominio todavía: sirve por HTTP simple en el puerto 80, sin HTTPS automático
-# (Let's Encrypt no puede emitir certificados para una IP sola, solo para dominios).
-# Cuando llegue el subdominio de Powerfast, cambia ":80" por el dominio real
-# (ej. "sicmee.powerfast.net") y Caddy activará HTTPS automático solo.
-:80 {
+sgd.cmee.mil.ec {
 	encode gzip
 
 	handle /api/* {
