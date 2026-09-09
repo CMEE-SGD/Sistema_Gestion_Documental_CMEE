@@ -96,23 +96,26 @@ const NotificationBell = () => {
             {notificaciones.length === 0 ? (
               <p className="text-center text-muted-foreground text-sm py-8">No hay notificaciones</p>
             ) : (
-              notificaciones.map(n => (
-                <button
-                  key={n.id}
-                  onClick={() => handleClick(n)}
-                  className={`w-full text-left px-4 py-3 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors flex items-start gap-3 ${n.leido ? '' : 'bg-blue-50/50'}`}
-                >
-                  <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${n.leido ? 'bg-transparent' : 'bg-blue-500'}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-xs ${n.leido ? 'text-muted-foreground' : 'text-foreground font-medium'}`}>
-                      {n.mensaje}
-                    </p>
-                    <span className="text-[10px] text-muted-foreground mt-1 block">
-                      {new Date(n.createdAt).toLocaleString('es-ES')}
-                    </span>
-                  </div>
-                </button>
-              ))
+              notificaciones.map(n => {
+                const esRechazo = n.tipo === 'recepcion_equipos_rechazado';
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => handleClick(n)}
+                    className={`w-full text-left px-4 py-3 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors flex items-start gap-3 ${n.leido ? '' : esRechazo ? 'bg-red-50/60' : 'bg-blue-50/50'}`}
+                  >
+                    <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${n.leido ? 'bg-transparent' : esRechazo ? 'bg-red-500' : 'bg-blue-500'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs ${n.leido ? esRechazo ? 'text-red-700/70' : 'text-muted-foreground' : esRechazo ? 'text-red-700 font-medium' : 'text-foreground font-medium'}`}>
+                        {n.mensaje}
+                      </p>
+                      <span className="text-[10px] text-muted-foreground mt-1 block">
+                        {new Date(n.createdAt).toLocaleString('es-ES')}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>

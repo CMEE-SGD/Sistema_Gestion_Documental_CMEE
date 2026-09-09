@@ -111,6 +111,13 @@ export async function resolverDestinatarios(
   return { criterio, personaIds: [...personaIds], detalle };
 }
 
+export interface NotificacionEquipoOpciones {
+  /** Marca la notificación como un rechazo (p.ej. certificado devuelto). */
+  rechazado?: boolean;
+  /** Motivo del rechazo, si existe (se incluye en el mensaje). */
+  motivo?: string;
+}
+
 /**
  * Notifica a quien deba actuar a continuación tras un cambio de estado de un
  * EquipoRecepcion. La usan tanto el flujo de revisión previa
@@ -128,14 +135,22 @@ export async function notificarResponsablesEquipo(
   notificaciones: NotificacionesService,
   equipo: EquipoParaNotificar,
   estadoNuevo: EstadoRecepcion,
+  opciones?: NotificacionEquipoOpciones,
 ): Promise<void> {
   try {
     const { personaIds } = await resolverDestinatarios(prisma, equipo, estadoNuevo);
     if (personaIds.length === 0) return;
 
-    const mensaje = `Equipo "${equipo.equipo_descripcion}" pendiente de su revisión (${estadoNuevo}).`;
+    const mensaje = opciones?.rechazado
+      ? `El certificado del equipo "${equipo.equipo_descripcion}" fue RECHAZADO${
+          opciones.motivo ? ` — Motivo: "${opciones.motivo}"` : ''
+        }. El equipo regresa a ${estadoNuevo}.`
+      : `Equipo "${equipo.equipo_descripcion}" pendiente de su revisión (${estadoNuevo}).`;
+    const tipo = opciones?.rechazado
+      ? 'recepcion_equipos_rechazado'
+      : 'recepcion_equipos';
     for (const personaId of personaIds) {
-      await notificaciones.crear('recepcion_equipos', mensaje, personaId, equipo.id);
+      await notificaciones.crear(tipo, mensaje, personaId, equipo.id);
     }
   } catch (err) {
     // eslint-disable-next-line no-console
