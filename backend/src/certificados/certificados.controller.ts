@@ -84,7 +84,7 @@ export class CertificadosController {
   @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Recepcion Equipos', 1)
   findAll(@Req() req: any) {
-    return this.certificadosService.findAll();
+    return this.certificadosService.findAll(undefined, req.user);
   }
 
   // Endpoint público — sin JwtAuthGuard/AccessGuard a propósito. Permite que

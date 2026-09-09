@@ -38,6 +38,15 @@ function campoArchivoParaEtapa(etapa: EtapaFirma) {
     : { ruta: 'ruta_archivo_reporte', nombre: 'nombre_original_reporte' };
 }
 
+// Mismo rango de diacríticos combinables (NFD) que ya usa normalizePuesto()
+// en recepcion-equipos.service.ts — construido desde códigos numéricos en
+// vez de ̀-ͯ literal para que el archivo no dependa de tener esos
+// caracteres invisibles pegados en el código fuente.
+const REGEX_DIACRITICOS = new RegExp(
+  `[${String.fromCharCode(0x0300)}-${String.fromCharCode(0x036f)}]`,
+  'g',
+);
+
 const TIPOS_DOCUMENTO = ['reporte', 'certificado'] as const;
 type TipoDocumento = (typeof TIPOS_DOCUMENTO)[number];
 
@@ -477,10 +486,32 @@ export class CertificadosService {
     };
   }
 
-  async findAll(equipoRecepcionId?: number) {
-    const where = equipoRecepcionId
+  async findAll(equipoRecepcionId?: number, user?: HydratedUser) {
+    const where: Record<string, unknown> = equipoRecepcionId
       ? { equipo_recepcion_id: equipoRecepcionId }
       : {};
+
+    // Mismo criterio de alcance que ya se usa para descargar/subir/firmar
+    // certificados (ver download() más arriba): un OBT solo ve certificados
+    // de equipos de su propio laboratorio, un técnico solo los suyos. Sin
+    // esto, la pestaña de Certificados mostraba TODO el sistema a cualquiera
+    // con acceso mínimo de lectura al módulo.
+    if (user && !user.isGod) {
+      const n = (user.puesto ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(REGEX_DIACRITICOS, '');
+
+      const esObservador = n.includes('observador');
+      const esTecnico =
+        n.includes('tecnico') && !n.includes('observador') && !n.includes('jefe');
+
+      if (esObservador && user.laboratorio_id) {
+        where.equipo_recepcion = { laboratorio_id: user.laboratorio_id };
+      } else if (esTecnico && user.persona_id) {
+        where.tecnico_id = user.persona_id;
+      }
+    }
 
     const certificados = await this.prisma.certificado.findMany({
       where,
