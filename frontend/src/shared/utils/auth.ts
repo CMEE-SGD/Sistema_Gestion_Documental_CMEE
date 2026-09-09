@@ -8,6 +8,7 @@ export interface UsuarioStorage {
     puesto?: string;
   };
   grupos?: Array<{
+    id?: number;
     nombre?: string;
     aplicaciones?: Array<{
       aplicacion: { nombre: string };
@@ -77,4 +78,22 @@ export const tienePermiso = (modulo: string, nivelRequerido: number): boolean =>
         console.error('Error al validar permisos de usuario:', error);
         return false;
     }
+};
+
+/**
+ * Verifica si el usuario tiene alcance de administración: pertenece al grupo
+ * "Administrador" (id 1 en BD) o es el Super Administrador en memoria
+ * (GOD_MODE). Se usa para features administrativas que no dependen de una
+ * aplicación concreta (ej. engranaje de configuración, CRUD de órdenes de
+ * trabajo).
+ */
+export const esUsuarioAdministrador = (): boolean => {
+    const usuario = getUsuario();
+    if (!usuario?.grupos) return false;
+    return usuario.grupos.some(
+        (grupo) =>
+            (typeof grupo?.nombre === 'string' &&
+                grupo.nombre.toLowerCase() === 'administrador') ||
+            grupo.nombre === 'GOD_MODE',
+    );
 };

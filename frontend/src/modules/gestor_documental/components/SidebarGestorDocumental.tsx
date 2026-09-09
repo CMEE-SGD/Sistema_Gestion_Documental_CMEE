@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Settings, FolderPlus, Folder, ChevronRight, ChevronDown } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
-import { getUsuarioActual } from '../../../shared/hooks/useAuth';
+import { esUsuarioAdministrador } from '../../../shared/utils/auth';
 
 interface SidebarGestorDocumentalProps {
   mobile?: boolean;
@@ -14,10 +14,7 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
     const navigate = useNavigate();
     const location = useLocation();
 
-    const usuario = getUsuarioActual();
-    const esAdministrador = Array.isArray(usuario?.grupos)
-        ? usuario.grupos.some((g: any) => typeof g?.nombre === 'string' && g.nombre.toLowerCase() === 'administrador')
-        : false;
+    const esAdministrador = esUsuarioAdministrador();
 
     const [carpetas, setCarpetas] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);

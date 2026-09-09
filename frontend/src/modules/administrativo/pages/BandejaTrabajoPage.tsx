@@ -5,12 +5,14 @@ import {
   Clock,
   Eye,
   FlaskConical,
+  Loader2,
+  Pencil,
+  Plus,
   Search,
+  Trash2,
   UserPlus,
   UploadCloud,
   Inbox,
-  Loader2,
-  Plus,
   X,
   CheckCircle,
   FileSignature,
@@ -22,6 +24,7 @@ import { cn } from '../../../shared/utils/utils';
 import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
 import api from '../../../core/api/axios';
 import { getUsuarioActual } from '../../../shared/hooks/useAuth';
+import { esUsuarioAdministrador } from '../../../shared/utils/auth';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { Button } from '../../../shared/components/atoms/button';
@@ -29,6 +32,7 @@ import SubirCertificadoModal from '../components/SubirCertificadoModal';
 import ValidacionCertificadoModal from '../components/ValidacionCertificadoModal';
 import FirmarDigitalModal from '../components/FirmarDigitalModal';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
+import EditarOrdenModal from '../components/EditarOrdenModal';
 import { type OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
 
 // ---------------------------------------------------------------------------
@@ -51,10 +55,22 @@ interface BandejaRecepcion {
   fecha_ingreso: string;
   equipo_descripcion: string;
   estado: EstadoKey;
+  orden: OrdenTrabajoDetalle;
   cliente?: { id: number; nombre: string };
   laboratorio?: { id: number; nombre: string };
   tecnico?: { id: number; nombre: string; apellidos: string };
   certificados?: { id: number }[];
+}
+
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('es-BO', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'UTC',
+  });
 }
 
 interface PersonaOption {
@@ -471,6 +487,7 @@ function useBandejaData() {
           fecha_ingreso: orden.fecha_ingreso,
           equipo_descripcion: equipo.equipo_descripcion,
           estado: equipo.estado as EstadoKey,
+          orden,
           cliente: orden.cliente,
           laboratorio: equipo.laboratorio ?? undefined,
           tecnico: equipo.tecnico ?? undefined,
@@ -492,7 +509,8 @@ export default function BandejaTrabajoPage() {
   const puesto = user?.persona?.puesto ?? '';
 
   const queryClient = useQueryClient();
-  const { alert } = useAlert();
+  const { alert, confirm } = useAlert();
+  const { toast } = useToast();
 
   // --- RBAC / ABAC flags derived from the permission helpers ---
   const { canCreate, canAssign, canExecute } = getPermissions(puesto);
@@ -511,6 +529,42 @@ export default function BandejaTrabajoPage() {
 
   const [busqueda, setBusqueda] = useState('');
   const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
+
+  const esAdministrador = esUsuarioAdministrador();
+  const [editarOrden, setEditarOrden] = useState<OrdenTrabajoDetalle | null>(
+    null,
+  );
+
+  const eliminarOrden = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await api.delete(`/recepcion-equipos/${id}`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+      toast({ message: 'Orden de trabajo eliminada correctamente.' });
+    },
+    onError: async (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      await alert({
+        message:
+          apiErr?.response?.data?.message ||
+          'Error al eliminar la orden de trabajo',
+      });
+    },
+  });
+
+  const handleEliminarOrden = async (req: BandejaRecepcion) => {
+    if (
+      !(await confirm({
+        title: 'Eliminar orden',
+        message: `¿Eliminar definitivamente la Orden de Trabajo #${req.orden_trabajo_fisica}? Se borrarán también sus equipos, historial y certificados.`,
+      }))
+    ) {
+      return;
+    }
+    eliminarOrden.mutate(req.orden.id);
+  };
 
   const laboratorios = useMemo(() => {
     const mapa = new Map<number, string>();
@@ -694,7 +748,7 @@ export default function BandejaTrabajoPage() {
           </div>
         </div>
 
-        {canCreate && (
+        {(canCreate || esAdministrador) && (
           <button
             type="button"
             onClick={() => setIsRegistroModalOpen(true)}
@@ -745,7 +799,7 @@ export default function BandejaTrabajoPage() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 font-mono text-sm text-muted-foreground">
-                      {new Date(req.fecha_ingreso).toLocaleDateString()}
+                      {formatDate(req.fecha_ingreso)}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
                       {req.cliente?.nombre ?? (
@@ -776,9 +830,35 @@ export default function BandejaTrabajoPage() {
                         </span>
                       )}
                     </td>
-                    {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC) && (
+                    {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC || esAdministrador) && (
                       <td className="whitespace-nowrap px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
+                          {/* Administrador: Editar orden */}
+                          {esAdministrador && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setEditarOrden(req.orden)}
+                              title="Editar orden"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {/* Administrador: Eliminar orden */}
+                          {esAdministrador && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleEliminarOrden(req)}
+                              title="Eliminar orden"
+                              disabled={eliminarOrden.isPending}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+
                           {/* EN_ESPERA: Asignar técnico */}
                           {canAssign && req.estado === 'EN_ESPERA' && (
                             <Button
@@ -999,6 +1079,11 @@ export default function BandejaTrabajoPage() {
       <NuevoRegistroModal
         open={isRegistroModalOpen}
         onClose={() => setIsRegistroModalOpen(false)}
+      />
+
+      <EditarOrdenModal
+        orden={editarOrden}
+        onClose={() => setEditarOrden(null)}
       />
 
       <AsignarTecnicoModal
