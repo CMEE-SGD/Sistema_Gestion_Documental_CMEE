@@ -26,10 +26,29 @@
 // agrega su primera actualización incremental (ver createBufferTrailer.ts),
 // el archivo queda en formato clásico puro para siempre, así que firmas
 // posteriores del mismo documento nunca vuelven a necesitar esto.
+//
+// PERO si el PDF YA trae una firma digital — de un firmante anterior del
+// mismo flujo, o una firma externa (ej. FirmaEC) con la que llegó el
+// documento — normalizar reescribiendo el archivo lo rompe: el /ByteRange
+// de esa firma son offsets exactos hacia el archivo tal como estaba en el
+// momento de firmarlo, y pdf-lib no sabe que esos números son intocables —
+// los copia igual, pero apuntando al lugar equivocado del archivo
+// reescrito. El resultado pasa el chequeo de "¿el parser clásico entiende
+// esto?" pero la firma vieja queda imposible de extraer (confirmado
+// reproduciendo el caso: un PDF de FirmaEC con firma perfectamente válida,
+// al pasar por este normalizado, queda con "Failed to parse the
+// ByteRange"). En ese caso hay que dejar el archivo tal cual llegó: el modo
+// de solo-agregar de agregarSelloYPlaceholder.ts nunca toca bytes
+// existentes, así que la firma previa sobrevive intacta aunque el archivo
+// siga siendo técnicamente híbrido.
 import { PDFDocument } from 'pdf-lib';
+import { findByteRange } from '@signpdf/utils';
 import { readPdf } from './readPdf';
 
 export async function asegurarXrefClasico(pdfBuffer: Buffer): Promise<Buffer> {
+  const yaTieneFirma = findByteRange(pdfBuffer).byteRangeStrings.length > 0;
+  if (yaTieneFirma) return pdfBuffer;
+
   const esHibrido = pdfBuffer.includes('/XRefStm');
   if (!esHibrido) {
     try {
