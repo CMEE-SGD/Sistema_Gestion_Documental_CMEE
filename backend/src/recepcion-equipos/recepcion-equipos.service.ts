@@ -17,23 +17,33 @@ import {
   resolverDestinatarios,
 } from '../common/helpers/notificar-responsables-equipo';
 
-const ORDEN_INCLUDE = {
-  cliente: { select: { id: true, nombre: true, tipo: true } },
-  equipos: {
-    include: {
-      laboratorio: {
-        select: { id: true, nombre: true, responsable_id: true },
+// El filtro de `equipos` va DENTRO del include (no solo en el `where` de la
+// orden) porque una orden puede agrupar equipos de varios laboratorios —
+// que la orden "califique" para un OBT (porque tiene AL MENOS un equipo de
+// su laboratorio) no significa que deba ver los equipos de OTROS
+// laboratorios que comparten esa misma orden. Sin este filtro anidado, la
+// cabecera compartida terminaba filtrando el detalle completo a cualquiera
+// con un equipo en la orden.
+function construirOrdenInclude(equipoWhere?: object) {
+  return {
+    cliente: { select: { id: true, nombre: true, tipo: true } },
+    equipos: {
+      where: equipoWhere,
+      include: {
+        laboratorio: {
+          select: { id: true, nombre: true, responsable_id: true },
+        },
+        sub_area: { select: { id: true, nombre: true } },
+        tecnico: { select: { id: true, nombre: true, apellidos: true } },
+        certificados: { select: { id: true } },
+        servicio: {
+          select: { id: true, nombre: true, magnitud: true, laboratorio_id: true },
+        },
       },
-      sub_area: { select: { id: true, nombre: true } },
-      tecnico: { select: { id: true, nombre: true, apellidos: true } },
-      certificados: { select: { id: true } },
-      servicio: {
-        select: { id: true, nombre: true, magnitud: true, laboratorio_id: true },
-      },
+      orderBy: { id: 'asc' as const },
     },
-    orderBy: { id: 'asc' as const },
-  },
-};
+  };
+}
 
 const EQUIPO_INCLUDE = {
   laboratorio: { select: { id: true, nombre: true, responsable_id: true } },
@@ -88,6 +98,29 @@ function resolveOrdenWhere(
   return undefined;
 }
 
+// Mismo criterio que resolveOrdenWhere, pero para filtrar CUÁLES equipos
+// dentro de una orden ya calificada se incluyen en la respuesta (ver
+// construirOrdenInclude). undefined = sin filtro, se ven todos los equipos
+// de la orden (jefe/director, con visión de todos los laboratorios).
+function resolveEquipoWhere(
+  puesto: string,
+  personaId: number | null,
+  labId: number | null,
+  isGod?: boolean,
+): object | undefined {
+  if (isGod) return undefined;
+
+  const n = normalizePuesto(puesto);
+
+  if (n.includes('jefe') || n.includes('director')) return undefined;
+
+  if (n.includes('observador')) return labId ? { laboratorio_id: labId } : undefined;
+
+  if (n.includes('tecnico')) return personaId ? { tecnico_id: personaId } : undefined;
+
+  return undefined;
+}
+
 @Injectable()
 export class RecepcionEquiposService {
   constructor(
@@ -121,7 +154,7 @@ export class RecepcionEquiposService {
           })),
         },
       },
-      include: ORDEN_INCLUDE,
+      include: construirOrdenInclude(),
     });
   }
 
@@ -160,7 +193,7 @@ export class RecepcionEquiposService {
     if (user?.isGod) {
       return this.prisma.ordenTrabajo.findMany({
         orderBy: { fecha_ingreso: 'desc' },
-        include: ORDEN_INCLUDE,
+        include: construirOrdenInclude(),
       });
     }
 
@@ -169,11 +202,12 @@ export class RecepcionEquiposService {
     const labId: number | null = user?.laboratorio_id ?? null;
 
     const where = resolveOrdenWhere(puesto, personaId, labId, user?.isGod);
+    const equipoWhere = resolveEquipoWhere(puesto, personaId, labId, user?.isGod);
 
     return this.prisma.ordenTrabajo.findMany({
       where,
       orderBy: { fecha_ingreso: 'desc' },
-      include: ORDEN_INCLUDE,
+      include: construirOrdenInclude(equipoWhere),
     });
   }
 
@@ -190,7 +224,7 @@ export class RecepcionEquiposService {
     if (user?.isGod) {
       const orden = await this.prisma.ordenTrabajo.findUnique({
         where: { id },
-        include: ORDEN_INCLUDE,
+        include: construirOrdenInclude(),
       });
       if (!orden) {
         throw new NotFoundException(
@@ -206,10 +240,11 @@ export class RecepcionEquiposService {
 
     const scopeWhere =
       resolveOrdenWhere(puesto, personaId, labId, user?.isGod) ?? {};
+    const equipoWhere = resolveEquipoWhere(puesto, personaId, labId, user?.isGod);
 
     const orden = await this.prisma.ordenTrabajo.findFirst({
       where: { id, ...scopeWhere },
-      include: ORDEN_INCLUDE,
+      include: construirOrdenInclude(equipoWhere),
     });
 
     if (!orden) {
@@ -228,7 +263,7 @@ export class RecepcionEquiposService {
         ...dto,
         fecha_ingreso: toDate(dto.fecha_ingreso),
       },
-      include: ORDEN_INCLUDE,
+      include: construirOrdenInclude(),
     });
   }
 
@@ -270,8 +305,27 @@ export class RecepcionEquiposService {
   // También se usa para REASIGNAR: si el OBT eligió mal al técnico, puede
   // volver a llamar este mismo método con otro tecnico_id — el nuevo
   // técnico queda notificado igual que en la asignación inicial.
-  async asignarTecnico(equipoId: number, dto: AsignarTecnicoDto) {
-    await this.findOneEquipo(equipoId);
+  async asignarTecnico(
+    equipoId: number,
+    dto: AsignarTecnicoDto,
+    user?: {
+      isGod?: boolean;
+      puesto?: string;
+      laboratorio_id?: number;
+    },
+  ) {
+    const equipo = await this.findOneEquipo(equipoId);
+
+    if (user && !user.isGod) {
+      const n = normalizePuesto(user.puesto ?? '');
+      const esObservador = n.includes('observador');
+      if (esObservador && equipo.laboratorio_id !== user.laboratorio_id) {
+        throw new ForbiddenException(
+          'No tienes permiso para asignar técnicos a equipos de otro laboratorio',
+        );
+      }
+    }
+
     const equipoActualizado = await this.prisma.equipoRecepcion.update({
       where: { id: equipoId },
       data: {
@@ -366,6 +420,11 @@ export class RecepcionEquiposService {
         if (!esObservador && !esJefe) {
           throw new ForbiddenException(
             'Solo el Observador Técnico o Jefe puede revisar',
+          );
+        }
+        if (esObservador && equipo.laboratorio_id !== user.laboratorio_id) {
+          throw new ForbiddenException(
+            'No tienes permiso para revisar equipos de otro laboratorio',
           );
         }
         if (accion === 'APROBAR') {
