@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  AlertCircle,
   ClipboardList,
   Clock,
   Eye,
@@ -55,6 +56,7 @@ interface BandejaRecepcion {
   fecha_ingreso: string;
   equipo_descripcion: string;
   estado: EstadoKey;
+  observacion: string | null;
   orden: OrdenTrabajoDetalle;
   cliente?: { id: number; nombre: string };
   laboratorio?: { id: number; nombre: string };
@@ -481,18 +483,26 @@ function useBandejaData() {
     queryFn: async () => {
       const res = await api.get<OrdenTrabajoDetalle[]>('/recepcion-equipos');
       return res.data.flatMap((orden) =>
-        orden.equipos.map((equipo) => ({
-          id: equipo.id,
-          orden_trabajo_fisica: orden.orden_trabajo_fisica,
-          fecha_ingreso: orden.fecha_ingreso,
-          equipo_descripcion: equipo.equipo_descripcion,
-          estado: equipo.estado as EstadoKey,
-          orden,
-          cliente: orden.cliente,
-          laboratorio: equipo.laboratorio ?? undefined,
-          tecnico: equipo.tecnico ?? undefined,
-          certificados: equipo.certificados,
-        })),
+        orden.equipos.map((equipo) => {
+          const historial = equipo.historial_estado ?? [];
+          const rechazoVigente =
+            historial[0]?.accion === 'RECHAZAR' && historial[0]?.observaciones
+              ? historial[0].observaciones
+              : null;
+          return {
+            id: equipo.id,
+            orden_trabajo_fisica: orden.orden_trabajo_fisica,
+            fecha_ingreso: orden.fecha_ingreso,
+            equipo_descripcion: equipo.equipo_descripcion,
+            estado: equipo.estado as EstadoKey,
+            observacion: rechazoVigente,
+            orden,
+            cliente: orden.cliente,
+            laboratorio: equipo.laboratorio ?? undefined,
+            tecnico: equipo.tecnico ?? undefined,
+            certificados: equipo.certificados,
+          };
+        }),
       );
     },
     enabled: !!puesto,
@@ -820,6 +830,21 @@ export default function BandejaTrabajoPage() {
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-center">
                       <StatusBadge estado={req.estado} />
+                      {req.observacion && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            alert({
+                              title: 'Motivo de rechazo',
+                              message: req.observacion ?? '',
+                            })
+                          }
+                          className="mx-auto mt-1 inline-flex cursor-pointer items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
+                        >
+                          <AlertCircle className="h-3 w-3" />
+                          Observado
+                        </button>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
                       {req.tecnico ? (

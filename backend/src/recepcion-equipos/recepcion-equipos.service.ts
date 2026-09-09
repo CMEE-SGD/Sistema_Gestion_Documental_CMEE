@@ -5,6 +5,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import * as fs from 'fs';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
@@ -27,6 +28,19 @@ const ORDEN_INCLUDE = {
       sub_area: { select: { id: true, nombre: true } },
       tecnico: { select: { id: true, nombre: true, apellidos: true } },
       certificados: { select: { id: true } },
+      historial_estado: {
+        select: {
+          id: true,
+          estado_anterior: true,
+          estado_nuevo: true,
+          accion: true,
+          observaciones: true,
+          createdAt: true,
+          realizado_por_id: true,
+        },
+        orderBy: { id: 'desc' as const },
+        take: 5,
+      },
       servicio: {
         select: { id: true, nombre: true, magnitud: true, laboratorio_id: true },
       },
@@ -40,6 +54,19 @@ const EQUIPO_INCLUDE = {
   sub_area: { select: { id: true, nombre: true } },
   tecnico: { select: { id: true, nombre: true, apellidos: true } },
   certificados: { select: { id: true } },
+  historial_estado: {
+    select: {
+      id: true,
+      estado_anterior: true,
+      estado_nuevo: true,
+      accion: true,
+      observaciones: true,
+      createdAt: true,
+      realizado_por_id: true,
+    },
+    orderBy: { id: 'desc' as const },
+    take: 5,
+  },
   servicio: {
     select: { id: true, nombre: true, magnitud: true, laboratorio_id: true },
   },
@@ -501,11 +528,37 @@ export class RecepcionEquiposService {
         );
     }
 
+    const rutasArchivosEliminados: string[] = [];
+
     const equipoActualizado = await this.prisma.$transaction(async (tx) => {
       await tx.equipoRecepcion.update({
         where: { id: equipoId },
         data: { estado: estadoNuevo! },
       });
+
+      // Si el paso fue rechazado, se eliminan los certificados y reportes
+      // subidos (registros y archivos físicos) para que el técnico vuelva a
+      // subirlos desde cero. También se borran las firmas asociadas.
+      if (accion === 'RECHAZAR') {
+        const certificados = await tx.certificado.findMany({
+          where: { equipo_recepcion_id: equipoId },
+          select: {
+            id: true,
+            ruta_archivo_reporte: true,
+            ruta_archivo_certificado: true,
+          },
+        });
+        for (const certificado of certificados) {
+          await tx.firmaDigital.deleteMany({
+            where: { certificado_id: certificado.id },
+          });
+          await tx.certificado.delete({ where: { id: certificado.id } });
+          rutasArchivosEliminados.push(
+            certificado.ruta_archivo_reporte,
+            certificado.ruta_archivo_certificado,
+          );
+        }
+      }
 
       await tx.historialEstado.create({
         data: {
@@ -524,6 +577,15 @@ export class RecepcionEquiposService {
       });
     });
 
+    // Los archivos físicos se borran tras el commit (mejor esfuerzo): un
+    // fallo al eliminar el archivo jamás debe revertir el rechazo ya
+    // confirmado en BD.
+    for (const ruta of rutasArchivosEliminados) {
+      fs.unlink(ruta, () => {
+        /* mejor esfuerzo */
+      });
+    }
+
     // Se notifica después de que la transición ya quedó confirmada en BD —
     // un fallo al notificar nunca debe revertir ni bloquear el cambio de
     // estado (ver notificarResponsablesEquipo, que además nunca lanza).
@@ -533,6 +595,10 @@ export class RecepcionEquiposService {
         this.notificacionesService,
         equipoActualizado,
         estadoNuevo!,
+        {
+          rechazado: accion === 'RECHAZAR',
+          motivo: observaciones ?? undefined,
+        },
       );
     }
 

@@ -44,6 +44,15 @@ interface EquipoResumen {
   tecnico_id: number | null;
   tecnico: TecnicoResumen | null;
   certificados: CertificadoResumen[];
+  historial_estado: {
+    id: number;
+    estado_anterior: string;
+    estado_nuevo: string;
+    accion: string;
+    observaciones: string | null;
+    createdAt: string;
+    realizado_por_id: number;
+  }[];
 }
 
 export interface OrdenTrabajoDetalle {
