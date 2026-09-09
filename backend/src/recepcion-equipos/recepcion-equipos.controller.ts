@@ -51,8 +51,12 @@ export class RecepcionEquiposController {
 
   @Patch(':id/asignar-tecnico')
   @RequireAccess('Recepcion Equipos', 4)
-  asignarTecnico(@Param('id') id: string, @Body() dto: AsignarTecnicoDto) {
-    return this.recepcionService.asignarTecnico(+id, dto);
+  asignarTecnico(
+    @Param('id') id: string,
+    @Body() dto: AsignarTecnicoDto,
+    @Req() req: any,
+  ) {
+    return this.recepcionService.asignarTecnico(+id, dto, req.user);
   }
 
   @Patch(':id/transicion-estado')
