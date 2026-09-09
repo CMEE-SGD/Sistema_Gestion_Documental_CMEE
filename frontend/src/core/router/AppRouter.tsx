@@ -32,6 +32,7 @@ import { EditarPersonaPage } from '../../modules/rrhh/pages/persona/EditarPerson
 import AccesoDenegadoPage from '../../modules/auth/AccesoDenegadoPage';
 import { AccesoPendientePage } from '../../modules/auth/AccesoPendientePage';
 import { RutaProtegida } from './RutaProtegida';
+import { RutaLogin } from './RutaLogin';
 import { DocumentosPersonaPage } from '../../modules/rrhh/pages/persona/DocumentosPersonaPage';
 import { CapacitacionesPersonaPage } from '../../modules/rrhh/pages/persona/CapacitacionesPersonaPage';
 import { CapacitacionesPage } from '../../modules/rrhh/pages/capacitacion/CapacitacionesPage';
@@ -112,7 +113,9 @@ const AppContenido = () => {
   useInactividad();
   return (
     <Routes>
-        <Route path="/" element={<LoginPage />} />
+        <Route path="/" element={<RutaLogin />}>
+            <Route index element={<LoginPage />} />
+        </Route>
         <Route path="/403" element={<AccesoDenegadoPage />} />
         <Route path="/espera" element={<AccesoPendientePage />} />
         <Route path="/verificar/:codigo" element={<VerificarCertificadoPage />} />
