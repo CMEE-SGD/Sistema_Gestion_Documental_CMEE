@@ -51,8 +51,15 @@ export interface OpcionesFirmaPlaceholder {
   name: string;
   location: string;
   signatureLength?: number;
-  /** Si se provee, el sello visual se dibuja como la apariencia del widget de firma. */
-  sello?: { posicion: PosicionFirma; etiqueta: string; nombre: string; qrUrl?: string };
+  /** Si se provee, el sello visual se dibuja como la apariencia del widget de firma.
+ * El tamaño final (ancho/alto) viene en `posicion` — lo eligió el usuario al
+ * redimensionar el recuadro; el contenido base se escala con una matriz `cm`. */
+  sello?: {
+    posicion: PosicionFirma;
+    etiqueta: string;
+    nombre: string;
+    qrUrl?: string;
+  };
 }
 
 export function agregarSelloYPlaceholder({
@@ -103,12 +110,28 @@ export function agregarSelloYPlaceholder({
   let widgetRect: [number, number, number, number] = [0, 0, 0, 0];
 
   if (sello) {
-    const { ancho, alto, contentStream } = construirAparienciaSello({
+    // La apariencia se construye a su tamaño "natural" (según el contenido) y
+    // luego se escala con una matriz `cm` al ancho/alto que eligió el usuario
+    // en el selector — así el redimensionado es independiente por eje, igual
+    // que estirar el recuadro en Adobe. Escalar nunca distorsiona el PDF, solo
+    // la representación visual del widget.
+    const base = construirAparienciaSello({
       etiqueta: sello.etiqueta,
       nombre: sello.nombre,
       qrUrl: sello.qrUrl,
     });
+    const anchoObjetivo = sello.posicion.ancho;
+    const altoObjetivo = sello.posicion.alto;
+    const sx = base.ancho > 0 ? anchoObjetivo / base.ancho : 1;
+    const sy = base.alto > 0 ? altoObjetivo / base.alto : 1;
+    const contentStreamEscalado = Buffer.concat([
+      Buffer.from(`q\n${sx.toFixed(4)} 0 0 ${sy.toFixed(4)} 0 0 cm\n`, 'ascii'),
+      base.contentStream,
+      Buffer.from('\nQ\n', 'ascii'),
+    ]);
 
+    const ancho = anchoObjetivo;
+    const alto = altoObjetivo;
     const paginaDictionary = findObject(pdf, info.xref, pageRef);
     const tamanoPagina =
       leerTamanoPagina(paginaDictionary) ??
@@ -118,6 +141,37 @@ export function agregarSelloYPlaceholder({
     const yTope = Math.min(Math.max(sello.posicion.y, alto), tamanoPagina.alto);
     const y1 = yTope - alto;
     widgetRect = [x1, y1, x1 + ancho, yTope];
+
+    // Si el sello trae logo (XObject de imagen en el centro del QR), se
+    // incrusta el objeto ANTES del XObject Form para poder referenciarlo desde
+    // su diccionario /Resources. Igual que el resto, solo se agrega al final
+    // (actualización incremental) sin tocar los bytes existentes.
+    let recursoImagenRef: PDFKitReferenceMock | undefined;
+    if (base.recursoImagen) {
+      info.xref.maxIndex += 1;
+      const imagenIndex = info.xref.maxIndex;
+      addedReferences.set(imagenIndex, pdf.length + 1);
+      const dictImagen: Record<string, unknown> = {
+        Type: 'XObject',
+        Subtype: 'Image',
+        Width: base.recursoImagen.imagen.ancho,
+        Height: base.recursoImagen.imagen.alto,
+        ColorSpace: 'DeviceRGB',
+        BitsPerComponent: 8,
+        Filter: base.recursoImagen.imagen.filtro,
+        Length: base.recursoImagen.imagen.streamBytes.length,
+      };
+      pdf = Buffer.concat([
+        pdf,
+        Buffer.from('\n'),
+        Buffer.from(`${imagenIndex} 0 obj\n`),
+        Buffer.from(PDFObject.convert(dictImagen)),
+        Buffer.from('\nstream\n'),
+        base.recursoImagen.imagen.streamBytes,
+        Buffer.from('\nendstream\nendobj\n'),
+      ]);
+      recursoImagenRef = new PDFKitReferenceMock(imagenIndex);
+    }
 
     info.xref.maxIndex += 1;
     const aparienciaIndex = info.xref.maxIndex;
@@ -138,8 +192,12 @@ export function agregarSelloYPlaceholder({
           // escaneo por el mismo alpha 0.9 que ya usa el texto.
           GS2: { Type: 'ExtGState', ca: 1, CA: 1 },
         },
+        // Logo institucional dibujado en el centro del QR (ver construirAparienciaSello).
+        XObject: base.recursoImagen && recursoImagenRef
+          ? { [base.recursoImagen.nombre]: recursoImagenRef }
+          : {},
       },
-      Length: contentStream.length,
+      Length: contentStreamEscalado.length,
     });
     pdf = Buffer.concat([
       pdf,
@@ -147,7 +205,7 @@ export function agregarSelloYPlaceholder({
       Buffer.from(`${aparienciaIndex} 0 obj\n`),
       Buffer.from(dictSinStream),
       Buffer.from('\nstream\n'),
-      contentStream,
+      contentStreamEscalado,
       Buffer.from('\nendstream\nendobj\n'),
     ]);
     aparienciaRef = new PDFKitReferenceMock(aparienciaIndex);

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>debug sello</title>
+</head>
+<body>
+<pre id="log">cargando…</pre>
+<script type="module">
+  const area = document.getElementById('log');
+  const log = (m) => { area.textContent += '\n' + m; };
+  window.addEventListener('error', (e) => log('WINDOW ERROR: ' + e.message));
+  window.addEventListener('unhandledrejection', (e) => log('UNHANDLED: ' + String(e.reason)));
+  log('boot');
+</script>
+<script type="module" src="/debug-sello.ts"></script>
+</body>
+</html>

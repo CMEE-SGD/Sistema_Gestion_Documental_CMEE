@@ -3,6 +3,7 @@
 // apariencia (/AP /N) del widget de firma — igual que antes, sin pdf-lib ni
 // pdfkit, dibujando los operadores PDF a mano.
 import { construirBloqueQr } from './crearBloqueQr';
+import { generarImagenSelloPdf, type ImagenSelloPdf } from './generarImagenSello';
 
 const RELLENO = 5;
 const GAP_QR_TEXTO = 6;
@@ -13,6 +14,12 @@ const GAP_QR_TEXTO = 6;
 // parejo), y el texto se achica levemente para no exagerar la diferencia.
 const QR_MODULO_PT = 0.85;
 const QR_ZONA_SILENCIO_MODULOS = 4; // recomendado por ISO/IEC 18004 — no bajar de 4, o el QR deja de leerse bien fotocopiado
+
+// Azul medio institucional del CMEE para los módulos del QR (#0000CD).
+const COLOR_QR_HEX = '#0000CD';
+// El logo ocupa el 90% del área perforada — queda un pequeño margen blanco
+// alrededor, igual que en los QR con logo ("logo on QR").
+const LOGO_ESPACIO_FACTOR = 0.9;
 
 const LABEL_FONT_SIZE = 5.5;
 const NAME_FONT_SIZE = 8;
@@ -72,6 +79,14 @@ export interface AparienciaSello {
   alto: number;
   /** Bytes ya listos para ir entre "stream" y "endstream". */
   contentStream: Buffer;
+  /** Imagen del logo institucional a incrustar como XObject (centro del QR).
+   * Solo existe cuando hubo QR (sin QR no hay logo). */
+  recursoImagen?: {
+    nombre: string;
+    imagen: ImagenSelloPdf;
+    /** Centro del área perforada, en coordenadas LOCALES del sello. */
+    posicion: { x: number; y: number; tamano: number };
+  };
 }
 
 export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
@@ -84,7 +99,7 @@ export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
   const altoTexto = LABEL_FONT_SIZE + LABEL_NAME_GAP + lineasNombre.length * NAME_LINE_HEIGHT;
 
   const bloqueQr = datos.qrUrl
-    ? construirBloqueQr(datos.qrUrl, QR_MODULO_PT, QR_ZONA_SILENCIO_MODULOS)
+    ? construirBloqueQr(datos.qrUrl, QR_MODULO_PT, QR_ZONA_SILENCIO_MODULOS, COLOR_QR_HEX)
     : null;
 
   const anchoContenido = (bloqueQr ? bloqueQr.ancho + GAP_QR_TEXTO : 0) + anchoTexto;
@@ -98,6 +113,7 @@ export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
   const yPrimeraLineaNombre = yEtiqueta - LABEL_NAME_GAP - NAME_FONT_SIZE;
 
   const partes: Buffer[] = [];
+  let recursoImagen: AparienciaSello['recursoImagen'];
 
   if (bloqueQr) {
     partes.push(
@@ -105,6 +121,29 @@ export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
     );
     partes.push(bloqueQr.operadores);
     partes.push(Buffer.from('\nQ\n', 'ascii'));
+
+    // Logo institucional centrado en el área perforada del QR. La imagen se
+    // incrusta como recurso (recursoImagen) y aquí solo se dibuja con `cm`.
+    if (bloqueQr.centro) {
+      const imagen = generarImagenSelloPdf();
+      const tamano = bloqueQr.centro.tamano * LOGO_ESPACIO_FACTOR;
+      recursoImagen = {
+        nombre: 'Im1',
+        imagen,
+        posicion: { x: bloqueQr.centro.x, y: bloqueQr.centro.y, tamano },
+      };
+      partes.push(
+        Buffer.from(
+          [
+            'q',
+            `${tamano.toFixed(2)} 0 0 ${tamano.toFixed(2)} ${(bloqueQr.centro.x - tamano / 2).toFixed(2)} ${(bloqueQr.centro.y - tamano / 2).toFixed(2)} cm`,
+            `/Im1 Do`,
+            'Q',
+          ].join('\n') + '\n',
+          'ascii',
+        ),
+      );
+    }
   }
 
   // Etiqueta (Courier regular, gris)
@@ -151,5 +190,5 @@ export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
   });
   partes.push(Buffer.from('ET\nQ', 'ascii'));
 
-  return { ancho, alto, contentStream: Buffer.concat(partes) };
+  return { ancho, alto, contentStream: Buffer.concat(partes), recursoImagen };
 }
