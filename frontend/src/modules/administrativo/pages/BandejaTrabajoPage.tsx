@@ -885,7 +885,7 @@ export default function BandejaTrabajoPage() {
                           )}
 
                           {/* EN_ESPERA: Asignar técnico */}
-                          {canAssign && req.estado === 'EN_ESPERA' && (
+                          {canAssign && req.estado === 'EN_ESPERA' && !req.tecnico && (
                             <Button
                               variant="ghost"
                               size="icon"
