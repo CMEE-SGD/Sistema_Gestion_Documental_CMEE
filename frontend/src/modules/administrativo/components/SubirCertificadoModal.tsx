@@ -19,6 +19,7 @@ interface ServicioOption {
   id: number;
   nombre: string | null;
   magnitud: string | null;
+  descripcion: string | null;
   laboratorio_id: number;
   activo: boolean;
 }
@@ -253,8 +254,8 @@ export default function SubirCertificadoModal({
                 <option value="">Seleccione el procedimiento...</option>
                 {serviciosDelLab.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.nombre ?? `Procedimiento #${s.id}`}
-                    {s.magnitud ? ` — ${s.magnitud}` : ''}
+                    {s.magnitud ?? s.nombre ?? `Procedimiento #${s.id}`}
+                    {s.descripcion ? ` — ${s.descripcion}` : ''}
                   </option>
                 ))}
               </select>

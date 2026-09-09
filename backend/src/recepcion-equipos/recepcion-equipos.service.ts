@@ -110,19 +110,31 @@ export class RecepcionEquiposService {
 
     await this.validarSubAreasDeEquipos(equipos);
 
-    return this.prisma.ordenTrabajo.create({
-      data: {
-        ...header,
-        fecha_ingreso: toDate(dto.fecha_ingreso),
-        equipos: {
-          create: equipos.map((equipo) => ({
-            ...equipo,
-            fecha_ingreso_laboratorio: toDate(equipo.fecha_ingreso_laboratorio),
-          })),
+    try {
+      return await this.prisma.ordenTrabajo.create({
+        data: {
+          ...header,
+          fecha_ingreso: toDate(dto.fecha_ingreso),
+          equipos: {
+            create: equipos.map((equipo) => ({
+              ...equipo,
+              fecha_ingreso_laboratorio: toDate(equipo.fecha_ingreso_laboratorio),
+            })),
+          },
         },
-      },
-      include: ORDEN_INCLUDE,
-    });
+        include: ORDEN_INCLUDE,
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        throw new ConflictException(
+          `La Orden Física #${dto.orden_trabajo_fisica} ya está registrada en el sistema.`,
+        );
+      }
+      throw new BadRequestException(
+        'Error al crear la orden de trabajo: ' +
+          (error.message || 'Error de base de datos'),
+      );
+    }
   }
 
   // Evita que un equipo quede etiquetado con una sub-área que en realidad
@@ -222,21 +234,63 @@ export class RecepcionEquiposService {
 
   async update(id: number, dto: UpdateOrdenTrabajoDto) {
     await this.findOne(id);
-    return this.prisma.ordenTrabajo.update({
-      where: { id },
-      data: {
-        ...dto,
-        fecha_ingreso: toDate(dto.fecha_ingreso),
-      },
-      include: ORDEN_INCLUDE,
-    });
+    try {
+      return await this.prisma.ordenTrabajo.update({
+        where: { id },
+        data: {
+          ...dto,
+          fecha_ingreso: toDate(dto.fecha_ingreso),
+        },
+        include: ORDEN_INCLUDE,
+      });
+    } catch (error: any) {
+      // P2002 = violación de unicidad (ej. el nº de orden física ya existe)
+      if (error?.code === 'P2002') {
+        throw new BadRequestException(
+          'El número de orden física ya está registrado en otra orden.',
+        );
+      }
+      throw new BadRequestException(
+        'Error al actualizar la orden de trabajo: ' +
+          (error.message || 'Error de base de datos'),
+      );
+    }
   }
 
   async remove(id: number) {
     await this.findOne(id);
-    return this.prisma.ordenTrabajo.delete({
-      where: { id },
-    });
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const equipos = await tx.equipoRecepcion.findMany({
+          where: { orden_trabajo_id: id },
+          select: { id: true },
+        });
+        const equipoIds = equipos.map((e) => e.id);
+
+        if (equipoIds.length > 0) {
+          await tx.firmaDigital.deleteMany({
+            where: { certificado: { equipo_recepcion_id: { in: equipoIds } } },
+          });
+          await tx.certificado.deleteMany({
+            where: { equipo_recepcion_id: { in: equipoIds } },
+          });
+          await tx.historialEstado.deleteMany({
+            where: { equipo_recepcion_id: { in: equipoIds } },
+          });
+          await tx.equipoRecepcion.deleteMany({
+            where: { id: { in: equipoIds } },
+          });
+        }
+
+        return tx.ordenTrabajo.delete({ where: { id } });
+      });
+    } catch (error: any) {
+      throw new BadRequestException(
+        'Error al eliminar la orden de trabajo: ' +
+          (error.message || 'Error de base de datos'),
+      );
+    }
   }
 
   // ------------------------------------------------------------------

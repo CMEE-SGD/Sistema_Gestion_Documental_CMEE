@@ -1,12 +1,29 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ClipboardList, Eye, Inbox, Search } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  AlertTriangle,
+  ClipboardList,
+  Eye,
+  Inbox,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import api from '../../../core/api/axios';
+import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 import { Button } from '../../../shared/components/atoms/button';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
+import { esUsuarioAdministrador } from '../../../shared/utils/auth';
 import VistaDetalleOrden, {
   type OrdenTrabajoDetalle,
 } from '../components/VistaDetalleOrden';
+import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
+import EditarOrdenModal from '../components/EditarOrdenModal';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -122,11 +139,51 @@ const COLS = 6;
 
 export default function RecepcionesPage() {
   const { data: ordenes, isLoading, isError, error } = useOrdenesTrabajo();
+  const queryClient = useQueryClient();
+  const { alert, confirm } = useAlert();
+  const { toast } = useToast();
 
   const [busqueda, setBusqueda] = useState('');
   const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
   const [ordenSeleccionada, setOrdenSeleccionada] =
     useState<OrdenTrabajoDetalle | null>(null);
+  const [editarOrden, setEditarOrden] = useState<OrdenTrabajoDetalle | null>(
+    null,
+  );
+  const [nuevaOrdenOpen, setNuevaOrdenOpen] = useState(false);
+
+  const esAdministrador = esUsuarioAdministrador();
+
+  const eliminarMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await api.delete(`/recepcion-equipos/${id}`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ordenes-trabajo'] });
+      toast({ message: 'Orden de trabajo eliminada correctamente.' });
+    },
+    onError: async (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      await alert({
+        message:
+          apiErr?.response?.data?.message ||
+          'Error al eliminar la orden de trabajo',
+      });
+    },
+  });
+
+  const handleEliminar = async (orden: OrdenTrabajoDetalle) => {
+    if (
+      !(await confirm({
+        title: 'Eliminar orden',
+        message: `¿Eliminar definitivamente la Orden de Trabajo #${orden.orden_trabajo_fisica}? Se borrarán también sus equipos, historial y certificados.`,
+      }))
+    ) {
+      return;
+    }
+    eliminarMutation.mutate(orden.id);
+  };
 
   // ------------------------------------------------------------------
   // Laboratorios disponibles — derivados de los equipos ya cargados,
@@ -193,7 +250,7 @@ export default function RecepcionesPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <select
             value={laboratorioFiltro}
             onChange={(e) => setLaboratorioFiltro(e.target.value)}
@@ -217,6 +274,17 @@ export default function RecepcionesPage() {
               className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
+
+          {esAdministrador && (
+            <button
+              type="button"
+              onClick={() => setNuevaOrdenOpen(true)}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" />
+              Nueva Orden de Trabajo
+            </button>
+          )}
         </div>
       </div>
 
@@ -281,14 +349,44 @@ export default function RecepcionesPage() {
                       {orden.equipos?.length ?? 0}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setOrdenSeleccionada(orden)}
-                      >
-                        <Eye className="h-4 w-4" />
-                        Ver Detalle
-                      </Button>
+                      <div className="flex items-center justify-center gap-2">
+                        {esAdministrador && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditarOrden(orden)}
+                              title="Editar orden de trabajo"
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEliminar(orden)}
+                              disabled={eliminarMutation.isPending}
+                              title="Eliminar orden de trabajo"
+                              className="border-destructive/30 text-destructive hover:bg-destructive/10"
+                            >
+                              {eliminarMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                              Eliminar
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOrdenSeleccionada(orden)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          Ver Detalle
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -312,6 +410,43 @@ export default function RecepcionesPage() {
           onClose={() => setOrdenSeleccionada(null)}
         />
       )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Modal de nueva orden (solo administrador) */}
+      {/* ------------------------------------------------------------------ */}
+      {nuevaOrdenOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto backdrop-blur-sm bg-black/40 py-4">
+          <div className="bg-popover text-popover-foreground border border-border rounded-xl shadow-lg w-full max-w-[1800px] min-h-[85vh] relative mx-4 flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+              <h2 className="text-lg font-semibold">Nueva Orden de Trabajo</h2>
+              <button
+                type="button"
+                onClick={() => setNuevaOrdenOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              <FormOrdenTrabajo
+                onSuccess={() => {
+                  queryClient.invalidateQueries({ queryKey: ['ordenes-trabajo'] });
+                  setNuevaOrdenOpen(false);
+                }}
+                onCancel={() => setNuevaOrdenOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Modal de edición de cabecera (solo administrador) */}
+      {/* ------------------------------------------------------------------ */}
+      <EditarOrdenModal
+        orden={editarOrden}
+        onClose={() => setEditarOrden(null)}
+      />
     </div>
   );
 }
