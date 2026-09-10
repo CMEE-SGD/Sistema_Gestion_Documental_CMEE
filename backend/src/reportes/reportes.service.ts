@@ -2,21 +2,43 @@ import { Injectable } from '@nestjs/common';
 import { EstadoRecepcion } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatearNumeroCertificado } from '../common/helpers/certificado-format';
+import { isRestrictedToLab, type HydratedUser } from '../common/helpers/lab-scope';
 
 @Injectable()
 export class ReportesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Un OBT o técnico (isRestrictedToLab) no puede elegir de qué laboratorio
+   * pedir el reporte: se ignora el laboratorio_id que llegó por query string
+   * y se fuerza el suyo propio (-1 si no tiene uno asignado, para no
+   * devolver resultados de nadie). Jefe de Laboratorio, Director,
+   * Administrador y Servicio al Cliente conservan el filtro libre de
+   * siempre — hay un solo Jefe de Laboratorio para los 5 laboratorios, así
+   * que necesita verlos todos.
+   */
+  private resolverLaboratorioId(
+    laboratorioId: number | undefined,
+    user?: HydratedUser,
+  ): number | undefined {
+    if (!user || user.isGod) return laboratorioId;
+    if (!isRestrictedToLab(user.puesto ?? '')) return laboratorioId;
+    return user.laboratorio_id ?? -1;
+  }
+
   /** 8.7 — Reportes por laboratorio: volumen de equipos y avance por laboratorio. */
-  async porLaboratorio() {
+  async porLaboratorio(user?: HydratedUser) {
+    const laboratorioId = this.resolverLaboratorioId(undefined, user);
+
     const laboratorios = await this.prisma.laboratorio.findMany({
-      where: { activo: true },
+      where: { activo: true, ...(laboratorioId ? { id: laboratorioId } : {}) },
       select: { id: true, nombre: true },
       orderBy: { nombre: 'asc' },
     });
 
     const equipos = await this.prisma.equipoRecepcion.findMany({
       select: { laboratorio_id: true, estado: true },
+      where: laboratorioId ? { laboratorio_id: laboratorioId } : undefined,
     });
 
     return laboratorios.map((lab) => {
@@ -44,7 +66,9 @@ export class ReportesService {
     laboratorioId?: number,
     desde?: string,
     hasta?: string,
+    user?: HydratedUser,
   ) {
+    laboratorioId = this.resolverLaboratorioId(laboratorioId, user);
     const equipos = await this.prisma.equipoRecepcion.findMany({
       where: {
         estado: EstadoRecepcion.FINALIZADO,
@@ -103,7 +127,8 @@ export class ReportesService {
   }
 
   /** 8.7 — Certificados pendientes: equipos que todavía no llegan a FINALIZADO. */
-  async certificadosPendientes(laboratorioId?: number) {
+  async certificadosPendientes(laboratorioId?: number, user?: HydratedUser) {
+    laboratorioId = this.resolverLaboratorioId(laboratorioId, user);
     const equipos = await this.prisma.equipoRecepcion.findMany({
       where: {
         estado: { not: EstadoRecepcion.FINALIZADO },
@@ -142,7 +167,8 @@ export class ReportesService {
    * 8.7 — Certificados observados: equipos con al menos un rechazo en su
    * historial que aún no llegan a FINALIZADO (es decir, siguen en retrabajo).
    */
-  async certificadosObservados(laboratorioId?: number) {
+  async certificadosObservados(laboratorioId?: number, user?: HydratedUser) {
+    laboratorioId = this.resolverLaboratorioId(laboratorioId, user);
     const equipos = await this.prisma.equipoRecepcion.findMany({
       where: {
         estado: { not: EstadoRecepcion.FINALIZADO },
@@ -195,7 +221,8 @@ export class ReportesService {
    * 8.7 — Tiempos de atención: días entre el ingreso al laboratorio y el
    * cierre (FINALIZADO), agregado por laboratorio.
    */
-  async tiemposAtencion(laboratorioId?: number) {
+  async tiemposAtencion(laboratorioId?: number, user?: HydratedUser) {
+    laboratorioId = this.resolverLaboratorioId(laboratorioId, user);
     const equipos = await this.prisma.equipoRecepcion.findMany({
       where: {
         estado: EstadoRecepcion.FINALIZADO,
@@ -259,7 +286,8 @@ export class ReportesService {
    * historial de estado, ya que el sistema aún no tiene un módulo separado
    * de no conformidades/acciones correctivas.
    */
-  async calidad(laboratorioId?: number) {
+  async calidad(laboratorioId?: number, user?: HydratedUser) {
+    laboratorioId = this.resolverLaboratorioId(laboratorioId, user);
     const rechazos = await this.prisma.historialEstado.findMany({
       where: {
         accion: 'RECHAZAR',
@@ -323,11 +351,12 @@ export class ReportesService {
   }
 
   /** 8.7 — Reportes administrativos: panorama general del período. */
-  async administrativo(desde?: string, hasta?: string) {
+  async administrativo(desde?: string, hasta?: string, user?: HydratedUser) {
     const desdeDate = desde ? new Date(desde) : undefined;
     const hastaDate = hasta ? new Date(hasta) : undefined;
+    const laboratorioId = this.resolverLaboratorioId(undefined, user);
 
-    const whereOrden =
+    const whereOrdenFecha =
       desdeDate || hastaDate
         ? {
             fecha_ingreso: {
@@ -337,14 +366,32 @@ export class ReportesService {
           }
         : {};
 
-    const [totalClientes, totalOrdenes, equipos] = await Promise.all([
-      this.prisma.clienteInstitucional.count(),
+    // Una orden puede tener equipos de más de un laboratorio (ver el fix de
+    // "restringir por laboratorio" en recepcion-equipos): para un OBT/técnico
+    // no basta filtrar por fecha, hay que exigir que al menos un equipo de la
+    // orden sea de su laboratorio.
+    const whereOrden = laboratorioId
+      ? { ...whereOrdenFecha, equipos: { some: { laboratorio_id: laboratorioId } } }
+      : whereOrdenFecha;
+
+    const [totalOrdenes, equipos] = await Promise.all([
       this.prisma.ordenTrabajo.count({ where: whereOrden }),
       this.prisma.equipoRecepcion.findMany({
-        where: { orden_trabajo: whereOrden },
-        select: { estado: true },
+        where: {
+          orden_trabajo: whereOrdenFecha,
+          ...(laboratorioId ? { laboratorio_id: laboratorioId } : {}),
+        },
+        select: { estado: true, orden_trabajo: { select: { cliente_id: true } } },
       }),
     ]);
+
+    // Sin restricción de laboratorio, "clientes" es el total real del
+    // sistema (no depende del período, igual que antes). Restringido, se
+    // deriva de los equipos ya filtrados por laboratorio: clientes distintos
+    // que tienen al menos un equipo en ese laboratorio.
+    const totalClientes = laboratorioId
+      ? new Set(equipos.map((e) => e.orden_trabajo.cliente_id)).size
+      : await this.prisma.clienteInstitucional.count();
 
     const porEstado = equipos.reduce<Record<string, number>>((acc, e) => {
       acc[e.estado] = (acc[e.estado] ?? 0) + 1;
