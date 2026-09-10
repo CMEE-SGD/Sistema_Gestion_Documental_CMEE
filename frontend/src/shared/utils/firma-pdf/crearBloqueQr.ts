@@ -21,10 +21,17 @@ export interface BloqueQr {
   centro: { x: number; y: number; tamano: number } | null;
 }
 
-// 'L' en vez de 'M': menos redundancia, pero genera bastantes menos módulos
-// para la misma URL — necesario para que el QR no le gane en tamaño al
-// bloque de texto (ver nota en crearAparienciaSello.ts).
-const NIVEL_CORRECCION = 'L';
+// 'H' (máxima redundancia, tolera hasta ~30% de módulos dañados) — no es
+// opcional cuando el QR lleva un logo perforado en el centro. El hueco de
+// LOGO_CLEAR_MODULOS ya "borra" ~8-9% de los módulos de datos: con 'L'
+// (tolera ~7%) ese hueco por sí solo ya agota o supera todo el margen de
+// corrección, antes de sumar cualquier imperfección real (impresión,
+// brillo de pantalla, ángulo de cámara) — por eso el QR con logo no
+// escaneaba. Con 'H' ese mismo hueco usa como una cuarta parte del margen
+// disponible, dejando espacio de sobra para condiciones reales. El costo es
+// un QR con más módulos (más grande) para la misma URL — inevitable: un QR
+// compacto y uno perforable para logo son objetivos en conflicto.
+const NIVEL_CORRECCION = 'H';
 
 // Lado de la zona central perforada para el logo, como proporción de la matriz
 // real del QR (sin contar el margen de silencio). 30% es el máximo sensato sin
