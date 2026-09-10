@@ -527,7 +527,15 @@ export default function BandejaTrabajoPage() {
 
   const nPuesto = normalize(puesto);
   const esObservador = nPuesto.includes('observador');
-  const esTecnico = nPuesto.includes('tecnico') && !nPuesto.includes('observador');
+  // Excluye "jefe" de esTecnico — el puesto "Jefe Técnico de Laboratorio"
+  // contiene "tecnico" en el texto, pero quien lo ocupa es el Jefe, no el
+  // técnico asignado (mismo criterio que ya usan certificados.service.ts y
+  // recepcion-equipos.service.ts en el backend). Sin esto, el Jefe también
+  // veía el botón "Firmar Documento" del técnico en PENDIENTE_FIRMA_TECNICO.
+  const esTecnico =
+    nPuesto.includes('tecnico') &&
+    !nPuesto.includes('observador') &&
+    !nPuesto.includes('jefe');
   // "Jefe Departamento Gestión de la Calidad" no participa de este flujo,
   // pero su puesto también contiene "jefe" — se excluye para que no cuele
   // como Jefe de Laboratorio en REVISION_JEFE.
