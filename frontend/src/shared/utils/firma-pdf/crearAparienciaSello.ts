@@ -124,19 +124,29 @@ export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
 
     // Logo institucional centrado en el área perforada del QR. La imagen se
     // incrusta como recurso (recursoImagen) y aquí solo se dibuja con `cm`.
+    //
+    // bloqueQr.centro.x/y son coordenadas LOCALES del bloque QR (origen en
+    // su propia esquina inferior-izquierda) — el `Q` de la línea de arriba ya
+    // cerró la traslación `RELLENO` que puso al bloque QR en su lugar dentro
+    // del sello completo, así que hay que volver a sumarla aquí; si no, el
+    // logo queda dibujado `RELLENO` puntos más abajo y a la izquierda de
+    // donde realmente está el hueco del QR, dejando el hueco descentrado
+    // (vacío hacia arriba/derecha) en vez de centrado.
     if (bloqueQr.centro) {
       const imagen = generarImagenSelloPdf();
       const tamano = bloqueQr.centro.tamano * LOGO_ESPACIO_FACTOR;
+      const centroXAbsoluto = RELLENO + bloqueQr.centro.x;
+      const centroYAbsoluto = RELLENO + bloqueQr.centro.y;
       recursoImagen = {
         nombre: 'Im1',
         imagen,
-        posicion: { x: bloqueQr.centro.x, y: bloqueQr.centro.y, tamano },
+        posicion: { x: centroXAbsoluto, y: centroYAbsoluto, tamano },
       };
       partes.push(
         Buffer.from(
           [
             'q',
-            `${tamano.toFixed(2)} 0 0 ${tamano.toFixed(2)} ${(bloqueQr.centro.x - tamano / 2).toFixed(2)} ${(bloqueQr.centro.y - tamano / 2).toFixed(2)} cm`,
+            `${tamano.toFixed(2)} 0 0 ${tamano.toFixed(2)} ${(centroXAbsoluto - tamano / 2).toFixed(2)} ${(centroYAbsoluto - tamano / 2).toFixed(2)} cm`,
             `/Im1 Do`,
             'Q',
           ].join('\n') + '\n',
