@@ -39,20 +39,25 @@ export interface BloqueQr {
 
 // 'H' (máxima redundancia, tolera hasta ~30% de módulos dañados) — no es
 // opcional cuando el QR lleva un logo perforado en el centro. El hueco de
-// LOGO_CLEAR_MODULOS ya "borra" ~8-9% de los módulos de datos: con 'L'
+// LOGO_CLEAR_MODULOS ya "borra" ~13-14% de los módulos de datos: con 'L'
 // (tolera ~7%) ese hueco por sí solo ya agota o supera todo el margen de
 // corrección, antes de sumar cualquier imperfección real (impresión,
 // brillo de pantalla, ángulo de cámara) — por eso el QR con logo no
-// escaneaba. Con 'H' ese mismo hueco usa como una cuarta parte del margen
+// escaneaba. Con 'H' ese mismo hueco usa menos de la mitad del margen
 // disponible, dejando espacio de sobra para condiciones reales. El costo es
 // un QR con más módulos (más grande) para la misma URL — inevitable: un QR
 // compacto y uno perforable para logo son objetivos en conflicto.
 const NIVEL_CORRECCION = 'H';
 
-// Lado de la zona central perforada para el logo, como proporción de la matriz
-// real del QR (sin contar el margen de silencio). 30% es el máximo sensato sin
-// arriesgar la lectura: el QR sigue teniendo sus 3 cuadrantes de position markers.
-const LOGO_CLEAR_MODULOS = 0.3;
+// Lado de la zona central perforada para el logo, como proporción de la
+// matriz real del QR (sin contar el margen de silencio). Probado con un
+// lector real (jsQR) subiendo este valor de a poco: decodifica bien hasta
+// 0.44, falla de forma consistente en 0.45 — un salto abrupto, no una
+// degradación gradual (mismo patrón que el estilo de puntos separados). Con
+// eso medido, 0.38 dado un margen real (~15%) por debajo del punto donde
+// falla, en vez de quedar pegado al borde de una prueba idealizada sin el
+// ruido de una cámara o impresión real.
+const LOGO_CLEAR_MODULOS = 0.38;
 
 // Radio de las esquinas redondeadas de cada módulo, como fracción de medio
 // módulo (0 = cuadrado recto, 1 = esquina totalmente circular). Probado con
