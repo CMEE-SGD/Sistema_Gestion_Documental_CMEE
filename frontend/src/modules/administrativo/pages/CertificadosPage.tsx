@@ -390,21 +390,12 @@ export default function CertificadosPage() {
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => handleVer(c.id, 'reporte')}
-                          title="Ver reporte"
-                          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          Reporte
-                        </button>
-                        <button
-                          type="button"
                           onClick={() => handleVer(c.id, 'certificado')}
-                          title="Ver certificado"
+                          title="Ver documento"
                           className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          Certificado
+                          Documento
                         </button>
                         <button
                           type="button"

@@ -129,7 +129,7 @@ export class CertificadosService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const resultado = await this.prisma.$transaction(async (tx) => {
       const certificado = await tx.certificado.create({
         data: {
           equipo_recepcion_id: equipoRecepcionId,
@@ -173,6 +173,26 @@ export class CertificadosService {
 
       return creado ? conNumeroFormateado(creado) : creado;
     });
+
+    // Se notifica después de que la transacción ya quedó confirmada en BD —
+    // un fallo al notificar nunca debe revertir ni bloquear la subida que ya
+    // se registró (ver notificarResponsablesEquipo, que además nunca lanza).
+    // Sin esto, el OBT nunca se enteraba de que había un equipo esperando su
+    // revisión: firmar() ya notificaba en cada firma, pero upload() —el paso
+    // que de verdad transiciona el equipo a REVISION_OBT— nunca lo hacía.
+    await notificarResponsablesEquipo(
+      this.prisma,
+      this.notificacionesService,
+      {
+        id: equipo.id,
+        equipo_descripcion: equipo.equipo_descripcion,
+        laboratorio_id: equipo.laboratorio_id,
+        tecnico_id: equipo.tecnico_id,
+      },
+      EstadoRecepcion.REVISION_OBT,
+    );
+
+    return resultado;
   }
 
   /**
