@@ -105,10 +105,8 @@ export default function SubirCertificadoModal({
   const queryClient = useQueryClient();
   const { alert } = useAlert();
   const { toast } = useToast();
-  const reporteInputRef = useRef<HTMLInputElement>(null);
-  const certificadoInputRef = useRef<HTMLInputElement>(null);
-  const [fileReporte, setFileReporte] = useState<File | null>(null);
-  const [fileCertificado, setFileCertificado] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [servicioId, setServicioId] = useState<string>('');
 
   const { data: servicios } = useQuery({
@@ -136,10 +134,9 @@ export default function SubirCertificadoModal({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!fileReporte || !fileCertificado || !recepcionId) return;
+      if (!file || !recepcionId) return;
       const formData = new FormData();
-      formData.append('reporte', fileReporte);
-      formData.append('certificado', fileCertificado);
+      formData.append('file', file);
       formData.append('recepcion_equipo_id', recepcionId.toString());
       if (servicioId) formData.append('servicio_id', servicioId);
 
@@ -172,28 +169,19 @@ export default function SubirCertificadoModal({
     },
   });
 
-  const handleFileChange = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    tipo: 'reporte' | 'certificado',
-  ) => {
-    const inputRef = tipo === 'reporte' ? reporteInputRef : certificadoInputRef;
-    const setFile = tipo === 'reporte' ? setFileReporte : setFileCertificado;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
     if (selected && selected.type !== 'application/pdf') {
       await alert({ message: 'Solo se permiten archivos PDF' });
       setFile(null);
-      if (inputRef.current) inputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
     setFile(selected);
   };
 
-  const handleDrop = async (
-    e: React.DragEvent,
-    tipo: 'reporte' | 'certificado',
-  ) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
-    const setFile = tipo === 'reporte' ? setFileReporte : setFileCertificado;
     const dropped = e.dataTransfer.files?.[0] ?? null;
     if (dropped && dropped.type !== 'application/pdf') {
       await alert({ message: 'Solo se permiten archivos PDF' });
@@ -204,7 +192,7 @@ export default function SubirCertificadoModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fileReporte || !fileCertificado) return;
+    if (!file) return;
     if (!servicioId) return;
     mutation.mutate();
   };
@@ -230,10 +218,10 @@ export default function SubirCertificadoModal({
         <form onSubmit={handleSubmit}>
           <div className="p-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Seleccione el PDF del reporte de calibración y el PDF del
-              certificado para finalizar el proceso. Son dos documentos
-              distintos: el reporte lo firman el técnico y el jefe de
-              laboratorio; el certificado lo firma el director.
+              Seleccione el PDF con el reporte de calibración y el
+              certificado ya combinados en un solo documento. El técnico, el
+              jefe de laboratorio y el director firman ese mismo archivo en
+              cada etapa del proceso.
             </p>
 
             {/* Procedimiento */}
@@ -271,31 +259,18 @@ export default function SubirCertificadoModal({
               )}
             </div>
 
-            {/* Reporte de calibración */}
+            {/* Reporte + certificado (un solo PDF) */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Reporte de calibración <span className="text-destructive">*</span>
+                Reporte y certificado de calibración{' '}
+                <span className="text-destructive">*</span>
               </label>
               <ZonaArchivo
-                file={fileReporte}
-                inputRef={reporteInputRef}
-                onSelect={setFileReporte}
-                onChange={(e) => handleFileChange(e, 'reporte')}
-                onDrop={(e) => handleDrop(e, 'reporte')}
-              />
-            </div>
-
-            {/* Certificado de calibración */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Certificado de calibración <span className="text-destructive">*</span>
-              </label>
-              <ZonaArchivo
-                file={fileCertificado}
-                inputRef={certificadoInputRef}
-                onSelect={setFileCertificado}
-                onChange={(e) => handleFileChange(e, 'certificado')}
-                onDrop={(e) => handleDrop(e, 'certificado')}
+                file={file}
+                inputRef={fileInputRef}
+                onSelect={setFile}
+                onChange={handleFileChange}
+                onDrop={handleDrop}
               />
             </div>
           </div>
@@ -311,7 +286,7 @@ export default function SubirCertificadoModal({
             </button>
             <button
               type="submit"
-              disabled={!fileReporte || !fileCertificado || !servicioId || mutation.isPending}
+              disabled={!file || !servicioId || mutation.isPending}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-50"
             >
               {mutation.isPending ? (
