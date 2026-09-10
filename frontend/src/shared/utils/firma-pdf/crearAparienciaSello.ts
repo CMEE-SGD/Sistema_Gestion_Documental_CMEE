@@ -3,6 +3,7 @@
 // apariencia (/AP /N) del widget de firma — igual que antes, sin pdf-lib ni
 // pdfkit, dibujando los operadores PDF a mano.
 import { construirBloqueQr } from './crearBloqueQr';
+import { generarImagenSelloPdf, type ImagenSelloPdf } from './generarImagenSello';
 
 const RELLENO = 5;
 const GAP_QR_TEXTO = 6;
@@ -13,6 +14,23 @@ const GAP_QR_TEXTO = 6;
 // parejo), y el texto se achica levemente para no exagerar la diferencia.
 const QR_MODULO_PT = 0.85;
 const QR_ZONA_SILENCIO_MODULOS = 4; // recomendado por ISO/IEC 18004 — no bajar de 4, o el QR deja de leerse bien fotocopiado
+
+// Azul medio institucional del CMEE para los módulos del QR (#0000CD).
+const COLOR_QR_HEX = '#0000CD';
+// El logo ocupa el 96% del área perforada — un margen mínimo (4%) para que
+// el redondeo de coordenadas nunca lo deje tocando/pisando un módulo del QR
+// vecino, pero visualmente casi sin espacio extra alrededor.
+const LOGO_ESPACIO_FACTOR = 0.96;
+// El bitmap de 160×160 (ver LOGO_160.ts) trae su propio margen blanco
+// alrededor del escudo circular — medido una sola vez sobre el bitmap: el
+// contenido real va de los píxeles 5 a 154 de 160 (en fracción de imagen,
+// de 5/160 a 155/160). En vez de volver a generar el bitmap para recortarlo,
+// se "recorta" con la matemática de dibujo: se escala la imagen para que
+// esa franja de contenido llene TODO el cuadro del logo, y un clip-path
+// (`re W n`) corta lo que sobra fuera (el margen blanco original, que si no
+// se recortara se saldría del hueco y blanquearía módulos del QR vecinos).
+const LOGO_CONTENIDO_INICIO = 5 / 160;
+const LOGO_CONTENIDO_FIN = 155 / 160;
 
 const LABEL_FONT_SIZE = 5.5;
 const NAME_FONT_SIZE = 8;
@@ -72,6 +90,14 @@ export interface AparienciaSello {
   alto: number;
   /** Bytes ya listos para ir entre "stream" y "endstream". */
   contentStream: Buffer;
+  /** Imagen del logo institucional a incrustar como XObject (centro del QR).
+   * Solo existe cuando hubo QR (sin QR no hay logo). */
+  recursoImagen?: {
+    nombre: string;
+    imagen: ImagenSelloPdf;
+    /** Centro del área perforada, en coordenadas LOCALES del sello. */
+    posicion: { x: number; y: number; tamano: number };
+  };
 }
 
 export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
@@ -84,7 +110,7 @@ export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
   const altoTexto = LABEL_FONT_SIZE + LABEL_NAME_GAP + lineasNombre.length * NAME_LINE_HEIGHT;
 
   const bloqueQr = datos.qrUrl
-    ? construirBloqueQr(datos.qrUrl, QR_MODULO_PT, QR_ZONA_SILENCIO_MODULOS)
+    ? construirBloqueQr(datos.qrUrl, QR_MODULO_PT, QR_ZONA_SILENCIO_MODULOS, COLOR_QR_HEX)
     : null;
 
   const anchoContenido = (bloqueQr ? bloqueQr.ancho + GAP_QR_TEXTO : 0) + anchoTexto;
@@ -98,6 +124,7 @@ export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
   const yPrimeraLineaNombre = yEtiqueta - LABEL_NAME_GAP - NAME_FONT_SIZE;
 
   const partes: Buffer[] = [];
+  let recursoImagen: AparienciaSello['recursoImagen'];
 
   if (bloqueQr) {
     partes.push(
@@ -105,6 +132,52 @@ export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
     );
     partes.push(bloqueQr.operadores);
     partes.push(Buffer.from('\nQ\n', 'ascii'));
+
+    // Logo institucional centrado en el área perforada del QR. La imagen se
+    // incrusta como recurso (recursoImagen) y aquí solo se dibuja con `cm`.
+    //
+    // bloqueQr.centro.x/y son coordenadas LOCALES del bloque QR (origen en
+    // su propia esquina inferior-izquierda) — el `Q` de la línea de arriba ya
+    // cerró la traslación `RELLENO` que puso al bloque QR en su lugar dentro
+    // del sello completo, así que hay que volver a sumarla aquí; si no, el
+    // logo queda dibujado `RELLENO` puntos más abajo y a la izquierda de
+    // donde realmente está el hueco del QR, dejando el hueco descentrado
+    // (vacío hacia arriba/derecha) en vez de centrado.
+    if (bloqueQr.centro) {
+      const imagen = generarImagenSelloPdf();
+      const tamano = bloqueQr.centro.tamano * LOGO_ESPACIO_FACTOR;
+      const centroXAbsoluto = RELLENO + bloqueQr.centro.x;
+      const centroYAbsoluto = RELLENO + bloqueQr.centro.y;
+      const cuadroX = centroXAbsoluto - tamano / 2;
+      const cuadroY = centroYAbsoluto - tamano / 2;
+      recursoImagen = {
+        nombre: 'Im1',
+        imagen,
+        posicion: { x: centroXAbsoluto, y: centroYAbsoluto, tamano },
+      };
+
+      // Escala la imagen para que la franja [LOGO_CONTENIDO_INICIO,
+      // LOGO_CONTENIDO_FIN] (el escudo real, sin el margen propio del
+      // bitmap) llene el cuadro completo; el clip-path recorta el resto.
+      const franja = LOGO_CONTENIDO_FIN - LOGO_CONTENIDO_INICIO;
+      const escalaImagen = tamano / franja;
+      const origenX = cuadroX - LOGO_CONTENIDO_INICIO * escalaImagen;
+      const origenY = cuadroY - LOGO_CONTENIDO_INICIO * escalaImagen;
+
+      partes.push(
+        Buffer.from(
+          [
+            'q',
+            `${cuadroX.toFixed(2)} ${cuadroY.toFixed(2)} ${tamano.toFixed(2)} ${tamano.toFixed(2)} re`,
+            'W n',
+            `${escalaImagen.toFixed(2)} 0 0 ${escalaImagen.toFixed(2)} ${origenX.toFixed(2)} ${origenY.toFixed(2)} cm`,
+            `/Im1 Do`,
+            'Q',
+          ].join('\n') + '\n',
+          'ascii',
+        ),
+      );
+    }
   }
 
   // Etiqueta (Courier regular, gris)
@@ -151,5 +224,5 @@ export function construirAparienciaSello(datos: DatosSello): AparienciaSello {
   });
   partes.push(Buffer.from('ET\nQ', 'ascii'));
 
-  return { ancho, alto, contentStream: Buffer.concat(partes) };
+  return { ancho, alto, contentStream: Buffer.concat(partes), recursoImagen };
 }

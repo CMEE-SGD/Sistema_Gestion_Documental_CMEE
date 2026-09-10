@@ -14,6 +14,7 @@ import {
   removeTrailingNewLine,
   SUBFILTER_ADOBE_PKCS7_DETACHED,
 } from '@signpdf/utils';
+import { deflate } from 'pako';
 import { readPdf, type ReadPdfReturnType } from './readPdf';
 import { getPageRef } from './getPageRef';
 import { getIndexFromRef } from './getIndexFromRef';
@@ -51,8 +52,15 @@ export interface OpcionesFirmaPlaceholder {
   name: string;
   location: string;
   signatureLength?: number;
-  /** Si se provee, el sello visual se dibuja como la apariencia del widget de firma. */
-  sello?: { posicion: PosicionFirma; etiqueta: string; nombre: string; qrUrl?: string };
+  /** Si se provee, el sello visual se dibuja como la apariencia del widget de firma.
+ * El tamaño final (ancho/alto) viene en `posicion` — lo eligió el usuario al
+ * redimensionar el recuadro; el contenido base se escala con una matriz `cm`. */
+  sello?: {
+    posicion: PosicionFirma;
+    etiqueta: string;
+    nombre: string;
+    qrUrl?: string;
+  };
 }
 
 export function agregarSelloYPlaceholder({
@@ -103,12 +111,39 @@ export function agregarSelloYPlaceholder({
   let widgetRect: [number, number, number, number] = [0, 0, 0, 0];
 
   if (sello) {
-    const { ancho, alto, contentStream } = construirAparienciaSello({
+    // La apariencia se construye a su tamaño "natural" (según el contenido) y
+    // luego se escala con una matriz `cm` al recuadro que eligió el usuario
+    // en el selector. La escala es SIEMPRE uniforme (mismo factor en ambos
+    // ejes, el más restrictivo) — nunca independiente por eje: el sello trae
+    // un QR, y estirarlo de forma no uniforme deja de ser un cuadrado de
+    // módulos parejos, lo que rompe la lectura del escáner y además hace que
+    // el logo institucional (centrado en el QR a propósito) se vea
+    // descuadrado. Si el recuadro elegido no tiene la proporción natural del
+    // sello, el contenido queda centrado dentro de él (igual que
+    // "object-fit: contain") en vez de deformarse para llenarlo.
+    const base = construirAparienciaSello({
       etiqueta: sello.etiqueta,
       nombre: sello.nombre,
       qrUrl: sello.qrUrl,
     });
+    const anchoObjetivo = sello.posicion.ancho;
+    const altoObjetivo = sello.posicion.alto;
+    const escalaX = base.ancho > 0 ? anchoObjetivo / base.ancho : 1;
+    const escalaY = base.alto > 0 ? altoObjetivo / base.alto : 1;
+    const escala = Math.min(escalaX, escalaY) || 1;
+    const offsetX = (anchoObjetivo - base.ancho * escala) / 2;
+    const offsetY = (altoObjetivo - base.alto * escala) / 2;
+    const contentStreamEscalado = Buffer.concat([
+      Buffer.from(
+        `q\n${escala.toFixed(4)} 0 0 ${escala.toFixed(4)} ${offsetX.toFixed(4)} ${offsetY.toFixed(4)} cm\n`,
+        'ascii',
+      ),
+      base.contentStream,
+      Buffer.from('\nQ\n', 'ascii'),
+    ]);
 
+    const ancho = anchoObjetivo;
+    const alto = altoObjetivo;
     const paginaDictionary = findObject(pdf, info.xref, pageRef);
     const tamanoPagina =
       leerTamanoPagina(paginaDictionary) ??
@@ -119,6 +154,45 @@ export function agregarSelloYPlaceholder({
     const y1 = yTope - alto;
     widgetRect = [x1, y1, x1 + ancho, yTope];
 
+    // Si el sello trae logo (XObject de imagen en el centro del QR), se
+    // incrusta el objeto ANTES del XObject Form para poder referenciarlo desde
+    // su diccionario /Resources. Igual que el resto, solo se agrega al final
+    // (actualización incremental) sin tocar los bytes existentes.
+    let recursoImagenRef: PDFKitReferenceMock | undefined;
+    if (base.recursoImagen) {
+      info.xref.maxIndex += 1;
+      const imagenIndex = info.xref.maxIndex;
+      addedReferences.set(imagenIndex, pdf.length + 1);
+      const dictImagen: Record<string, unknown> = {
+        Type: 'XObject',
+        Subtype: 'Image',
+        Width: base.recursoImagen.imagen.ancho,
+        Height: base.recursoImagen.imagen.alto,
+        ColorSpace: 'DeviceRGB',
+        BitsPerComponent: 8,
+        Filter: base.recursoImagen.imagen.filtro,
+        Length: base.recursoImagen.imagen.streamBytes.length,
+      };
+      pdf = Buffer.concat([
+        pdf,
+        Buffer.from('\n'),
+        Buffer.from(`${imagenIndex} 0 obj\n`),
+        Buffer.from(PDFObject.convert(dictImagen)),
+        Buffer.from('\nstream\n'),
+        base.recursoImagen.imagen.streamBytes,
+        Buffer.from('\nendstream\nendobj\n'),
+      ]);
+      recursoImagenRef = new PDFKitReferenceMock(imagenIndex);
+    }
+
+    // El QR en estilo "puntos" (círculos vía curvas Bézier — ver
+    // crearBloqueQr.ts) genera muchísimos más operadores que el cuadriculado
+    // anterior; comprimir el stream evita que cada firma agregue cientos de
+    // KB de texto PDF sin comprimir. `pako.deflate` produce el mismo formato
+    // zlib (RFC 1950) que `/FlateDecode` espera — cualquier lector de PDF lo
+    // descomprime igual que si viniera sin comprimir, solo que más liviano.
+    const contentStreamComprimido = Buffer.from(deflate(contentStreamEscalado));
+
     info.xref.maxIndex += 1;
     const aparienciaIndex = info.xref.maxIndex;
     addedReferences.set(aparienciaIndex, pdf.length + 1);
@@ -127,6 +201,7 @@ export function agregarSelloYPlaceholder({
       Subtype: 'Form',
       FormType: 1,
       BBox: [0, 0, ancho, alto],
+      Filter: 'FlateDecode',
       Resources: {
         Font: {
           F1: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Courier', Encoding: 'WinAnsiEncoding' },
@@ -138,8 +213,12 @@ export function agregarSelloYPlaceholder({
           // escaneo por el mismo alpha 0.9 que ya usa el texto.
           GS2: { Type: 'ExtGState', ca: 1, CA: 1 },
         },
+        // Logo institucional dibujado en el centro del QR (ver construirAparienciaSello).
+        XObject: base.recursoImagen && recursoImagenRef
+          ? { [base.recursoImagen.nombre]: recursoImagenRef }
+          : {},
       },
-      Length: contentStream.length,
+      Length: contentStreamComprimido.length,
     });
     pdf = Buffer.concat([
       pdf,
@@ -147,7 +226,7 @@ export function agregarSelloYPlaceholder({
       Buffer.from(`${aparienciaIndex} 0 obj\n`),
       Buffer.from(dictSinStream),
       Buffer.from('\nstream\n'),
-      contentStream,
+      contentStreamComprimido,
       Buffer.from('\nendstream\nendobj\n'),
     ]);
     aparienciaRef = new PDFKitReferenceMock(aparienciaIndex);

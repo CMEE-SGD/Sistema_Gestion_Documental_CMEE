@@ -27,17 +27,6 @@ function conNumeroFormateado<
   };
 }
 
-/**
- * Qué documento firma cada etapa: técnico y jefe firman el reporte de
- * calibración; el director firma únicamente el certificado final. No son
- * el mismo archivo con tres firmas encima, son dos documentos distintos.
- */
-function campoArchivoParaEtapa(etapa: EtapaFirma) {
-  return etapa === EtapaFirma.DIRECTOR
-    ? { ruta: 'ruta_archivo_certificado', nombre: 'nombre_original_certificado' }
-    : { ruta: 'ruta_archivo_reporte', nombre: 'nombre_original_reporte' };
-}
-
 // Mismo rango de diacríticos combinables (NFD) que ya usa normalizePuesto()
 // en recepcion-equipos.service.ts — construido desde códigos numéricos en
 // vez de ̀-ͯ literal para que el archivo no dependa de tener esos
@@ -61,9 +50,13 @@ export class CertificadosService {
     private readonly notificacionesService: NotificacionesService,
   ) {}
 
+  // Un solo PDF por equipo: el laboratorio entrega el reporte y el
+  // certificado combinados en un único documento — se guarda en ambos pares
+  // de columnas (ruta/nombre de reporte y de certificado) para no tener que
+  // migrar el modelo Certificado; firmar() más abajo mantiene ambos pares
+  // sincronizados en cada etapa, así que siempre apuntan al mismo archivo.
   async upload(
-    fileReporte: Express.Multer.File,
-    fileCertificado: Express.Multer.File,
+    file: Express.Multer.File,
     equipoRecepcionId: number,
     user: HydratedUser,
     servicioId?: number,
@@ -136,14 +129,14 @@ export class CertificadosService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const resultado = await this.prisma.$transaction(async (tx) => {
       const certificado = await tx.certificado.create({
         data: {
           equipo_recepcion_id: equipoRecepcionId,
-          ruta_archivo_reporte: fileReporte.path,
-          nombre_original_reporte: fileReporte.originalname,
-          ruta_archivo_certificado: fileCertificado.path,
-          nombre_original_certificado: fileCertificado.originalname,
+          ruta_archivo_reporte: file.path,
+          nombre_original_reporte: file.originalname,
+          ruta_archivo_certificado: file.path,
+          nombre_original_certificado: file.originalname,
           tecnico_id: user.isGod ? 1 : personaId,
         },
       });
@@ -180,6 +173,26 @@ export class CertificadosService {
 
       return creado ? conNumeroFormateado(creado) : creado;
     });
+
+    // Se notifica después de que la transacción ya quedó confirmada en BD —
+    // un fallo al notificar nunca debe revertir ni bloquear la subida que ya
+    // se registró (ver notificarResponsablesEquipo, que además nunca lanza).
+    // Sin esto, el OBT nunca se enteraba de que había un equipo esperando su
+    // revisión: firmar() ya notificaba en cada firma, pero upload() —el paso
+    // que de verdad transiciona el equipo a REVISION_OBT— nunca lo hacía.
+    await notificarResponsablesEquipo(
+      this.prisma,
+      this.notificacionesService,
+      {
+        id: equipo.id,
+        equipo_descripcion: equipo.equipo_descripcion,
+        laboratorio_id: equipo.laboratorio_id,
+        tecnico_id: equipo.tecnico_id,
+      },
+      EstadoRecepcion.REVISION_OBT,
+    );
+
+    return resultado;
   }
 
   /**
@@ -302,14 +315,17 @@ export class CertificadosService {
       .digest('hex');
     const firmanteId = user.isGod ? 1 : (personaId as number);
 
-    const campo = campoArchivoParaEtapa(etapa);
-
     const resultadoFirma = await this.prisma.$transaction(async (tx) => {
+      // Un solo documento acumula las 3 firmas (técnico, jefe, director) —
+      // se actualizan ambos pares de columnas juntos en cada etapa para que
+      // siempre sigan apuntando al mismo archivo (ver upload() más arriba).
       await tx.certificado.update({
         where: { id: certificadoId },
         data: {
-          [campo.ruta]: file.path,
-          [campo.nombre]: file.originalname,
+          ruta_archivo_reporte: file.path,
+          nombre_original_reporte: file.originalname,
+          ruta_archivo_certificado: file.path,
+          nombre_original_certificado: file.originalname,
         },
       });
 

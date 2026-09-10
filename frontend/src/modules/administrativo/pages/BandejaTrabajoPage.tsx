@@ -1050,38 +1050,22 @@ export default function BandejaTrabajoPage() {
                             </Button>
                           )}
 
-                          {/* Ver Reporte / Ver Certificado (siempre que exista) */}
+                          {/* Ver Documento (reporte + certificado combinados en un solo PDF) */}
                           {req.certificados && req.certificados.length > 0 && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  handleVerCertificado(
-                                    req.certificados![0].id,
-                                    'reporte',
-                                  )
-                                }
-                                title="Ver reporte"
-                              >
-                                <Eye className="h-4 w-4" />
-                                Ver Reporte
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  handleVerCertificado(
-                                    req.certificados![0].id,
-                                    'certificado',
-                                  )
-                                }
-                                title="Ver certificado"
-                              >
-                                <Eye className="h-4 w-4" />
-                                Ver Certificado
-                              </Button>
-                            </>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                handleVerCertificado(
+                                  req.certificados![0].id,
+                                  'certificado',
+                                )
+                              }
+                              title="Ver documento"
+                            >
+                              <Eye className="h-4 w-4" />
+                              Ver Documento
+                            </Button>
                           )}
                         </div>
                       </td>

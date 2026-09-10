@@ -18,8 +18,9 @@ interface Props {
   recepcionId: number | null;
   /** ID del Certificado cuyo PDF hay que descargar, firmar y volver a subir. */
   certificadoId: number | null;
-  /** Técnico y Jefe firman el reporte; el Director firma el certificado —
-   * son dos documentos distintos, no el mismo archivo con tres firmas. */
+  /** Técnico, Jefe y Director firman el mismo PDF (reporte + certificado
+   * combinados en un solo documento) — este valor solo decide qué etiqueta
+   * usa la descarga/subida en el backend, no cambia qué archivo se firma. */
   tipoDocumento: 'reporte' | 'certificado';
   tituloAccion: string;
   onSuccess: () => void;
@@ -302,13 +303,10 @@ export default function FirmarDigitalModal({
         <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden">
           <div className="p-6 space-y-4 overflow-y-auto">
             <p className="text-sm text-muted-foreground">
-              Va a firmar el{' '}
-              <strong>
-                {tipoDocumento === 'certificado' ? 'certificado' : 'reporte'}
-              </strong>{' '}
-              con su certificado personal (.p12). El archivo y la contraseña
-              no se envían al servidor — la firma se calcula en este
-              navegador.
+              Va a firmar el <strong>documento</strong> (reporte y
+              certificado combinados) con su certificado personal (.p12). El
+              archivo y la contraseña no se envían al servidor — la firma se
+              calcula en este navegador.
             </p>
 
             <div>

@@ -10,14 +10,13 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  UploadedFiles,
   BadRequestException,
   NotFoundException,
   ParseIntPipe,
   Req,
   Res,
 } from '@nestjs/common';
-import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CertificadosService } from './certificados.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
@@ -27,35 +26,27 @@ import { RequireAccess } from '../auth/decorators/access.decorator';
 export class CertificadosController {
   constructor(private readonly certificadosService: CertificadosService) {}
 
+  // Un solo PDF: el laboratorio ya entrega el reporte y el certificado como
+  // un único documento combinado. Técnico, jefe y director firman ese mismo
+  // archivo en cada etapa (ver certificados.service.ts#firmar) — no dos
+  // documentos separados como antes.
   @Post('upload')
   @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Recepcion Equipos', 3)
-  @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'reporte', maxCount: 1 },
-      { name: 'certificado', maxCount: 1 },
-    ]),
-  )
+  @UseInterceptors(FileInterceptor('file'))
   async upload(
-    @UploadedFiles()
-    files: {
-      reporte?: Express.Multer.File[];
-      certificado?: Express.Multer.File[];
-    },
+    @UploadedFile() file: Express.Multer.File,
     @Body('recepcion_equipo_id', ParseIntPipe) recepcionEquipoId: number,
     @Req() req: any,
     @Body('servicio_id') servicioId?: string,
   ) {
-    const fileReporte = files?.reporte?.[0];
-    const fileCertificado = files?.certificado?.[0];
-    if (!fileReporte || !fileCertificado) {
+    if (!file) {
       throw new BadRequestException(
-        'Debe adjuntar el PDF del reporte y el PDF del certificado.',
+        'Debe adjuntar el PDF del reporte y certificado.',
       );
     }
     return this.certificadosService.upload(
-      fileReporte,
-      fileCertificado,
+      file,
       recepcionEquipoId,
       req.user,
       servicioId ? Number(servicioId) : undefined,
