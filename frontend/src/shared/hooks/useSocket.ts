@@ -6,6 +6,7 @@ const SOCKET_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhos
 export const useSocket = (
   onNotificacion?: (data: any) => void,
   onNoLeidas?: (conteo: number) => void,
+  onRecepcionActualizada?: () => void,
 ) => {
   const socketRef = useRef<Socket | null>(null);
 
@@ -29,6 +30,9 @@ export const useSocket = (
 
     if (onNotificacion) socket.on('notificacion', onNotificacion);
     if (onNoLeidas) socket.on('no-leidas', onNoLeidas);
+    if (onRecepcionActualizada) {
+      socket.on('recepcion-equipos-actualizado', onRecepcionActualizada);
+    }
 
     socketRef.current = socket;
 

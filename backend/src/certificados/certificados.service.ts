@@ -191,6 +191,7 @@ export class CertificadosService {
       },
       EstadoRecepcion.REVISION_OBT,
     );
+    this.notificacionesService.notificarRecepcionActualizada();
 
     return resultado;
   }
@@ -377,6 +378,7 @@ export class CertificadosService {
       },
       estadoNuevo,
     );
+    this.notificacionesService.notificarRecepcionActualizada();
 
     return resultadoFirma;
   }

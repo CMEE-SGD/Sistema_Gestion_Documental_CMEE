@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Bell } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useSocket } from '../../hooks/useSocket';
@@ -20,7 +21,14 @@ const NotificationBell = () => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
+  // Esta es la única conexión de socket de toda la app (se abre una vez
+  // acá), así que aprovechamos el mismo canal para el aviso de "algo
+  // cambió en Recepción de Equipos" en vez de abrir un segundo socket.
+  // Invalidar estas queries hace que Bandeja de Trabajo, Recepción de
+  // Equipos y Certificados se actualicen solas sin que el usuario tenga
+  // que recargar la página.
   useSocket(
     (data: Notificacion) => {
       setNotificaciones(prev => [data, ...prev]);
@@ -28,6 +36,11 @@ const NotificationBell = () => {
     },
     (conteo: number) => {
       setNoLeidas(conteo);
+    },
+    () => {
+      queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+      queryClient.invalidateQueries({ queryKey: ['ordenes-trabajo'] });
+      queryClient.invalidateQueries({ queryKey: ['certificados'] });
     },
   );
 
