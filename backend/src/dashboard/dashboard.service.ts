@@ -387,11 +387,16 @@ export class DashboardService {
     });
     const servicioMap = new Map<string, { nombre: string; calibrados: number }>();
     finalizadosConServicio.forEach(f => {
-      const nombre = f.servicio?.nombre?.trim()
-        ? f.servicio.nombre
-        : f.servicio_id
-          ? `Procedimiento #${f.servicio_id}`
-          : 'Sin procedimiento';
+      // Mismo orden de prioridad que el resto de la app (ver ServiciosPage y
+      // SubirCertificadoModal): el código del procedimiento vive en
+      // "magnitud" (ej. "CA4.P1"), no en "nombre", que suele estar vacío.
+      const nombre = f.servicio?.magnitud?.trim()
+        ? f.servicio.magnitud
+        : f.servicio?.nombre?.trim()
+          ? f.servicio.nombre
+          : f.servicio_id
+            ? `Procedimiento #${f.servicio_id}`
+            : 'Sin procedimiento';
       const e = servicioMap.get(nombre) || { nombre, calibrados: 0 };
       e.calibrados++;
       servicioMap.set(nombre, e);
