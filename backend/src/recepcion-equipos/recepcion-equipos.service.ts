@@ -171,7 +171,7 @@ export class RecepcionEquiposService {
     await this.validarSubAreasDeEquipos(equipos);
 
     try {
-      return await this.prisma.ordenTrabajo.create({
+      const orden = await this.prisma.ordenTrabajo.create({
         data: {
           ...header,
           fecha_ingreso: toDate(dto.fecha_ingreso),
@@ -184,6 +184,8 @@ export class RecepcionEquiposService {
         },
         include: construirOrdenInclude(),
       });
+      this.notificacionesService.notificarRecepcionActualizada();
+      return orden;
     } catch (error: any) {
       if (error?.code === 'P2002') {
         throw new ConflictException(
@@ -297,7 +299,7 @@ export class RecepcionEquiposService {
   async update(id: number, dto: UpdateOrdenTrabajoDto) {
     await this.findOne(id);
     try {
-      return await this.prisma.ordenTrabajo.update({
+      const orden = await this.prisma.ordenTrabajo.update({
         where: { id },
         data: {
           ...dto,
@@ -305,6 +307,8 @@ export class RecepcionEquiposService {
         },
         include: construirOrdenInclude(),
       });
+      this.notificacionesService.notificarRecepcionActualizada();
+      return orden;
     } catch (error: any) {
       // P2002 = violación de unicidad (ej. el nº de orden física ya existe)
       if (error?.code === 'P2002') {
@@ -323,7 +327,7 @@ export class RecepcionEquiposService {
     await this.findOne(id);
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const eliminada = await this.prisma.$transaction(async (tx) => {
         const equipos = await tx.equipoRecepcion.findMany({
           where: { orden_trabajo_id: id },
           select: { id: true },
@@ -347,6 +351,8 @@ export class RecepcionEquiposService {
 
         return tx.ordenTrabajo.delete({ where: { id } });
       });
+      this.notificacionesService.notificarRecepcionActualizada();
+      return eliminada;
     } catch (error: any) {
       throw new BadRequestException(
         'Error al eliminar la orden de trabajo: ' +
@@ -422,6 +428,7 @@ export class RecepcionEquiposService {
       equipoActualizado,
       EstadoRecepcion.EN_CALIBRACION,
     );
+    this.notificacionesService.notificarRecepcionActualizada();
 
     return equipoActualizado;
   }
@@ -660,6 +667,7 @@ export class RecepcionEquiposService {
         },
       );
     }
+    this.notificacionesService.notificarRecepcionActualizada();
 
     return equipoActualizado;
   }

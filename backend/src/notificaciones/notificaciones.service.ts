@@ -59,4 +59,9 @@ export class NotificacionesService {
       data: { leido: true },
     });
   }
+
+  /** Ver NotificacionesGateway#emitirRecepcionActualizada. */
+  notificarRecepcionActualizada() {
+    this.notificacionesGateway.emitirRecepcionActualizada();
+  }
 }
