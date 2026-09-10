@@ -14,6 +14,7 @@ import {
   removeTrailingNewLine,
   SUBFILTER_ADOBE_PKCS7_DETACHED,
 } from '@signpdf/utils';
+import { deflate } from 'pako';
 import { readPdf, type ReadPdfReturnType } from './readPdf';
 import { getPageRef } from './getPageRef';
 import { getIndexFromRef } from './getIndexFromRef';
@@ -184,6 +185,14 @@ export function agregarSelloYPlaceholder({
       recursoImagenRef = new PDFKitReferenceMock(imagenIndex);
     }
 
+    // El QR en estilo "puntos" (círculos vía curvas Bézier — ver
+    // crearBloqueQr.ts) genera muchísimos más operadores que el cuadriculado
+    // anterior; comprimir el stream evita que cada firma agregue cientos de
+    // KB de texto PDF sin comprimir. `pako.deflate` produce el mismo formato
+    // zlib (RFC 1950) que `/FlateDecode` espera — cualquier lector de PDF lo
+    // descomprime igual que si viniera sin comprimir, solo que más liviano.
+    const contentStreamComprimido = Buffer.from(deflate(contentStreamEscalado));
+
     info.xref.maxIndex += 1;
     const aparienciaIndex = info.xref.maxIndex;
     addedReferences.set(aparienciaIndex, pdf.length + 1);
@@ -192,6 +201,7 @@ export function agregarSelloYPlaceholder({
       Subtype: 'Form',
       FormType: 1,
       BBox: [0, 0, ancho, alto],
+      Filter: 'FlateDecode',
       Resources: {
         Font: {
           F1: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Courier', Encoding: 'WinAnsiEncoding' },
@@ -208,7 +218,7 @@ export function agregarSelloYPlaceholder({
           ? { [base.recursoImagen.nombre]: recursoImagenRef }
           : {},
       },
-      Length: contentStreamEscalado.length,
+      Length: contentStreamComprimido.length,
     });
     pdf = Buffer.concat([
       pdf,
@@ -216,7 +226,7 @@ export function agregarSelloYPlaceholder({
       Buffer.from(`${aparienciaIndex} 0 obj\n`),
       Buffer.from(dictSinStream),
       Buffer.from('\nstream\n'),
-      contentStreamEscalado,
+      contentStreamComprimido,
       Buffer.from('\nendstream\nendobj\n'),
     ]);
     aparienciaRef = new PDFKitReferenceMock(aparienciaIndex);

@@ -1,7 +1,23 @@
-// Genera el bloque QR del sello de firma como operadores PDF crudos (`re`/`f`),
-// nunca como imagen — cada módulo oscuro se traduce a un rectángulo vectorial,
-// consistente con el resto del sello (crearAparienciaSello.ts), que también se
-// dibuja a mano sin pdf-lib/pdfkit ni codificación de imágenes raster.
+// Genera el bloque QR del sello de firma como operadores PDF crudos (`re`/`f`
+// para los 3 recuadros de posición, `c`/`l` para los módulos redondeados),
+// nunca como imagen — consistente con el resto del sello
+// (crearAparienciaSello.ts), que también se dibuja a mano sin pdf-lib/pdfkit
+// ni codificación de imágenes raster.
+//
+// Los 3 recuadros de posición (esquinas) se dibujan como cuadrados sólidos —
+// tocarlos SÍ puede impedir que un lector encuentre el código, siguen la
+// proporción 1:1:3:1:1 que los lectores buscan explícitamente — pero el resto
+// de módulos oscuros (datos, patrón de temporización, alineación) se dibujan
+// como cuadrados con las esquinas redondeadas ("squircle"), no cuadrados
+// perfectos, para un look más suave. Se probó primero con puntos separados
+// (círculos más chicos que el módulo, con espacio blanco alrededor, el look
+// más común en generadores de QR con logo) pero decodificar el resultado con
+// un lector real (jsQR) fallaba de forma consistente en cuanto el relleno
+// bajaba de ~95% del módulo — y a ese nivel ya casi no se distingue de un
+// cuadrado, así que no valía el riesgo. Redondear solo las esquinas sin
+// encoger el módulo (nunca se separa de sus vecinos oscuros) sí decodificó
+// bien en TODAS las variantes probadas — no cambia el centro de masa de cada
+// módulo, que es lo que un lector de verdad muestrea.
 //
 // El color de los módulos es configurable (el sello usa azul medio #0000CD) y
 // se "perfora" una zona cuadrada en el centro para alojar el logo institucional
@@ -38,6 +54,16 @@ const NIVEL_CORRECCION = 'H';
 // arriesgar la lectura: el QR sigue teniendo sus 3 cuadrantes de position markers.
 const LOGO_CLEAR_MODULOS = 0.3;
 
+// Radio de las esquinas redondeadas de cada módulo, como fracción de medio
+// módulo (0 = cuadrado recto, 1 = esquina totalmente circular). Probado con
+// un lector real en todo el rango 0.15-1.0 sin ningún fallo de lectura —
+// 0.55 da un redondeo visible sin perder casi nada de "peso" visual.
+const REDONDEZ_MODULO = 0.55;
+
+// Constante estándar para aproximar un cuarto de círculo con una curva de
+// Bézier cúbica (k = 4/3 × (√2 − 1)).
+const BEZIER_KAPPA = 0.5522847498;
+
 function hexAComponentes(hex: string): { r: string; g: string; b: string } {
   const limpio = hex.replace('#', '');
   return {
@@ -45,6 +71,44 @@ function hexAComponentes(hex: string): { r: string; g: string; b: string } {
     g: (parseInt(limpio.slice(2, 4), 16) / 255).toFixed(5),
     b: (parseInt(limpio.slice(4, 6), 16) / 255).toFixed(5),
   };
+}
+
+/**
+ * Cuadrado de lado `lado` con esquina inferior-izquierda en (x0,y0), relleno,
+ * con las 4 esquinas redondeadas a radio `radio` (subpath PDF: 4 líneas `l` +
+ * 4 curvas `c` alternadas). `radio = 0` degenera a un rectángulo recto normal.
+ */
+function squircleOperadores(x0: number, y0: number, lado: number, radio: number): string {
+  const x1 = x0 + lado;
+  const y1 = y0 + lado;
+  const k = radio * BEZIER_KAPPA;
+  const f = (n: number) => n.toFixed(2);
+  return [
+    `${f(x0)} ${f(y0 + radio)} m`,
+    `${f(x0)} ${f(y1 - radio)} l`,
+    `${f(x0)} ${f(y1 - radio + k)} ${f(x0 + radio - k)} ${f(y1)} ${f(x0 + radio)} ${f(y1)} c`,
+    `${f(x1 - radio)} ${f(y1)} l`,
+    `${f(x1 - radio + k)} ${f(y1)} ${f(x1)} ${f(y1 - radio + k)} ${f(x1)} ${f(y1 - radio)} c`,
+    `${f(x1)} ${f(y0 + radio)} l`,
+    `${f(x1)} ${f(y0 + radio - k)} ${f(x1 - radio + k)} ${f(y0)} ${f(x1 - radio)} ${f(y0)} c`,
+    `${f(x0 + radio)} ${f(y0)} l`,
+    `${f(x0 + radio - k)} ${f(y0)} ${f(x0)} ${f(y0 + radio - k)} ${f(x0)} ${f(y0 + radio)} c`,
+    'h',
+  ].join('\n');
+}
+
+/** Los 3 recuadros de posición del QR viven siempre en las mismas 3 esquinas
+ * (7×7 módulos), sin importar el tamaño real de la matriz. */
+function esZonaDePosicion(row: number, col: number, size: number): boolean {
+  const enFilaSuperior = row < 7;
+  const enFilaInferior = row >= size - 7;
+  const enColIzquierda = col < 7;
+  const enColDerecha = col >= size - 7;
+  return (
+    (enFilaSuperior && enColIzquierda) ||
+    (enFilaSuperior && enColDerecha) ||
+    (enFilaInferior && enColIzquierda)
+  );
 }
 
 /**
@@ -73,38 +137,56 @@ export function construirBloqueQr(
   const c0 = Math.floor((size - centroModulos) / 2);
   const c1 = c0 + centroModulos;
 
-  // Fusiona corridas horizontales contiguas por fila en un solo rect — reduce
-  // considerablemente el número de operadores `re` sin cambiar el resultado visual.
-  const rects: string[] = [];
+  const radioEsquina = (moduloPt / 2) * REDONDEZ_MODULO;
+  const cuadrados: string[] = []; // recuadros de posición (esquinas) — solo fusiona corridas dentro de esas zonas
+  const redondeados: string[] = []; // resto de módulos oscuros, esquinas suavizadas
+
   for (let row = 0; row < size; row += 1) {
     let colInicioCorrida = -1;
     for (let col = 0; col <= size; col += 1) {
-      const oscuro = col < size && data[row * size + col] === 1;
-      if (oscuro && colInicioCorrida === -1) {
+      const dentro = col < size;
+      const oscuro = dentro && data[row * size + col] === 1;
+      const enPosicion = dentro && esZonaDePosicion(row, col, size);
+      const oscuroPosicion = oscuro && enPosicion;
+
+      // Corridas horizontales SOLO dentro de las 3 zonas de posición — igual
+      // que antes, se fusionan en un rect por corrida para no explotar el
+      // número de operadores en esas zonas (siempre sólidas por diseño del QR).
+      if (oscuroPosicion && colInicioCorrida === -1) {
         colInicioCorrida = col;
-      } else if (!oscuro && colInicioCorrida !== -1) {
+      } else if (!oscuroPosicion && colInicioCorrida !== -1) {
         const colFin = col; // exclusivo
-        // Saltea cualquier corrida que toque la zona central perforada — así el
-        // cuadrado del logo queda sin módulos encima (fondo blanco del widget).
-        const dentroCentro = row >= c0 && row < c1 && colInicioCorrida < c1 && colFin > c0;
-        if (!dentroCentro) {
-          const anchoCorrida = colFin - colInicioCorrida;
-          const x = (zonaSilencioModulos + colInicioCorrida) * moduloPt;
-          // La fila 0 de la matriz QR es la fila visual SUPERIOR, pero el eje Y
-          // de PDF crece hacia arriba — sin esta inversión el QR sale espejado
-          // verticalmente e ilegible para cualquier lector.
-          const y = (zonaSilencioModulos + (size - 1 - row)) * moduloPt;
-          rects.push(
-            `${x.toFixed(2)} ${y.toFixed(2)} ${(anchoCorrida * moduloPt).toFixed(2)} ${moduloPt.toFixed(2)} re`,
-          );
-        }
+        const anchoCorrida = colFin - colInicioCorrida;
+        const x = (zonaSilencioModulos + colInicioCorrida) * moduloPt;
+        // La fila 0 de la matriz QR es la fila visual SUPERIOR, pero el eje Y
+        // de PDF crece hacia arriba — sin esta inversión el QR sale espejado
+        // verticalmente e ilegible para cualquier lector.
+        const y = (zonaSilencioModulos + (size - 1 - row)) * moduloPt;
+        cuadrados.push(
+          `${x.toFixed(2)} ${y.toFixed(2)} ${(anchoCorrida * moduloPt).toFixed(2)} ${moduloPt.toFixed(2)} re`,
+        );
         colInicioCorrida = -1;
+      }
+
+      // Resto de módulos oscuros (fuera de las zonas de posición): un
+      // cuadrado de esquinas redondeadas por módulo, salvo que caiga dentro
+      // del hueco perforado para el logo.
+      if (dentro && oscuro && !enPosicion) {
+        const dentroCentro = row >= c0 && row < c1 && col >= c0 && col < c1;
+        if (!dentroCentro) {
+          const x0 = (zonaSilencioModulos + col) * moduloPt;
+          const y0 = (zonaSilencioModulos + (size - 1 - row)) * moduloPt;
+          redondeados.push(squircleOperadores(x0, y0, moduloPt, radioEsquina));
+        }
       }
     }
   }
 
   const { r, g, b } = hexAComponentes(colorHex);
-  const operadores = Buffer.from(['q', '/GS2 gs', `${r} ${g} ${b} rg`, ...rects, 'f', 'Q'].join('\n'), 'ascii');
+  const operadores = Buffer.from(
+    ['q', '/GS2 gs', `${r} ${g} ${b} rg`, ...cuadrados, ...redondeados, 'f', 'Q'].join('\n'),
+    'ascii',
+  );
 
   // Centro del área perforada en puntos PDF (coordenadas locales del bloque,
   // con el margen de silencio ya contado) — punto donde centrar el logo.
