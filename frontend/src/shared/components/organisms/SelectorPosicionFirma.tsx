@@ -196,11 +196,15 @@ export default function SelectorPosicionFirma({
     const alturaPaginaPx = alturaPagina * escala;
     const anchoMinimoPx = ANCHO_MINIMO_PT * escala;
     const altoMinimoPx = ALTO_MINIMO_PT * escala;
+    const proporcion =
+      (tamanoSello?.ancho ?? ANCHO_SELLO_DEFECTO) / (tamanoSello?.alto ?? ALTO_SELLO_DEFECTO);
 
+    const dx = p.x - dibujo.inicioX;
+    const dy = p.y - dibujo.inicioY;
     let left = Math.min(dibujo.inicioX, p.x);
     let top = Math.min(dibujo.inicioY, p.y);
-    let width = Math.abs(p.x - dibujo.inicioX);
-    let height = Math.abs(p.y - dibujo.inicioY);
+    let width = Math.abs(dx);
+    let height = Math.abs(dy);
 
     if (width < 5 && height < 5) {
       // Clic sin arrastre: sello con su tamaño natural, centrado en el clic.
@@ -211,8 +215,20 @@ export default function SelectorPosicionFirma({
       width = anchoNatural;
       height = altoNatural;
     } else {
+      // Proporción fija — el sello trae un QR y estirarlo de forma no
+      // uniforme lo vuelve ilegible para el escáner (ver
+      // agregarSelloYPlaceholder.ts, que además ya blinda esto centrando
+      // sin deformar aunque llegara un recuadro desproporcionado). Se
+      // conserva la esquina desde la que arrancó el arrastre.
+      if (width / proporcion >= height) {
+        height = width / proporcion;
+      } else {
+        width = height * proporcion;
+      }
       width = Math.max(width, anchoMinimoPx);
       height = Math.max(height, altoMinimoPx);
+      left = dx >= 0 ? dibujo.inicioX : dibujo.inicioX - width;
+      top = dy >= 0 ? dibujo.inicioY : dibujo.inicioY - height;
     }
 
     left = Math.min(Math.max(left, 0), Math.max(anchoPaginaPx - width, 0));
@@ -271,6 +287,8 @@ export default function SelectorPosicionFirma({
     const alturaPaginaPx = alturaPagina * escala;
     const anchoMinimoPx = ANCHO_MINIMO_PT * escala;
     const altoMinimoPx = ALTO_MINIMO_PT * escala;
+    const proporcion =
+      (tamanoSello?.ancho ?? ANCHO_SELLO_DEFECTO) / (tamanoSello?.alto ?? ALTO_SELLO_DEFECTO);
     const dx = p.x - arrastre.inicioX;
     const dy = p.y - arrastre.inicioY;
     const r = arrastre.rectInicio;
@@ -324,6 +342,27 @@ export default function SelectorPosicionFirma({
         width = r.width + dx;
         height = r.height + dy;
         break;
+    }
+
+    // Proporción fija — mismo motivo que en finalizarDibujo: el sello trae
+    // un QR y estirarlo de forma no uniforme lo vuelve ilegible para el
+    // escáner. Los bordes n/s/e/w no tienen un ancla natural en el eje
+    // cruzado, así que ese eje se ajusta manteniendo el CENTRO del recuadro
+    // fijo; en esquinas se conserva el borde opuesto (recalculado más abajo).
+    if (arrastre.tipo === 'e' || arrastre.tipo === 'w') {
+      const centroY = r.top + r.height / 2;
+      height = width / proporcion;
+      top = centroY - height / 2;
+    } else if (arrastre.tipo === 'n' || arrastre.tipo === 's') {
+      const centroX = r.left + r.width / 2;
+      width = height * proporcion;
+      left = centroX - width / 2;
+    } else if (arrastre.tipo !== 'mover') {
+      if (width / proporcion >= height) {
+        height = width / proporcion;
+      } else {
+        width = height * proporcion;
+      }
     }
 
     // Tamaño mínimo (manteniendo fijo el borde opuesto).

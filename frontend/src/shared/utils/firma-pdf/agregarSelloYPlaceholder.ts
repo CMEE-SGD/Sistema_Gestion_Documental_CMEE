@@ -111,10 +111,15 @@ export function agregarSelloYPlaceholder({
 
   if (sello) {
     // La apariencia se construye a su tamaño "natural" (según el contenido) y
-    // luego se escala con una matriz `cm` al ancho/alto que eligió el usuario
-    // en el selector — así el redimensionado es independiente por eje, igual
-    // que estirar el recuadro en Adobe. Escalar nunca distorsiona el PDF, solo
-    // la representación visual del widget.
+    // luego se escala con una matriz `cm` al recuadro que eligió el usuario
+    // en el selector. La escala es SIEMPRE uniforme (mismo factor en ambos
+    // ejes, el más restrictivo) — nunca independiente por eje: el sello trae
+    // un QR, y estirarlo de forma no uniforme deja de ser un cuadrado de
+    // módulos parejos, lo que rompe la lectura del escáner y además hace que
+    // el logo institucional (centrado en el QR a propósito) se vea
+    // descuadrado. Si el recuadro elegido no tiene la proporción natural del
+    // sello, el contenido queda centrado dentro de él (igual que
+    // "object-fit: contain") en vez de deformarse para llenarlo.
     const base = construirAparienciaSello({
       etiqueta: sello.etiqueta,
       nombre: sello.nombre,
@@ -122,10 +127,16 @@ export function agregarSelloYPlaceholder({
     });
     const anchoObjetivo = sello.posicion.ancho;
     const altoObjetivo = sello.posicion.alto;
-    const sx = base.ancho > 0 ? anchoObjetivo / base.ancho : 1;
-    const sy = base.alto > 0 ? altoObjetivo / base.alto : 1;
+    const escalaX = base.ancho > 0 ? anchoObjetivo / base.ancho : 1;
+    const escalaY = base.alto > 0 ? altoObjetivo / base.alto : 1;
+    const escala = Math.min(escalaX, escalaY) || 1;
+    const offsetX = (anchoObjetivo - base.ancho * escala) / 2;
+    const offsetY = (altoObjetivo - base.alto * escala) / 2;
     const contentStreamEscalado = Buffer.concat([
-      Buffer.from(`q\n${sx.toFixed(4)} 0 0 ${sy.toFixed(4)} 0 0 cm\n`, 'ascii'),
+      Buffer.from(
+        `q\n${escala.toFixed(4)} 0 0 ${escala.toFixed(4)} ${offsetX.toFixed(4)} ${offsetY.toFixed(4)} cm\n`,
+        'ascii',
+      ),
       base.contentStream,
       Buffer.from('\nQ\n', 'ascii'),
     ]);
