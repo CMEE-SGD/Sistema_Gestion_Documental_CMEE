@@ -96,16 +96,26 @@ export class CertificadosController {
     @Req() req: any,
     @Res() res: any,
   ) {
-    const filePath = await this.certificadosService.download(id, tipo, req.user);
+    const { filePath, nombreOriginal } = await this.certificadosService.download(
+      id,
+      tipo,
+      req.user,
+    );
     if (!existsSync(filePath)) {
       throw new NotFoundException(
         'El archivo del certificado ya no está disponible en el servidor',
       );
     }
     res.setHeader('Content-Type', 'application/pdf');
+    // filename= (ASCII, sin comillas para no romper el header) + filename*=
+    // (UTF-8 percent-encoded, RFC 5987) para que tildes/ñ se vean bien en
+    // navegadores que lo soportan; ambos caen al nombre genérico si por
+    // algún motivo el certificado no tiene nombre_original guardado.
+    const nombre = nombreOriginal || `${tipo}_${id}.pdf`;
+    const nombreAscii = nombre.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="${tipo}_${id}.pdf"`,
+      `inline; filename="${nombreAscii}"; filename*=UTF-8''${encodeURIComponent(nombre)}`,
     );
     const stream = createReadStream(filePath);
     // Sin este handler, un error del stream (archivo borrado tras el check
