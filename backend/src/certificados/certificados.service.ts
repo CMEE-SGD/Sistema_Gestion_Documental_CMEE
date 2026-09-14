@@ -465,7 +465,14 @@ export class CertificadosService {
   async verificar(codigo: string) {
     const certificado = await this.prisma.certificado.findUnique({
       where: { codigo_verificacion: codigo },
-      include: {
+      select: {
+        numero_certificado: true,
+        fecha_subida: true,
+        // Reporte y certificado son el mismo PDF combinado desde la subida
+        // única (ver SubirCertificadoModal); cualquiera de los dos nombres
+        // sirve, se usa el del certificado por ser el endpoint "verificar
+        // certificado".
+        nombre_original_certificado: true,
         equipo_recepcion: {
           select: { equipo_descripcion: true },
         },
@@ -492,6 +499,7 @@ export class CertificadosService {
         certificado.numero_certificado,
         certificado.fecha_subida,
       ),
+      nombre_documento: certificado.nombre_original_certificado,
       equipo: certificado.equipo_recepcion.equipo_descripcion,
       firmas: certificado.firmas.map((f) => ({
         etapa: f.etapa,
