@@ -21,7 +21,7 @@ export const GestorDocumentalPage = () => {
     const [documentosSeleccionados, setDocumentosSeleccionados] = useState<number[]>([]);
     const [misPermisos, setMisPermisos] = useState<{ permiso_docs: boolean; permiso_carpetas: boolean; nivel_permiso: number }>({ permiso_docs: true, permiso_carpetas: true, nivel_permiso: 5 });
 
-    const [ordenarPor, setOrdenarPor] = useState<'alfabetico' | 'orden'>('alfabetico');
+    const [ordenarPor, setOrdenarPor] = useState<'alfabetico' | 'orden'>('orden');
     const [expandedFolders, setExpandedFolders] = useState<Record<number, boolean>>({});
     const carpetaSeleccionada = id ? carpetas.find(c => c.id.toString() === id) : null;
     const esSubcarpeta = carpetaSeleccionada?.tipo === 'SUBCARPETA';
@@ -206,7 +206,12 @@ export const GestorDocumentalPage = () => {
             if (ordenarPor === 'alfabetico') {
                 return a.nombre.localeCompare(b.nombre);
             }
-            return (a.orden || 0) - (b.orden || 0);
+            // "Orden" respeta el valor manual del formulario cuando alguien
+            // lo cambió a propósito; si dos carpetas quedan con el mismo
+            // orden (el caso más común, ya que el formulario precarga 10
+            // por defecto), el empate se resuelve alfabéticamente en vez de
+            // quedar en el orden de llegada de la base de datos.
+            return (a.orden || 0) - (b.orden || 0) || a.nombre.localeCompare(b.nombre);
         });
     };
 
