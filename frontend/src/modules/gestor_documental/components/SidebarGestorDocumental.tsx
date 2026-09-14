@@ -70,9 +70,10 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
     }, [location.pathname, carpetas]);
 
     const RenderTree = ({ parentId, depth = 0 }: { parentId: number | null, depth?: number }) => {
-        const children = parentId === null
+        const children = (parentId === null
             ? carpetas.filter(c => c.tipo === 'LIBRERIA')
-            : carpetas.filter(c => c.carpeta_padre_id === parentId);
+            : carpetas.filter(c => c.carpeta_padre_id === parentId)
+        ).sort((a, b) => a.nombre.localeCompare(b.nombre));
 
         if (children.length === 0) return null;
 
