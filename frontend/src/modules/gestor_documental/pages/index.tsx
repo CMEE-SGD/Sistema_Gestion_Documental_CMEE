@@ -21,7 +21,7 @@ export const GestorDocumentalPage = () => {
     const [documentosSeleccionados, setDocumentosSeleccionados] = useState<number[]>([]);
     const [misPermisos, setMisPermisos] = useState<{ permiso_docs: boolean; permiso_carpetas: boolean; nivel_permiso: number }>({ permiso_docs: true, permiso_carpetas: true, nivel_permiso: 5 });
 
-    const [ordenarPor, setOrdenarPor] = useState<'alfabetico' | 'orden'>('orden');
+    const [ordenarPor, setOrdenarPor] = useState<'alfabetico' | 'orden'>('alfabetico');
     const [expandedFolders, setExpandedFolders] = useState<Record<number, boolean>>({});
     const carpetaSeleccionada = id ? carpetas.find(c => c.id.toString() === id) : null;
     const esSubcarpeta = carpetaSeleccionada?.tipo === 'SUBCARPETA';
