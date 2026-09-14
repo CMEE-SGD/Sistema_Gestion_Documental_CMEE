@@ -339,9 +339,18 @@ export class DocumentosService {
       // El archivo "actual" del documento avanza con cada firma, para que el
       // siguiente firmante reciba automáticamente el PDF ya co-firmado.
       const updateData: any = { archivo_url: urlParaBD };
-      if (body?.codigo_verificacion) {
+      // El código NUNCA se regenera si ya existe: los sellos de fases
+      // anteriores ya quedaron impresos en el PDF con su QR apuntando a ese
+      // código — sobrescribirlo los dejaría todos apuntando a un código que
+      // ya no existe en BD ("código no encontrado" al escanear un sello
+      // viejo, aunque el documento siga siendo válido). Todas las fases de
+      // un mismo documento comparten un único código de por vida, igual que
+      // ya hace certificados.service.ts con técnico/jefe/director.
+      if (doc.codigo_verificacion) {
+        // no-op: se conserva el existente.
+      } else if (body?.codigo_verificacion) {
         updateData.codigo_verificacion = body.codigo_verificacion as string;
-      } else if (!doc.codigo_verificacion) {
+      } else {
         updateData.codigo_verificacion = crypto.randomUUID();
       }
       await tx.documento.update({ where: { id: documentoId }, data: updateData });
