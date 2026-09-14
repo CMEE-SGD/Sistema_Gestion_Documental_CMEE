@@ -137,9 +137,6 @@ export default function VerificarCertificadoPage() {
                   {datos.nombre_documento}
                 </p>
                 <p className="text-sm text-slate-500">{datos.equipo}</p>
-                <p className="text-xs text-slate-400">
-                  Certificado N.° {datos.numero_certificado}
-                </p>
               </div>
 
               <div className="flex flex-col">
