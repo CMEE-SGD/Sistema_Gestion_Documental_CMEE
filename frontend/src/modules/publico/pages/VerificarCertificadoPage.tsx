@@ -27,6 +27,7 @@ interface FirmaVerificada {
 interface VerificacionCertificado {
   valido: boolean;
   numero_certificado: string;
+  nombre_documento: string;
   equipo: string;
   firmas: FirmaVerificada[];
 }
@@ -132,10 +133,13 @@ export default function VerificarCertificadoPage() {
                   <ShieldCheck className="h-6 w-6 text-emerald-600" />
                 </div>
                 <h1 className="text-lg font-bold text-slate-800">Certificado auténtico</h1>
-                <p className="text-sm text-slate-500">
-                  Certificado N.° <span className="font-semibold">{datos.numero_certificado}</span>
+                <p className="truncate text-sm font-semibold text-slate-700">
+                  {datos.nombre_documento}
                 </p>
                 <p className="text-sm text-slate-500">{datos.equipo}</p>
+                <p className="text-xs text-slate-400">
+                  Certificado N.° {datos.numero_certificado}
+                </p>
               </div>
 
               <div className="flex flex-col">
