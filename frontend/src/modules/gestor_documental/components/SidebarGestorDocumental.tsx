@@ -70,10 +70,13 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
     }, [location.pathname, carpetas]);
 
     const RenderTree = ({ parentId, depth = 0 }: { parentId: number | null, depth?: number }) => {
+        // "Orden" respeta el valor manual del formulario cuando alguien lo
+        // cambió a propósito; si empatan (caso más común), se resuelve
+        // alfabéticamente — mismo criterio que el árbol principal.
         const children = (parentId === null
             ? carpetas.filter(c => c.tipo === 'LIBRERIA')
             : carpetas.filter(c => c.carpeta_padre_id === parentId)
-        ).sort((a, b) => a.nombre.localeCompare(b.nombre));
+        ).sort((a, b) => (a.orden || 0) - (b.orden || 0) || a.nombre.localeCompare(b.nombre));
 
         if (children.length === 0) return null;
 
