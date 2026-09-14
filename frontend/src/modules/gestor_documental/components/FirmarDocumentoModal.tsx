@@ -58,8 +58,38 @@ export default function FirmarDocumentoModal({
   const [observaciones, setObservaciones] = useState('');
   const [paso, setPaso] = useState<Paso>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Código público del documento — si ya existe (de una firma anterior de
+  // otra fase), se reutiliza en vez de generar uno nuevo. Todas las fases
+  // de un mismo documento deben compartir el mismo código: los sellos de
+  // fases anteriores ya quedaron impresos en el PDF con su QR, y si el
+  // código cambiara con cada firma esos QR más viejos dejarían de
+  // encontrarse en la verificación aunque el documento siga siendo válido.
+  const [codigoVerificacion, setCodigoVerificacion] = useState<string | null>(null);
 
   const enviando = paso !== 'idle';
+
+  useEffect(() => {
+    if (accion !== 'FIRMAR' || codigoVerificacion || !documentoId) return;
+    let cancelado = false;
+    (async () => {
+      const token = localStorage.getItem('token');
+      try {
+        const res = await fetch(`${API_BASE}/documentos/${documentoId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelado) setCodigoVerificacion(data.codigo_verificacion ?? null);
+        }
+      } catch {
+        // silencioso a propósito — si falla, handleFirmar genera uno nuevo
+        // igual que antes; no debe bloquear la firma.
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [accion, documentoId, codigoVerificacion]);
 
   // Recalcula el tamaño real del recuadro de vista previa: usa el nombre del
   // certificado si ya se pudo leer (archivo + contraseña correctos) o el
@@ -175,8 +205,11 @@ export default function FirmarDocumentoModal({
     // Carga diferida: las librerías de firma (~350KB) solo se descargan
     // cuando alguien realmente va a firmar, no en el bundle principal.
     const { firmarPdfConP12 } = await import('../../../shared/utils/firmarPdf');
-    const codigoVerificacion = generarUuidV4();
-    const qrUrl = `${window.location.origin}/verificar-documento/${codigoVerificacion}`;
+    // Reutiliza el código de una fase anterior si ya existe (ver el efecto
+    // que lo carga arriba); solo genera uno nuevo si el documento todavía
+    // no tiene ninguno (primera firma del workflow).
+    const codigo = codigoVerificacion ?? generarUuidV4();
+    const qrUrl = `${window.location.origin}/verificar-documento/${codigo}`;
     const pdfFirmado = await firmarPdfConP12(
       pdfDescargado,
       p12File,
@@ -192,7 +225,7 @@ export default function FirmarDocumentoModal({
       new Blob([pdfFirmado], { type: 'application/pdf' }),
       'documento_firmado.pdf',
     );
-    formData.append('codigo_verificacion', codigoVerificacion);
+    formData.append('codigo_verificacion', codigo);
     formData.append('comentario', observaciones.trim());
     const resSubida = await fetch(
       `${API_BASE}/documentos/${documentoId}/workflow/firmar`,
