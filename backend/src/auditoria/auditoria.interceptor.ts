@@ -110,7 +110,7 @@ export class AuditoriaInterceptor implements NestInterceptor {
     const { method, url, user, body } = req;
 
     return next.handle().pipe(
-      tap(() => {
+      tap((respuesta: any) => {
         if (user && user.id) {
           // Temporarily test for all users
           // omitimos su auditoría para evitar violación de FK (P2003).
@@ -158,6 +158,14 @@ export class AuditoriaInterceptor implements NestInterceptor {
               ultimoParametro = candidato;
               break;
             }
+          }
+          // Una Creación (POST) no trae id en la URL — el recurso no existe
+          // todavía cuando se arma la petición. Pero para cuando este `tap`
+          // corre, el handler ya terminó y `respuesta` es el registro recién
+          // creado (con su id) — sin esto, entidad_id siempre quedaba null
+          // en cualquier Creación y no se podía vincular a nada.
+          if (isNaN(ultimoParametro) && method === 'POST' && respuesta?.id) {
+            ultimoParametro = respuesta.id;
           }
           const tieneId = !isNaN(ultimoParametro);
 
