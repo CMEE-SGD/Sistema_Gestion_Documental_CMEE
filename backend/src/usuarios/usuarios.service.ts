@@ -256,6 +256,40 @@ export class UsuariosService {
   }
 
   /**
+   * Payload virtual del usuario "Dios" (en memoria, sin registro en BD).
+   * Compartido entre `login` y `getPerfilActual` para que ambos devuelvan
+   * exactamente la misma forma de `persona`/`grupos`.
+   * @param godUsername - Nombre configurado en la env var GOD_USERNAME
+   */
+  private buildGodProfile(godUsername: string) {
+    return {
+      id: -1, // ID ficticio negativo para evitar choques con la BD
+      nombre_usuario: godUsername,
+      estado_cuenta: true,
+      bloqueado: false,
+      persona: {
+        nombre: 'Super',
+        apellidos: 'Administrador (Memoria)',
+        foto_ruta: '',
+        puestos: [{ puesto: { nombre: 'SYSTEM ROOT' } }],
+      },
+      grupos: [
+        {
+          id: -1,
+          nombre: 'GOD_MODE',
+          aplicaciones: [
+            { aplicacion: { nombre: 'Gestion de Usuarios' }, nivel: 5 },
+            { aplicacion: { nombre: 'Recursos Humanos' }, nivel: 5 },
+            { aplicacion: { nombre: 'Gestor Documental' }, nivel: 5 },
+            { aplicacion: { nombre: 'Laboratorios' }, nivel: 5 },
+            { aplicacion: { nombre: 'Auditoria Global' }, nivel: 5 },
+          ],
+        },
+      ],
+    };
+  }
+
+  /**
    * Ejecuta la operación de negocio login.
    * @param nombre_usuario - Datos o identificador requerido (string)
    * @param clave - Datos o identificador requerido (string)
@@ -274,33 +308,7 @@ export class UsuariosService {
       clave === godPassword
     ) {
       const jti = randomUUID();
-
-      // Construimos un payload virtual con permisos máximos (Nivel 5)
-      const godPayload = {
-        id: -1, // ID ficticio negativo para evitar choques con la BD
-        nombre_usuario: godUsername,
-        estado_cuenta: true,
-        bloqueado: false,
-        persona: {
-          nombre: 'Super',
-          apellidos: 'Administrador (Memoria)',
-          foto_ruta: '',
-          puestos: [{ puesto: { nombre: 'SYSTEM ROOT' } }],
-        },
-        grupos: [
-          {
-            id: -1,
-            nombre: 'GOD_MODE',
-            aplicaciones: [
-              { aplicacion: { nombre: 'Gestion de Usuarios' }, nivel: 5 },
-              { aplicacion: { nombre: 'Recursos Humanos' }, nivel: 5 },
-              { aplicacion: { nombre: 'Gestor Documental' }, nivel: 5 },
-              { aplicacion: { nombre: 'Laboratorios' }, nivel: 5 },
-              { aplicacion: { nombre: 'Auditoria Global' }, nivel: 5 },
-            ],
-          },
-        ],
-      };
+      const godPayload = this.buildGodProfile(godUsername);
 
       this.registrarIntentoLogin({ nombre_usuario, exito: true, ip });
 
@@ -513,6 +521,14 @@ export class UsuariosService {
    * @returns Objeto complejo / PrismaResponse
    */
   async getPerfilActual(id: number) {
+    // El usuario "Dios" no existe en BD (id ficticio -1); sin este atajo,
+    // el findUnique de abajo siempre lo devuelve null y RutaProtegida lo
+    // expulsa justo después de iniciar sesión.
+    if (id === -1) {
+      const godUsername = process.env.GOD_USERNAME ?? 'god';
+      return { ...this.buildGodProfile(godUsername), laboratorio_id: null };
+    }
+
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
       include: {
