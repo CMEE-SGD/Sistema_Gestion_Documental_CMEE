@@ -710,7 +710,12 @@ export const DetalleDocumentoPage = () => {
                                         {logs.map((log: any) => (
                                             <tr key={log.id} className="border-b border-gray-100">
                                                 <td className="p-2 whitespace-nowrap">{new Date(log.fecha_hora).toLocaleString('es-ES')}</td>
-                                                <td className="p-2">{log.usuario?.nombre_usuario || '-'}</td>
+                                                <td className="p-2">
+                                                    {log.usuario_nombre_completo || log.usuario?.nombre_usuario || '-'}
+                                                    {log.puesto_actor && (
+                                                        <div className="text-[10px] text-gray-400">{log.puesto_actor}</div>
+                                                    )}
+                                                </td>
                                                 <td className="p-2">{log.accion}</td>
                                                 <td className="p-2 text-gray-500">{log.descripcion || '-'}</td>
                                             </tr>
