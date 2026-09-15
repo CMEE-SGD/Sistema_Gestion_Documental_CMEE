@@ -1051,7 +1051,7 @@ model ConfiguracionGeneral {
 
   // Minutos de inactividad del usuario dentro de la plataforma antes de que la
   // sesión se cierre automáticamente (0 desactiva el cierre por inactividad).
-  tiempo_inactividad_minutos Int @default(20) @db.SmallInt
+  tiempo_inactividad_minutos Int @default(5) @db.SmallInt
 
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
