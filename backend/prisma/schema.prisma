@@ -541,6 +541,14 @@ model Auditoria {
   usuario_id Int
   usuario    Usuario @relation(fields: [usuario_id], references: [id], onDelete: Restrict)
 
+  // Snapshot del puesto que tenía quien hizo la acción, al momento de
+  // hacerla — no una FK al puesto actual, porque si la persona cambia de
+  // puesto después, una FK mostraría el puesto de HOY en un log de hace
+  // meses. Nullable: solo se llena cuando AccessGuard hidrata
+  // request.user.puesto (rutas sin ese guard, ej. algunas públicas, no
+  // tienen puesto que capturar).
+  puesto_actor String? @db.VarChar(150)
+
   modulo      String  @db.VarChar(50)
   accion      String  @db.VarChar(100)
   descripcion String? @db.Text
