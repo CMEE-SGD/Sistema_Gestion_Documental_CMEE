@@ -414,6 +414,32 @@ export class UsuariosService {
 
     const { password_hash, ...result } = usuario;
 
+    // Antes de comprobar si ya hay una sesión activa, se cierran las que
+    // llevan inactivas más del límite configurado. Sin esto, cerrar la
+    // pestaña (o que el navegador la descarte) dejaba la sesión vieja
+    // bloqueando cualquier login nuevo hasta las 8h de expiración absoluta:
+    // el cierre por inactividad de JwtStrategy#validate() solo se dispara
+    // cuando ESA MISMA sesión vuelve a usarse, y un login nuevo usa un
+    // token distinto — nunca llegaba a tocarla.
+    const configInactividad = await this.prisma.configuracionGeneral.findUnique({
+      where: { id: 1 },
+      select: { tiempo_inactividad_minutos: true },
+    });
+    const limiteInactividadMinutos = configInactividad?.tiempo_inactividad_minutos ?? 0;
+    if (limiteInactividadMinutos > 0) {
+      await this.prisma.sesionActiva.updateMany({
+        where: {
+          usuario_id: usuario.id,
+          fecha_cierre: null,
+          en_espera: false,
+          ultima_actividad: {
+            lt: new Date(Date.now() - limiteInactividadMinutos * 60 * 1000),
+          },
+        },
+        data: { fecha_cierre: new Date() },
+      });
+    }
+
     // Nueva lógica: una sola sesión activa por usuario. Si el usuario ya tiene
     // una sesión activa (aprobada/dentro de rango), se rechaza el ingreso desde
     // otro dispositivo con un código específico (409) para que el frontend
