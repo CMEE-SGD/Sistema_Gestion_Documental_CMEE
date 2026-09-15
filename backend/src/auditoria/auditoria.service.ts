@@ -16,6 +16,8 @@ export class AuditoriaService {
    */
   async registrarLog(data: {
     usuario_id: number;
+    puesto_actor?: string | null;
+    laboratorio_actor_id?: number | null;
     modulo: string;
     accion: string;
     descripcion?: string;
@@ -70,15 +72,21 @@ export class AuditoriaService {
         skip: (pagina - 1) * porPagina,
         take: porPagina,
         include: {
-          usuario: { select: { nombre_usuario: true } },
+          usuario: {
+            select: {
+              nombre_usuario: true,
+              persona: { select: { nombre: true, apellidos: true } },
+            },
+          },
         },
       }),
       this.prisma.auditoria.count({ where }),
     ]);
 
-    // Extiende cada registro con el nombre de la entidad afectada
-    // (p. ej. "Juan Pérez" en vez de solo el ID), según el módulo.
-    await this.adjuntarNombreEntidad(data);
+    // Mismo criterio que findByDocumento/findByPersona/etc: resuelve el
+    // nombre real de la entidad afectada, limpia el "#id" crudo de la
+    // descripción guardada, y arma el nombre completo del usuario.
+    await this.enriquecerConNombres(data);
     // Reemplaza los ids de llaves foráneas del detalle por sus nombres.
     await this.adjuntarNombresAlDetalle(data);
 
@@ -575,7 +583,7 @@ export class AuditoriaService {
     const data = await this.prisma.auditoria.findMany({
       where: { persona_afectada_id: personaId },
       orderBy: { fecha_hora: 'desc' },
-      include: { usuario: { select: { nombre_usuario: true } } },
+      include: { usuario: { select: { nombre_usuario: true, persona: { select: { nombre: true, apellidos: true } } } } },
     });
     await this.enriquecerConNombres(data);
     return data;
@@ -590,7 +598,7 @@ export class AuditoriaService {
     const data = await this.prisma.auditoria.findMany({
       where: { documento_id: documentoId },
       orderBy: { fecha_hora: 'desc' },
-      include: { usuario: { select: { nombre_usuario: true } } },
+      include: { usuario: { select: { nombre_usuario: true, persona: { select: { nombre: true, apellidos: true } } } } },
     });
     await this.enriquecerConNombres(data);
     return data;
@@ -605,7 +613,7 @@ export class AuditoriaService {
     const data = await this.prisma.auditoria.findMany({
       where: { rol_afectado_id: rolId },
       orderBy: { fecha_hora: 'desc' },
-      include: { usuario: { select: { nombre_usuario: true } } },
+      include: { usuario: { select: { nombre_usuario: true, persona: { select: { nombre: true, apellidos: true } } } } },
     });
     await this.enriquecerConNombres(data);
     return data;
@@ -620,23 +628,54 @@ export class AuditoriaService {
     const data = await this.prisma.auditoria.findMany({
       where: { puesto_afectado_id: puestoId },
       orderBy: { fecha_hora: 'desc' },
-      include: { usuario: { select: { nombre_usuario: true } } },
+      include: { usuario: { select: { nombre_usuario: true, persona: { select: { nombre: true, apellidos: true } } } } },
     });
     await this.enriquecerConNombres(data);
     return data;
   }
 
   /**
-   * Resuelve entidad_nombre (igual que ya hace findAll) y limpia la
-   * descripción guardada: esta se arma en AuditoriaInterceptor con el id
-   * crudo ("Consulta en Documentos #38") porque una consulta (GET) no manda
-   * body y ahí no hay ningún nombre disponible. Acá sí se puede resolver
-   * consultando la tabla real, así que se reemplaza el "#id" por el nombre
-   * resuelto — sin tocar el texto ya guardado en BD, solo en la respuesta.
+   * Resuelve entidad_nombre (igual que ya hace findAll), limpia la
+   * descripción guardada, y arma el nombre completo del usuario. La
+   * descripción se arma en AuditoriaInterceptor con el id crudo ("Consulta
+   * en Documentos #38") porque una consulta (GET) no manda body y ahí no
+   * hay ningún nombre disponible. Acá sí se puede resolver consultando la
+   * tabla real, así que se reemplaza el "#id" por el nombre resuelto — sin
+   * tocar el texto ya guardado en BD, solo en la respuesta.
    */
   private async enriquecerConNombres(filas: any[]) {
     await this.adjuntarNombreEntidad(filas);
+
+    // Nombres de laboratorio en lote (evita N+1) para las filas que traen
+    // laboratorio_actor_id.
+    const idsLaboratorio = [
+      ...new Set(
+        filas
+          .map((f) => f.laboratorio_actor_id)
+          .filter((id): id is number => id != null),
+      ),
+    ];
+    const nombresLaboratorio = idsLaboratorio.length
+      ? await this.prisma.laboratorio.findMany({
+          where: { id: { in: idsLaboratorio } },
+          select: { id: true, nombre: true },
+        })
+      : [];
+    const mapaLaboratorio = new Map(nombresLaboratorio.map((l) => [l.id, l.nombre]));
+
     for (const fila of filas) {
+      // Nombre y apellido de la persona (no solo el nombre_usuario de
+      // login, ej. "jdc") — para que "quién lo hizo" sea legible.
+      const persona = fila.usuario?.persona;
+      fila.usuario_nombre_completo = persona
+        ? `${persona.nombre} ${persona.apellidos ?? ''}`.trim()
+        : null;
+
+      fila.laboratorio_actor_nombre =
+        fila.laboratorio_actor_id != null
+          ? (mapaLaboratorio.get(fila.laboratorio_actor_id) ?? null)
+          : null;
+
       if (!fila.descripcion || !fila.entidad_id || !fila.entidad_nombre) continue;
       const marcaId = `#${fila.entidad_id}`;
       if (!fila.descripcion.includes(marcaId)) continue;
