@@ -621,6 +621,13 @@ model SesionActiva {
 
   fecha_inicio      DateTime @default(now()) @map("fecha_inicio") @db.Timestamptz
   fecha_expiracion  DateTime @map("fecha_expiracion") @db.Timestamptz
+  // Última petición autenticada de esta sesión — fuente de verdad para el
+  // cierre por inactividad del lado del servidor (ver JwtStrategy#validate).
+  // Independiente de que el temporizador de JS del navegador
+  // (useInactividad.ts) llegue a ejecutarse: si la pestaña queda en segundo
+  // plano, la laptop se suspende, o el navegador la descarta para ahorrar
+  // memoria, ese temporizador nunca corre.
+  ultima_actividad  DateTime  @default(now()) @map("ultima_actividad") @db.Timestamptz
   // Cuando se cierra la sesión (logout o cierre forzado del admin).
   fecha_cierre      DateTime? @map("fecha_cierre") @db.Timestamptz
   // Quién la cerró: propio usuario o el admin que la revocó.

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "sesion_activa" ADD COLUMN "ultima_actividad" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
