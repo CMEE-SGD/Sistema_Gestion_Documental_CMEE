@@ -45,7 +45,12 @@ export const GestorDocumentalPage = () => {
         try {
             setLoadingDocs(true);
             const res = await api.get(`/documentos?carpeta_id=${carpetaId}`);
-            setDocumentos(Array.isArray(res.data) ? res.data : []);
+            const lista = Array.isArray(res.data) ? res.data : [];
+            // El backend los devuelve por fecha de creación (más reciente
+            // primero) — se reordena alfabéticamente acá, mismo criterio
+            // que ya se usa para las carpetas en esta misma página.
+            lista.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+            setDocumentos(lista);
         } catch (error) {
             console.error("Error al cargar documentos:", error);
         } finally {
