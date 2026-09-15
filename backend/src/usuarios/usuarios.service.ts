@@ -492,14 +492,22 @@ export class UsuariosService {
       },
     });
 
-    // Registra el acceso en la bitácora general (Auditoria)
+    // Registra el acceso en la bitácora general (Auditoria) — esta fila no
+    // pasa por AuditoriaInterceptor (login no tiene token todavía, así que
+    // AccessGuard nunca corre para hidratar puesto/laboratorio), así que se
+    // arman acá mismo con lo que ya trae la consulta de arriba.
     const personaNombre = usuario.persona
       ? `${usuario.persona.nombre ?? ''} ${usuario.persona.apellidos ?? ''}`.trim()
       : null;
+    const puestoLogin = usuario.persona?.puestos?.[0]?.puesto?.nombre ?? null;
+    const laboratorioLoginId =
+      usuario.persona?.puestos?.[0]?.departamento?.laboratorio?.id ?? null;
     await this.prisma.auditoria
       .create({
         data: {
           usuario_id: usuario.id,
+          puesto_actor: puestoLogin,
+          laboratorio_actor_id: laboratorioLoginId,
           modulo: 'ACCESOS',
           accion: 'Acceso a la plataforma',
           descripcion: `Inicio de sesión exitoso de ${personaNombre || nombre_usuario}${ip ? ` — IP: ${ip}` : ''}.`,

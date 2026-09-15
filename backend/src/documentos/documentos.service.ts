@@ -448,6 +448,23 @@ export class DocumentosService {
     return doc;
   }
 
+  /**
+   * Descarga del archivo físico — antes se servía directo desde /uploads/
+   * (archivo estático), sin pasar por ningún guard ni quedar registrado en
+   * auditoría. Este endpoint sí queda capturado por AuditoriaInterceptor
+   * (etiquetado "Descarga", ver la lógica de sub-acciones ahí) porque pasa
+   * por el pipeline normal de NestJS.
+   */
+  async descargar(id: number, usuarioId?: number) {
+    const doc = await this.findOne(id, usuarioId);
+    if (!doc.archivo_url) {
+      throw new NotFoundException('Este documento no tiene un archivo asociado');
+    }
+    const filePath = path.resolve(process.cwd(), doc.archivo_url);
+    const nombreOriginal = path.basename(doc.archivo_url);
+    return { filePath, nombreOriginal };
+  }
+
   async update(id: number, data: any, usuarioId?: number) {
     const antiguo = await this.prisma.documento.findUnique({ where: { id } });
     if (!antiguo) throw new NotFoundException('Documento no encontrado');

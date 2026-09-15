@@ -131,10 +131,34 @@ export class AuditoriaInterceptor implements NestInterceptor {
           if (method === 'PATCH' || method === 'PUT') accion = 'Edición';
           if (method === 'DELETE') accion = 'Eliminación lógica';
 
+          // Sub-acciones con nombre propio: más claras que el genérico
+          // basado solo en el verbo HTTP (ej. "firmar" es un POST, pero
+          // etiquetarlo "Creación" no dice qué pasó realmente).
+          const urlLower = (url as string).toLowerCase();
+          if (urlLower.includes('/descargar') || urlLower.includes('/download')) {
+            accion = 'Descarga';
+          } else if (urlLower.includes('/firmar')) {
+            accion = 'Firma digital';
+          } else if (urlLower.includes('/rechazar')) {
+            accion = 'Rechazo';
+          }
+
           const partesUrl = url.split('?')[0].split('/');
           const modulo = partesUrl[2]?.toUpperCase() || 'SISTEMA';
 
-          const ultimoParametro = parseInt(partesUrl[partesUrl.length - 1]);
+          // El id no siempre es el último segmento: rutas de sub-acciones
+          // como ".../38/descargar" o ".../38/workflow/firmar" terminan en
+          // la acción, no en el id — se busca el primer segmento numérico
+          // empezando por el final en vez de asumir que es literalmente el
+          // último.
+          let ultimoParametro = NaN;
+          for (let i = partesUrl.length - 1; i >= 0; i -= 1) {
+            const candidato = Number(partesUrl[i]);
+            if (partesUrl[i] !== '' && Number.isInteger(candidato)) {
+              ultimoParametro = candidato;
+              break;
+            }
+          }
           const tieneId = !isNaN(ultimoParametro);
 
           const esGetGeneral = method === 'GET' && !tieneId;
