@@ -712,8 +712,12 @@ export const DetalleDocumentoPage = () => {
                                                 <td className="p-2 whitespace-nowrap">{new Date(log.fecha_hora).toLocaleString('es-ES')}</td>
                                                 <td className="p-2">
                                                     {log.usuario_nombre_completo || log.usuario?.nombre_usuario || '-'}
-                                                    {log.puesto_actor && (
-                                                        <div className="text-[10px] text-gray-400">{log.puesto_actor}</div>
+                                                    {(log.puesto_actor || log.laboratorio_actor_nombre) && (
+                                                        <div className="text-[10px] text-gray-400">
+                                                            {[log.puesto_actor, log.laboratorio_actor_nombre]
+                                                                .filter(Boolean)
+                                                                .join(' · ')}
+                                                        </div>
                                                     )}
                                                 </td>
                                                 <td className="p-2">{log.accion}</td>

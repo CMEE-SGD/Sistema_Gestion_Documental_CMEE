@@ -14,6 +14,8 @@ interface LogAuditoria {
     usuario_nombre_completo?: string | null;
     /** Puesto que tenía quien hizo la acción, en ese momento (no el actual). */
     puesto_actor?: string | null;
+    /** Laboratorio al que pertenecía quien hizo la acción, en ese momento. */
+    laboratorio_actor_nombre?: string | null;
     /** Nombre legible de la entidad afectada (resuelto por el backend). */
     entidad_nombre?: string | null;
 }
@@ -221,9 +223,11 @@ export const TablaHistorial = ({ logs, loading, esGlobal = false, paginacionServ
                                                         </span>
                                                     )}
                                                 </div>
-                                                {log.puesto_actor && (
+                                                {(log.puesto_actor || log.laboratorio_actor_nombre) && (
                                                     <div className="text-[10px] font-normal text-gray-500">
-                                                        {log.puesto_actor}
+                                                        {[log.puesto_actor, log.laboratorio_actor_nombre]
+                                                            .filter(Boolean)
+                                                            .join(' · ')}
                                                     </div>
                                                 )}
                                             </td>

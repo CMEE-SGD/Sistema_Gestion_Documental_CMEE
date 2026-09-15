@@ -17,6 +17,7 @@ export class AuditoriaService {
   async registrarLog(data: {
     usuario_id: number;
     puesto_actor?: string | null;
+    laboratorio_actor_id?: number | null;
     modulo: string;
     accion: string;
     descripcion?: string;
@@ -644,6 +645,24 @@ export class AuditoriaService {
    */
   private async enriquecerConNombres(filas: any[]) {
     await this.adjuntarNombreEntidad(filas);
+
+    // Nombres de laboratorio en lote (evita N+1) para las filas que traen
+    // laboratorio_actor_id.
+    const idsLaboratorio = [
+      ...new Set(
+        filas
+          .map((f) => f.laboratorio_actor_id)
+          .filter((id): id is number => id != null),
+      ),
+    ];
+    const nombresLaboratorio = idsLaboratorio.length
+      ? await this.prisma.laboratorio.findMany({
+          where: { id: { in: idsLaboratorio } },
+          select: { id: true, nombre: true },
+        })
+      : [];
+    const mapaLaboratorio = new Map(nombresLaboratorio.map((l) => [l.id, l.nombre]));
+
     for (const fila of filas) {
       // Nombre y apellido de la persona (no solo el nombre_usuario de
       // login, ej. "jdc") — para que "quién lo hizo" sea legible.
@@ -651,6 +670,11 @@ export class AuditoriaService {
       fila.usuario_nombre_completo = persona
         ? `${persona.nombre} ${persona.apellidos ?? ''}`.trim()
         : null;
+
+      fila.laboratorio_actor_nombre =
+        fila.laboratorio_actor_id != null
+          ? (mapaLaboratorio.get(fila.laboratorio_actor_id) ?? null)
+          : null;
 
       if (!fila.descripcion || !fila.entidad_id || !fila.entidad_nombre) continue;
       const marcaId = `#${fila.entidad_id}`;
