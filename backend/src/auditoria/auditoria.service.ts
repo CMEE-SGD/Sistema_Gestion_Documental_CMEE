@@ -572,11 +572,13 @@ export class AuditoriaService {
    * @returns Objeto complejo / PrismaResponse
    */
   async findByPersona(personaId: number) {
-    return this.prisma.auditoria.findMany({
+    const data = await this.prisma.auditoria.findMany({
       where: { persona_afectada_id: personaId },
       orderBy: { fecha_hora: 'desc' },
       include: { usuario: { select: { nombre_usuario: true } } },
     });
+    await this.enriquecerConNombres(data);
+    return data;
   }
 
   /**
@@ -585,11 +587,13 @@ export class AuditoriaService {
    * @returns Objeto complejo / PrismaResponse
    */
   async findByDocumento(documentoId: number) {
-    return this.prisma.auditoria.findMany({
+    const data = await this.prisma.auditoria.findMany({
       where: { documento_id: documentoId },
       orderBy: { fecha_hora: 'desc' },
       include: { usuario: { select: { nombre_usuario: true } } },
     });
+    await this.enriquecerConNombres(data);
+    return data;
   }
 
   /**
@@ -598,11 +602,13 @@ export class AuditoriaService {
    * @returns Objeto complejo / PrismaResponse
    */
   async findByRol(rolId: number) {
-    return this.prisma.auditoria.findMany({
+    const data = await this.prisma.auditoria.findMany({
       where: { rol_afectado_id: rolId },
       orderBy: { fecha_hora: 'desc' },
       include: { usuario: { select: { nombre_usuario: true } } },
     });
+    await this.enriquecerConNombres(data);
+    return data;
   }
 
   /**
@@ -611,10 +617,36 @@ export class AuditoriaService {
    * @returns Objeto complejo / PrismaResponse
    */
   async findByPuesto(puestoId: number) {
-    return this.prisma.auditoria.findMany({
+    const data = await this.prisma.auditoria.findMany({
       where: { puesto_afectado_id: puestoId },
       orderBy: { fecha_hora: 'desc' },
       include: { usuario: { select: { nombre_usuario: true } } },
     });
+    await this.enriquecerConNombres(data);
+    return data;
+  }
+
+  /**
+   * Resuelve entidad_nombre (igual que ya hace findAll) y limpia la
+   * descripción guardada: esta se arma en AuditoriaInterceptor con el id
+   * crudo ("Consulta en Documentos #38") porque una consulta (GET) no manda
+   * body y ahí no hay ningún nombre disponible. Acá sí se puede resolver
+   * consultando la tabla real, así que se reemplaza el "#id" por el nombre
+   * resuelto — sin tocar el texto ya guardado en BD, solo en la respuesta.
+   */
+  private async enriquecerConNombres(filas: any[]) {
+    await this.adjuntarNombreEntidad(filas);
+    for (const fila of filas) {
+      if (!fila.descripcion || !fila.entidad_id || !fila.entidad_nombre) continue;
+      const marcaId = `#${fila.entidad_id}`;
+      if (!fila.descripcion.includes(marcaId)) continue;
+      fila.descripcion = fila.descripcion.includes(' — ')
+        ? // Ya trae un destacado del payload (ej. de una Edición) — se quita
+          // el id crudo y se deja el destacado, que puede ser más específico.
+          fila.descripcion.replace(` ${marcaId}`, '')
+        : // Sin destacado (ej. una Consulta) — el id se reemplaza por el
+          // nombre real resuelto recién arriba.
+          fila.descripcion.replace(marcaId, `— ${fila.entidad_nombre}`);
+    }
   }
 }
