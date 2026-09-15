@@ -170,6 +170,9 @@ export class AuditoriaInterceptor implements NestInterceptor {
                 // al puesto actual. Solo AccessGuard hidrata esto; en rutas
                 // sin ese guard queda null.
                 puesto_actor: user.puesto ?? null,
+                // Mismo criterio: el laboratorio al que pertenecía en ese
+                // momento (también hidratado por AccessGuard).
+                laboratorio_actor_id: user.laboratorio_id ?? null,
                 modulo,
                 accion: `${accion} de recurso`,
                 descripcion: construirDescripcion({

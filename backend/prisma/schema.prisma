@@ -549,6 +549,13 @@ model Auditoria {
   // tienen puesto que capturar).
   puesto_actor String? @db.VarChar(150)
 
+  // Mismo criterio que puesto_actor: el laboratorio al que pertenecía quien
+  // hizo la acción, en ese momento — snapshot del id, sin FK a propósito
+  // (mismo motivo que entidad_id: si el laboratorio se reasigna después, el
+  // log histórico no debe cambiar). El nombre se resuelve al leer, no al
+  // guardar, porque los laboratorios casi no se renombran.
+  laboratorio_actor_id Int?
+
   modulo      String  @db.VarChar(50)
   accion      String  @db.VarChar(100)
   descripcion String? @db.Text
