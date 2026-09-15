@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Settings, FolderPlus, Folder, ChevronRight, ChevronDown } from 'lucide-react';
 import api from '../../../core/api/axios';
@@ -20,6 +20,7 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
     const [loading, setLoading] = useState(true);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [expandedFolders, setExpandedFolders] = useState<Record<number, boolean>>({});
+    const [busqueda, setBusqueda] = useState('');
 
     const fetchDatos = useCallback(async () => {
         try {
@@ -69,6 +70,45 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
         });
     }, [location.pathname, carpetas]);
 
+    // ids de las carpetas que coinciden con la búsqueda más sus ancestros
+    // (para que el camino hasta el resultado quede visible en el árbol) —
+    // null = sin filtro activo, se muestra todo el árbol tal cual.
+    const idsVisibles = useMemo(() => {
+        const termino = busqueda.trim().toLowerCase();
+        if (!termino) return null;
+
+        const porId = new Map(carpetas.map(c => [c.id, c]));
+        const visibles = new Set<number>();
+        for (const c of carpetas) {
+            if (!c.nombre?.toLowerCase().includes(termino)) continue;
+            let actual: any = c;
+            while (actual && !visibles.has(actual.id)) {
+                visibles.add(actual.id);
+                actual = actual.carpeta_padre_id != null ? porId.get(actual.carpeta_padre_id) : null;
+            }
+        }
+        return visibles;
+    }, [busqueda, carpetas]);
+
+    // Mientras haya una búsqueda activa, las carpetas que llevan a un
+    // resultado se despliegan solas — si no, quedarían igual de
+    // colapsadas y el filtro no se vería (isExpanded sigue controlando
+    // qué hijos se pintan).
+    useEffect(() => {
+        if (!idsVisibles) return;
+        setExpandedFolders(prev => {
+            const nuevo = { ...prev };
+            let cambio = false;
+            idsVisibles.forEach(id => {
+                if (!nuevo[id]) {
+                    nuevo[id] = true;
+                    cambio = true;
+                }
+            });
+            return cambio ? nuevo : prev;
+        });
+    }, [idsVisibles]);
+
     const RenderTree = ({ parentId, depth = 0 }: { parentId: number | null, depth?: number }) => {
         // "Orden" respeta el valor manual del formulario cuando alguien lo
         // cambió a propósito; si empatan (caso más común), se resuelve
@@ -76,7 +116,9 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
         const children = (parentId === null
             ? carpetas.filter(c => c.tipo === 'LIBRERIA')
             : carpetas.filter(c => c.carpeta_padre_id === parentId)
-        ).sort((a, b) => (a.orden || 0) - (b.orden || 0) || a.nombre.localeCompare(b.nombre));
+        )
+            .filter(c => !idsVisibles || idsVisibles.has(c.id))
+            .sort((a, b) => (a.orden || 0) - (b.orden || 0) || a.nombre.localeCompare(b.nombre));
 
         if (children.length === 0) return null;
 
@@ -160,6 +202,8 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
 
                     <input
                         type="text" placeholder="Filtrar..."
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
                         className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-500"
                     />
 
@@ -169,6 +213,8 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
                             <span className="text-xs text-gray-400 italic">Cargando estructura...</span>
                         ) : carpetas.length === 0 ? (
                             <div className="text-xs text-gray-400 italic py-1">No hay carpetas registradas.</div>
+                        ) : idsVisibles && idsVisibles.size === 0 ? (
+                            <div className="text-xs text-gray-400 italic py-1">Sin resultados para "{busqueda}".</div>
                         ) : (
                             <RenderTree parentId={null} />
                         )}

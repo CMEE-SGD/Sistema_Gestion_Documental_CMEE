@@ -472,22 +472,35 @@ export class AuditoriaService {
           mapa.set(id, nombre);
         }
         break;
-      case 'DOCUMENTOS':
-        for (const { id, nombre, codigo } of await this.prisma.documento.findMany({
+      case 'DOCUMENTOS': {
+        // El cliente pidió ver DÓNDE está el documento, no solo su nombre
+        // suelto — varios documentos/carpetas en ramas distintas del árbol
+        // pueden compartir nombre genérico (ej. "2026", "Archivado"). Se
+        // arma la ruta completa de carpetas hasta la raíz y se le agrega
+        // el nombre del documento al final.
+        const documentos = await this.prisma.documento.findMany({
           where: { id: { in: ids } },
-          select: { id: true, nombre: true, codigo: true },
-        })) {
-          mapa.set(id, nombre.trim() || codigo?.trim() || null);
+          select: { id: true, nombre: true, codigo: true, carpeta_id: true },
+        });
+        if (documentos.length > 0) {
+          const mapaCarpetas = await this.obtenerMapaCarpetas();
+          for (const { id, nombre, codigo, carpeta_id } of documentos) {
+            const nombreDoc = nombre?.trim() || codigo?.trim() || null;
+            if (!nombreDoc) continue;
+            const ruta = this.construirRutaCarpeta(carpeta_id, mapaCarpetas);
+            mapa.set(id, ruta ? `${ruta} / ${nombreDoc}` : nombreDoc);
+          }
         }
         break;
-      case 'CARPETAS':
-        for (const { id, nombre } of await this.prisma.carpeta.findMany({
-          where: { id: { in: ids } },
-          select: { id: true, nombre: true },
-        })) {
-          mapa.set(id, nombre);
+      }
+      case 'CARPETAS': {
+        const mapaCarpetas = await this.obtenerMapaCarpetas();
+        for (const id of ids) {
+          const ruta = this.construirRutaCarpeta(id, mapaCarpetas);
+          if (ruta) mapa.set(id, ruta);
         }
         break;
+      }
       case 'CIRCUITOS':
         for (const { id, nombre } of await this.prisma.circuito.findMany({
           where: { id: { in: ids } },
@@ -525,6 +538,48 @@ export class AuditoriaService {
     }
 
     return mapa;
+  }
+
+  /**
+   * Todas las carpetas en un mapa id→{nombre, padre} — el árbol de Gestor
+   * Documental es chico (decenas/cientos de carpetas), así que traerlo
+   * completo de una sola consulta sale más barato que ir subiendo nivel por
+   * nivel con una consulta por cada uno.
+   */
+  private async obtenerMapaCarpetas(): Promise<
+    Map<number, { nombre: string; carpeta_padre_id: number | null }>
+  > {
+    const carpetas = await this.prisma.carpeta.findMany({
+      select: { id: true, nombre: true, carpeta_padre_id: true },
+    });
+    return new Map(carpetas.map((c) => [c.id, c]));
+  }
+
+  /**
+   * Arma la ruta completa de una carpeta subiendo por carpeta_padre_id
+   * (ej. "Calidad / Archivado / 2026") — el cliente pidió ver DÓNDE está
+   * ubicada la carpeta/documento, no solo su nombre suelto: varias carpetas
+   * en ramas distintas del árbol pueden compartir un nombre genérico como
+   * "2026" o "Archivado".
+   */
+  private construirRutaCarpeta(
+    carpetaId: number | null | undefined,
+    mapaCarpetas: Map<number, { nombre: string; carpeta_padre_id: number | null }>,
+  ): string | null {
+    if (carpetaId == null) return null;
+    const partes: string[] = [];
+    let actual: number | null = carpetaId;
+    let saltos = 0;
+    // Límite defensivo: una jerarquía real nunca tiene 20 niveles, esto solo
+    // evita un bucle infinito si algún dato quedara mal enlazado en círculo.
+    while (actual != null && saltos < 20) {
+      const carpeta = mapaCarpetas.get(actual);
+      if (!carpeta) break;
+      partes.unshift(carpeta.nombre);
+      actual = carpeta.carpeta_padre_id;
+      saltos += 1;
+    }
+    return partes.length ? partes.join(' / ') : null;
   }
 
   /**
@@ -677,15 +732,39 @@ export class AuditoriaService {
           : null;
 
       if (!fila.descripcion || !fila.entidad_id || !fila.entidad_nombre) continue;
-      const marcaId = `#${fila.entidad_id}`;
-      if (!fila.descripcion.includes(marcaId)) continue;
-      fila.descripcion = fila.descripcion.includes(' — ')
-        ? // Ya trae un destacado del payload (ej. de una Edición) — se quita
-          // el id crudo y se deja el destacado, que puede ser más específico.
-          fila.descripcion.replace(` ${marcaId}`, '')
-        : // Sin destacado (ej. una Consulta) — el id se reemplaza por el
-          // nombre real resuelto recién arriba.
-          fila.descripcion.replace(marcaId, `— ${fila.entidad_nombre}`);
+
+      // Regex con límite de palabra: "#3" con .replace() de texto plano
+      // también hace match adentro de "#38" (substring), lo que corta mal
+      // el número de OTRA fila con id de dos o más dígitos que comparte
+      // prefijo. El "(?!\d)" exige que no siga otro dígito.
+      const marcaIdRegex = new RegExp(`#${fila.entidad_id}(?!\\d)`);
+      if (!marcaIdRegex.test(fila.descripcion)) continue;
+
+      // En Carpetas/Documentos el destacado del payload (si lo hay) es
+      // siempre el nombre suelto de la carpeta/documento — el cliente pidió
+      // ver DÓNDE está ubicado, así que ahí se prefiere siempre la ruta
+      // completa ya resuelta en entidad_nombre, tenga o no destacado.
+      const prefiereRutaCompleta =
+        fila.modulo === 'CARPETAS' || fila.modulo === 'DOCUMENTOS';
+
+      if (fila.descripcion.includes(' — ')) {
+        const marcaIdConEspacioRegex = new RegExp(` #${fila.entidad_id}(?!\\d)`);
+        fila.descripcion = prefiereRutaCompleta
+          ? fila.descripcion
+              .replace(/ — .*/, ` — ${fila.entidad_nombre}`)
+              .replace(marcaIdConEspacioRegex, '')
+          : // Ya trae un destacado del payload (ej. de una Edición) — se
+            // quita el id crudo y se deja el destacado, que puede ser más
+            // específico que solo repetir el nombre de la entidad.
+            fila.descripcion.replace(marcaIdConEspacioRegex, '');
+      } else {
+        // Sin destacado (ej. una Consulta) — el id se reemplaza por el
+        // nombre real resuelto recién arriba.
+        fila.descripcion = fila.descripcion.replace(
+          marcaIdRegex,
+          `— ${fila.entidad_nombre}`,
+        );
+      }
     }
   }
 }

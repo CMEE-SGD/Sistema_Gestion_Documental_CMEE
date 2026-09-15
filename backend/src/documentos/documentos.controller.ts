@@ -9,10 +9,14 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  NotFoundException,
+  ParseIntPipe,
   Query,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
+import { existsSync, createReadStream } from 'fs';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentosService } from './documentos.service';
 import { UpdateDocumentoDto } from './dto/update-documento.dto';
@@ -138,6 +142,41 @@ export class DocumentosController {
   @RequireAccess('Gestor Documental', 2) // Nivel 2: Ver detalle del documento
   findOne(@Param('id') id: string) {
     return this.documentosService.findOne(+id);
+  }
+
+  // Antes se descargaba directo desde /uploads/ (archivo estático): sin
+  // guard, sin permisos, sin quedar registrado en auditoría. Mismo nivel
+  // que ver el detalle — si lo puede ver, lo puede descargar.
+  @Get(':id/descargar')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Gestor Documental', 2)
+  async descargar(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const { filePath, nombreOriginal } = await this.documentosService.descargar(
+      id,
+      req.user?.id,
+    );
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('El archivo ya no está disponible en el servidor');
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    const nombreAscii = nombreOriginal.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${nombreAscii}"; filename*=UTF-8''${encodeURIComponent(nombreOriginal)}`,
+    );
+    const stream = createReadStream(filePath);
+    stream.on('error', () => {
+      if (!res.headersSent) {
+        res.status(500).end();
+      } else {
+        res.end();
+      }
+    });
+    stream.pipe(res);
   }
 
   @Patch(':id')

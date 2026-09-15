@@ -86,25 +86,23 @@ export const DetalleDocumentoPage = () => {
         return path.join(' / ');
     };
 
-    // 👉 NUEVA FUNCIÓN: Forzar la descarga del PDF
+    // 👉 Descarga del PDF — pasa por el backend (no directo del archivo
+    // estático) para que quede registrada en el log de auditoría del
+    // documento como "Descarga", no solo como consulta de metadatos.
     const handleDescargar = async () => {
-        if (!documento?.archivo_url) return;
-
-        const fileUrl = buildFileUrl(documento.archivo_url);
-        if (!fileUrl) return;
-
+        if (!documento?.id) return;
         try {
-            // Descargamos los datos binarios del archivo
-            const response = await fetch(fileUrl);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            
+            const response = await api.get(`/documentos/${documento.id}/descargar`, {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(response.data);
+
             // Creamos un enlace invisible, le damos clic automático y lo destruimos
             const link = document.createElement('a');
             link.href = url;
-            const nombreFichero = documento.archivo_url.split('/').pop() || 'documento.pdf';
+            const nombreFichero = documento.archivo_url?.split('/').pop() || 'documento.pdf';
             link.setAttribute('download', nombreFichero);
-            
+
             document.body.appendChild(link);
             link.click();
             link.parentNode?.removeChild(link);
@@ -157,13 +155,17 @@ export const DetalleDocumentoPage = () => {
             state: { documentos: [documento] }
         });
     };
+    // Mismo endpoint que handleDescargar: solo la fase más reciente conserva
+    // archivo_url (las anteriores se limpian al firmar — ver firmarFase en
+    // el backend), así que esto siempre termina siendo el mismo archivo
+    // "actual" del documento, y también queda registrado como "Descarga".
     const handleDescargarArchivoWF = async (ruta: string) => {
-        const fileUrl = buildFileUrl(ruta);
-        if (!fileUrl) return;
+        if (!documento?.id) return;
         try {
-            const response = await fetch(fileUrl);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
+            const response = await api.get(`/documentos/${documento.id}/descargar`, {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(response.data);
             const link = document.createElement('a');
             link.href = url;
             link.setAttribute('download', ruta.split('/').pop() || 'documento.pdf');
