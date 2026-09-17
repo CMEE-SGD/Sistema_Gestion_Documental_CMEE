@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { FileSignature, Loader2, Upload, X, XCircle } from 'lucide-react';
+import { CheckCircle2, FileSignature, Loader2, Upload, X, XCircle } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
 import { generarUuidV4 } from '../../../shared/utils/uuid';
@@ -26,7 +26,14 @@ interface Props {
   onSuccess: () => void;
 }
 
-type Accion = 'FIRMAR' | 'RECHAZAR';
+type Accion = 'FIRMAR' | 'APROBAR' | 'RECHAZAR';
+
+/** "YYYY-MM-DD" de hoy, en hora local — valor por defecto del selector de fecha. */
+function hoyLocal(): string {
+  const hoy = new Date();
+  const offsetMs = hoy.getTimezoneOffset() * 60000;
+  return new Date(hoy.getTime() - offsetMs).toISOString().slice(0, 10);
+}
 type Paso = 'idle' | 'firmando' | 'subiendo';
 
 const API_BASE = import.meta.env.VITE_API_URL;
@@ -56,6 +63,7 @@ export default function FirmarDocumentoModal({
   const [password, setPassword] = useState('');
   const [tamanoSello, setTamanoSello] = useState<{ ancho: number; alto: number } | null>(null);
   const [observaciones, setObservaciones] = useState('');
+  const [fechaRealizacion, setFechaRealizacion] = useState(hoyLocal());
   const [paso, setPaso] = useState<Paso>('idle');
   const [error, setError] = useState<string | null>(null);
   // Código público del documento — si ya existe (de una firma anterior de
@@ -171,10 +179,34 @@ export default function FirmarDocumentoModal({
     setPassword('');
     setTamanoSello(null);
     setObservaciones('');
+    setFechaRealizacion(hoyLocal());
     setPaso('idle');
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     onClose();
+  };
+
+  const handleAprobar = async () => {
+    if (!documentoId) return;
+    const token = localStorage.getItem('token');
+    const res = await fetch(
+      `${API_BASE}/documentos/${documentoId}/workflow/aprobar`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          comentario: observaciones.trim(),
+          fecha_realizacion: fechaRealizacion,
+        }),
+      },
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || `Error HTTP ${res.status}`);
+    }
   };
 
   const handleRechazar = async () => {
@@ -227,6 +259,7 @@ export default function FirmarDocumentoModal({
     );
     formData.append('codigo_verificacion', codigo);
     formData.append('comentario', observaciones.trim());
+    formData.append('fecha_realizacion', fechaRealizacion);
     const resSubida = await fetch(
       `${API_BASE}/documentos/${documentoId}/workflow/firmar`,
       {
@@ -249,6 +282,9 @@ export default function FirmarDocumentoModal({
       if (accion === 'RECHAZAR') {
         setPaso('subiendo');
         await handleRechazar();
+      } else if (accion === 'APROBAR') {
+        setPaso('subiendo');
+        await handleAprobar();
       } else if (accion === 'FIRMAR') {
         await handleFirmar();
       } else {
@@ -271,7 +307,8 @@ export default function FirmarDocumentoModal({
   if (!isOpen || !documentoId) return null;
 
   const puedeFirmar =
-    accion === 'FIRMAR' && p12File && password.length > 0 && !!posicionFirma;
+    accion === 'FIRMAR' && p12File && password.length > 0 && !!posicionFirma && !!fechaRealizacion;
+  const puedeAprobar = accion === 'APROBAR' && !!fechaRealizacion;
   const puedeRechazar = accion === 'RECHAZAR' && observaciones.trim().length > 0;
 
   return (
@@ -297,22 +334,24 @@ export default function FirmarDocumentoModal({
         <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden">
           <div className="p-6 space-y-4 overflow-y-auto">
             <p className="text-sm text-muted-foreground">
-              Firme con su certificado personal (.p12). El archivo y la
-              contraseña no se envían al servidor — la firma se calcula en
-              este navegador, sobre el PDF ya firmado por los pasos anteriores.
+              {accion === 'APROBAR'
+                ? 'Aprueba esta fase sin firma digital — solo queda constancia de quién aprobó, cuándo y con qué comentario.'
+                : accion === 'RECHAZAR'
+                  ? 'El documento vuelve a la fase anterior para corregirse.'
+                  : 'Firme con su certificado personal (.p12). El archivo y la contraseña no se envían al servidor — la firma se calcula en este navegador, sobre el PDF ya firmado por los pasos anteriores.'}
             </p>
 
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
                 Decisión
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   type="button"
                   onClick={() => setAccion('FIRMAR')}
                   disabled={enviando}
                   className={cn(
-                    'flex items-center justify-center gap-2 rounded-lg border-2 p-4 text-sm font-medium transition-colors',
+                    'flex flex-col items-center justify-center gap-2 rounded-lg border-2 p-4 text-sm font-medium transition-colors',
                     accion === 'FIRMAR'
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400'
                       : 'border-border text-muted-foreground hover:border-emerald-300 hover:bg-emerald-50/50',
@@ -323,10 +362,24 @@ export default function FirmarDocumentoModal({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setAccion('APROBAR')}
+                  disabled={enviando}
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-2 rounded-lg border-2 p-4 text-sm font-medium transition-colors',
+                    accion === 'APROBAR'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400'
+                      : 'border-border text-muted-foreground hover:border-blue-300 hover:bg-blue-50/50',
+                  )}
+                >
+                  <CheckCircle2 className="h-5 w-5" />
+                  Aprobar
+                </button>
+                <button
+                  type="button"
                   onClick={() => setAccion('RECHAZAR')}
                   disabled={enviando}
                   className={cn(
-                    'flex items-center justify-center gap-2 rounded-lg border-2 p-4 text-sm font-medium transition-colors',
+                    'flex flex-col items-center justify-center gap-2 rounded-lg border-2 p-4 text-sm font-medium transition-colors',
                     accion === 'RECHAZAR'
                       ? 'border-red-500 bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400'
                       : 'border-border text-muted-foreground hover:border-red-300 hover:bg-red-50/50',
@@ -336,6 +389,12 @@ export default function FirmarDocumentoModal({
                   Rechazar
                 </button>
               </div>
+              {accion === 'APROBAR' && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Avanza la fase sin firma digital (sin .p12) — deja constancia de quién
+                  aprobó, cuándo y con qué comentario, pero no estampa ninguna firma en el PDF.
+                </p>
+              )}
             </div>
 
             {accion === 'FIRMAR' && (
@@ -393,6 +452,24 @@ export default function FirmarDocumentoModal({
 
                   <div>
                     <label
+                      htmlFor="fecha-firma-doc"
+                      className="mb-1.5 block text-sm font-medium text-foreground"
+                    >
+                      Fecha en que se realizó <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      id="fecha-firma-doc"
+                      type="date"
+                      value={fechaRealizacion}
+                      max={hoyLocal()}
+                      onChange={(e) => setFechaRealizacion(e.target.value)}
+                      disabled={enviando}
+                      className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label
                       htmlFor="comentario-firma-doc"
                       className="mb-1.5 block text-sm font-medium text-foreground"
                     >
@@ -437,6 +514,45 @@ export default function FirmarDocumentoModal({
               </div>
             )}
 
+            {accion === 'APROBAR' && (
+              <div className="space-y-3">
+                <div>
+                  <label
+                    htmlFor="fecha-aprobacion-doc"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    Fecha en que se realizó <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="fecha-aprobacion-doc"
+                    type="date"
+                    value={fechaRealizacion}
+                    max={hoyLocal()}
+                    onChange={(e) => setFechaRealizacion(e.target.value)}
+                    disabled={enviando}
+                    className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="comentario-aprobacion-doc"
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                  >
+                    Comentario <span className="text-muted-foreground font-normal">(opcional)</span>
+                  </label>
+                  <textarea
+                    id="comentario-aprobacion-doc"
+                    rows={3}
+                    placeholder="Escriba un comentario sobre la aprobación..."
+                    value={observaciones}
+                    onChange={(e) => setObservaciones(e.target.value)}
+                    disabled={enviando}
+                    className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground resize-none disabled:opacity-50"
+                  />
+                </div>
+              </div>
+            )}
+
             {accion === 'RECHAZAR' && (
               <div>
                 <label
@@ -475,14 +591,16 @@ export default function FirmarDocumentoModal({
             </button>
             <button
               type="submit"
-              disabled={enviando || !(puedeFirmar || puedeRechazar)}
+              disabled={enviando || !(puedeFirmar || puedeAprobar || puedeRechazar)}
               className={cn(
                 'inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors disabled:pointer-events-none disabled:opacity-50',
                 accion === 'FIRMAR'
                   ? 'bg-emerald-600 hover:bg-emerald-700'
-                  : accion === 'RECHAZAR'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-primary',
+                  : accion === 'APROBAR'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : accion === 'RECHAZAR'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-primary',
               )}
             >
               {enviando ? (
@@ -494,6 +612,11 @@ export default function FirmarDocumentoModal({
                 <>
                   <FileSignature className="h-4 w-4" />
                   Firmar
+                </>
+              ) : accion === 'APROBAR' ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  Aprobar
                 </>
               ) : accion === 'RECHAZAR' ? (
                 <>
