@@ -616,7 +616,7 @@ export const DetalleDocumentoPage = () => {
                                                 <td className="py-1.5"><Paperclip className="w-4 h-4 text-gray-400" /></td>
                                                 <td className="py-1.5 font-semibold">{wf.fase?.nombre || '---'}</td>
                                                 <td className="py-1.5">{wf.fase?.participantes?.map((p: any) => `${p.persona.nombre} ${p.persona.apellidos}`).join(', ') || '---'}</td>
-                                                <td className="py-1.5">{wf.created_at ? new Date(wf.created_at).toLocaleDateString('es-ES') : '---'}</td>
+                                                <td className="py-1.5">{wf.fecha_realizacion ? new Date(wf.fecha_realizacion).toLocaleDateString('es-ES', { timeZone: 'UTC' }) : '---'}</td>
                                                 <td className="py-1.5 text-gray-500">{wf.comentario || '---'}</td>
                                                 <td className={`py-1.5 font-semibold ${colorEstado}`}>{labelEstado}</td>
                                                 <td className="py-1.5">
@@ -662,7 +662,7 @@ export const DetalleDocumentoPage = () => {
                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                                     >
                                         <FileSignature className="w-4 h-4" />
-                                        Firmar documento
+                                        Firmar / Aprobar
                                     </button>
                                 </div>
                             ) : null;
@@ -680,7 +680,7 @@ export const DetalleDocumentoPage = () => {
                 onClose={() => setIsFirmaModalOpen(false)}
                 documentoId={documento.id}
                 archivoUrl={documento.archivo_url}
-                tituloAccion={`Firmar: ${documento.workflow?.fases?.find((f: any) => f.estado === 'EN_CURSO')?.fase?.nombre || documento.nombre}`}
+                tituloAccion={documento.workflow?.fases?.find((f: any) => f.estado === 'EN_CURSO')?.fase?.nombre || documento.nombre}
                 onSuccess={handleFirmaSuccess}
             />
 

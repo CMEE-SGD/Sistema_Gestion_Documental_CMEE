@@ -125,6 +125,15 @@ export class DocumentosController {
     return this.documentosService.firmarFase(+id, file, body, req.user);
   }
 
+  // Avance de fase sin firma digital (ver aprobarFase en el service) — mismo
+  // nivel de acceso que firmar/rechazar.
+  @Post(':id/workflow/aprobar')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Gestor Documental', 4)
+  aprobarFase(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.documentosService.aprobarFase(+id, body, req.user);
+  }
+
   @Post(':id/workflow/rechazar')
   @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestor Documental', 4)

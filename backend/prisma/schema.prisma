@@ -425,6 +425,14 @@ model DocumentoWorkflowFase {
   archivo_url   String?
   procesado_por String?            @db.VarChar(150)
   comentario    String?            @db.Text
+  // Fecha real en que se hizo el trabajo de esta fase (elaboración,
+  // revisión, aprobación) — la elige la persona al completarla (o quien
+  // sube el documento, para la primera fase). Distinta de created_at, que
+  // es cuándo se creó la FILA en el sistema (las 3 fases de un workflow se
+  // crean juntas al momento de subir el documento, así que created_at
+  // siempre muestra la misma fecha para las 3 aunque solo la primera haya
+  // pasado). Queda null hasta que la fase se completa.
+  fecha_realizacion DateTime?       @db.Date
   created_at    DateTime           @default(now())
   updated_at    DateTime           @updatedAt
 
