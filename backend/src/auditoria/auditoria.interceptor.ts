@@ -188,8 +188,16 @@ export class AuditoriaInterceptor implements NestInterceptor {
               if (modulo === 'PERSONAS') persona_afectada_id = ultimoParametro;
               if (modulo === 'ROLES') rol_afectado_id = ultimoParametro;
               if (modulo === 'PUESTOS') puesto_afectado_id = ultimoParametro;
-              if (modulo === 'DOCUMENTOS' || modulo === 'CARPETAS')
-                documento_id = ultimoParametro;
+              // OJO: documento_id es una FK real hacia Documento — NUNCA debe
+              // llenarse para CARPETAS (una tabla distinta, con su propia
+              // secuencia de ids). Antes esto no explotaba porque una
+              // Creación (POST) nunca tenía id en la URL, así que este
+              // bloque nunca corría para "crear carpeta"; al agregar el id
+              // desde la respuesta (ver arriba) empezó a violar la FK en
+              // cada carpeta creada. Las carpetas ya se identifican bien con
+              // entidad_id (sin FK, ver adjuntarNombreEntidad), no hace
+              // falta este campo para ellas.
+              if (modulo === 'DOCUMENTOS') documento_id = ultimoParametro;
             }
 
             const esMutacion = ['POST', 'PATCH', 'PUT'].includes(method);
