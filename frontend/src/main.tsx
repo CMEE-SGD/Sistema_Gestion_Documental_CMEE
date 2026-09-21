@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import AppRouter from './core/router/AppRouter';
 import { AlertProvider } from './shared/components/molecules/AlertModal';
 import { ToastProvider } from './shared/components/molecules/Toast';
+import ErrorBoundary from './shared/components/molecules/ErrorBoundary';
 import './index.css';
 
 
@@ -12,7 +13,9 @@ root.render(
   <React.StrictMode>
     <AlertProvider>
       <ToastProvider>
-        <AppRouter />
+        <ErrorBoundary pantallaCompleta>
+          <AppRouter />
+        </ErrorBoundary>
       </ToastProvider>
     </AlertProvider>
   </React.StrictMode>
