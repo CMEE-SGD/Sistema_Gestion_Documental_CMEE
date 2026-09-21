@@ -16,6 +16,7 @@ import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
+import { CambiarFaseAdminDto } from './dto/cambiar-fase-admin.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
@@ -67,6 +68,21 @@ export class RecepcionEquiposController {
     @Req() req: any,
   ) {
     return this.recepcionService.transicionEstado(+id, dto, req.user);
+  }
+
+  // Cambio manual de fase reservado a administración (nivel 5, el más alto —
+  // mismo nivel de borrar una orden): corrige el flujo cuando un usuario
+  // avanzó o rechazó por equivocación. El admin elige el estado destino
+  // directamente (adelante o atrás), queda trazado en historial_estado y se
+  // notifica a quien deba actuar en la nueva fase.
+  @Patch(':id/cambiar-fase')
+  @RequireAccess('Recepcion Equipos', 5)
+  cambiarFaseAdmin(
+    @Param('id') id: string,
+    @Body() dto: CambiarFaseAdminDto,
+    @Req() req: any,
+  ) {
+    return this.recepcionService.cambiarFaseAdmin(+id, dto, req.user);
   }
 
   // Diagnóstico de notificaciones: quién sería notificado para este equipo

@@ -6,6 +6,7 @@ import {
   Clock,
   Eye,
   FlaskConical,
+  GitBranch,
   Loader2,
   Pencil,
   Plus,
@@ -32,6 +33,7 @@ import { Button } from '../../../shared/components/atoms/button';
 import SubirCertificadoModal from '../components/SubirCertificadoModal';
 import ValidacionCertificadoModal from '../components/ValidacionCertificadoModal';
 import FirmarDigitalModal from '../components/FirmarDigitalModal';
+import CambiarFaseModal from '../components/CambiarFaseModal';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
 import EditarOrdenModal from '../components/EditarOrdenModal';
 import { type OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
@@ -636,6 +638,11 @@ export default function BandejaTrabajoPage() {
     tipoDocumento: 'reporte' | 'certificado';
     titulo: string;
   } | null>(null);
+  const [cambiarFase, setCambiarFase] = useState<{
+    id: number;
+    equipoDescripcion: string;
+    estado: string;
+  } | null>(null);
 
   const handleVerCertificado = async (
     certificadoId: number,
@@ -875,6 +882,24 @@ export default function BandejaTrabajoPage() {
                               title="Editar orden"
                             >
                               <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {/* Administrador: Cambiar fase manualmente */}
+                          {esAdministrador && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() =>
+                                setCambiarFase({
+                                  id: req.id,
+                                  equipoDescripcion: req.equipo_descripcion,
+                                  estado: req.estado,
+                                })
+                              }
+                              title="Cambiar fase manualmente"
+                            >
+                              <GitBranch className="h-4 w-4" />
                             </Button>
                           )}
 
@@ -1147,6 +1172,17 @@ export default function BandejaTrabajoPage() {
         certificadoId={selectedFirma?.certificadoId ?? null}
         tipoDocumento={selectedFirma?.tipoDocumento ?? 'reporte'}
         tituloAccion={selectedFirma?.titulo ?? ''}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+        }}
+      />
+
+      <CambiarFaseModal
+        isOpen={cambiarFase !== null}
+        onClose={() => setCambiarFase(null)}
+        recepcionId={cambiarFase?.id ?? null}
+        equipoDescripcion={cambiarFase?.equipoDescripcion ?? ''}
+        estadoActual={cambiarFase?.estado ?? ''}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
         }}

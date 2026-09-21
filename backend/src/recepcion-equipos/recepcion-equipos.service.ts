@@ -11,6 +11,7 @@ import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
+import { CambiarFaseAdminDto } from './dto/cambiar-fase-admin.dto';
 import { EstadoRecepcion } from '@prisma/client';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import {
@@ -443,6 +444,77 @@ export class RecepcionEquiposService {
       data: { estado },
       include: EQUIPO_INCLUDE,
     });
+  }
+
+  /**
+   * Cambio MANUAL de fase reservado a administradores (nivel 5): corrige
+   * errores del flujo cuando un usuario avanzó o rechazó por equivocación.
+   *
+   * A diferencia de transicionEstado(), NO aplica la máquina de estados — el
+   * admin elige el estado destino libremente (hacia adelante o hacia atrás).
+   * De todos modos queda trazado en historial_estado con accion='AJUSTE_ADMIN'
+   * y se notifica a quien deba actuar en la nueva fase, para que el flujo
+   * retome con la notificación correcta. No borra certificados ni firmas:
+   * la corrección es solo de fase; si hace falta limpiar documentos, el
+   * admin puede rechazar por el flujo normal o eliminar la orden.
+   */
+  async cambiarFaseAdmin(
+    equipoId: number,
+    dto: CambiarFaseAdminDto,
+    user: any,
+  ) {
+    const equipo = await this.findOneEquipo(equipoId);
+    const estadoAnterior = equipo.estado;
+    const estadoNuevo = dto.estado;
+
+    if (estadoNuevo === estadoAnterior) {
+      throw new BadRequestException(
+        `El equipo ya se encuentra en el estado ${estadoNuevo.replace(/_/g, ' ')}`,
+      );
+    }
+
+    const personaId = user?.persona_id ?? null;
+
+    const equipoActualizado = await this.prisma.$transaction(async (tx) => {
+      await tx.equipoRecepcion.update({
+        where: { id: equipoId },
+        data: { estado: estadoNuevo },
+      });
+
+      await tx.historialEstado.create({
+        data: {
+          equipo_recepcion_id: equipoId,
+          estado_anterior: estadoAnterior,
+          estado_nuevo: estadoNuevo,
+          accion: 'AJUSTE_ADMIN',
+          observaciones: dto.observaciones ?? null,
+          realizado_por_id: personaId ?? 1,
+        },
+      });
+
+      return tx.equipoRecepcion.findUnique({
+        where: { id: equipoId },
+        include: EQUIPO_INCLUDE,
+      });
+    });
+
+    // Mismo criterio que transicionEstado: notificar después del commit y sin
+    // dejar que un fallo de notificación revierta o bloquee el cambio (el
+    // helper además nunca lanza).
+    if (equipoActualizado) {
+      await notificarResponsablesEquipo(
+        this.prisma,
+        this.notificacionesService,
+        equipoActualizado,
+        estadoNuevo,
+        {
+          motivo: dto.observaciones ?? undefined,
+        },
+      );
+    }
+    this.notificacionesService.notificarRecepcionActualizada();
+
+    return equipoActualizado;
   }
 
   async transicionEstado(
