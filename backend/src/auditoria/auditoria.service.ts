@@ -16,6 +16,8 @@ export class AuditoriaService {
    */
   async registrarLog(data: {
     usuario_id: number;
+    puesto_actor?: string | null;
+    laboratorio_actor_id?: number | null;
     modulo: string;
     accion: string;
     descripcion?: string;
@@ -70,15 +72,21 @@ export class AuditoriaService {
         skip: (pagina - 1) * porPagina,
         take: porPagina,
         include: {
-          usuario: { select: { nombre_usuario: true } },
+          usuario: {
+            select: {
+              nombre_usuario: true,
+              persona: { select: { nombre: true, apellidos: true } },
+            },
+          },
         },
       }),
       this.prisma.auditoria.count({ where }),
     ]);
 
-    // Extiende cada registro con el nombre de la entidad afectada
-    // (p. ej. "Juan Pérez" en vez de solo el ID), según el módulo.
-    await this.adjuntarNombreEntidad(data);
+    // Mismo criterio que findByDocumento/findByPersona/etc: resuelve el
+    // nombre real de la entidad afectada, limpia el "#id" crudo de la
+    // descripción guardada, y arma el nombre completo del usuario.
+    await this.enriquecerConNombres(data);
     // Reemplaza los ids de llaves foráneas del detalle por sus nombres.
     await this.adjuntarNombresAlDetalle(data);
 
@@ -464,22 +472,35 @@ export class AuditoriaService {
           mapa.set(id, nombre);
         }
         break;
-      case 'DOCUMENTOS':
-        for (const { id, nombre, codigo } of await this.prisma.documento.findMany({
+      case 'DOCUMENTOS': {
+        // El cliente pidió ver DÓNDE está el documento, no solo su nombre
+        // suelto — varios documentos/carpetas en ramas distintas del árbol
+        // pueden compartir nombre genérico (ej. "2026", "Archivado"). Se
+        // arma la ruta completa de carpetas hasta la raíz y se le agrega
+        // el nombre del documento al final.
+        const documentos = await this.prisma.documento.findMany({
           where: { id: { in: ids } },
-          select: { id: true, nombre: true, codigo: true },
-        })) {
-          mapa.set(id, nombre.trim() || codigo?.trim() || null);
+          select: { id: true, nombre: true, codigo: true, carpeta_id: true },
+        });
+        if (documentos.length > 0) {
+          const mapaCarpetas = await this.obtenerMapaCarpetas();
+          for (const { id, nombre, codigo, carpeta_id } of documentos) {
+            const nombreDoc = nombre?.trim() || codigo?.trim() || null;
+            if (!nombreDoc) continue;
+            const ruta = this.construirRutaCarpeta(carpeta_id, mapaCarpetas);
+            mapa.set(id, ruta ? `${ruta} / ${nombreDoc}` : nombreDoc);
+          }
         }
         break;
-      case 'CARPETAS':
-        for (const { id, nombre } of await this.prisma.carpeta.findMany({
-          where: { id: { in: ids } },
-          select: { id: true, nombre: true },
-        })) {
-          mapa.set(id, nombre);
+      }
+      case 'CARPETAS': {
+        const mapaCarpetas = await this.obtenerMapaCarpetas();
+        for (const id of ids) {
+          const ruta = this.construirRutaCarpeta(id, mapaCarpetas);
+          if (ruta) mapa.set(id, ruta);
         }
         break;
+      }
       case 'CIRCUITOS':
         for (const { id, nombre } of await this.prisma.circuito.findMany({
           where: { id: { in: ids } },
@@ -517,6 +538,48 @@ export class AuditoriaService {
     }
 
     return mapa;
+  }
+
+  /**
+   * Todas las carpetas en un mapa id→{nombre, padre} — el árbol de Gestor
+   * Documental es chico (decenas/cientos de carpetas), así que traerlo
+   * completo de una sola consulta sale más barato que ir subiendo nivel por
+   * nivel con una consulta por cada uno.
+   */
+  private async obtenerMapaCarpetas(): Promise<
+    Map<number, { nombre: string; carpeta_padre_id: number | null }>
+  > {
+    const carpetas = await this.prisma.carpeta.findMany({
+      select: { id: true, nombre: true, carpeta_padre_id: true },
+    });
+    return new Map(carpetas.map((c) => [c.id, c]));
+  }
+
+  /**
+   * Arma la ruta completa de una carpeta subiendo por carpeta_padre_id
+   * (ej. "Calidad / Archivado / 2026") — el cliente pidió ver DÓNDE está
+   * ubicada la carpeta/documento, no solo su nombre suelto: varias carpetas
+   * en ramas distintas del árbol pueden compartir un nombre genérico como
+   * "2026" o "Archivado".
+   */
+  private construirRutaCarpeta(
+    carpetaId: number | null | undefined,
+    mapaCarpetas: Map<number, { nombre: string; carpeta_padre_id: number | null }>,
+  ): string | null {
+    if (carpetaId == null) return null;
+    const partes: string[] = [];
+    let actual: number | null = carpetaId;
+    let saltos = 0;
+    // Límite defensivo: una jerarquía real nunca tiene 20 niveles, esto solo
+    // evita un bucle infinito si algún dato quedara mal enlazado en círculo.
+    while (actual != null && saltos < 20) {
+      const carpeta = mapaCarpetas.get(actual);
+      if (!carpeta) break;
+      partes.unshift(carpeta.nombre);
+      actual = carpeta.carpeta_padre_id;
+      saltos += 1;
+    }
+    return partes.length ? partes.join(' / ') : null;
   }
 
   /**
@@ -572,11 +635,13 @@ export class AuditoriaService {
    * @returns Objeto complejo / PrismaResponse
    */
   async findByPersona(personaId: number) {
-    return this.prisma.auditoria.findMany({
+    const data = await this.prisma.auditoria.findMany({
       where: { persona_afectada_id: personaId },
       orderBy: { fecha_hora: 'desc' },
-      include: { usuario: { select: { nombre_usuario: true } } },
+      include: { usuario: { select: { nombre_usuario: true, persona: { select: { nombre: true, apellidos: true } } } } },
     });
+    await this.enriquecerConNombres(data);
+    return data;
   }
 
   /**
@@ -585,11 +650,13 @@ export class AuditoriaService {
    * @returns Objeto complejo / PrismaResponse
    */
   async findByDocumento(documentoId: number) {
-    return this.prisma.auditoria.findMany({
+    const data = await this.prisma.auditoria.findMany({
       where: { documento_id: documentoId },
       orderBy: { fecha_hora: 'desc' },
-      include: { usuario: { select: { nombre_usuario: true } } },
+      include: { usuario: { select: { nombre_usuario: true, persona: { select: { nombre: true, apellidos: true } } } } },
     });
+    await this.enriquecerConNombres(data);
+    return data;
   }
 
   /**
@@ -598,11 +665,13 @@ export class AuditoriaService {
    * @returns Objeto complejo / PrismaResponse
    */
   async findByRol(rolId: number) {
-    return this.prisma.auditoria.findMany({
+    const data = await this.prisma.auditoria.findMany({
       where: { rol_afectado_id: rolId },
       orderBy: { fecha_hora: 'desc' },
-      include: { usuario: { select: { nombre_usuario: true } } },
+      include: { usuario: { select: { nombre_usuario: true, persona: { select: { nombre: true, apellidos: true } } } } },
     });
+    await this.enriquecerConNombres(data);
+    return data;
   }
 
   /**
@@ -611,10 +680,91 @@ export class AuditoriaService {
    * @returns Objeto complejo / PrismaResponse
    */
   async findByPuesto(puestoId: number) {
-    return this.prisma.auditoria.findMany({
+    const data = await this.prisma.auditoria.findMany({
       where: { puesto_afectado_id: puestoId },
       orderBy: { fecha_hora: 'desc' },
-      include: { usuario: { select: { nombre_usuario: true } } },
+      include: { usuario: { select: { nombre_usuario: true, persona: { select: { nombre: true, apellidos: true } } } } },
     });
+    await this.enriquecerConNombres(data);
+    return data;
+  }
+
+  /**
+   * Resuelve entidad_nombre (igual que ya hace findAll), limpia la
+   * descripción guardada, y arma el nombre completo del usuario. La
+   * descripción se arma en AuditoriaInterceptor con el id crudo ("Consulta
+   * en Documentos #38") porque una consulta (GET) no manda body y ahí no
+   * hay ningún nombre disponible. Acá sí se puede resolver consultando la
+   * tabla real, así que se reemplaza el "#id" por el nombre resuelto — sin
+   * tocar el texto ya guardado en BD, solo en la respuesta.
+   */
+  private async enriquecerConNombres(filas: any[]) {
+    await this.adjuntarNombreEntidad(filas);
+
+    // Nombres de laboratorio en lote (evita N+1) para las filas que traen
+    // laboratorio_actor_id.
+    const idsLaboratorio = [
+      ...new Set(
+        filas
+          .map((f) => f.laboratorio_actor_id)
+          .filter((id): id is number => id != null),
+      ),
+    ];
+    const nombresLaboratorio = idsLaboratorio.length
+      ? await this.prisma.laboratorio.findMany({
+          where: { id: { in: idsLaboratorio } },
+          select: { id: true, nombre: true },
+        })
+      : [];
+    const mapaLaboratorio = new Map(nombresLaboratorio.map((l) => [l.id, l.nombre]));
+
+    for (const fila of filas) {
+      // Nombre y apellido de la persona (no solo el nombre_usuario de
+      // login, ej. "jdc") — para que "quién lo hizo" sea legible.
+      const persona = fila.usuario?.persona;
+      fila.usuario_nombre_completo = persona
+        ? `${persona.nombre} ${persona.apellidos ?? ''}`.trim()
+        : null;
+
+      fila.laboratorio_actor_nombre =
+        fila.laboratorio_actor_id != null
+          ? (mapaLaboratorio.get(fila.laboratorio_actor_id) ?? null)
+          : null;
+
+      if (!fila.descripcion || !fila.entidad_id || !fila.entidad_nombre) continue;
+
+      // Regex con límite de palabra: "#3" con .replace() de texto plano
+      // también hace match adentro de "#38" (substring), lo que corta mal
+      // el número de OTRA fila con id de dos o más dígitos que comparte
+      // prefijo. El "(?!\d)" exige que no siga otro dígito.
+      const marcaIdRegex = new RegExp(`#${fila.entidad_id}(?!\\d)`);
+      if (!marcaIdRegex.test(fila.descripcion)) continue;
+
+      // En Carpetas/Documentos el destacado del payload (si lo hay) es
+      // siempre el nombre suelto de la carpeta/documento — el cliente pidió
+      // ver DÓNDE está ubicado, así que ahí se prefiere siempre la ruta
+      // completa ya resuelta en entidad_nombre, tenga o no destacado.
+      const prefiereRutaCompleta =
+        fila.modulo === 'CARPETAS' || fila.modulo === 'DOCUMENTOS';
+
+      if (fila.descripcion.includes(' — ')) {
+        const marcaIdConEspacioRegex = new RegExp(` #${fila.entidad_id}(?!\\d)`);
+        fila.descripcion = prefiereRutaCompleta
+          ? fila.descripcion
+              .replace(/ — .*/, ` — ${fila.entidad_nombre}`)
+              .replace(marcaIdConEspacioRegex, '')
+          : // Ya trae un destacado del payload (ej. de una Edición) — se
+            // quita el id crudo y se deja el destacado, que puede ser más
+            // específico que solo repetir el nombre de la entidad.
+            fila.descripcion.replace(marcaIdConEspacioRegex, '');
+      } else {
+        // Sin destacado (ej. una Consulta) — el id se reemplaza por el
+        // nombre real resuelto recién arriba.
+        fila.descripcion = fila.descripcion.replace(
+          marcaIdRegex,
+          `— ${fila.entidad_nombre}`,
+        );
+      }
+    }
   }
 }

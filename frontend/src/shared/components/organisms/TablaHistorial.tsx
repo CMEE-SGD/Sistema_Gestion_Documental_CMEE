@@ -9,6 +9,13 @@ interface LogAuditoria {
     detalle?: string | null;
     fecha_hora: string;
     usuario?: { nombre_usuario: string };
+    /** Nombre y apellido de la persona (resuelto por el backend) — más
+     * legible que el usuario de login para saber "quién lo hizo". */
+    usuario_nombre_completo?: string | null;
+    /** Puesto que tenía quien hizo la acción, en ese momento (no el actual). */
+    puesto_actor?: string | null;
+    /** Laboratorio al que pertenecía quien hizo la acción, en ese momento. */
+    laboratorio_actor_nombre?: string | null;
     /** Nombre legible de la entidad afectada (resuelto por el backend). */
     entidad_nombre?: string | null;
 }
@@ -207,8 +214,22 @@ export const TablaHistorial = ({ logs, loading, esGlobal = false, paginacionServ
                                             <td className="px-4 py-2.5 border-r border-gray-200 font-medium text-gray-700">
                                                 {formatearFecha(log.fecha_hora)}
                                             </td>
-                                            <td className="px-4 py-2.5 border-r border-gray-200 font-bold text-gray-900">
-                                                {log.usuario?.nombre_usuario || 'Sistema'}
+                                            <td className="px-4 py-2.5 border-r border-gray-200">
+                                                <div className="font-bold text-gray-900">
+                                                    {log.usuario_nombre_completo || log.usuario?.nombre_usuario || 'Sistema'}
+                                                    {log.usuario_nombre_completo && log.usuario?.nombre_usuario && (
+                                                        <span className="ml-1 font-normal text-gray-400">
+                                                            ({log.usuario.nombre_usuario})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {(log.puesto_actor || log.laboratorio_actor_nombre) && (
+                                                    <div className="text-[10px] font-normal text-gray-500">
+                                                        {[log.puesto_actor, log.laboratorio_actor_nombre]
+                                                            .filter(Boolean)
+                                                            .join(' · ')}
+                                                    </div>
+                                                )}
                                             </td>
                                             {esGlobal && (
                                                 <td className="px-4 py-2.5 border-r border-gray-200">

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../../../core/api/axios';
 import { Button } from '../../../../shared/components/atoms/button';
-import { tienePermiso, esRolRestringido } from '../../../../shared/utils/auth';
+import { tienePermiso } from '../../../../shared/utils/auth';
 import { Modal } from '../../../../shared/components/molecules/Modal';
 import { EquipoForm } from '../../components/EquipoForm';
 import { useAlert } from '../../../../shared/components/molecules/AlertModal';
@@ -114,7 +114,7 @@ export const EquiposPage = () => {
                         </Button>
                     )}
                     
-                    {tienePermiso('Laboratorios', 5) && !esRolRestringido() && (
+                    {tienePermiso('Laboratorios', 5) && (
                         <Button variant="default" onClick={openCreateModal}>
                             + Nuevo Equipo
                         </Button>

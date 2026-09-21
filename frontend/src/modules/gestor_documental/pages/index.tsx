@@ -45,7 +45,12 @@ export const GestorDocumentalPage = () => {
         try {
             setLoadingDocs(true);
             const res = await api.get(`/documentos?carpeta_id=${carpetaId}`);
-            setDocumentos(Array.isArray(res.data) ? res.data : []);
+            const lista = Array.isArray(res.data) ? res.data : [];
+            // El backend los devuelve por fecha de creación (más reciente
+            // primero) — se reordena alfabéticamente acá, mismo criterio
+            // que ya se usa para las carpetas en esta misma página.
+            lista.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+            setDocumentos(lista);
         } catch (error) {
             console.error("Error al cargar documentos:", error);
         } finally {
@@ -206,7 +211,12 @@ export const GestorDocumentalPage = () => {
             if (ordenarPor === 'alfabetico') {
                 return a.nombre.localeCompare(b.nombre);
             }
-            return (a.orden || 0) - (b.orden || 0);
+            // "Orden" respeta el valor manual del formulario cuando alguien
+            // lo cambió a propósito; si dos carpetas quedan con el mismo
+            // orden (el caso más común, ya que el formulario precarga 10
+            // por defecto), el empate se resuelve alfabéticamente en vez de
+            // quedar en el orden de llegada de la base de datos.
+            return (a.orden || 0) - (b.orden || 0) || a.nombre.localeCompare(b.nombre);
         });
     };
 

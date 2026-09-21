@@ -256,6 +256,40 @@ export class UsuariosService {
   }
 
   /**
+   * Payload virtual del usuario "Dios" (en memoria, sin registro en BD).
+   * Compartido entre `login` y `getPerfilActual` para que ambos devuelvan
+   * exactamente la misma forma de `persona`/`grupos`.
+   * @param godUsername - Nombre configurado en la env var GOD_USERNAME
+   */
+  private buildGodProfile(godUsername: string) {
+    return {
+      id: -1, // ID ficticio negativo para evitar choques con la BD
+      nombre_usuario: godUsername,
+      estado_cuenta: true,
+      bloqueado: false,
+      persona: {
+        nombre: 'Super',
+        apellidos: 'Administrador (Memoria)',
+        foto_ruta: '',
+        puestos: [{ puesto: { nombre: 'SYSTEM ROOT' } }],
+      },
+      grupos: [
+        {
+          id: -1,
+          nombre: 'GOD_MODE',
+          aplicaciones: [
+            { aplicacion: { nombre: 'Gestion de Usuarios' }, nivel: 5 },
+            { aplicacion: { nombre: 'Recursos Humanos' }, nivel: 5 },
+            { aplicacion: { nombre: 'Gestor Documental' }, nivel: 5 },
+            { aplicacion: { nombre: 'Laboratorios' }, nivel: 5 },
+            { aplicacion: { nombre: 'Auditoria Global' }, nivel: 5 },
+          ],
+        },
+      ],
+    };
+  }
+
+  /**
    * Ejecuta la operación de negocio login.
    * @param nombre_usuario - Datos o identificador requerido (string)
    * @param clave - Datos o identificador requerido (string)
@@ -274,33 +308,7 @@ export class UsuariosService {
       clave === godPassword
     ) {
       const jti = randomUUID();
-
-      // Construimos un payload virtual con permisos máximos (Nivel 5)
-      const godPayload = {
-        id: -1, // ID ficticio negativo para evitar choques con la BD
-        nombre_usuario: godUsername,
-        estado_cuenta: true,
-        bloqueado: false,
-        persona: {
-          nombre: 'Super',
-          apellidos: 'Administrador (Memoria)',
-          foto_ruta: '',
-          puestos: [{ puesto: { nombre: 'SYSTEM ROOT' } }],
-        },
-        grupos: [
-          {
-            id: -1,
-            nombre: 'GOD_MODE',
-            aplicaciones: [
-              { aplicacion: { nombre: 'Gestion de Usuarios' }, nivel: 5 },
-              { aplicacion: { nombre: 'Recursos Humanos' }, nivel: 5 },
-              { aplicacion: { nombre: 'Gestor Documental' }, nivel: 5 },
-              { aplicacion: { nombre: 'Laboratorios' }, nivel: 5 },
-              { aplicacion: { nombre: 'Auditoria Global' }, nivel: 5 },
-            ],
-          },
-        ],
-      };
+      const godPayload = this.buildGodProfile(godUsername);
 
       this.registrarIntentoLogin({ nombre_usuario, exito: true, ip });
 
@@ -406,6 +414,32 @@ export class UsuariosService {
 
     const { password_hash, ...result } = usuario;
 
+    // Antes de comprobar si ya hay una sesión activa, se cierran las que
+    // llevan inactivas más del límite configurado. Sin esto, cerrar la
+    // pestaña (o que el navegador la descarte) dejaba la sesión vieja
+    // bloqueando cualquier login nuevo hasta las 8h de expiración absoluta:
+    // el cierre por inactividad de JwtStrategy#validate() solo se dispara
+    // cuando ESA MISMA sesión vuelve a usarse, y un login nuevo usa un
+    // token distinto — nunca llegaba a tocarla.
+    const configInactividad = await this.prisma.configuracionGeneral.findUnique({
+      where: { id: 1 },
+      select: { tiempo_inactividad_minutos: true },
+    });
+    const limiteInactividadMinutos = configInactividad?.tiempo_inactividad_minutos ?? 0;
+    if (limiteInactividadMinutos > 0) {
+      await this.prisma.sesionActiva.updateMany({
+        where: {
+          usuario_id: usuario.id,
+          fecha_cierre: null,
+          en_espera: false,
+          ultima_actividad: {
+            lt: new Date(Date.now() - limiteInactividadMinutos * 60 * 1000),
+          },
+        },
+        data: { fecha_cierre: new Date() },
+      });
+    }
+
     // Nueva lógica: una sola sesión activa por usuario. Si el usuario ya tiene
     // una sesión activa (aprobada/dentro de rango), se rechaza el ingreso desde
     // otro dispositivo con un código específico (409) para que el frontend
@@ -458,14 +492,22 @@ export class UsuariosService {
       },
     });
 
-    // Registra el acceso en la bitácora general (Auditoria)
+    // Registra el acceso en la bitácora general (Auditoria) — esta fila no
+    // pasa por AuditoriaInterceptor (login no tiene token todavía, así que
+    // AccessGuard nunca corre para hidratar puesto/laboratorio), así que se
+    // arman acá mismo con lo que ya trae la consulta de arriba.
     const personaNombre = usuario.persona
       ? `${usuario.persona.nombre ?? ''} ${usuario.persona.apellidos ?? ''}`.trim()
       : null;
+    const puestoLogin = usuario.persona?.puestos?.[0]?.puesto?.nombre ?? null;
+    const laboratorioLoginId =
+      usuario.persona?.puestos?.[0]?.departamento?.laboratorio?.id ?? null;
     await this.prisma.auditoria
       .create({
         data: {
           usuario_id: usuario.id,
+          puesto_actor: puestoLogin,
+          laboratorio_actor_id: laboratorioLoginId,
           modulo: 'ACCESOS',
           accion: 'Acceso a la plataforma',
           descripcion: `Inicio de sesión exitoso de ${personaNombre || nombre_usuario}${ip ? ` — IP: ${ip}` : ''}.`,
@@ -513,6 +555,14 @@ export class UsuariosService {
    * @returns Objeto complejo / PrismaResponse
    */
   async getPerfilActual(id: number) {
+    // El usuario "Dios" no existe en BD (id ficticio -1); sin este atajo,
+    // el findUnique de abajo siempre lo devuelve null y RutaProtegida lo
+    // expulsa justo después de iniciar sesión.
+    if (id === -1) {
+      const godUsername = process.env.GOD_USERNAME ?? 'god';
+      return { ...this.buildGodProfile(godUsername), laboratorio_id: null };
+    }
+
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
       include: {

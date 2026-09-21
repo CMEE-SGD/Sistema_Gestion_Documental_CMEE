@@ -86,25 +86,23 @@ export const DetalleDocumentoPage = () => {
         return path.join(' / ');
     };
 
-    // 👉 NUEVA FUNCIÓN: Forzar la descarga del PDF
+    // 👉 Descarga del PDF — pasa por el backend (no directo del archivo
+    // estático) para que quede registrada en el log de auditoría del
+    // documento como "Descarga", no solo como consulta de metadatos.
     const handleDescargar = async () => {
-        if (!documento?.archivo_url) return;
-
-        const fileUrl = buildFileUrl(documento.archivo_url);
-        if (!fileUrl) return;
-
+        if (!documento?.id) return;
         try {
-            // Descargamos los datos binarios del archivo
-            const response = await fetch(fileUrl);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            
+            const response = await api.get(`/documentos/${documento.id}/descargar`, {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(response.data);
+
             // Creamos un enlace invisible, le damos clic automático y lo destruimos
             const link = document.createElement('a');
             link.href = url;
-            const nombreFichero = documento.archivo_url.split('/').pop() || 'documento.pdf';
+            const nombreFichero = documento.archivo_url?.split('/').pop() || 'documento.pdf';
             link.setAttribute('download', nombreFichero);
-            
+
             document.body.appendChild(link);
             link.click();
             link.parentNode?.removeChild(link);
@@ -157,13 +155,17 @@ export const DetalleDocumentoPage = () => {
             state: { documentos: [documento] }
         });
     };
+    // Mismo endpoint que handleDescargar: solo la fase más reciente conserva
+    // archivo_url (las anteriores se limpian al firmar — ver firmarFase en
+    // el backend), así que esto siempre termina siendo el mismo archivo
+    // "actual" del documento, y también queda registrado como "Descarga".
     const handleDescargarArchivoWF = async (ruta: string) => {
-        const fileUrl = buildFileUrl(ruta);
-        if (!fileUrl) return;
+        if (!documento?.id) return;
         try {
-            const response = await fetch(fileUrl);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
+            const response = await api.get(`/documentos/${documento.id}/descargar`, {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(response.data);
             const link = document.createElement('a');
             link.href = url;
             link.setAttribute('download', ruta.split('/').pop() || 'documento.pdf');
@@ -614,7 +616,7 @@ export const DetalleDocumentoPage = () => {
                                                 <td className="py-1.5"><Paperclip className="w-4 h-4 text-gray-400" /></td>
                                                 <td className="py-1.5 font-semibold">{wf.fase?.nombre || '---'}</td>
                                                 <td className="py-1.5">{wf.fase?.participantes?.map((p: any) => `${p.persona.nombre} ${p.persona.apellidos}`).join(', ') || '---'}</td>
-                                                <td className="py-1.5">{wf.created_at ? new Date(wf.created_at).toLocaleDateString('es-ES') : '---'}</td>
+                                                <td className="py-1.5">{wf.fecha_realizacion ? new Date(wf.fecha_realizacion).toLocaleDateString('es-ES', { timeZone: 'UTC' }) : '---'}</td>
                                                 <td className="py-1.5 text-gray-500">{wf.comentario || '---'}</td>
                                                 <td className={`py-1.5 font-semibold ${colorEstado}`}>{labelEstado}</td>
                                                 <td className="py-1.5">
@@ -660,7 +662,7 @@ export const DetalleDocumentoPage = () => {
                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                                     >
                                         <FileSignature className="w-4 h-4" />
-                                        Firmar documento
+                                        Firmar / Aprobar
                                     </button>
                                 </div>
                             ) : null;
@@ -678,7 +680,7 @@ export const DetalleDocumentoPage = () => {
                 onClose={() => setIsFirmaModalOpen(false)}
                 documentoId={documento.id}
                 archivoUrl={documento.archivo_url}
-                tituloAccion={`Firmar: ${documento.workflow?.fases?.find((f: any) => f.estado === 'EN_CURSO')?.fase?.nombre || documento.nombre}`}
+                tituloAccion={documento.workflow?.fases?.find((f: any) => f.estado === 'EN_CURSO')?.fase?.nombre || documento.nombre}
                 onSuccess={handleFirmaSuccess}
             />
 
@@ -710,7 +712,16 @@ export const DetalleDocumentoPage = () => {
                                         {logs.map((log: any) => (
                                             <tr key={log.id} className="border-b border-gray-100">
                                                 <td className="p-2 whitespace-nowrap">{new Date(log.fecha_hora).toLocaleString('es-ES')}</td>
-                                                <td className="p-2">{log.usuario?.nombre_usuario || '-'}</td>
+                                                <td className="p-2">
+                                                    {log.usuario_nombre_completo || log.usuario?.nombre_usuario || '-'}
+                                                    {(log.puesto_actor || log.laboratorio_actor_nombre) && (
+                                                        <div className="text-[10px] text-gray-400">
+                                                            {[log.puesto_actor, log.laboratorio_actor_nombre]
+                                                                .filter(Boolean)
+                                                                .join(' · ')}
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="p-2">{log.accion}</td>
                                                 <td className="p-2 text-gray-500">{log.descripcion || '-'}</td>
                                             </tr>

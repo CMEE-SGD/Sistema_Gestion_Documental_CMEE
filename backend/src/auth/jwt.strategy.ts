@@ -45,6 +45,42 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         );
       }
 
+      // Cierre por inactividad del lado del servidor — no depende de que el
+      // temporizador de JS del navegador (useInactividad.ts) llegue a
+      // ejecutarse; si la pestaña queda en segundo plano, la laptop se
+      // suspende, o el navegador la descarta para ahorrar memoria, ese
+      // temporizador nunca corre y la sesión quedaba "abierta" hasta las 8h
+      // de expiración absoluta. Usa el mismo minuto configurado en
+      // Configuración General (0 = desactivado) que ya promete la pantalla
+      // de administración, pero que hasta ahora nadie leía.
+      const config = await this.prisma.configuracionGeneral.findUnique({
+        where: { id: 1 },
+        select: { tiempo_inactividad_minutos: true },
+      });
+      const limiteMinutos = config?.tiempo_inactividad_minutos ?? 0;
+      if (limiteMinutos > 0) {
+        const limiteMs = limiteMinutos * 60 * 1000;
+        const inactivaDesdeMs = Date.now() - sesion.ultima_actividad.getTime();
+        if (inactivaDesdeMs > limiteMs) {
+          await this.prisma.sesionActiva.update({
+            where: { id: sesion.id },
+            data: { fecha_cierre: new Date() },
+          });
+          throw new UnauthorizedException(
+            'Sesión cerrada por inactividad. Vuelva a iniciar sesión.',
+          );
+        }
+        // "Toque" de actividad, sin escribir en cada petición: solo si ya
+        // pasaron 30s desde el último registro (evita golpear la BD en cada
+        // llamada de una pantalla que hace varias peticiones seguidas).
+        if (inactivaDesdeMs > 30_000) {
+          await this.prisma.sesionActiva.update({
+            where: { id: sesion.id },
+            data: { ultima_actividad: new Date() },
+          });
+        }
+      }
+
       // Un usuario SOLO puede tener una sesión activa. Si por cualquier
       // motivo (p.ej. dos inicios simultáneos) existen dos, se cierran todas
       // automáticamente y la solicitud actual queda sin sesión válida.

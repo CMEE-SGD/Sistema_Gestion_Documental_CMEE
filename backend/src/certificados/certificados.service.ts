@@ -320,13 +320,16 @@ export class CertificadosService {
       // Un solo documento acumula las 3 firmas (técnico, jefe, director) —
       // se actualizan ambos pares de columnas juntos en cada etapa para que
       // siempre sigan apuntando al mismo archivo (ver upload() más arriba).
+      // El nombre_original NO se toca acá: el frontend sube cada versión
+      // firmada con un nombre genérico ("reporte_firmado.pdf"), y si se
+      // guardara tal cual se perdería el nombre real que puso el técnico al
+      // subir el documento la primera vez — que es justo lo que debe seguir
+      // mostrándose en cada descarga/verificación durante todo el flujo.
       await tx.certificado.update({
         where: { id: certificadoId },
         data: {
           ruta_archivo_reporte: file.path,
-          nombre_original_reporte: file.originalname,
           ruta_archivo_certificado: file.path,
-          nombre_original_certificado: file.originalname,
         },
       });
 
@@ -446,7 +449,11 @@ export class CertificadosService {
       tipo === 'certificado'
         ? certificado.ruta_archivo_certificado
         : certificado.ruta_archivo_reporte;
-    return path.resolve(ruta);
+    const nombreOriginal =
+      tipo === 'certificado'
+        ? certificado.nombre_original_certificado
+        : certificado.nombre_original_reporte;
+    return { filePath: path.resolve(ruta), nombreOriginal };
   }
 
   /**
@@ -465,7 +472,14 @@ export class CertificadosService {
   async verificar(codigo: string) {
     const certificado = await this.prisma.certificado.findUnique({
       where: { codigo_verificacion: codigo },
-      include: {
+      select: {
+        numero_certificado: true,
+        fecha_subida: true,
+        // Reporte y certificado son el mismo PDF combinado desde la subida
+        // única (ver SubirCertificadoModal); cualquiera de los dos nombres
+        // sirve, se usa el del certificado por ser el endpoint "verificar
+        // certificado".
+        nombre_original_certificado: true,
         equipo_recepcion: {
           select: { equipo_descripcion: true },
         },
@@ -492,6 +506,7 @@ export class CertificadosService {
         certificado.numero_certificado,
         certificado.fecha_subida,
       ),
+      nombre_documento: certificado.nombre_original_certificado,
       equipo: certificado.equipo_recepcion.equipo_descripcion,
       firmas: certificado.firmas.map((f) => ({
         etapa: f.etapa,

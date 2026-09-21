@@ -123,9 +123,15 @@ export class DocumentosService {
               documento_id: doc.id,
               circuito_id: circuitoId,
               fases: {
+                // La primera fase (Elaboración) ya arranca "hecha" en
+                // términos de fecha: se usa la misma fecha que la persona
+                // eligió al subir el documento (campo "Fecha" del
+                // formulario, fechaCreacion arriba) en vez de dejarla
+                // vacía hasta un firmar/aprobar aparte.
                 create: fases.map((f, i) => ({
                   fase_id: f.id,
                   estado: i === 0 ? 'EN_CURSO' : 'PENDIENTE',
+                  fecha_realizacion: i === 0 ? fechaCreacion : null,
                 })),
               },
             },
@@ -320,6 +326,7 @@ export class DocumentosService {
           archivo_url: urlParaBD,
           procesado_por: resultado.certificado!.titular,
           comentario: body?.comentario?.trim() ? body.comentario.trim() : null,
+          fecha_realizacion: this.parsearFechaRealizacion(body?.fecha_realizacion),
         },
       });
 
@@ -339,9 +346,18 @@ export class DocumentosService {
       // El archivo "actual" del documento avanza con cada firma, para que el
       // siguiente firmante reciba automáticamente el PDF ya co-firmado.
       const updateData: any = { archivo_url: urlParaBD };
-      if (body?.codigo_verificacion) {
+      // El código NUNCA se regenera si ya existe: los sellos de fases
+      // anteriores ya quedaron impresos en el PDF con su QR apuntando a ese
+      // código — sobrescribirlo los dejaría todos apuntando a un código que
+      // ya no existe en BD ("código no encontrado" al escanear un sello
+      // viejo, aunque el documento siga siendo válido). Todas las fases de
+      // un mismo documento comparten un único código de por vida, igual que
+      // ya hace certificados.service.ts con técnico/jefe/director.
+      if (doc.codigo_verificacion) {
+        // no-op: se conserva el existente.
+      } else if (body?.codigo_verificacion) {
         updateData.codigo_verificacion = body.codigo_verificacion as string;
-      } else if (!doc.codigo_verificacion) {
+      } else {
         updateData.codigo_verificacion = crypto.randomUUID();
       }
       await tx.documento.update({ where: { id: documentoId }, data: updateData });
@@ -362,6 +378,74 @@ export class DocumentosService {
       const docActualizado = await tx.documento.findUnique({ where: { id: documentoId }, select: { codigo_verificacion: true } });
       const result = await tx.documentoWorkflow.findUnique({ where: { id: workflow.id }, include: { circuito: true, fases: { orderBy: { id: 'asc' } } } });
       return { ...result, codigo_verificacion: docActualizado?.codigo_verificacion };
+    });
+  }
+
+  /** "YYYY-MM-DD" del formulario → Date; si falta o es inválida, hoy. */
+  private parsearFechaRealizacion(valor: unknown): Date {
+    if (typeof valor === 'string' && valor.trim()) {
+      const fecha = new Date(valor);
+      if (!isNaN(fecha.getTime())) return fecha;
+    }
+    return new Date();
+  }
+
+  /**
+   * Avance de fase sin firma digital — mismo cambio de estado y mismas
+   * notificaciones que firmarFase(), pero sin pedir .p12 ni volver a subir
+   * el PDF: para fases donde alcanza con dejar constancia de "quién aprobó,
+   * cuándo y con qué comentario" sin que haga falta una firma criptográfica
+   * real (esa sigue siendo, y solo puede ser, "Firmar documento"). No toca
+   * el archivo del documento.
+   */
+  async aprobarFase(documentoId: number, data: any, user: HydratedUser) {
+    const doc = await this.prisma.documento.findUnique({ where: { id: documentoId } });
+    if (!doc) throw new NotFoundException('Documento no encontrado');
+
+    const workflow = await this.prisma.documentoWorkflow.findUnique({
+      where: { documento_id: documentoId },
+      include: { fases: { orderBy: { id: 'asc' } } },
+    });
+    if (!workflow || workflow.estado !== 'EN_CURSO') throw new BadRequestException('Workflow no válido');
+
+    const faseActual = workflow.fases.find((f) => f.estado === 'EN_CURSO');
+    if (!faseActual) throw new BadRequestException('No hay una fase activa');
+
+    const personaId = await this.resolverPersonaId(user);
+    await this.verificarParticipante(faseActual.fase_id, personaId, user);
+
+    const persona = await this.prisma.persona.findUnique({
+      where: { id: personaId },
+      select: { nombre: true, apellidos: true },
+    });
+    const nombreAprobador = persona ? `${persona.nombre} ${persona.apellidos}` : null;
+    const fechaRealizacion = this.parsearFechaRealizacion(data?.fecha_realizacion);
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.documentoWorkflowFase.update({
+        where: { id: faseActual.id },
+        data: {
+          estado: 'COMPLETADO',
+          procesado_por: nombreAprobador,
+          comentario: data?.comentario?.trim() ? data.comentario.trim() : null,
+          fecha_realizacion: fechaRealizacion,
+        },
+      });
+
+      const idxActual = workflow.fases.findIndex((f) => f.id === faseActual.id);
+      const siguienteFase = workflow.fases[idxActual + 1];
+
+      if (siguienteFase) {
+        await tx.documentoWorkflowFase.update({ where: { id: siguienteFase.id }, data: { estado: 'EN_CURSO' } });
+        const participantes = await tx.faseParticipante.findMany({ where: { fase_id: siguienteFase.fase_id }, select: { persona_id: true } });
+        for (const p of participantes) {
+          await this.notificacionesService.crear('workflow_avance', `Revisión pendiente: "${doc.nombre}"`, p.persona_id, documentoId);
+        }
+      } else {
+        await tx.documentoWorkflow.update({ where: { id: workflow.id }, data: { estado: 'COMPLETADO' } });
+      }
+
+      return tx.documentoWorkflow.findUnique({ where: { id: workflow.id }, include: { circuito: true, fases: { orderBy: { id: 'asc' } } } });
     });
   }
 
@@ -437,6 +521,23 @@ export class DocumentosService {
       if (!ok) throw new ForbiddenException('Acceso denegado');
     }
     return doc;
+  }
+
+  /**
+   * Descarga del archivo físico — antes se servía directo desde /uploads/
+   * (archivo estático), sin pasar por ningún guard ni quedar registrado en
+   * auditoría. Este endpoint sí queda capturado por AuditoriaInterceptor
+   * (etiquetado "Descarga", ver la lógica de sub-acciones ahí) porque pasa
+   * por el pipeline normal de NestJS.
+   */
+  async descargar(id: number, usuarioId?: number) {
+    const doc = await this.findOne(id, usuarioId);
+    if (!doc.archivo_url) {
+      throw new NotFoundException('Este documento no tiene un archivo asociado');
+    }
+    const filePath = path.resolve(process.cwd(), doc.archivo_url);
+    const nombreOriginal = path.basename(doc.archivo_url);
+    return { filePath, nombreOriginal };
   }
 
   async update(id: number, data: any, usuarioId?: number) {

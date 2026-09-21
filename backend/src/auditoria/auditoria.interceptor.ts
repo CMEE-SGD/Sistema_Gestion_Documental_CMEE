@@ -110,7 +110,7 @@ export class AuditoriaInterceptor implements NestInterceptor {
     const { method, url, user, body } = req;
 
     return next.handle().pipe(
-      tap(() => {
+      tap((respuesta: any) => {
         if (user && user.id) {
           // Temporarily test for all users
           // omitimos su auditoría para evitar violación de FK (P2003).
@@ -131,10 +131,42 @@ export class AuditoriaInterceptor implements NestInterceptor {
           if (method === 'PATCH' || method === 'PUT') accion = 'Edición';
           if (method === 'DELETE') accion = 'Eliminación lógica';
 
+          // Sub-acciones con nombre propio: más claras que el genérico
+          // basado solo en el verbo HTTP (ej. "firmar" es un POST, pero
+          // etiquetarlo "Creación" no dice qué pasó realmente).
+          const urlLower = (url as string).toLowerCase();
+          if (urlLower.includes('/descargar') || urlLower.includes('/download')) {
+            accion = 'Descarga';
+          } else if (urlLower.includes('/firmar')) {
+            accion = 'Firma digital';
+          } else if (urlLower.includes('/rechazar')) {
+            accion = 'Rechazo';
+          }
+
           const partesUrl = url.split('?')[0].split('/');
           const modulo = partesUrl[2]?.toUpperCase() || 'SISTEMA';
 
-          const ultimoParametro = parseInt(partesUrl[partesUrl.length - 1]);
+          // El id no siempre es el último segmento: rutas de sub-acciones
+          // como ".../38/descargar" o ".../38/workflow/firmar" terminan en
+          // la acción, no en el id — se busca el primer segmento numérico
+          // empezando por el final en vez de asumir que es literalmente el
+          // último.
+          let ultimoParametro = NaN;
+          for (let i = partesUrl.length - 1; i >= 0; i -= 1) {
+            const candidato = Number(partesUrl[i]);
+            if (partesUrl[i] !== '' && Number.isInteger(candidato)) {
+              ultimoParametro = candidato;
+              break;
+            }
+          }
+          // Una Creación (POST) no trae id en la URL — el recurso no existe
+          // todavía cuando se arma la petición. Pero para cuando este `tap`
+          // corre, el handler ya terminó y `respuesta` es el registro recién
+          // creado (con su id) — sin esto, entidad_id siempre quedaba null
+          // en cualquier Creación y no se podía vincular a nada.
+          if (isNaN(ultimoParametro) && method === 'POST' && respuesta?.id) {
+            ultimoParametro = respuesta.id;
+          }
           const tieneId = !isNaN(ultimoParametro);
 
           const esGetGeneral = method === 'GET' && !tieneId;
@@ -156,8 +188,16 @@ export class AuditoriaInterceptor implements NestInterceptor {
               if (modulo === 'PERSONAS') persona_afectada_id = ultimoParametro;
               if (modulo === 'ROLES') rol_afectado_id = ultimoParametro;
               if (modulo === 'PUESTOS') puesto_afectado_id = ultimoParametro;
-              if (modulo === 'DOCUMENTOS' || modulo === 'CARPETAS')
-                documento_id = ultimoParametro;
+              // OJO: documento_id es una FK real hacia Documento — NUNCA debe
+              // llenarse para CARPETAS (una tabla distinta, con su propia
+              // secuencia de ids). Antes esto no explotaba porque una
+              // Creación (POST) nunca tenía id en la URL, así que este
+              // bloque nunca corría para "crear carpeta"; al agregar el id
+              // desde la respuesta (ver arriba) empezó a violar la FK en
+              // cada carpeta creada. Las carpetas ya se identifican bien con
+              // entidad_id (sin FK, ver adjuntarNombreEntidad), no hace
+              // falta este campo para ellas.
+              if (modulo === 'DOCUMENTOS') documento_id = ultimoParametro;
             }
 
             const esMutacion = ['POST', 'PATCH', 'PUT'].includes(method);
@@ -165,6 +205,14 @@ export class AuditoriaInterceptor implements NestInterceptor {
             this.auditoriaService
               .registrarLog({
                 usuario_id: user.id,
+                // Snapshot del puesto al momento de la acción — ver el
+                // comentario en el modelo Auditoria de por qué no es una FK
+                // al puesto actual. Solo AccessGuard hidrata esto; en rutas
+                // sin ese guard queda null.
+                puesto_actor: user.puesto ?? null,
+                // Mismo criterio: el laboratorio al que pertenecía en ese
+                // momento (también hidratado por AccessGuard).
+                laboratorio_actor_id: user.laboratorio_id ?? null,
                 modulo,
                 accion: `${accion} de recurso`,
                 descripcion: construirDescripcion({
