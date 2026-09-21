@@ -78,46 +78,95 @@ export async function firmarPdfConP12(
 
   const pdfBuffer = Buffer.from(pdfBytes);
 
+  const errorPreparandoPdf = (err: unknown) => {
+    // eslint-disable-next-line no-console
+    console.error('No se pudo preparar el PDF para la firma:', err);
+    return new FirmaPdfError(
+      'No se pudo preparar el PDF para la firma. Verifique que el archivo no esté dañado.',
+    );
+  };
+
+  let pdfBufferClasico: Buffer;
+  try {
+    pdfBufferClasico = await asegurarXrefClasico(pdfBuffer);
+  } catch (err) {
+    throw errorPreparandoPdf(err);
+  }
+
   // El sello visual y el espacio de la firma se agregan en un solo paso de
   // actualización incremental (ver agregarSelloYPlaceholder.ts) — nunca se
   // reparsea ni reescriben los bytes existentes, así que firmas previas de
   // otros firmantes en el mismo documento quedan intactas.
-  let pdfConPlaceholder: Buffer;
-  try {
-    const pdfBufferClasico = await asegurarXrefClasico(pdfBuffer);
-    pdfConPlaceholder = agregarSelloYPlaceholder({
-      pdfBuffer: pdfBufferClasico,
-      reason: razon,
-      contactInfo: '',
-      name: '',
-      location: 'Centro de Metrología del Ejército Ecuatoriano',
-      signatureLength: 8192,
-      sello: selloParaPlaceholder,
-    });
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('No se pudo preparar el PDF para la firma:', err);
-    throw new FirmaPdfError(
-      'No se pudo preparar el PDF para la firma. Verifique que el archivo no esté dañado.',
-    );
-  }
+  const prepararPdf = (signatureLength: number): Buffer => {
+    try {
+      return agregarSelloYPlaceholder({
+        pdfBuffer: pdfBufferClasico,
+        reason: razon,
+        contactInfo: '',
+        name: '',
+        location: 'Centro de Metrología del Ejército Ecuatoriano',
+        signatureLength,
+        sello: selloParaPlaceholder,
+      });
+    } catch (err) {
+      throw errorPreparandoPdf(err);
+    }
+  };
 
-  const signer = new P12Signer(p12Buffer, { passphrase: password });
-  const signPdf = new SignPdf();
+  // La firma PKCS#7 lleva TODOS los certificados del .p12 (el de la persona
+  // más la cadena completa de autoridades), así que su tamaño depende del
+  // certificado de cada firmante: con un espacio fijo, un .p12 con cadena
+  // larga fallaba con "Signature exceeds placeholder length" — que se
+  // mostraba como un problema de contraseña. Se empieza con el tamaño
+  // habitual (PDFs chicos) y, solo si la firma no cabe, se repite una vez
+  // con el tamaño exacto que la librería informa que necesita.
+  let longitud = LONGITUD_FIRMA_INICIAL;
+  for (let intento = 1; ; intento += 1) {
+    const pdfConPlaceholder = prepararPdf(longitud);
+    // Un P12Signer nuevo en cada intento: forge consume el buffer del .p12
+    // al leerlo, así que reutilizar la misma instancia fallaría al reintentar.
+    const signer = new P12Signer(p12Buffer, { passphrase: password });
+    const signPdf = new SignPdf();
 
-  try {
-    const pdfFirmado = await signPdf.sign(pdfConPlaceholder, signer);
-    return new Uint8Array(pdfFirmado);
-  } catch (err) {
-    const mensaje = err instanceof Error ? err.message : String(err);
-    // El error real se registra siempre: antes cualquier .p12 que la
-    // librería no supiera leer se mostraba como "contraseña incorrecta", y
-    // sin este dato no había forma de saber por qué falla un archivo que
-    // otro programa (p. ej. Adobe) sí abre con la misma contraseña.
-    // eslint-disable-next-line no-console
-    console.error('[firma] Falló la firma con el .p12:', err);
-    throw new FirmaPdfError(mensajeErrorP12(mensaje));
+    try {
+      const pdfFirmado = await signPdf.sign(pdfConPlaceholder, signer);
+      return new Uint8Array(pdfFirmado);
+    } catch (err) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+
+      const necesarios = bytesNecesariosPorError(mensaje);
+      if (intento === 1 && necesarios !== null) {
+        const nueva = Math.ceil((necesarios + MARGEN_FIRMA) / 1024) * 1024;
+        if (nueva <= LONGITUD_FIRMA_MAXIMA) {
+          longitud = nueva;
+          continue;
+        }
+      }
+
+      // El error real se registra siempre: antes cualquier fallo se
+      // mostraba como "contraseña incorrecta" o genérico, y sin este dato no
+      // había forma de saber por qué falla un archivo que otro programa
+      // (p. ej. Adobe) sí abre con la misma contraseña.
+      // eslint-disable-next-line no-console
+      console.error('[firma] Falló la firma con el .p12:', err);
+      throw new FirmaPdfError(mensajeErrorP12(mensaje));
+    }
   }
+}
+
+// Bytes reservados para la firma dentro del PDF (en hex ocupa el doble).
+const LONGITUD_FIRMA_INICIAL = 8192;
+const LONGITUD_FIRMA_MAXIMA = 65536;
+const MARGEN_FIRMA = 1024;
+
+/**
+ * Bytes que necesita la firma, según el error de @signpdf
+ * ("Signature exceeds placeholder length: <hex necesarios> > <hex reservados>"),
+ * o null si el error es otro.
+ */
+function bytesNecesariosPorError(mensaje: string): number | null {
+  const m = /exceeds placeholder length:\s*(\d+)\s*>\s*(\d+)/i.exec(mensaje);
+  return m ? Math.ceil(Number(m[1]) / 2) : null;
 }
 
 const REEXPORTAR =
