@@ -109,14 +109,42 @@ export async function firmarPdfConP12(
     const pdfFirmado = await signPdf.sign(pdfConPlaceholder, signer);
     return new Uint8Array(pdfFirmado);
   } catch (err) {
-    const mensaje = err instanceof Error ? err.message : '';
-    if (/mac|integrity|invalid password|pkcs#?12/i.test(mensaje)) {
-      throw new FirmaPdfError(
-        'La contraseña del certificado .p12 es incorrecta, o el archivo no es un certificado válido.',
-      );
-    }
-    throw new FirmaPdfError(
-      'No se pudo completar la firma digital. Verifique el archivo .p12 y la contraseña.',
-    );
+    const mensaje = err instanceof Error ? err.message : String(err);
+    // El error real se registra siempre: antes cualquier .p12 que la
+    // librería no supiera leer se mostraba como "contraseña incorrecta", y
+    // sin este dato no había forma de saber por qué falla un archivo que
+    // otro programa (p. ej. Adobe) sí abre con la misma contraseña.
+    // eslint-disable-next-line no-console
+    console.error('[firma] Falló la firma con el .p12:', err);
+    throw new FirmaPdfError(mensajeErrorP12(mensaje));
   }
+}
+
+const REEXPORTAR =
+  'Si funciona en otro programa (por ejemplo Adobe), vuelva a exportar el certificado desde ese programa y pruebe con el archivo nuevo.';
+
+/**
+ * Traduce el error de la librería (node-forge / @signpdf) a un mensaje que
+ * distinga las causas reales — no todo error de lectura de un .p12 es una
+ * contraseña equivocada — e incluye el detalle técnico (sin datos sensibles)
+ * para poder diagnosticar el caso desde una captura de pantalla.
+ */
+export function mensajeErrorP12(mensaje: string): string {
+  const detalle = ` (Detalle técnico: ${mensaje.slice(0, 160)})`;
+
+  // Formatos que la librería no sabe leer, aunque la contraseña sea correcta:
+  // algoritmo de MAC/cifrado no soportado, o clave privada guardada sin
+  // cifrar (la librería solo busca claves "shrouded").
+  if (
+    /unsupported|reading 'key'|matches the private key/i.test(mensaje)
+  ) {
+    return `Este archivo .p12 usa un formato que el navegador no puede leer, aunque la contraseña sea correcta. ${REEXPORTAR}${detalle}`;
+  }
+
+  // Contraseña que no coincide (o codificada distinto a como la creó el archivo).
+  if (/invalid password|mac could not be verified/i.test(mensaje)) {
+    return `La contraseña del certificado .p12 es incorrecta. ${REEXPORTAR}${detalle}`;
+  }
+
+  return `No se pudo completar la firma digital. Verifique el archivo .p12 y la contraseña.${detalle}`;
 }
