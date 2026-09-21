@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   Trash2,
+  FileX,
   UserPlus,
   UploadCloud,
   Inbox,
@@ -1001,7 +1002,7 @@ export default function BandejaTrabajoPage() {
                                 title="Eliminar documento"
                                 className="text-destructive hover:text-destructive"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <FileX className="h-4 w-4" />
                               </Button>
                             )}
 
