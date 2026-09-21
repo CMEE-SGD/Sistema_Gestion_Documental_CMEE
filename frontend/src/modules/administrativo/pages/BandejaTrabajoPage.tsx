@@ -593,6 +593,33 @@ export default function BandejaTrabajoPage() {
     eliminarOrden.mutate(req.orden.id);
   };
 
+  // Elimina el/los documento(s) cargado(s) del equipo mientras está en
+  // calibración — opción exclusiva de administración (el backend además
+  // valida fase EN_CALIBRACION y nivel de acceso).
+  const handleEliminarDocumento = async (req: BandejaRecepcion) => {
+    const ids = (req.certificados ?? []).map((c) => c.id);
+    if (ids.length === 0) return;
+    if (
+      !(await confirm({
+        title: 'Eliminar documento',
+        message: `¿Eliminar el documento cargado del equipo "${req.equipo_descripcion}"? Esta acción no se puede deshacer.`,
+      }))
+    ) {
+      return;
+    }
+    try {
+      await Promise.all(ids.map((id) => api.delete(`/certificados/${id}`)));
+      queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+      toast({ message: 'Documento eliminado correctamente.' });
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      await alert({
+        message:
+          apiErr?.response?.data?.message || 'No se pudo eliminar el documento.',
+      });
+    }
+  };
+
   const laboratorios = useMemo(() => {
     const mapa = new Map<number, string>();
     for (const r of recepciones ?? []) {
@@ -962,6 +989,21 @@ export default function BandejaTrabajoPage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
+
+                          {/* EN_CALIBRACION: Eliminar documento (solo admin) */}
+                          {esAdministrador &&
+                            req.estado === 'EN_CALIBRACION' &&
+                            (req.certificados?.length ?? 0) > 0 && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleEliminarDocumento(req)}
+                                title="Eliminar documento"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
 
                           {/* OBT: Editar orden mientras no haya técnico asignado —
                           corrige datos mal cargados por Servicio al Cliente.
