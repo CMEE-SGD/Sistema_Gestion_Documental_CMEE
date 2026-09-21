@@ -588,8 +588,48 @@ export class CertificadosService {
     return conNumeroFormateado(certificado);
   }
 
+  // Elimina el documento de un equipo SOLO mientras está en calibración
+  // (EN_CALIBRACION) y únicamente para administración (el endpoint está en
+  // nivel 5). Una vez firmado/aprobado, el documento ya forma parte del
+  // expediente y no se toca. Borra también las firmas asociadas (defensivo)
+  // y los archivos físicos reporte/certificado tras el commit, a mejor
+  // esfuerzo: un fallo al borrar el archivo jamás revierte la eliminación
+  // ya confirmada en BD (mismo criterio que el rechazo en recepcion-equipos).
   async remove(id: number) {
-    await this.findOne(id);
-    return this.prisma.certificado.delete({ where: { id } });
+    const certificado = await this.prisma.certificado.findUnique({
+      where: { id },
+      include: {
+        equipo_recepcion: { select: { estado: true } },
+      },
+    });
+
+    if (!certificado) {
+      throw new NotFoundException(`Certificado con ID ${id} no encontrado`);
+    }
+
+    if (
+      certificado.equipo_recepcion.estado !== EstadoRecepcion.EN_CALIBRACION
+    ) {
+      throw new BadRequestException(
+        'El documento solo puede eliminarse mientras el equipo está en calibración.',
+      );
+    }
+
+    const { ruta_archivo_reporte, ruta_archivo_certificado } = certificado;
+
+    await this.prisma.$transaction([
+      this.prisma.firmaDigital.deleteMany({
+        where: { certificado_id: id },
+      }),
+      this.prisma.certificado.delete({ where: { id } }),
+    ]);
+
+    for (const ruta of [ruta_archivo_reporte, ruta_archivo_certificado]) {
+      fs.unlink(ruta, () => {
+        /* mejor esfuerzo */
+      });
+    }
+
+    return { eliminado: true, id };
   }
 }

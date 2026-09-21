@@ -4,9 +4,14 @@
 // historial de fases) y los datos completos del cliente / unidad.
 // Mismo estilo visual que el detalle de órdenes (VistaDetalleOrden).
 
-import { X, Printer, FlaskConical, Eye, CalendarClock } from 'lucide-react';
+import { useState } from 'react';
+import { X, Printer, FlaskConical, Eye, CalendarClock, Trash2 } from 'lucide-react';
+import api from '../../../core/api/axios';
 import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { esUsuarioAdministrador } from '../../../shared/utils/auth';
 import ClienteDatosCard from './ClienteDatosCard';
 import {
   ESTADO_COLOR,
@@ -72,7 +77,10 @@ export default function VistaDetalleEquipo({
   equipoId,
   onClose,
 }: Props) {
-  const { alert } = useAlert();
+  const { alert, confirm } = useAlert();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const esAdministrador = esUsuarioAdministrador();
 
   const equipo =
     (orden.equipos.find((e) => e.id === equipoId) as EquipoDetalle | undefined) ??
@@ -81,7 +89,7 @@ export default function VistaDetalleEquipo({
   if (!equipo) return null;
 
   const historial = equipo.historial_estado ?? [];
-  const certificados = equipo.certificados ?? [];
+  const [certificados, setCertificados] = useState(equipo.certificados ?? []);
 
   const handleVerDocumento = async (certificadoId: number) => {
     try {
@@ -91,6 +99,29 @@ export default function VistaDetalleEquipo({
     } catch {
       await alert({
         message: 'No se pudo abrir el certificado del equipo.',
+      });
+    }
+  };
+
+  // Solo admin y únicamente mientras el equipo está EN_CALIBRACION (la fase
+  // previa a las firmas): se borra el documento en BD y el archivo físico.
+  const handleEliminarDocumento = async (certificadoId: number) => {
+    const ok = await confirm({
+      title: 'Eliminar documento',
+      message:
+        '¿Eliminar este documento del equipo? Esta acción no se puede deshacer.',
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/certificados/${certificadoId}`);
+      toast({ message: 'Documento eliminado correctamente.' });
+      setCertificados((prev) => prev.filter((c) => c.id !== certificadoId));
+      queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      await alert({
+        message:
+          apiErr?.response?.data?.message || 'No se pudo eliminar el documento.',
       });
     }
   };
@@ -255,14 +286,27 @@ export default function VistaDetalleEquipo({
                       <span className="text-sm text-muted-foreground">
                         Certificado {idx + 1}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleVerDocumento(c.id)}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent"
-                      >
-                        <Eye className="h-4 w-4" />
-                        Ver Documento
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleVerDocumento(c.id)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent"
+                        >
+                          <Eye className="h-4 w-4" />
+                          Ver Documento
+                        </button>
+                        {esAdministrador &&
+                          equipo.estado === 'EN_CALIBRACION' && (
+                            <button
+                              type="button"
+                              onClick={() => handleEliminarDocumento(c.id)}
+                              title="Eliminar documento"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                      </div>
                     </li>
                   ))}
                 </ul>
