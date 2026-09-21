@@ -5,7 +5,7 @@
 // Mismo estilo visual que el detalle de órdenes (VistaDetalleOrden).
 
 import { useState } from 'react';
-import { X, Printer, FlaskConical, Eye, CalendarClock, Trash2 } from 'lucide-react';
+import { X, Printer, FlaskConical, Eye, CalendarClock, FileX } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
@@ -303,7 +303,7 @@ export default function VistaDetalleEquipo({
                               title="Eliminar documento"
                               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <FileX className="h-4 w-4" />
                             </button>
                           )}
                       </div>
