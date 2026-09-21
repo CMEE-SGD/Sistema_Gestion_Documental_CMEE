@@ -36,6 +36,7 @@ import FirmarDigitalModal from '../components/FirmarDigitalModal';
 import CambiarFaseModal from '../components/CambiarFaseModal';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
 import EditarOrdenModal from '../components/EditarOrdenModal';
+import VistaDetalleEquipo from '../components/VistaDetalleEquipo';
 import { type OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
 
 // ---------------------------------------------------------------------------
@@ -555,6 +556,12 @@ export default function BandejaTrabajoPage() {
     null,
   );
 
+  // Hacer clic sobre el equipo abre el detalle de su calibración.
+  const [detalleEquipo, setDetalleEquipo] = useState<{
+    orden: OrdenTrabajoDetalle;
+    equipoId: number;
+  } | null>(null);
+
   const eliminarOrden = useMutation({
     mutationFn: async (id: number) => {
       const res = await api.delete(`/recepcion-equipos/${id}`);
@@ -800,6 +807,7 @@ export default function BandejaTrabajoPage() {
                 <TH>Laboratorio</TH>
                 <TH className="text-center">Estado</TH>
                 <TH>Técnico</TH>
+                <TH>Observaciones</TH>
                 {(canAssign || canExecute) && (
                   <TH className="text-center">Acción</TH>
                 )}
@@ -809,14 +817,21 @@ export default function BandejaTrabajoPage() {
               {isLoading ? (
                 <TableSkeleton
                   cols={
-                    canAssign || canExecute ? 8 : 7
+                    canAssign || canExecute ? 9 : 8
                   }
                 />
               ) : recepcionesFiltradas.length > 0 ? (
                 recepcionesFiltradas.map((req) => (
                   <tr
                     key={req.id}
-                    className="border-b border-border transition-colors hover:bg-muted/50"
+                    onClick={() =>
+                      setDetalleEquipo({
+                        orden: req.orden,
+                        equipoId: req.id,
+                      })
+                    }
+                    title="Ver detalles de la calibración"
+                    className="cursor-pointer border-b border-border transition-colors hover:bg-muted/50"
                   >
                     <td className="whitespace-nowrap px-6 py-4 font-mono font-medium">
                       <span className="text-primary">
@@ -833,8 +848,21 @@ export default function BandejaTrabajoPage() {
                         </span>
                       )}
                     </td>
-                    <td className="max-w-[220px] truncate px-6 py-4 text-sm text-foreground">
-                      {req.equipo_descripcion}
+                    <td className="max-w-[220px] px-6 py-4 text-sm">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetalleEquipo({
+                            orden: req.orden,
+                            equipoId: req.id,
+                          });
+                        }}
+                        title="Ver detalles de la calibración"
+                        className="block w-full truncate text-left font-medium text-foreground transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:underline"
+                      >
+                        {req.equipo_descripcion}
+                      </button>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
                       {req.laboratorio?.nombre ?? (
@@ -848,12 +876,13 @@ export default function BandejaTrabajoPage() {
                       {req.observacion && (
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={(e) => {
+                            e.stopPropagation();
                             alert({
                               title: 'Motivo de rechazo',
                               message: req.observacion ?? '',
-                            })
-                          }
+                            });
+                          }}
                           className="mx-auto mt-1 inline-flex cursor-pointer items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
                         >
                           <AlertCircle className="h-3 w-3" />
@@ -870,9 +899,26 @@ export default function BandejaTrabajoPage() {
                         </span>
                       )}
                     </td>
+                    <td className="max-w-[240px] px-6 py-4 text-sm">
+                      {req.orden.observaciones?.trim() ? (
+                        <span
+                          title={req.orden.observaciones}
+                          className="block truncate text-muted-foreground"
+                        >
+                          {req.orden.observaciones}
+                        </span>
+                      ) : (
+                        <span className="italic text-muted-foreground/60">
+                          —
+                        </span>
+                      )}
+                    </td>
                     {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC || esAdministrador) && (
                       <td className="whitespace-nowrap px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                        <div
+                          className="flex items-center justify-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {/* Administrador: Editar orden */}
                           {esAdministrador && (
                             <Button
@@ -916,6 +962,23 @@ export default function BandejaTrabajoPage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
+
+                          {/* OBT: Editar orden mientras no haya técnico asignado —
+                          corrige datos mal cargados por Servicio al Cliente.
+                          Una vez asignado el técnico (estado pasa a
+                          EN_CALIBRACION) el botón desaparece. */}
+                          {canAssign &&
+                            req.estado === 'EN_ESPERA' &&
+                            !req.tecnico && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setEditarOrden(req.orden)}
+                                title="Editar orden"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
 
                           {/* EN_ESPERA: Asignar técnico */}
                           {canAssign && req.estado === 'EN_ESPERA' && !req.tecnico && (
@@ -1127,6 +1190,14 @@ export default function BandejaTrabajoPage() {
         orden={editarOrden}
         onClose={() => setEditarOrden(null)}
       />
+
+      {detalleEquipo && (
+        <VistaDetalleEquipo
+          orden={detalleEquipo.orden}
+          equipoId={detalleEquipo.equipoId}
+          onClose={() => setDetalleEquipo(null)}
+        />
+      )}
 
       <AsignarTecnicoModal
         open={asignacionTecnico !== null}

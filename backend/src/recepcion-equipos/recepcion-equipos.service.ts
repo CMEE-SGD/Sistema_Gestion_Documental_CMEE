@@ -28,7 +28,19 @@ import {
 // con un equipo en la orden.
 function construirOrdenInclude(equipoWhere?: object) {
   return {
-    cliente: { select: { id: true, nombre: true, tipo: true } },
+    cliente: {
+      select: {
+        id: true,
+        nombre: true,
+        ruc: true,
+        representante: true,
+        direccion: true,
+        telefono: true,
+        email: true,
+        tipo: true,
+        activo: true,
+      },
+    },
     equipos: {
       where: equipoWhere,
       include: {
@@ -85,7 +97,19 @@ const EQUIPO_INCLUDE = {
     select: {
       id: true,
       orden_trabajo_fisica: true,
-      cliente: { select: { id: true, nombre: true, tipo: true } },
+      cliente: {
+        select: {
+          id: true,
+          nombre: true,
+          ruc: true,
+          representante: true,
+          direccion: true,
+          telefono: true,
+          email: true,
+          tipo: true,
+          activo: true,
+        },
+      },
     },
   },
 };
@@ -203,10 +227,14 @@ export class RecepcionEquiposService {
   // Evita que un equipo quede etiquetado con una sub-área que en realidad
   // pertenece a otro laboratorio distinto al que se le asignó — mismo
   // criterio que ya se usa para validar servicio_id en certificados.service.ts.
+  // Solo valida las filas que traen sub-área Y laboratorio definido (en la
+  // edición, la sub-área se decide por el laboratorio seleccionado).
   private async validarSubAreasDeEquipos(
-    equipos: { laboratorio_id: number; sub_area_id?: number }[],
+    equipos: { laboratorio_id?: number; sub_area_id?: number }[],
   ) {
-    const conSubArea = equipos.filter((e) => e.sub_area_id != null);
+    const conSubArea = equipos.filter(
+      (e) => e.sub_area_id != null && e.laboratorio_id != null,
+    );
     if (conSubArea.length === 0) return;
 
     const subAreas = await this.prisma.subAreaLaboratorio.findMany({
@@ -299,14 +327,67 @@ export class RecepcionEquiposService {
 
   async update(id: number, dto: UpdateOrdenTrabajoDto) {
     await this.findOne(id);
+
+    const { equipos, ...header } = dto;
+
+    if (equipos && equipos.length > 0) {
+      await this.validarSubAreasDeEquipos(equipos);
+    }
+
     try {
-      const orden = await this.prisma.ordenTrabajo.update({
-        where: { id },
-        data: {
-          ...dto,
-          fecha_ingreso: toDate(dto.fecha_ingreso),
-        },
-        include: construirOrdenInclude(),
+      const orden = await this.prisma.$transaction(async (tx) => {
+        // 1) Cabecera de la orden
+        await tx.ordenTrabajo.update({
+          where: { id },
+          data: {
+            ...header,
+            fecha_ingreso: toDate(header.fecha_ingreso),
+          },
+        });
+
+        // 2) Detalle: los equipos con `id` se actualizan y los que no traen
+        // `id` se crean (equipos nuevos dentro de una orden ya registrada).
+        // La fase (`estado`) queda fuera del DTO — se mueve con el flujo de
+        // estados o con el ajuste manual del administrador.
+        if (equipos && equipos.length > 0) {
+          for (const equipo of equipos) {
+            const dataEquipo: any = {
+              equipo_descripcion: equipo.equipo_descripcion,
+              marca: equipo.marca || null,
+              modelo: equipo.modelo || null,
+              codigo_serie: equipo.codigo_serie || null,
+              codigo_cmee: equipo.codigo_cmee || null,
+              accesorios: equipo.accesorios || null,
+              requerimientos_calibracion:
+                equipo.requerimientos_calibracion || null,
+              laboratorio_id: equipo.laboratorio_id,
+              fecha_ingreso_laboratorio: toDate(
+                equipo.fecha_ingreso_laboratorio,
+              ),
+            };
+            // La sub-área es opcional: solo se toca si el cliente la envía
+            // explícitamente (undefined = dejarla como está; null = quitarla).
+            if (equipo.sub_area_id !== undefined) {
+              dataEquipo.sub_area_id = equipo.sub_area_id;
+            }
+
+            if (equipo.id) {
+              await tx.equipoRecepcion.update({
+                where: { id: equipo.id },
+                data: dataEquipo,
+              });
+            } else {
+              await tx.equipoRecepcion.create({
+                data: { ...dataEquipo, orden_trabajo_id: id },
+              });
+            }
+          }
+        }
+
+        return tx.ordenTrabajo.findUnique({
+          where: { id },
+          include: construirOrdenInclude(),
+        });
       });
       this.notificacionesService.notificarRecepcionActualizada();
       return orden;
