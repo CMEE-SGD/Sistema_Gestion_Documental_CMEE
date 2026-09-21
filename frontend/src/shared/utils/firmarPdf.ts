@@ -29,7 +29,10 @@ export function extraerTitularCertificado(
 ): string | null {
   try {
     const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
-    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, password);
+    // El segundo argumento de pkcs12FromAsn1 es `strictParsing`; pasar la
+    // contraseña ahí haría que la verificación del MAC se haga con la cadena
+    // vacía y el titular nunca se leyera en .p12 protegidos.
+    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, password);
     const bolsas = p12.getBags({ bagType: forge.pki.oids.certBag });
     const certificado = bolsas[forge.pki.oids.certBag]?.[0]?.cert;
     const cn = certificado?.subject.getField('CN');
@@ -78,50 +81,111 @@ export async function firmarPdfConP12(
 
   const pdfBuffer = Buffer.from(pdfBytes);
 
-  // El sello visual y el espacio de la firma se agregan en un solo paso de
-  // actualización incremental (ver agregarSelloYPlaceholder.ts) — nunca se
-  // reparsea ni reescriben los bytes existentes, así que firmas previas de
-  // otros firmantes en el mismo documento quedan intactas.
-  let pdfConPlaceholder: Buffer;
-  try {
-    const pdfBufferClasico = await asegurarXrefClasico(pdfBuffer);
-    pdfConPlaceholder = agregarSelloYPlaceholder({
-      pdfBuffer: pdfBufferClasico,
-      reason: razon,
-      contactInfo: '',
-      name: '',
-      location: 'Centro de Metrología del Ejército Ecuatoriano',
-      signatureLength: 8192,
-      sello: selloParaPlaceholder,
-    });
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('No se pudo preparar el PDF para la firma:', err);
-    throw new FirmaPdfError(
-      'No se pudo preparar el PDF para la firma. Verifique que el archivo no esté dañado.',
-    );
-  }
-
   const signer = new P12Signer(p12Buffer, { passphrase: password });
   const signPdf = new SignPdf();
 
-  try {
-    const pdfFirmado = await signPdf.sign(pdfConPlaceholder, signer);
-    return new Uint8Array(pdfFirmado);
-  } catch (err) {
-    const mensaje = err instanceof Error ? err.message : String(err);
-    // El error real se registra siempre: antes cualquier .p12 que la
-    // librería no supiera leer se mostraba como "contraseña incorrecta", y
-    // sin este dato no había forma de saber por qué falla un archivo que
-    // otro programa (p. ej. Adobe) sí abre con la misma contraseña.
-    // eslint-disable-next-line no-console
-    console.error('[firma] Falló la firma con el .p12:', err);
-    throw new FirmaPdfError(mensajeErrorP12(mensaje));
+  // El espacio de la firma (/Contents) se dimensiona según lo que realmente
+  // generará este .p12 (la firma embebe su cadena de certificados completa).
+  let signatureLength = siguientePotenciaDeDos(
+    estimarTamanoFirmaPkcs7(p12Buffer, password),
+  );
+
+  // Si la estimación se queda corta, se reintenta con el doble de espacio,
+  // partiendo SIEMPRE del PDF original (nunca del que ya tiene otro
+  // placeholder, que duplicaría el sello visual).
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let pdfConPlaceholder: Buffer;
+    try {
+      const pdfBufferClasico = await asegurarXrefClasico(pdfBuffer);
+      pdfConPlaceholder = agregarSelloYPlaceholder({
+        pdfBuffer: pdfBufferClasico,
+        reason: razon,
+        contactInfo: '',
+        name: '',
+        location: 'Centro de Metrología del Ejército Ecuatoriano',
+        signatureLength,
+        sello: selloParaPlaceholder,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('No se pudo preparar el PDF para la firma:', err);
+      throw new FirmaPdfError(
+        'No se pudo preparar el PDF para la firma. Verifique que el archivo no esté dañado.',
+      );
+    }
+
+    try {
+      const pdfFirmado = await signPdf.sign(pdfConPlaceholder, signer);
+      return new Uint8Array(pdfFirmado);
+    } catch (err) {
+      const esExcesoPlaceholder =
+        err instanceof Error && /exceeds placeholder/i.test(err.message);
+      if (esExcesoPlaceholder && signatureLength < LONGITUD_MAXIMA_FIRMA) {
+        signatureLength *= 2;
+        continue;
+      }
+      const mensaje = err instanceof Error ? err.message : String(err);
+      // El error real se registra siempre: antes cualquier .p12 que la
+      // librería no supiera leer se mostraba como "contraseña incorrecta", y
+      // sin este dato no había forma de saber por qué falla un archivo que
+      // otro programa (p. ej. Adobe) sí abre con la misma contraseña.
+      // eslint-disable-next-line no-console
+      console.error('[firma] Falló la firma con el .p12:', err);
+      throw new FirmaPdfError(mensajeErrorP12(mensaje));
+    }
   }
 }
 
 const REEXPORTAR =
   'Si funciona en otro programa (por ejemplo Adobe), vuelva a exportar el certificado desde ese programa y pruebe con el archivo nuevo.';
+
+const LONGITUD_MINIMA_FIRMA = 8192; // bytes reservados en /Contents por defecto (como antes)
+const LONGITUD_MAXIMA_FIRMA = 131072; // techo de seguridad
+
+/**
+ * Estima el tamaño (en bytes) de la firma PKCS#7/CMS que producirá el .p12:
+ * la firma embebe TODOS los certificados del archivo (no solo la hoja) más la
+ * firma RSA de la clave privada. Si el .p12 trae la cadena completa la firma
+ * crece varios KB y el placeholder fijo de 8192 bytes se queda corto (error
+ * "Signature exceeds placeholder length").
+ */
+function estimarTamanoFirmaPkcs7(p12Buffer: Buffer, password: string): number {
+  try {
+    const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
+    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, password);
+    const bolsasCert = (p12.getBags({ bagType: forge.pki.oids.certBag })[
+      forge.pki.oids.certBag
+    ] ?? []) as Array<{ cert?: forge.pki.Certificate }>;
+    const bolsasClave = (p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })[
+      forge.pki.oids.pkcs8ShroudedKeyBag
+    ] ?? []) as Array<{ key?: forge.pki.rsa.PrivateKey }>;
+
+    let bytesCertificados = 0;
+    for (const bolsa of bolsasCert) {
+      if (bolsa.cert) {
+        bytesCertificados += forge.asn1
+          .toDer(forge.pki.certificateToAsn1(bolsa.cert))
+          .length();
+      }
+    }
+    const bits = bolsasClave[0]?.key?.n?.bitLength?.() ?? 2048;
+    // Encabezados/atributos/OIDs (~400 B) + firma RSA + certificados + margen.
+    return 400 + bytesCertificados + Math.ceil(bits / 8) + 256;
+  } catch {
+    // Si no se puede leer el .p12 (contraseña mala o formato no soportado),
+    // se mantiene el tamaño por defecto; el error real saldrá al firmar.
+    return LONGITUD_MINIMA_FIRMA;
+  }
+}
+
+function siguientePotenciaDeDos(n: number): number {
+  let potencia = LONGITUD_MINIMA_FIRMA;
+  while (potencia < n && potencia < LONGITUD_MAXIMA_FIRMA) {
+    potencia *= 2;
+  }
+  return potencia;
+}
 
 /**
  * Traduce el error de la librería (node-forge / @signpdf) a un mensaje que
@@ -144,6 +208,11 @@ export function mensajeErrorP12(mensaje: string): string {
   // Contraseña que no coincide (o codificada distinto a como la creó el archivo).
   if (/invalid password|mac could not be verified/i.test(mensaje)) {
     return `La contraseña del certificado .p12 es incorrecta. ${REEXPORTAR}${detalle}`;
+  }
+
+  // La firma superó incluso el espacio máximo reservado en el PDF.
+  if (/exceeds placeholder/i.test(mensaje)) {
+    return `La firma generada no cabe en el espacio reservado en el PDF: este certificado .p12 incluye una cadena de certificados muy extensa. ${REEXPORTAR}${detalle}`;
   }
 
   return `No se pudo completar la firma digital. Verifique el archivo .p12 y la contraseña.${detalle}`;
