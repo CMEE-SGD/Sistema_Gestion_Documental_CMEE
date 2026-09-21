@@ -25,6 +25,10 @@ export class CreateOrdenTrabajoDto {
   @IsOptional()
   n_proforma?: string;
 
+  @IsString()
+  @IsOptional()
+  observaciones?: string;
+
   @IsInt()
   @IsOptional()
   recibe_responsable_id?: number;

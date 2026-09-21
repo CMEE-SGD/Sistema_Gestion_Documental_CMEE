@@ -47,6 +47,7 @@ interface HeaderForm {
   cliente_id: string;
   fecha_ingreso: string;
   recibe_responsable_id: string;
+  observaciones: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +98,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
     cliente_id: '',
     fecha_ingreso: new Date().toISOString().split('T')[0],
     recibe_responsable_id: String(getUsuarioActual()?.persona_id ?? ''),
+    observaciones: '',
   });
 
   // Detail state — dynamic array of equipos
@@ -164,7 +166,9 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
   // Header handlers
   // ------------------------------------------------------------------
   const handleHeaderChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
     setHeader({ ...header, [e.target.name]: e.target.value });
   };
@@ -253,6 +257,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
         recibe_responsable_id: header.recibe_responsable_id
           ? Number(header.recibe_responsable_id)
           : undefined,
+        observaciones: header.observaciones.trim() || undefined,
         equipos: equipos.map((eq) => ({
           equipo_descripcion: eq.equipo_descripcion.trim(),
           marca: eq.marca.trim() || undefined,
@@ -386,6 +391,21 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
               className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
+        </div>
+
+        {/* Observaciones generales de la orden — texto libre del usuario */}
+        <div className="mt-4">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            Observaciones
+          </label>
+          <textarea
+            name="observaciones"
+            rows={3}
+            placeholder="Notas adicionales sobre la recepción (opcional)…"
+            value={header.observaciones}
+            onChange={handleHeaderChange}
+            className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
         </div>
 
         {/* PATCH: hidden input para recibe_responsable_id (auto-asignado del usuario logueado) */}

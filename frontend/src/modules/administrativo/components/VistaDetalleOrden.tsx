@@ -1,16 +1,17 @@
 // PATCH: Componente read‑only que emula la cuadrícula densa del Excel legacy.
 
+import { useState } from 'react';
 import { X, Printer } from 'lucide-react';
+import ClienteDatosCard, {
+  type ClienteDatos,
+} from './ClienteDatosCard';
+import VistaDetalleEquipo from './VistaDetalleEquipo';
 
 // ---------------------------------------------------------------------------
 // Tipos basados en el include del backend (recepcion-equipos.service.ts)
 // ---------------------------------------------------------------------------
 
-interface ClienteResumen {
-  id: number;
-  nombre: string;
-  tipo: string;
-}
+type ClienteResumen = ClienteDatos;
 
 interface LaboratorioResumen {
   id: number;
@@ -28,7 +29,7 @@ interface CertificadoResumen {
   id: number;
 }
 
-interface EquipoResumen {
+export interface EquipoResumen {
   id: number;
   equipo_descripcion: string;
   marca: string | null;
@@ -60,6 +61,7 @@ export interface OrdenTrabajoDetalle {
   orden_trabajo_fisica: string;
   n_proforma: string | null;
   fecha_ingreso: string;
+  observaciones: string | null;
   recibe_responsable_id: number | null;
   cliente_id: number;
   cliente: ClienteResumen;
@@ -72,7 +74,7 @@ export interface OrdenTrabajoDetalle {
 // Constantes de estado con color
 // ---------------------------------------------------------------------------
 
-const ESTADO_COLOR: Record<string, string> = {
+export const ESTADO_COLOR: Record<string, string> = {
   EN_ESPERA: 'bg-amber-100 text-amber-800 border-amber-300',
   EN_CALIBRACION: 'bg-blue-100 text-blue-800 border-blue-300',
   REVISION_OBT: 'bg-violet-100 text-violet-800 border-violet-300',
@@ -83,7 +85,7 @@ const ESTADO_COLOR: Record<string, string> = {
   FINALIZADO: 'bg-green-100 text-green-800 border-green-300',
 };
 
-const ESTADO_LABEL: Record<string, string> = {
+export const ESTADO_LABEL: Record<string, string> = {
   EN_ESPERA: 'En espera',
   EN_CALIBRACION: 'En calibración',
   REVISION_OBT: 'Revisión OBT',
@@ -98,7 +100,7 @@ const ESTADO_LABEL: Record<string, string> = {
 // Formateo de fecha
 // ---------------------------------------------------------------------------
 
-function formatDate(dateStr: string | null | undefined): string {
+export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
   return d.toLocaleDateString('es-BO', {
@@ -125,6 +127,9 @@ interface Props {
 export default function VistaDetalleOrden({ orden, onClose }: Props) {
   const { cliente, equipos } = orden;
 
+  // Clic sobre un equipo dentro de la tabla → detalle de su calibración.
+  const [detalleEquipoId, setDetalleEquipoId] = useState<number | null>(null);
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 py-4">
       {/* PATCH: mismo ancho del modal de edición */}
@@ -137,9 +142,6 @@ export default function VistaDetalleOrden({ orden, onClose }: Props) {
             <h2 className="text-lg font-semibold">
               Orden de Trabajo N° <span className="text-red-600">{orden.orden_trabajo_fisica}</span>
             </h2>
-            <span className="text-xs text-muted-foreground">
-              ID: {orden.id}
-            </span>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -211,6 +213,23 @@ export default function VistaDetalleOrden({ orden, onClose }: Props) {
                 </span>
               </div>
             </div>
+            {orden.observaciones?.trim() && (
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                <span className="block text-xs font-medium text-slate-400 uppercase tracking-wide">
+                  Observaciones
+                </span>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                  {orden.observaciones}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ---------------------------------------------------------- */}
+          {/* CLIENTE — todos los datos del cliente / unidad solicitante */}
+          {/* ---------------------------------------------------------- */}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+            <ClienteDatosCard cliente={cliente} />
           </div>
 
           {/* ---------------------------------------------------------- */}
@@ -253,8 +272,15 @@ export default function VistaDetalleOrden({ orden, onClose }: Props) {
                         {eq.codigo_cmee || '—'}
                       </td>
                       <td className="px-2 py-1 border-r border-slate-200 align-top font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setDetalleEquipoId(eq.id)}
+                        title="Ver detalles de la calibración"
+                        className="text-left font-medium text-foreground transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:underline"
+                      >
                         {eq.equipo_descripcion}
-                      </td>
+                      </button>
+                    </td>
                       <td className="px-2 py-1 border-r border-slate-200 align-top">
                         {eq.marca || '—'}
                       </td>
@@ -309,6 +335,14 @@ export default function VistaDetalleOrden({ orden, onClose }: Props) {
           </div>
         </div>
       </div>
+
+      {detalleEquipoId !== null && (
+        <VistaDetalleEquipo
+          orden={orden}
+          equipoId={detalleEquipoId}
+          onClose={() => setDetalleEquipoId(null)}
+        />
+      )}
     </div>
   );
 }
