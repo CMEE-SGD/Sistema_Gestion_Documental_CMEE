@@ -30,9 +30,12 @@ import { RegistrarCompensacionDto } from './dto/registrar-compensacion.dto';
 import { CreateNotaEntregaDto } from './dto/create-nota-entrega.dto';
 
 /**
- * Módulo financiero del flujograma de calibración. Reutiliza el permiso
- * 'Recepcion Equipos' (misma aplicación) con el mismo esquema de niveles:
- * 1 lectura, 4 creación/actualización, 5 eliminación.
+ * Módulo financiero del flujograma de calibración. Aplicación independiente
+ * ('Gestion Financiera') ligada a la recepción de equipos por sus datos
+ * (órdenes, proformas y fechas de calibración). Esquema de niveles:
+ * 1 lectura, 4 creación/actualización, 5 eliminación. Los GET de proformas
+ * se comparten como catálogo de solo-lectura con 'Recepcion Equipos' para
+ * que el flujo de recepción pueda vincular la orden con su proforma.
  */
 @UseGuards(JwtAuthGuard, AccessGuard)
 @Controller('facturacion')
@@ -42,31 +45,37 @@ export class FacturacionController {
   // ---------------------- PROFORMAS ----------------------
 
   @Get('proformas')
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess([
+    { app: 'Gestion Financiera', level: 1 },
+    { app: 'Recepcion Equipos', level: 1 },
+  ])
   findAllProformas() {
     return this.facturacionService.findAllProformas();
   }
 
   @Post('proformas')
-  @RequireAccess('Recepcion Equipos', 4)
+  @RequireAccess('Gestion Financiera', 4)
   createProforma(@Body() dto: CreateProformaDto) {
     return this.facturacionService.createProforma(dto);
   }
 
   @Get('proformas/:id')
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess([
+    { app: 'Gestion Financiera', level: 1 },
+    { app: 'Recepcion Equipos', level: 1 },
+  ])
   findOneProforma(@Param('id', ParseIntPipe) id: number) {
     return this.facturacionService.findOneProforma(id);
   }
 
   @Patch('proformas/:id')
-  @RequireAccess('Recepcion Equipos', 4)
+  @RequireAccess('Gestion Financiera', 4)
   updateProforma(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProformaDto) {
     return this.facturacionService.updateProforma(id, dto);
   }
 
   @Delete('proformas/:id')
-  @RequireAccess('Recepcion Equipos', 5)
+  @RequireAccess('Gestion Financiera', 5)
   removeProforma(@Param('id', ParseIntPipe) id: number) {
     return this.facturacionService.removeProforma(id);
   }
@@ -74,26 +83,26 @@ export class FacturacionController {
   // ---------------------- FACTURAS ----------------------
 
   @Get('facturas')
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess('Gestion Financiera', 1)
   findAllFacturas() {
     return this.facturacionService.findAllFacturas();
   }
 
   @Get('facturas/:id')
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess('Gestion Financiera', 1)
   findOneFactura(@Param('id', ParseIntPipe) id: number) {
     return this.facturacionService.findOneFactura(id);
   }
 
   @Post('facturas')
-  @RequireAccess('Recepcion Equipos', 4)
+  @RequireAccess('Gestion Financiera', 4)
   createFactura(@Body() dto: CreateFacturaDto) {
     return this.facturacionService.createFactura(dto);
   }
 
   // XML que emite la encargada del sistema financiero → se absorben los datos
   @Post('facturas/importar-xml')
-  @RequireAccess('Recepcion Equipos', 4)
+  @RequireAccess('Gestion Financiera', 4)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -108,13 +117,13 @@ export class FacturacionController {
   }
 
   @Patch('facturas/:id')
-  @RequireAccess('Recepcion Equipos', 4)
+  @RequireAccess('Gestion Financiera', 4)
   updateFactura(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateFacturaDto) {
     return this.facturacionService.updateFactura(id, dto);
   }
 
   @Delete('facturas/:id')
-  @RequireAccess('Recepcion Equipos', 5)
+  @RequireAccess('Gestion Financiera', 5)
   removeFactura(@Param('id', ParseIntPipe) id: number) {
     return this.facturacionService.removeFactura(id);
   }
@@ -122,7 +131,7 @@ export class FacturacionController {
   // ---------------------- NOTA DE ENTREGA ----------------------
 
   @Post('facturas/:id/nota-entrega')
-  @RequireAccess('Recepcion Equipos', 4)
+  @RequireAccess('Gestion Financiera', 4)
   crearNotaEntrega(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreateNotaEntregaDto,
@@ -135,7 +144,7 @@ export class FacturacionController {
   // ---------------------- COBROS ----------------------
 
   @Post('facturas/:id/pagos')
-  @RequireAccess('Recepcion Equipos', 4)
+  @RequireAccess('Gestion Financiera', 4)
   @UseInterceptors(
     FileInterceptor('comprobante', {
       storage: memoryStorage(),
@@ -153,7 +162,7 @@ export class FacturacionController {
   }
 
   @Post('facturas/:id/compensacion')
-  @RequireAccess('Recepcion Equipos', 4)
+  @RequireAccess('Gestion Financiera', 4)
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -183,13 +192,13 @@ export class FacturacionController {
   // ---------------------- CARTERA Y ALERTAS ----------------------
 
   @Get('cartera')
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess('Gestion Financiera', 1)
   cartera() {
     return this.facturacionService.cartera();
   }
 
   @Get('proximas-calibraciones')
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess('Gestion Financiera', 1)
   proximasCalibraciones(@Query('horizonte') horizonte?: string) {
     const h = horizonte ? parseInt(horizonte, 10) : undefined;
     return this.facturacionService.proximasCalibraciones(
@@ -198,7 +207,7 @@ export class FacturacionController {
   }
 
   @Post('proximas-calibraciones/notificar')
-  @RequireAccess('Recepcion Equipos', 4)
+  @RequireAccess('Gestion Financiera', 4)
   notificarProximasCalibraciones() {
     return this.facturacionService.notificarProximasCalibraciones();
   }

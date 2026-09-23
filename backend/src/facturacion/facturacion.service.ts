@@ -385,7 +385,7 @@ export class FacturacionService {
     }
 
     const fechaEmision = datos.fecha_emision;
-    const plazo = dto.plazo_dias ?? 30;
+    const plazo = dto.plazo_dias ?? datos.plazo_sugerido ?? 30;
     const vencimiento = new Date(fechaEmision);
     vencimiento.setDate(vencimiento.getDate() + plazo);
 
@@ -397,6 +397,13 @@ export class FacturacionService {
         clave_acceso: datos.clave_acceso,
         ruta_xml: guardado.ruta,
         nombre_original_xml: guardado.original,
+        numero_autorizacion: datos.numero_autorizacion ?? null,
+        fecha_autorizacion: datos.fecha_autorizacion ?? null,
+        ambiente: datos.ambiente ?? null,
+        info_adicional:
+          datos.info_adicional && Object.keys(datos.info_adicional).length > 0
+            ? datos.info_adicional
+            : undefined,
         cliente_id: dto.cliente_id,
         razon_social_cliente: datos.razon_social_cliente,
         ruc_cliente: datos.ruc_cliente,
@@ -765,14 +772,67 @@ export class FacturacionService {
 
   private parsearXmlSRI(xmlText: string) {
     const parser = new XMLParser({ ignoreAttributes: true, parseTagValue: false });
-    let root: any;
+    let raiz: any;
     try {
-      root = parser.parse(xmlText);
+      raiz = parser.parse(xmlText);
     } catch {
       throw new BadRequestException('El archivo no es un XML válido.');
     }
 
-    const factura = root?.factura ?? root?.comprobante ?? null;
+    // Estructura real con la que se trabaja (SRI):
+    //   <autorizacion>
+    //     <estado>AUTORIZADO</estado>
+    //     <numeroAutorizacion>…</numeroAutorizacion>
+    //     <fechaAutorizacion>…</fechaAutorizacion>
+    //     <ambiente>PRODUCCIÓN</ambiente>
+    //     <comprobante><![CDATA[ <factura …>…</factura> ]]></comprobante>
+    //     <mensajes/>
+    //   </autorizacion>
+    const autorizacion = raiz?.autorizacion ?? null;
+
+    let factura: any = null;
+    let informacionAutorizacion: {
+      numero: string | null;
+      fecha: Date | null;
+      ambiente: string | null;
+    } = { numero: null, fecha: null, ambiente: null };
+
+    if (autorizacion) {
+      informacionAutorizacion = {
+        numero: autorizacion.numeroAutorizacion ?? null,
+        fecha: autorizacion.fechaAutorizacion
+          ? new Date(String(autorizacion.fechaAutorizacion).replace(' ', 'T'))
+          : null,
+        ambiente: autorizacion.ambiente ?? null,
+      };
+
+      const comprobanteStr: unknown = autorizacion.comprobante;
+      if (typeof comprobanteStr !== 'string' || !comprobanteStr.trim()) {
+        throw new BadRequestException(
+          'El XML de autorización no contiene el comprobante (CDATA).',
+        );
+      }
+
+      // El comprobante viaja como texto CDATA: se re-parsea para obtener la
+      // factura. Con ignoreAttributes:false se capturan también los atributos
+      // (p. ej. campoAdicional nombre="…").
+      try {
+        const nodo = new XMLParser({
+          ignoreAttributes: false,
+          attributeNamePrefix: '@_',
+          parseTagValue: false,
+        }).parse(comprobanteStr);
+        factura = nodo?.factura ?? nodo?.comprobante ?? null;
+      } catch {
+        throw new BadRequestException(
+          'El comprobante dentro del XML no es un XML válido.',
+        );
+      }
+    } else {
+      // Compatibilidad: XML de la factura directo (sin envoltorio).
+      factura = raiz?.factura ?? raiz?.comprobante ?? null;
+    }
+
     if (!factura?.infoTributaria || !factura?.infoFactura) {
       throw new BadRequestException(
         'El XML no parece ser una factura electrónica válida (faltan infoTributaria/infoFactura).',
@@ -812,6 +872,37 @@ export class FacturacionService {
       valor_total: this.nDesdeString(d?.precioTotalSinImpuesto, 0),
     }));
 
+    // infoAdicional → { [nombre]: valor } (p. ej. "RUC Proveedor").
+    const infoAdicional: Record<string, string> = {};
+    const rawCampos = factura?.infoAdicional?.campoAdicional;
+    const camposArr = Array.isArray(rawCampos)
+      ? rawCampos
+      : rawCampos
+        ? [rawCampos]
+        : [];
+    for (const c of camposArr) {
+      const nombre =
+        c && typeof c === 'object' ? (c['@_nombre'] ?? null) : null;
+      if (!nombre) continue;
+      const valor =
+        c && typeof c === 'object'
+          ? String(c['#text'] ?? '')
+          : String(c ?? '');
+      infoAdicional[String(nombre)] = valor.trim();
+    }
+
+    // Plazo de crédito que sugiere el propio XML (pagos/pago/plazo).
+    let plazoSugerido: number | null = null;
+    const rawPago = inf?.pagos?.pago;
+    const pagosArr = Array.isArray(rawPago) ? rawPago : rawPago ? [rawPago] : [];
+    for (const p of pagosArr) {
+      const plazo = parseInt(String(p?.plazo ?? ''), 10);
+      if (Number.isFinite(plazo) && plazo > 0) {
+        plazoSugerido = plazo;
+        break;
+      }
+    }
+
     return {
       numero,
       clave_acceso: it?.claveAcceso ?? null,
@@ -822,6 +913,11 @@ export class FacturacionService {
       iva,
       total: this.nDesdeString(inf?.importeTotal, 0),
       detalle,
+      numero_autorizacion: informacionAutorizacion.numero,
+      fecha_autorizacion: informacionAutorizacion.fecha,
+      ambiente: informacionAutorizacion.ambiente,
+      info_adicional: infoAdicional,
+      plazo_sugerido: plazoSugerido,
     };
   }
 }

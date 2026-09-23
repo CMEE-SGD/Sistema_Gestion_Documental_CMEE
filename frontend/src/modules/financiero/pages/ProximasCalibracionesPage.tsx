@@ -34,7 +34,7 @@ export default function ProximasCalibracionesPage() {
   const { alert } = useAlert();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const puedeNotificar = tienePermiso('Recepcion Equipos', 4);
+  const puedeNotificar = tienePermiso('Gestion Financiera', 4);
 
   const { data = [], isLoading } = useQuery<ProximaCalibracion[]>({
     queryKey: ['proximas-calibraciones', horizonte],

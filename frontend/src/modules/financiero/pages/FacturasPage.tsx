@@ -43,6 +43,10 @@ interface FacturaResumen {
   id: number;
   numero: string;
   clave_acceso: string | null;
+  numero_autorizacion: string | null;
+  fecha_autorizacion: string | null;
+  ambiente: string | null;
+  info_adicional?: Record<string, string> | null;
   ruta_xml: string | null;
   nombre_original_xml: string | null;
   cliente_id: number;
@@ -908,6 +912,29 @@ function ModalDetalleFactura({
                 <span className={labelCls}>Clave de acceso</span>
                 <p className="break-all font-mono text-xs">{factura.clave_acceso}</p>
               </div>
+            )}
+            {factura.numero_autorizacion && (
+              <div>
+                <span className={labelCls}>Nº autorización SRI</span>
+                <p className="break-all font-mono text-xs">
+                  {factura.numero_autorizacion}
+                </p>
+              </div>
+            )}
+            {factura.fecha_autorizacion && (
+              <InfoCampo
+                label="Fecha autorización"
+                valor={new Date(factura.fecha_autorizacion).toLocaleString('es-EC')}
+              />
+            )}
+            {factura.ambiente && (
+              <InfoCampo label="Ambiente SRI" valor={factura.ambiente} />
+            )}
+            {factura.info_adicional?.['RUC Proveedor'] && (
+              <InfoCampo
+                label="RUC proveedor (XML)"
+                valor={factura.info_adicional['RUC Proveedor']}
+              />
             )}
           </div>
 

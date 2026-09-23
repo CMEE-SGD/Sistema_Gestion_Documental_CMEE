@@ -99,10 +99,13 @@ import RecepcionesPage from '../../modules/administrativo/pages/RecepcionesPage'
 import ClientesPage from '../../modules/administrativo/pages/ClientesPage';
 import CertificadosPage from '../../modules/administrativo/pages/CertificadosPage';
 import ReportesPage from '../../modules/administrativo/pages/ReportesPage';
-import ProformasPage from '../../modules/administrativo/pages/ProformasPage';
-import FacturasPage from '../../modules/administrativo/pages/FacturasPage';
-import CarteraPage from '../../modules/administrativo/pages/CarteraPage';
-import ProximasCalibracionesPage from '../../modules/administrativo/pages/ProximasCalibracionesPage';
+
+// --- IMPORTACIONES MÓDULO FINANCIERO (independiente) ---
+import { FinancieroLayout } from '../../modules/financiero/FinancieroLayout';
+import ProformasPage from '../../modules/financiero/pages/ProformasPage';
+import FacturasPage from '../../modules/financiero/pages/FacturasPage';
+import CarteraPage from '../../modules/financiero/pages/CarteraPage';
+import ProximasCalibracionesPage from '../../modules/financiero/pages/ProximasCalibracionesPage';
 
 // --- MÓDULO RESUMEN (dashboards) ---
 import { ResumenLayout } from '../../modules/resumen/ResumenLayout';
@@ -228,6 +231,11 @@ const AppContenido = () => {
           <Route path="clientes" element={<ClientesPage />} />
           <Route path="certificados" element={<CertificadosPage />} />
           <Route path="reportes" element={<ReportesPage />} />
+        </Route>
+
+        {/* --- MÓDULO FINANCIERO (independiente, ligado a recepción por sus datos) --- */}
+        <Route path="/financiero" element={<FinancieroLayout />}>
+          <Route index element={<ProformasPage />} />
           <Route path="proformas" element={<ProformasPage />} />
           <Route path="facturas" element={<FacturasPage />} />
           <Route path="cartera" element={<CarteraPage />} />

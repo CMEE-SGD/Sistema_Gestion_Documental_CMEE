@@ -16,9 +16,7 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { esUsuarioAdministrador } from '../../../shared/utils/auth';
 import {
-  badgeClass,
   ESTADO_PROFORMA_LABEL,
-  ESTADO_PROFORMA_STYLE,
   fmtFecha,
   fmtMoneda,
   inputCls,

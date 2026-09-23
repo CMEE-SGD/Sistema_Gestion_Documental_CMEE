@@ -5,8 +5,6 @@ import { Loader2, Wallet } from 'lucide-react';
 import api from '../../../core/api/axios';
 import {
   badgeClass,
-  ESTADO_FACTURA_LABEL,
-  ESTADO_FACTURA_STYLE,
   fmtFecha,
   fmtMoneda,
 } from './financieroUtils';

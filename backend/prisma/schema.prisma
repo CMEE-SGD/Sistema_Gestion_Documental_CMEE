@@ -1505,6 +1505,14 @@ model Factura {
   ruta_xml              String? @db.VarChar(500)
   nombre_original_xml   String? @db.VarChar(255)
 
+  // Metadatos de la autorización SRI: el XML llega como <autorizacion> con el
+  // comprobante en CDATA; se guarda la autorización y la infoAdicional
+  // (p. ej. "RUC Proveedor" en las re-facturaciones).
+  numero_autorizacion   String?   @db.VarChar(100)
+  fecha_autorizacion    DateTime? @db.Timestamptz
+  ambiente              String?   @db.VarChar(20)
+  info_adicional        Json?
+
   cliente_id Int
   cliente    ClienteInstitucional @relation(fields: [cliente_id], references: [id])
 

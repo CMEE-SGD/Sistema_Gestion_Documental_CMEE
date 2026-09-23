@@ -32,6 +32,11 @@ export const modules: Module[] = [
   { id: 18, name: "Certificados", category: "Recepcion de Equipos", path: "/administrativo/certificados" },
   { id: 19, name: "Reportes", category: "Recepcion de Equipos", path: "/administrativo/reportes" },
 
+  { id: 23, name: "Proformas", category: "Gestion Financiera", path: "/financiero/proformas" },
+  { id: 24, name: "Facturacion", category: "Gestion Financiera", path: "/financiero/facturas" },
+  { id: 25, name: "Cartera", category: "Gestion Financiera", path: "/financiero/cartera" },
+  { id: 26, name: "Proximas Calibraciones", category: "Gestion Financiera", path: "/financiero/proximas-calibraciones" },
+
   { id: 20, name: "Gestion de Calidad", category: "Calidad", path: "/calidad/auditorias" },
 
   { id: 21, name: "Inicio", category: "General", path: "/welcome" },

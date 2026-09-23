@@ -42,6 +42,10 @@ export class AplicacionesSeeder implements OnModuleInit {
         descripcion: 'Módulo de recepción y seguimiento de equipos',
       },
       {
+        nombre: 'Gestion Financiera',
+        descripcion: 'Facturación, proformas, cartera y alertas de calibración',
+      },
+      {
         nombre: 'Gestion de Calidad',
         descripcion: 'Auditorías internas, no conformidades y acciones correctivas',
       },
