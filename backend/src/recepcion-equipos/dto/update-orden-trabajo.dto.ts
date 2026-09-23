@@ -30,6 +30,10 @@ export class UpdateOrdenTrabajoDto {
   @IsOptional()
   n_proforma?: string;
 
+  @IsInt()
+  @IsOptional()
+  proforma_id?: number;
+
   @IsString()
   @IsOptional()
   observaciones?: string;

@@ -99,6 +99,10 @@ import RecepcionesPage from '../../modules/administrativo/pages/RecepcionesPage'
 import ClientesPage from '../../modules/administrativo/pages/ClientesPage';
 import CertificadosPage from '../../modules/administrativo/pages/CertificadosPage';
 import ReportesPage from '../../modules/administrativo/pages/ReportesPage';
+import ProformasPage from '../../modules/administrativo/pages/ProformasPage';
+import FacturasPage from '../../modules/administrativo/pages/FacturasPage';
+import CarteraPage from '../../modules/administrativo/pages/CarteraPage';
+import ProximasCalibracionesPage from '../../modules/administrativo/pages/ProximasCalibracionesPage';
 
 // --- MÓDULO RESUMEN (dashboards) ---
 import { ResumenLayout } from '../../modules/resumen/ResumenLayout';
@@ -224,6 +228,10 @@ const AppContenido = () => {
           <Route path="clientes" element={<ClientesPage />} />
           <Route path="certificados" element={<CertificadosPage />} />
           <Route path="reportes" element={<ReportesPage />} />
+          <Route path="proformas" element={<ProformasPage />} />
+          <Route path="facturas" element={<FacturasPage />} />
+          <Route path="cartera" element={<CarteraPage />} />
+          <Route path="proximas-calibraciones" element={<ProximasCalibracionesPage />} />
         </Route>
 
         {/* --- MÓDULO RESUMEN (dashboards) --- */}

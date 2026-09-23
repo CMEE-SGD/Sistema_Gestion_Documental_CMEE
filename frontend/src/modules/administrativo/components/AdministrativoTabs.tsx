@@ -1,5 +1,15 @@
 import { NavLink } from 'react-router-dom';
-import { Award, BarChart3, ClipboardList, Inbox, Users } from 'lucide-react';
+import {
+  Award,
+  BarChart3,
+  CalendarClock,
+  ClipboardList,
+  FileText,
+  Inbox,
+  Receipt,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { cn } from '../../../shared/utils/utils';
 
@@ -40,6 +50,30 @@ export default function AdministrativoTabs() {
       label: 'Reportes',
       path: '/administrativo/reportes',
       icon: BarChart3,
+      visible: puedeVerModulo,
+    },
+    {
+      label: 'Proformas',
+      path: '/administrativo/proformas',
+      icon: FileText,
+      visible: puedeVerModulo,
+    },
+    {
+      label: 'Facturación',
+      path: '/administrativo/facturas',
+      icon: Receipt,
+      visible: puedeVerModulo,
+    },
+    {
+      label: 'Cartera',
+      path: '/administrativo/cartera',
+      icon: Wallet,
+      visible: puedeVerModulo,
+    },
+    {
+      label: 'Próx. calibraciones',
+      path: '/administrativo/proximas-calibraciones',
+      icon: CalendarClock,
       visible: puedeVerModulo,
     },
   ].filter((tab) => tab.visible);

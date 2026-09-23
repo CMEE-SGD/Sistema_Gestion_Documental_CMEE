@@ -11,7 +11,7 @@ import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { esUsuarioAdministrador } from '../../../shared/utils/auth';
+import { esUsuarioAdministrador, tienePermiso } from '../../../shared/utils/auth';
 import ClienteDatosCard from './ClienteDatosCard';
 import {
   ESTADO_COLOR,
@@ -90,6 +90,37 @@ export default function VistaDetalleEquipo({
 
   const historial = equipo.historial_estado ?? [];
   const [certificados, setCertificados] = useState(equipo.certificados ?? []);
+
+  // Fase A: fechas de calibración (editables por quien tenga nivel 4+)
+  const puedeEditarFechas = tienePermiso('Recepcion Equipos', 4);
+  const [fechaCalibracion, setFechaCalibracion] = useState(
+    equipo.fecha_calibracion ?? '',
+  );
+  const [fechaProxima, setFechaProxima] = useState(
+    equipo.fecha_proxima_calibracion ?? '',
+  );
+  const [guardandoFechas, setGuardandoFechas] = useState(false);
+
+  const guardarFechasCalibracion = async () => {
+    setGuardandoFechas(true);
+    try {
+      await api.patch(`/recepcion-equipos/${equipo.id}/fechas-calibracion`, {
+        fecha_calibracion: fechaCalibracion || '',
+        fecha_proxima_calibracion: fechaProxima || '',
+      });
+      toast({ message: 'Fechas de calibración actualizadas.' });
+      queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      await alert({
+        message:
+          apiErr?.response?.data?.message ||
+          'No se pudieron guardar las fechas de calibración.',
+      });
+    } finally {
+      setGuardandoFechas(false);
+    }
+  };
 
   const handleVerDocumento = async (certificadoId: number) => {
     try {
@@ -242,6 +273,59 @@ export default function VistaDetalleEquipo({
                 >
                   {ESTADO_LABEL[equipo.estado] || equipo.estado}
                 </span>
+              </div>
+            </div>
+
+            {/* Fechas de calibración — Fase A del flujograma */}
+            <div className="mt-4 grid grid-cols-1 gap-4 rounded-lg border border-slate-300 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <span className="block text-xs font-medium text-slate-400 uppercase tracking-wide">
+                  Fecha de calibración
+                </span>
+                {puedeEditarFechas ? (
+                  <input
+                    type="date"
+                    value={fechaCalibracion}
+                    onChange={(e) => setFechaCalibracion(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                ) : (
+                  <span className="text-base font-semibold">
+                    {formatDate(equipo.fecha_calibracion)}
+                  </span>
+                )}
+              </div>
+              <div>
+                <span className="block text-xs font-medium text-slate-400 uppercase tracking-wide">
+                  Próxima calibración
+                </span>
+                {puedeEditarFechas ? (
+                  <input
+                    type="date"
+                    value={fechaProxima}
+                    onChange={(e) => setFechaProxima(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                ) : (
+                  <span className="text-base font-semibold">
+                    {formatDate(equipo.fecha_proxima_calibracion)}
+                  </span>
+                )}
+              </div>
+              {puedeEditarFechas && (
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={guardarFechasCalibracion}
+                    disabled={guardandoFechas}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {guardandoFechas ? 'Guardando…' : 'Guardar fechas'}
+                  </button>
+                </div>
+              )}
+              <div className="flex items-end text-xs text-muted-foreground">
+                La próxima calibración alimenta las alertas de vencimiento.
               </div>
             </div>
           </div>

@@ -89,6 +89,11 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
 
   const [clientes, setClientes] = useState<ClienteOption[]>([]);
   const [laboratorios, setLaboratorios] = useState<LaboratorioOption[]>([]);
+  // Proformas del módulo financiero — catálogo silencioso: si el usuario no
+  // tiene acceso al módulo financiero, el vínculo queda vacío sin romper nada.
+  const [proformas, setProformas] = useState<
+    { id: number; numero: string; cliente_id: number }[]
+  >([]);
 
   const [equipos, setEquipos] = useState<EquipoEdit[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -140,9 +145,20 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
     };
   }, [orden, alert]);
 
+  // Proformas del módulo financiero — catálogo silencioso (ver comentario
+  // junto al estado): si el usuario no tiene acceso al módulo financiero, el
+  // vínculo queda vacío sin romper el registro de la orden.
+  useEffect(() => {
+    api
+      .get('/facturacion/proformas')
+      .then((res) => setProformas(res.data))
+      .catch(() => setProformas([]));
+  }, []);
+
   const [header, setHeader] = useState({
     orden_trabajo_fisica: '',
     n_proforma: '',
+    proforma_id: '',
     cliente_id: '',
     fecha_ingreso: '',
     observaciones: '',
@@ -154,6 +170,9 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
     setHeader({
       orden_trabajo_fisica: orden.orden_trabajo_fisica ?? '',
       n_proforma: orden.n_proforma ?? '',
+      proforma_id: (orden as any).proforma_id
+        ? String((orden as any).proforma_id)
+        : '',
       cliente_id: orden.cliente_id ? String(orden.cliente_id) : '',
       fecha_ingreso: toDateInput(orden.fecha_ingreso),
       observaciones: orden.observaciones ?? '',
@@ -189,6 +208,9 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
       const res = await api.patch(`/recepcion-equipos/${orden!.id}`, {
         orden_trabajo_fisica: header.orden_trabajo_fisica.trim(),
         n_proforma: header.n_proforma.trim() || undefined,
+        proforma_id: header.proforma_id
+          ? Number(header.proforma_id)
+          : undefined,
         cliente_id: Number(header.cliente_id),
         fecha_ingreso: header.fecha_ingreso || undefined,
         observaciones: header.observaciones.trim() || undefined,
@@ -345,6 +367,31 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
                     }
                     className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
+                  <label className="mb-1.5 mt-2 block text-sm font-medium text-foreground">
+                    Proforma (vínculo formal)
+                  </label>
+                  <select
+                    value={header.proforma_id}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      const pf = proformas.find((p) => p.id === Number(id));
+                      setHeader((prev) => ({
+                        ...prev,
+                        proforma_id: id,
+                        n_proforma: pf ? pf.numero : prev.n_proforma,
+                      }));
+                    }}
+                    className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">— Sin proforma —</option>
+                    {proformas
+                      .filter((p) => String(p.cliente_id) === header.cliente_id)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.numero}
+                        </option>
+                      ))}
+                  </select>
                 </div>
 
                 <div>

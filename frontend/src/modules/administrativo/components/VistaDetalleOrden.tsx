@@ -41,6 +41,8 @@ export interface EquipoResumen {
   laboratorio_id: number;
   laboratorio: LaboratorioResumen | null;
   fecha_ingreso_laboratorio: string | null;
+  fecha_calibracion?: string | null;
+  fecha_proxima_calibracion?: string | null;
   estado: string;
   tecnico_id: number | null;
   tecnico: TecnicoResumen | null;

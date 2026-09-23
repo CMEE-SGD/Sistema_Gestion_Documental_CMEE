@@ -18,6 +18,7 @@ import {
   notificarResponsablesEquipo,
   resolverDestinatarios,
 } from '../common/helpers/notificar-responsables-equipo';
+import { RegistrarFechasCalibracionDto } from './dto/registrar-fechas-calibracion.dto';
 
 // El filtro de `equipos` va DENTRO del include (no solo en el `where` de la
 // orden) porque una orden puede agrupar equipos de varios laboratorios —
@@ -191,7 +192,8 @@ export class RecepcionEquiposService {
       );
     }
 
-    const { equipos, ...header } = dto;
+    const { equipos, proforma_id, ...header } = dto;
+    const proformaSync = await this.resolverProformaSync(proforma_id);
 
     await this.validarSubAreasDeEquipos(equipos);
 
@@ -199,6 +201,7 @@ export class RecepcionEquiposService {
       const orden = await this.prisma.ordenTrabajo.create({
         data: {
           ...header,
+          ...proformaSync,
           fecha_ingreso: toDate(dto.fecha_ingreso),
           equipos: {
             create: equipos.map((equipo) => ({
@@ -222,6 +225,30 @@ export class RecepcionEquiposService {
           (error.message || 'Error de base de datos'),
       );
     }
+  }
+
+  /**
+   * Si el usuario vincula una proforma, se guarda la FK y se sincroniza el
+   * texto visible n_proforma con su número. null → desvincula (limpia ambos);
+   * undefined → no toca nada.
+   */
+  private async resolverProformaSync(
+    proformaId: number | null | undefined,
+  ): Promise<
+    | { proforma_id: number; n_proforma: string }
+    | { proforma_id: null; n_proforma: null }
+    | undefined
+  > {
+    if (proformaId === undefined) return undefined;
+    if (proformaId === null) return { proforma_id: null, n_proforma: null };
+    const proforma = await this.prisma.proforma.findUnique({
+      where: { id: proformaId },
+      select: { id: true, numero: true },
+    });
+    if (!proforma) {
+      throw new BadRequestException('La proforma seleccionada no existe');
+    }
+    return { proforma_id: proforma.id, n_proforma: proforma.numero };
   }
 
   // Evita que un equipo quede etiquetado con una sub-área que en realidad
@@ -328,7 +355,8 @@ export class RecepcionEquiposService {
   async update(id: number, dto: UpdateOrdenTrabajoDto) {
     await this.findOne(id);
 
-    const { equipos, ...header } = dto;
+    const { equipos, proforma_id, ...header } = dto;
+    const proformaSync = await this.resolverProformaSync(proforma_id);
 
     if (equipos && equipos.length > 0) {
       await this.validarSubAreasDeEquipos(equipos);
@@ -341,6 +369,7 @@ export class RecepcionEquiposService {
           where: { id },
           data: {
             ...header,
+            ...proformaSync,
             fecha_ingreso: toDate(header.fecha_ingreso),
           },
         });
@@ -400,6 +429,47 @@ export class RecepcionEquiposService {
       }
       throw new BadRequestException(
         'Error al actualizar la orden de trabajo: ' +
+          (error.message || 'Error de base de datos'),
+      );
+    }
+  }
+
+  /**
+   * Fase A del flujograma: registro de fecha de calibración y próxima
+   * calibración de un equipo (base de las alertas de la Fase D). String vacío
+   * limpia la fecha; undefined la deja como está.
+   */
+  async registrarFechasCalibracion(
+    id: number,
+    dto: RegistrarFechasCalibracionDto,
+  ) {
+    const equipo = await this.prisma.equipoRecepcion.findUnique({
+      where: { id },
+    });
+    if (!equipo) {
+      throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+    }
+
+    try {
+      const actualizado = await this.prisma.equipoRecepcion.update({
+        where: { id },
+        data: {
+          fecha_calibracion:
+            dto.fecha_calibracion === ''
+              ? null
+              : toDate(dto.fecha_calibracion),
+          fecha_proxima_calibracion:
+            dto.fecha_proxima_calibracion === ''
+              ? null
+              : toDate(dto.fecha_proxima_calibracion),
+        },
+        include: EQUIPO_INCLUDE,
+      });
+      this.notificacionesService.notificarRecepcionActualizada();
+      return actualizado;
+    } catch (error: any) {
+      throw new BadRequestException(
+        'Error al registrar las fechas de calibración: ' +
           (error.message || 'Error de base de datos'),
       );
     }

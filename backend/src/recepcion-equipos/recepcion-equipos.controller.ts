@@ -17,6 +17,7 @@ import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
 import { CambiarFaseAdminDto } from './dto/cambiar-fase-admin.dto';
+import { RegistrarFechasCalibracionDto } from './dto/registrar-fechas-calibracion.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
@@ -58,6 +59,16 @@ export class RecepcionEquiposController {
     @Req() req: any,
   ) {
     return this.recepcionService.asignarTecnico(+id, dto, req.user);
+  }
+
+  // Fase A: registro de fecha de calibración y próxima calibración
+  @Patch(':id/fechas-calibracion')
+  @RequireAccess('Recepcion Equipos', 4)
+  registrarFechasCalibracion(
+    @Param('id') id: string,
+    @Body() dto: RegistrarFechasCalibracionDto,
+  ) {
+    return this.recepcionService.registrarFechasCalibracion(+id, dto);
   }
 
   @Patch(':id/transicion-estado')

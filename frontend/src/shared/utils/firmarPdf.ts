@@ -137,8 +137,8 @@ export async function firmarPdfConP12(
     } catch (err) {
       const esExcesoPlaceholder =
         err instanceof Error && /exceeds placeholder/i.test(err.message);
-      if (esExcesoPlaceholder && signatureLength < LONGITUD_MAXIMA_FIRMA) {
-        signatureLength *= 2;
+      if (esExcesoPlaceholder && longitud < LONGITUD_MAXIMA_FIRMA) {
+        longitud *= 2;
         continue;
       }
       const mensaje = err instanceof Error ? err.message : String(err);

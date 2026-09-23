@@ -178,6 +178,10 @@ model Persona {
   no_conformidades_responsable NoConformidad[]    @relation("NcResponsable")
   capacitaciones               CapacitacionPersona[]
 
+  // --- Módulo financiero: quién entrega y quién registra pagos ---
+  notas_entrega_entregadas NotaEntrega[] @relation("PersonaEntregaNota")
+  pagos_registrados        Pago[]        @relation("PersonaRegistraPago")
+
   @@map("persona")
 }
 
@@ -846,6 +850,8 @@ model ClienteInstitucional {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   ordenes_trabajo OrdenTrabajo[]
+  proformas       Proforma[]
+  facturas        Factura[]
 
   @@map("clientes_institucionales")
 }
@@ -867,6 +873,12 @@ model OrdenTrabajo {
   n_proforma            String?  @db.VarChar(50)
   recibe_responsable_id Int?
   recibe_responsable    Persona? @relation("PersonaRecibeOrden", fields: [recibe_responsable_id], references: [id])
+
+  // Vínculo formal a la proforma (entidad con número, monto y estado).
+  // n_proforma queda como respaldo visible/legacy; al vincular una proforma
+  // el servicio sincroniza n_proforma con su número.
+  proforma_id Int?
+  proforma    Proforma? @relation(fields: [proforma_id], references: [id])
 
   // Observaciones generales de la orden — texto libre del usuario al
   // registrar la recepción (también editable por el administrador).
@@ -919,6 +931,12 @@ model EquipoRecepcion {
   // Fecha en que el equipo ingresó físicamente al laboratorio
   fecha_ingreso_laboratorio DateTime? @db.Date
 
+  // Fechas de calibración (Fase A del flujograma): cuándo se calibró el
+  // equipo y cuándo vence la próxima calibración. Base de las alertas de
+  // "próxima calibración" (Fase D).
+  fecha_calibracion        DateTime? @db.Date
+  fecha_proxima_calibracion DateTime? @db.Date
+
   // Estado individual del equipo
   estado EstadoRecepcion @default(EN_ESPERA)
 
@@ -934,6 +952,9 @@ model EquipoRecepcion {
 
   certificados     Certificado[]
   historial_estado HistorialEstado[]
+
+  // Ítems de factura que referencian este equipo (opcional)
+  facturas_detalle FacturaDetalle[] @relation("FacturaDetalleEquipo")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -1426,4 +1447,176 @@ model CapacitacionPersona {
 
   @@unique([capacitacion_id, persona_id])
   @@map("capacitaciones_personas")
+}
+
+// ==========================================
+// MÓDULO FINANCIERO — flujograma de calibración (continuación)
+// Fase B: proforma + factura (XML de la encargada del sistema financiero)
+// + nota de entrega. Fase C: pagos, compensación (entrega de equipos) y
+// cartera por vencer/vencida. Fase D: alertas de próxima calibración.
+// ==========================================
+
+enum EstadoProforma {
+  EMITIDA
+  ACEPTADA
+  VENCIDA
+  CANCELADA
+}
+
+model Proforma {
+  id           Int        @id @default(autoincrement())
+  numero       String     @unique @db.VarChar(50)
+  cliente_id   Int
+  cliente      ClienteInstitucional @relation(fields: [cliente_id], references: [id])
+  fecha_emision DateTime  @default(now()) @db.Date
+  monto        Decimal    @db.Decimal(12, 2)
+  estado       EstadoProforma @default(EMITIDA)
+  observaciones String?   @db.Text
+
+  ordenes_trabajo OrdenTrabajo[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([cliente_id])
+  @@map("proformas")
+}
+
+enum EstadoFactura {
+  EMITIDA
+  PARCIAL
+  PAGADA
+  ANULADA
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  CHEQUE
+  COMPENSACION
+}
+
+// Cabecera de factura. El número puede venir de la numeración interna o del
+// XML de la encargada del sistema financiero (estab-ptoEmi-secuencial).
+model Factura {
+  id                    Int     @id @default(autoincrement())
+  numero                String  @unique @db.VarChar(50)
+  clave_acceso          String? @unique @db.VarChar(100)
+  ruta_xml              String? @db.VarChar(500)
+  nombre_original_xml   String? @db.VarChar(255)
+
+  cliente_id Int
+  cliente    ClienteInstitucional @relation(fields: [cliente_id], references: [id])
+
+  // Datos del receptor tal como vienen en el XML (el RUC del comprador puede
+  // diferir del registro interno del cliente).
+  razon_social_cliente String? @db.VarChar(200)
+  ruc_cliente          String? @db.VarChar(20)
+
+  fecha_emision  DateTime @db.Date
+  subtotal       Decimal  @db.Decimal(12, 2)
+  iva            Decimal  @db.Decimal(12, 2) @default(0)
+  total          Decimal  @db.Decimal(12, 2)
+
+  // Plazos de crédito: 30 por defecto; 60/90/120 elegibles por el usuario de
+  // facturación (decisión tomada: sin autorización especial).
+  plazo_dias       Int      @default(30)
+  fecha_vencimiento DateTime @db.Date
+  estado           EstadoFactura @default(EMITIDA)
+  notas            String?  @db.Text
+
+  detalle     FacturaDetalle[]
+  notas_entrega NotaEntrega[]
+  pagos       Pago[]
+  compensaciones Compensacion[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([cliente_id])
+  @@index([estado])
+  @@index([fecha_vencimiento])
+  @@map("facturas")
+}
+
+model FacturaDetalle {
+  id            Int    @id @default(autoincrement())
+  factura_id    Int
+  factura       Factura @relation(fields: [factura_id], references: [id], onDelete: Cascade)
+
+  concepto        String  @db.VarChar(300)
+  cantidad        Int     @default(1)
+  precio_unitario Decimal @db.Decimal(12, 2)
+  valor_total     Decimal @db.Decimal(12, 2)
+
+  // Ítem referenciando el equipo facturado (opcional)
+  equipo_recepcion_id Int?
+  equipo_recepcion    EquipoRecepcion? @relation("FacturaDetalleEquipo", fields: [equipo_recepcion_id], references: [id])
+
+  @@index([factura_id])
+  @@map("factura_detalle")
+}
+
+model NotaEntrega {
+  id            Int     @id @default(autoincrement())
+  numero        String  @unique @db.VarChar(50)
+  factura_id    Int
+  factura       Factura @relation(fields: [factura_id], references: [id])
+
+  fecha           DateTime  @default(now()) @db.Timestamptz
+  entregado_por_id Int?
+  entregado_por    Persona? @relation("PersonaEntregaNota", fields: [entregado_por_id], references: [id])
+  recibido_por     String?  @db.VarChar(150)
+  fecha_entrega    DateTime? @db.Date
+  observaciones    String?  @db.Text
+
+  @@index([factura_id])
+  @@map("notas_entrega")
+}
+
+model Compensacion {
+  id         Int    @id @default(autoincrement())
+  factura_id Int
+  factura    Factura @relation(fields: [factura_id], references: [id])
+
+  // Forma de cancelación "entrega de equipos": el cliente paga con equipos.
+  descripcion_equipo   String?  @db.VarChar(300)
+  autorizacion_previa  Boolean  @default(false)
+  ruta_factura_compra  String?  @db.VarChar(500)
+  ruta_acta            String?  @db.VarChar(500)
+  descuento_autorizado Decimal? @db.Decimal(12, 2)
+  observaciones        String?  @db.Text
+
+  pagos Pago[]
+
+  @@index([factura_id])
+  @@map("compensaciones")
+}
+
+model Pago {
+  id         Int    @id @default(autoincrement())
+  factura_id Int
+  factura    Factura @relation(fields: [factura_id], references: [id])
+
+  monto      Decimal    @db.Decimal(12, 2)
+  fecha      DateTime   @default(now()) @db.Date
+  metodo     MetodoPago
+
+  ruta_comprobante            String? @db.VarChar(500)
+  nombre_original_comprobante String? @db.VarChar(255)
+  referencia                  String? @db.VarChar(100)
+  observaciones               String? @db.Text
+
+  // Si el pago se registró vía compensación (entrega de equipos)
+  compensacion_id Int?
+  compensacion    Compensacion? @relation(fields: [compensacion_id], references: [id])
+
+  registrado_por_id Int?
+  registrado_por    Persona? @relation("PersonaRegistraPago", fields: [registrado_por_id], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([factura_id])
+  @@index([compensacion_id])
+  @@map("pagos")
 }
