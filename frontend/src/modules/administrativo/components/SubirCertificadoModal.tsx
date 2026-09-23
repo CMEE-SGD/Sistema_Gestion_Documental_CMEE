@@ -4,7 +4,8 @@ import { UploadCloud, FileText, X, Loader2 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
-import { MENSAJE_PDF_CIFRADO, pdfEstaCifrado } from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
+import { descifrarPdf } from '../../../shared/utils/firma-pdf/descifrarPdf';
+import { pdfEstaCifrado } from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
 
 interface Props {
   isOpen: boolean;
@@ -171,10 +172,20 @@ export default function SubirCertificadoModal({
   });
 
   // Este documento lo firmarán el técnico, el jefe y el director en la
-  // plataforma; un PDF cifrado no se puede firmar (ver pdfEstaCifrado.ts), así
-  // que se rechaza aquí, cuando quien lo generó todavía puede corregirlo.
-  const esPdfCifrado = async (f: File) =>
-    pdfEstaCifrado(new Uint8Array(await f.arrayBuffer()));
+  // plataforma. Un PDF protegido (cifrado) se acepta: se le quita la protección
+  // al firmarlo (ver descifrarPdf.ts). Pero se comprueba ya, mientras quien lo
+  // generó aún puede corregirlo, que realmente se pueda: sin firma digital
+  // previa ni contraseña para abrirlo. Devuelve el motivo, o null si está bien.
+  const motivoPdfNoFirmable = async (f: File): Promise<string | null> => {
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    if (!pdfEstaCifrado(bytes)) return null;
+    try {
+      await descifrarPdf(bytes);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : 'No se puede firmar este PDF.';
+    }
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
@@ -184,8 +195,9 @@ export default function SubirCertificadoModal({
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    if (selected && (await esPdfCifrado(selected))) {
-      await alert({ message: MENSAJE_PDF_CIFRADO });
+    const motivo = selected ? await motivoPdfNoFirmable(selected) : null;
+    if (motivo) {
+      await alert({ message: motivo });
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -200,8 +212,9 @@ export default function SubirCertificadoModal({
       await alert({ message: 'Solo se permiten archivos PDF' });
       return;
     }
-    if (dropped && (await esPdfCifrado(dropped))) {
-      await alert({ message: MENSAJE_PDF_CIFRADO });
+    const motivo = dropped ? await motivoPdfNoFirmable(dropped) : null;
+    if (motivo) {
+      await alert({ message: motivo });
       return;
     }
     setFile(dropped);
