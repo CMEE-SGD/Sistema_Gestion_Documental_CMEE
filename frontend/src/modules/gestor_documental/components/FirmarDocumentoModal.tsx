@@ -3,6 +3,7 @@ import { CheckCircle2, FileSignature, Loader2, Upload, X, XCircle } from 'lucide
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
 import { generarUuidV4 } from '../../../shared/utils/uuid';
+import { MENSAJE_PDF_CIFRADO, pdfEstaCifrado } from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
 import ErrorBoundary from '../../../shared/components/molecules/ErrorBoundary';
 import type { PosicionFirma } from '../../../shared/components/organisms/SelectorPosicionFirma';
 
@@ -157,6 +158,8 @@ export default function FirmarDocumentoModal({
         const res = await fetch(`${BACKEND_BASE}/${rutaLimpia}`);
         if (!res.ok) throw new Error('No se pudo descargar el documento a firmar.');
         const bytes = new Uint8Array(await res.arrayBuffer());
+        // Avisar ya, no después de pedir el .p12, la contraseña y la posición.
+        if (pdfEstaCifrado(bytes)) throw new Error(MENSAJE_PDF_CIFRADO);
         if (!cancelado) setPdfDescargado(bytes);
       } catch (err) {
         if (!cancelado) {

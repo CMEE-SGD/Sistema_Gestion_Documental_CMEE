@@ -4,6 +4,7 @@ import { UploadCloud, FileText, X, Loader2 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { MENSAJE_PDF_CIFRADO, pdfEstaCifrado } from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
 
 interface Props {
   isOpen: boolean;
@@ -169,10 +170,22 @@ export default function SubirCertificadoModal({
     },
   });
 
+  // Este documento lo firmarán el técnico, el jefe y el director en la
+  // plataforma; un PDF cifrado no se puede firmar (ver pdfEstaCifrado.ts), así
+  // que se rechaza aquí, cuando quien lo generó todavía puede corregirlo.
+  const esPdfCifrado = async (f: File) =>
+    pdfEstaCifrado(new Uint8Array(await f.arrayBuffer()));
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
     if (selected && selected.type !== 'application/pdf') {
       await alert({ message: 'Solo se permiten archivos PDF' });
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    if (selected && (await esPdfCifrado(selected))) {
+      await alert({ message: MENSAJE_PDF_CIFRADO });
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -185,6 +198,10 @@ export default function SubirCertificadoModal({
     const dropped = e.dataTransfer.files?.[0] ?? null;
     if (dropped && dropped.type !== 'application/pdf') {
       await alert({ message: 'Solo se permiten archivos PDF' });
+      return;
+    }
+    if (dropped && (await esPdfCifrado(dropped))) {
+      await alert({ message: MENSAJE_PDF_CIFRADO });
       return;
     }
     setFile(dropped);
