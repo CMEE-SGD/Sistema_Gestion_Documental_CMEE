@@ -1,0 +1,103 @@
+/*
+ * Tema del módulo financiero: "libro mayor de precisión".
+ * Redefine, solo dentro de .tema-financiero, los tokens semánticos del sistema
+ * (background, card, foreground, border...) para que todo lo que ya usa
+ * bg-card / text-foreground / border-border tome esta paleta sin tocar el
+ * resto de la aplicación. Los tokens --fin-* son propios del módulo.
+ */
+
+.tema-financiero {
+  /* Superficies */
+  --background: #e9edf3; /* lienzo */
+  --card: #ffffff;
+  --popover: #ffffff;
+  --muted: #f3f6fa; /* cabeceras de tabla, zonas hundidas */
+  --accent: #e7ecf4; /* hover suave */
+  --secondary: #e3e9f1;
+
+  /* Texto: tinta azul-negra, nunca gris neutro */
+  --foreground: #0e1a2b;
+  --card-foreground: #0e1a2b;
+  --popover-foreground: #0e1a2b;
+  --secondary-foreground: #1b2b44;
+  --accent-foreground: #0e1a2b;
+  --muted-foreground: #4a5a72;
+
+  /* Marca */
+  --primary: #1e3a5f;
+  --primary-foreground: #ffffff;
+  --destructive: #a4231a;
+
+  /* Líneas */
+  --border: #d3dae5;
+  --input: #b9c4d3;
+  --ring: #1e3a5f;
+  --radius: 0.625rem;
+
+  /* Propios del módulo */
+  --fin-navy-profundo: #142a44;
+  --fin-menu-texto: #cbd5e5;
+  --fin-menu-tenue: #93a4bd;
+  --fin-oro: #a67c3d;
+  --fin-oro-tinta: #6e5020;
+  --fin-oro-tinte: #f6efe1;
+
+  --fin-ok-bg: #e2f3ea;
+  --fin-ok-fg: #0e6a47;
+  --fin-ok-punto: #1f9d6b;
+  --fin-ok-linea: #b7dfc9;
+
+  --fin-aviso-bg: #fbeed6;
+  --fin-aviso-fg: #8a5708;
+  --fin-aviso-punto: #d99a1b;
+  --fin-aviso-linea: #f0d59b;
+
+  --fin-error-bg: #fbe3e0;
+  --fin-error-fg: #a4231a;
+  --fin-error-punto: #d4483b;
+  --fin-error-linea: #f2b8b2;
+
+  --fin-info-bg: #e1ebf8;
+  --fin-info-fg: #1b4e8f;
+  --fin-info-punto: #3a79c4;
+  --fin-info-linea: #b5cdec;
+
+  --fin-neutro-bg: #e5e9f0;
+  --fin-neutro-fg: #3d4d66;
+  --fin-neutro-punto: #8391a7;
+  --fin-neutro-linea: #c9d1de;
+
+  --fin-graf-facturado: #1e3a5f;
+  --fin-graf-cobrado: #1f7a5c;
+  --fin-graf-paso: #9aa9bf;
+
+  font-family: 'IBM Plex Sans Variable', 'Geist Variable', system-ui, sans-serif;
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Títulos y cifras grandes: la misma familia condensada del inicio de sesión. */
+.tema-financiero .fin-display {
+  font-family: 'Big Shoulders Display Variable', 'Geist Variable', sans-serif;
+  letter-spacing: 0.01em;
+  font-variant-numeric: lining-nums;
+}
+
+/* Números de documento (facturas, claves): ancho fijo para que se lean como códigos. */
+.tema-financiero .fin-codigo {
+  font-family: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Cifras de dinero: dígitos de ancho fijo, alineadas por decimales. */
+.tema-financiero .fin-cifra {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tema-financiero * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

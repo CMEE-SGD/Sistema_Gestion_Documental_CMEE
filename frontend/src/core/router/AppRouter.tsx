@@ -100,6 +100,13 @@ import ClientesPage from '../../modules/administrativo/pages/ClientesPage';
 import CertificadosPage from '../../modules/administrativo/pages/CertificadosPage';
 import ReportesPage from '../../modules/administrativo/pages/ReportesPage';
 
+// --- MÓDULO FINANCIERO (maqueta) ---
+import { FinancieroLayout } from '../../modules/financiero/FinancieroLayout';
+import DashboardFinancieroPage from '../../modules/financiero/pages/DashboardPage';
+import FacturasFinancieroPage from '../../modules/financiero/pages/FacturasPage';
+import EgresosFinancieroPage from '../../modules/financiero/pages/EgresosPage';
+import ReglasFinancieroPage from '../../modules/financiero/pages/ReglasPage';
+
 // --- MÓDULO RESUMEN (dashboards) ---
 import { ResumenLayout } from '../../modules/resumen/ResumenLayout';
 import DashboardClientes from '../../modules/resumen/pages/DashboardClientes';
@@ -224,6 +231,15 @@ const AppContenido = () => {
           <Route path="clientes" element={<ClientesPage />} />
           <Route path="certificados" element={<CertificadosPage />} />
           <Route path="reportes" element={<ReportesPage />} />
+        </Route>
+
+        {/* --- MÓDULO FINANCIERO (maqueta) --- */}
+        <Route path="/financiero" element={<FinancieroLayout />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardFinancieroPage />} />
+          <Route path="facturas" element={<FacturasFinancieroPage />} />
+          <Route path="egresos" element={<EgresosFinancieroPage />} />
+          <Route path="reglas" element={<ReglasFinancieroPage />} />
         </Route>
 
         {/* --- MÓDULO RESUMEN (dashboards) --- */}
