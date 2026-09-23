@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { FileSignature, Loader2, Upload, X, XCircle } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
+import { MENSAJE_PDF_CIFRADO, pdfEstaCifrado } from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
 import ErrorBoundary from '../../../shared/components/molecules/ErrorBoundary';
 import type { PosicionFirma } from '../../../shared/components/organisms/SelectorPosicionFirma';
 
@@ -126,6 +127,8 @@ export default function FirmarDigitalModal({
         );
         if (!res.ok) throw new Error('No se pudo descargar el documento a firmar.');
         const bytes = new Uint8Array(await res.arrayBuffer());
+        // Avisar ya, no después de pedir el .p12, la contraseña y la posición.
+        if (pdfEstaCifrado(bytes)) throw new Error(MENSAJE_PDF_CIFRADO);
         if (!cancelado) setPdfDescargado(bytes);
       } catch (err) {
         if (!cancelado) {

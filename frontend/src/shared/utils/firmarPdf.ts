@@ -12,6 +12,7 @@ import * as forge from 'node-forge';
 import { FirmaPdfError } from './FirmaPdfError';
 import { agregarSelloYPlaceholder } from './firma-pdf/agregarSelloYPlaceholder';
 import { asegurarXrefClasico } from './firma-pdf/asegurarXrefClasico';
+import { MENSAJE_PDF_CIFRADO, pdfEstaCifrado } from './firma-pdf/pdfEstaCifrado';
 import type { PosicionFirma } from '../components/organisms/SelectorPosicionFirma';
 
 export { FirmaPdfError };
@@ -60,6 +61,10 @@ export async function firmarPdfConP12(
   razon: string,
   sello?: { posicion: PosicionFirma; qrUrl?: string },
 ): Promise<Uint8Array> {
+  // Firmar un PDF cifrado lo deja en blanco en Adobe (ver pdfEstaCifrado.ts);
+  // mejor negarse que producir un documento firmado pero ilegible.
+  if (pdfEstaCifrado(pdfBytes)) throw new FirmaPdfError(MENSAJE_PDF_CIFRADO);
+
   const p12Bytes = new Uint8Array(await p12File.arrayBuffer());
   const p12Buffer = Buffer.from(p12Bytes);
 
