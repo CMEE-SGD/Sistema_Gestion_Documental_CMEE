@@ -3,7 +3,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { FileSignature, Loader2, Upload, X, XCircle } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
-import { MENSAJE_PDF_CIFRADO, pdfEstaCifrado } from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
+import {
+  MENSAJE_PDF_CIFRADO_Y_FIRMADO,
+  pdfEstaCifrado,
+  pdfTieneFirmaDigital,
+} from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
 import ErrorBoundary from '../../../shared/components/molecules/ErrorBoundary';
 import type { PosicionFirma } from '../../../shared/components/organisms/SelectorPosicionFirma';
 
@@ -54,6 +58,8 @@ export default function FirmarDigitalModal({
   const [accion, setAccion] = useState<Accion | null>(null);
   const [pdfDescargado, setPdfDescargado] = useState<Uint8Array | null>(null);
   const [cargandoPdf, setCargandoPdf] = useState(false);
+  // El PDF venía cifrado (protegido con restricciones): se le quita al firmar.
+  const [avisoCifrado, setAvisoCifrado] = useState(false);
   const [posicionFirma, setPosicionFirma] = useState<PosicionFirma | null>(null);
   // Código público del certificado — si se consigue, el sello incluye un QR
   // que apunta a /verificar/:codigo. Es un extra visual: si esta petición
@@ -127,9 +133,17 @@ export default function FirmarDigitalModal({
         );
         if (!res.ok) throw new Error('No se pudo descargar el documento a firmar.');
         const bytes = new Uint8Array(await res.arrayBuffer());
-        // Avisar ya, no después de pedir el .p12, la contraseña y la posición.
-        if (pdfEstaCifrado(bytes)) throw new Error(MENSAJE_PDF_CIFRADO);
-        if (!cancelado) setPdfDescargado(bytes);
+        // Un PDF cifrado se firma quitándole el cifrado (ver descifrarPdf.ts).
+        // Solo se frena aquí el que ya trae una firma: no se puede reescribir
+        // sin invalidarla, y es mejor avisar ya que después de pedir el .p12.
+        const cifrado = pdfEstaCifrado(bytes);
+        if (cifrado && pdfTieneFirmaDigital(bytes)) {
+          throw new Error(MENSAJE_PDF_CIFRADO_Y_FIRMADO);
+        }
+        if (!cancelado) {
+          setAvisoCifrado(cifrado);
+          setPdfDescargado(bytes);
+        }
       } catch (err) {
         if (!cancelado) {
           setError(err instanceof Error ? err.message : 'No se pudo descargar el documento.');
@@ -175,6 +189,7 @@ export default function FirmarDigitalModal({
     setAccion(null);
     setPdfDescargado(null);
     setCargandoPdf(false);
+    setAvisoCifrado(false);
     setPosicionFirma(null);
     setCodigoVerificacion(null);
     setP12File(null);
@@ -402,6 +417,18 @@ export default function FirmarDigitalModal({
                     />
                   </div>
                 </div>
+
+                {avisoCifrado && (
+                  <div
+                    role="status"
+                    className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+                  >
+                    Este PDF viene protegido (cifrado con restricciones). Se le
+                    quitará esa protección automáticamente al firmarlo, para
+                    poder colocar el sello; la firma digital protege el
+                    documento contra cambios.
+                  </div>
+                )}
 
                 {cargandoPdf ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground border-t border-border pt-4">
