@@ -3,6 +3,7 @@ import { CheckCircle2, FileSignature, Loader2, Upload, X, XCircle, Eye, EyeOff }
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
 import { generarUuidV4 } from '../../../shared/utils/uuid';
+import ErrorBoundary from '../../../shared/components/molecules/ErrorBoundary';
 import type { PosicionFirma } from '../../../shared/components/organisms/SelectorPosicionFirma';
 
 // Carga diferida: pdfjs-dist (~350KB + worker) solo se descarga cuando
@@ -514,21 +515,23 @@ export default function FirmarDocumentoModal({
                   </div>
                 ) : pdfDescargado ? (
                   <div className="border-t border-border pt-4">
-                    <Suspense
-                      fallback={
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Cargando visor de PDF…
-                        </div>
-                      }
-                    >
-                      <SelectorPosicionFirma
-                        pdfBytes={pdfDescargado}
-                        posicionActual={posicionFirma}
-                        onSeleccionar={setPosicionFirma}
-                        tamanoSello={tamanoSello}
-                      />
-                    </Suspense>
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Cargando visor de PDF…
+                          </div>
+                        }
+                      >
+                        <SelectorPosicionFirma
+                          pdfBytes={pdfDescargado}
+                          posicionActual={posicionFirma}
+                          onSeleccionar={setPosicionFirma}
+                          tamanoSello={tamanoSello}
+                        />
+                      </Suspense>
+                    </ErrorBoundary>
                   </div>
                 ) : null}
               </div>
