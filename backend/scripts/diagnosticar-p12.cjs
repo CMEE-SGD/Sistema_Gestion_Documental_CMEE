@@ -44,18 +44,19 @@ const OIDS = {
   '1.2.840.10045.4.3.2': 'Firma del certificado: ecdsa-with-SHA256',
 };
 
-function recorrer(node, encontrados) {
+function recorrer(node, encontrados, todos) {
   if (!node) return;
   if (node.type === forge.asn1.Type.OID) {
     try {
       const oid = forge.asn1.derToOid(node.value);
+      todos.add(oid);
       if (OIDS[oid]) encontrados[oid] = true;
     } catch {
       /* no es un OID reconocible */
     }
   }
   if (Array.isArray(node.value)) {
-    node.value.forEach((n) => recorrer(n, encontrados));
+    node.value.forEach((n) => recorrer(n, encontrados, todos));
   }
 }
 
@@ -64,7 +65,8 @@ try {
   console.log('\n1) ASN.1 (DER): OK, se lee como estructura binaria válida.\n');
 
   const encontrados = {};
-  recorrer(asn1, encontrados);
+  const todos = new Set();
+  recorrer(asn1, encontrados, todos);
   console.log('2) Algoritmos detectados dentro del archivo:');
   let alguno = false;
   for (const oid of Object.keys(OIDS)) {
@@ -74,6 +76,10 @@ try {
     }
   }
   if (!alguno) console.log('   - (ninguno de los algoritmos conocidos)');
+  console.log('   --- TODOS los OIDs presentes (ordenados): ---');
+  for (const oid of [...todos].sort()) {
+    console.log('      ' + oid + (OIDS[oid] ? '  => ' + OIDS[oid] : ''));
+  }
 
   const tieneModerno = Object.keys(encontrados).some((oid) =>
     ['1.2.840.113549.1.5.13', '2.16.840.1.101.3.4.1.42', '2.16.840.1.101.3.4.1.2', '1.2.840.113549.2.9'].includes(oid),
