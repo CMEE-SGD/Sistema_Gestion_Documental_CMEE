@@ -12,6 +12,8 @@ import * as forge from 'node-forge';
 import { FirmaPdfError } from './FirmaPdfError';
 import { agregarSelloYPlaceholder } from './firma-pdf/agregarSelloYPlaceholder';
 import { asegurarXrefClasico } from './firma-pdf/asegurarXrefClasico';
+import { descifrarPdf } from './firma-pdf/descifrarPdf';
+import { pdfEstaCifrado } from './firma-pdf/pdfEstaCifrado';
 import type { PosicionFirma } from '../components/organisms/SelectorPosicionFirma';
 
 export { FirmaPdfError };
@@ -60,6 +62,13 @@ export async function firmarPdfConP12(
   razon: string,
   sello?: { posicion: PosicionFirma; qrUrl?: string },
 ): Promise<Uint8Array> {
+  // Firmar un PDF cifrado tal cual lo deja en blanco en Adobe (ver
+  // pdfEstaCifrado.ts), así que primero se le quita el cifrado. Los PDFs sin
+  // cifrar (el caso normal) siguen exactamente el mismo camino de siempre.
+  // Si no se puede (trae una firma previa, o pide contraseña para abrirlo),
+  // descifrarPdf lanza un FirmaPdfError con el motivo.
+  const pdfLegible = pdfEstaCifrado(pdfBytes) ? await descifrarPdf(pdfBytes) : pdfBytes;
+
   const p12Bytes = new Uint8Array(await p12File.arrayBuffer());
   const p12Buffer = Buffer.from(p12Bytes);
 
@@ -76,7 +85,7 @@ export async function firmarPdfConP12(
     };
   }
 
-  const pdfBuffer = Buffer.from(pdfBytes);
+  const pdfBuffer = Buffer.from(pdfLegible);
 
   const errorPreparandoPdf = (err: unknown) => {
     // eslint-disable-next-line no-console
