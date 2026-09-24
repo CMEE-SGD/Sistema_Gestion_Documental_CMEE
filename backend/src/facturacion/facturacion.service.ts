@@ -30,6 +30,15 @@ const CLIENTE_SELECT = {
 
 const FACTURA_INCLUDE = {
   cliente: CLIENTE_SELECT,
+  orden_trabajo: {
+    select: {
+      id: true,
+      orden_trabajo_fisica: true,
+      fecha_ingreso: true,
+      proforma_id: true,
+      n_proforma: true,
+    },
+  },
   detalle: {
     include: {
       equipo_recepcion: {
@@ -73,6 +82,43 @@ export class FacturacionService {
 
   private toDate(value?: string): Date | undefined {
     return value ? new Date(value) : undefined;
+  }
+
+  /**
+   * Valida que una orden de trabajo pueda facturarse: debe existir y TODOS sus
+   * equipos deben estar en FINALIZADO. Devuelve la orden con sus equipos.
+   */
+  private async validarOrdenFacturable(ordenId: number) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id: ordenId },
+      include: {
+        equipos: { select: { id: true, estado: true, equipo_descripcion: true } },
+        cliente: { select: { id: true, nombre: true } },
+      },
+    });
+    if (!orden) {
+      throw new NotFoundException(`Orden de trabajo ${ordenId} no encontrada`);
+    }
+    if (orden.equipos.length === 0) {
+      throw new BadRequestException(
+        `La orden ${orden.orden_trabajo_fisica} no tiene equipos registrados.`,
+      );
+    }
+    const incompletos = orden.equipos.filter((e) => e.estado !== 'FINALIZADO');
+    if (incompletos.length > 0) {
+      const nombres = incompletos
+        .slice(0, 3)
+        .map((e) => `"${e.equipo_descripcion}" (${e.estado})`)
+        .join(', ');
+      const restantes =
+        incompletos.length > 3
+          ? ` y ${incompletos.length - 3} más`
+          : '';
+      throw new BadRequestException(
+        `La factura se habilita cuando todos los equipos de la orden ${orden.orden_trabajo_fisica} estén FINALIZADO. Pendientes: ${nombres}${restantes}.`,
+      );
+    }
+    return orden;
   }
 
   private n(v: any): number {
@@ -253,6 +299,30 @@ export class FacturacionService {
     return { ...proforma, monto: this.n(proforma.monto) };
   }
 
+  /**
+   * Datos mínimos de una orden de trabajo para el flujo de facturación:
+   * número físico, cliente y equipos. Lo consume el módulo financiero para
+   * precargar el alta/importación de la factura de una orden finalizada —
+   * no requiere acceso al módulo 'Recepcion Equipos'.
+   */
+  async findOrdenParaFactura(id: number) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        orden_trabajo_fisica: true,
+        n_proforma: true,
+        cliente: { select: { id: true, nombre: true } },
+        equipos: {
+          select: { id: true, equipo_descripcion: true, estado: true },
+          orderBy: { id: 'asc' },
+        },
+      },
+    });
+    if (!orden) throw new NotFoundException(`Orden de trabajo ${id} no encontrada`);
+    return orden;
+  }
+
   async updateProforma(id: number, dto: UpdateProformaDto) {
     await this.findOneProforma(id);
     return this.prisma.proforma.update({
@@ -309,6 +379,13 @@ export class FacturacionService {
     });
     if (!cliente) throw new NotFoundException('Cliente institucional no encontrado');
 
+    // Si la factura nace de una orden, ésta debe tener TODOS sus equipos FINALIZADO.
+    let ordenId: number | undefined;
+    if (dto.orden_trabajo_id !== undefined) {
+      const orden = await this.validarOrdenFacturable(dto.orden_trabajo_id);
+      ordenId = orden.id;
+    }
+
     const detalle = (dto.detalle ?? []).map((d) => ({
       concepto: d.concepto,
       cantidad: d.cantidad ?? 1,
@@ -334,6 +411,7 @@ export class FacturacionService {
             numero,
             clave_acceso: dto.clave_acceso || null,
             cliente_id: dto.cliente_id,
+            orden_trabajo_id: ordenId ?? null,
             fecha_emision: fechaEmision,
             subtotal,
             iva,
@@ -354,7 +432,10 @@ export class FacturacionService {
    * Fase B: la encargada del sistema financiero emite la factura en su propio
    * sistema; aquí SOLO se absorbe el XML (SRI) y se guardan los datos.
    */
-  async importarXml(dto: { cliente_id: number; plazo_dias?: number }, file: Express.Multer.File) {
+  async importarXml(
+    dto: { cliente_id: number; plazo_dias?: number; orden_trabajo_id?: number },
+    file: Express.Multer.File,
+  ) {
     if (!file) throw new BadRequestException('Debe adjuntar el archivo XML de la factura');
 
     const xmlText = file.buffer.toString('utf-8');
@@ -364,6 +445,13 @@ export class FacturacionService {
       where: { id: dto.cliente_id },
     });
     if (!cliente) throw new NotFoundException('Cliente institucional no encontrado');
+
+    // Si la factura nace de una orden, ésta debe tener TODOS sus equipos FINALIZADO.
+    let ordenId: number | undefined;
+    if (dto.orden_trabajo_id !== undefined) {
+      const orden = await this.validarOrdenFacturable(dto.orden_trabajo_id);
+      ordenId = orden.id;
+    }
 
     const existente = await this.prisma.factura.findUnique({
       where: { numero: datos.numero },
@@ -405,6 +493,7 @@ export class FacturacionService {
             ? datos.info_adicional
             : undefined,
         cliente_id: dto.cliente_id,
+        orden_trabajo_id: ordenId ?? null,
         razon_social_cliente: datos.razon_social_cliente,
         ruc_cliente: datos.ruc_cliente,
         fecha_emision: fechaEmision,

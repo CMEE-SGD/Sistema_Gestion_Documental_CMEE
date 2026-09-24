@@ -42,6 +42,14 @@ export class CreateFacturaDto {
   @IsInt()
   cliente_id: number;
 
+  /**
+   * Orden de trabajo que origina la factura. Se valida que TODOS sus equipos
+   * estén en FINALIZADO; en caso contrario la factura no se habilita.
+   */
+  @IsOptional()
+  @IsInt()
+  orden_trabajo_id?: number;
+
   @IsOptional()
   fecha_emision?: string;
 

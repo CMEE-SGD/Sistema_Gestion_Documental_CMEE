@@ -88,6 +88,15 @@ export class FacturacionController {
     return this.facturacionService.findAllFacturas();
   }
 
+  // Datos de una orden de trabajo para el alta/importación de la factura.
+  // Solo lectura; no exige permiso 'Recepcion Equipos' (el catálogo vive en
+  // el módulo financiero porque la factura nace de la orden finalizada).
+  @Get('ordenes/:id')
+  @RequireAccess('Gestion Financiera', 1)
+  findOrdenParaFactura(@Param('id', ParseIntPipe) id: number) {
+    return this.facturacionService.findOrdenParaFactura(id);
+  }
+
   @Get('facturas/:id')
   @RequireAccess('Gestion Financiera', 1)
   findOneFactura(@Param('id', ParseIntPipe) id: number) {

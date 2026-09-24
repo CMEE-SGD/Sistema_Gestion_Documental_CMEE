@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowDown,
@@ -13,6 +14,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Receipt,
   Search,
   Trash2,
   FileX,
@@ -30,7 +32,7 @@ import { cn } from '../../../shared/utils/utils';
 import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
 import api from '../../../core/api/axios';
 import { getUsuarioActual } from '../../../shared/hooks/useAuth';
-import { esUsuarioAdministrador } from '../../../shared/utils/auth';
+import { esUsuarioAdministrador, tienePermiso } from '../../../shared/utils/auth';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { Button } from '../../../shared/components/atoms/button';
@@ -80,6 +82,16 @@ function formatDate(dateStr: string | null | undefined): string {
     day: '2-digit',
     timeZone: 'UTC',
   });
+}
+
+/**
+ * Una orden habilita su factura cuando TODOS sus equipos llegaron a
+ * FINALIZADO (la bandeja aplana una fila por equipo; la condición se evalúa
+ * sobre la orden completa). El backend la valida de nuevo al crear/importar.
+ */
+function esOrdenFacturable(orden: OrdenTrabajoDetalle): boolean {
+  const equipos = orden.equipos ?? [];
+  return equipos.length > 0 && equipos.every((e) => e.estado === 'FINALIZADO');
 }
 
 interface PersonaOption {
@@ -537,6 +549,7 @@ function useBandejaData() {
 export default function BandejaTrabajoPage() {
   const user = getUsuarioActual();
   const puesto = user?.persona?.puesto ?? '';
+  const navigate = useNavigate();
 
   const queryClient = useQueryClient();
   const { alert, confirm } = useAlert();
@@ -574,6 +587,7 @@ export default function BandejaTrabajoPage() {
   const [ordenDir, setOrdenDir] = useState<'asc' | 'desc'>('desc');
 
   const esAdministrador = esUsuarioAdministrador();
+  const puedeFacturar = tienePermiso('Gestion Financiera', 1);
   const [editarOrden, setEditarOrden] = useState<OrdenTrabajoDetalle | null>(
     null,
   );
@@ -1333,6 +1347,23 @@ export default function BandejaTrabajoPage() {
                             >
                               <Eye className="h-4 w-4" />
                               Ver Documento
+                            </Button>
+                          )}
+
+                          {/* Orden completa en FINALIZADO: se habilita la factura */}
+                          {puedeFacturar && esOrdenFacturable(req.orden) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                navigate(
+                                  `/financiero/facturas?orden_id=${req.orden.id}&cliente_id=${req.orden.cliente?.id ?? ''}`,
+                                )
+                              }
+                              title="Registrar la factura de esta orden en el módulo financiero"
+                            >
+                              <Receipt className="h-4 w-4" />
+                              Facturar
                             </Button>
                           )}
                         </div>

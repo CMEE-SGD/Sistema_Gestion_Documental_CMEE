@@ -887,6 +887,10 @@ model OrdenTrabajo {
   // Un detalle por cada equipo recibido en esta orden
   equipos EquipoRecepcion[]
 
+  // Facturas originadas cuando todos los equipos de la orden llegan a
+  // FINALIZADO (la factura se habilita al completarse la orden).
+  facturas Factura[] @relation("FacturaOrdenTrabajo")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -1515,6 +1519,12 @@ model Factura {
 
   cliente_id Int
   cliente    ClienteInstitucional @relation(fields: [cliente_id], references: [id])
+
+  // Orden de trabajo que dio origen a la factura. Se asigna al facturar una
+  // orden completa (todos sus equipos FINALIZADO); permite trazabilidad
+  // orden → factura en el módulo financiero.
+  orden_trabajo_id Int?
+  orden_trabajo    OrdenTrabajo? @relation("FacturaOrdenTrabajo", fields: [orden_trabajo_id], references: [id])
 
   // Datos del receptor tal como vienen en el XML (el RUC del comprador puede
   // diferir del registro interno del cliente).

@@ -5,13 +5,15 @@
 // - Cobros: pagos (efectivo/transferencia/cheque) y compensación (entrega de
 //   equipos). Nota de entrega vinculada a la factura.
 
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import {
   Eye,
   FileDown,
   Loader2,
   Plus,
+  Receipt,
   Search,
   Trash2,
   UploadCloud,
@@ -51,6 +53,11 @@ interface FacturaResumen {
   nombre_original_xml: string | null;
   cliente_id: number;
   cliente: ClienteOption;
+  /** Orden de trabajo que dio origen a la factura (solo lectura). */
+  orden_trabajo?: {
+    id: number;
+    orden_trabajo_fisica: string;
+  } | null;
   razon_social_cliente: string | null;
   ruc_cliente: string | null;
   fecha_emision: string;
@@ -76,6 +83,64 @@ export default function FacturasPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const esAdmin = esUsuarioAdministrador();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Contexto de vinculación: llega desde "Facturar" en los listados de
+  // recepción (orden completa con todos sus equipos FINALIZADO).
+  const ordenContext = searchParams.get('orden_id')
+    ? Number(searchParams.get('orden_id'))
+    : null;
+  const clienteContext = searchParams.get('cliente_id')
+    ? Number(searchParams.get('cliente_id'))
+    : null;
+
+  // Datos de la orden vinculada (número físico, cliente y equipos) para
+  // mostrar el contexto y precargar el detalle de la factura manual.
+  const { data: ordenContextoData } = useQuery({
+    queryKey: ['orden-factura-contexto', ordenContext],
+    queryFn: async () => {
+      const res = await api.get(`/facturacion/ordenes/${ordenContext}`);
+      return res.data as {
+        id: number;
+        orden_trabajo_fisica: string;
+        cliente?: { id: number; nombre: string };
+        equipos?: Array<{
+          id: number;
+          equipo_descripcion: string;
+          estado: string;
+        }>;
+      };
+    },
+    enabled: ordenContext !== null,
+    retry: 1,
+  });
+
+  const limpiarContextoOrden = () => {
+    setSearchParams({}, { replace: true });
+  };
+
+  // La orden vinculada habilita la factura solo si TODOS sus equipos están
+  // FINALIZADO (misma condición que valida el backend al crear/importar).
+  const contextoOrdenFacturable = useMemo(() => {
+    const equipos = ordenContextoData?.equipos ?? [];
+    return equipos.length > 0 && equipos.every((e) => e.estado === 'FINALIZADO');
+  }, [ordenContextoData]);
+
+  // Al llegar desde "Facturar" en los listados, abrir directamente el alta
+  // manual con el detalle precargado (los equipos de la orden). Solo si la
+  // orden efectivamente habilita la factura.
+  const contextoAutoAbierto = useRef(false);
+  useEffect(() => {
+    if (
+      ordenContext !== null &&
+      ordenContextoData &&
+      contextoOrdenFacturable &&
+      !contextoAutoAbierto.current
+    ) {
+      contextoAutoAbierto.current = true;
+      setTipoModal('manual');
+    }
+  }, [ordenContext, ordenContextoData, contextoOrdenFacturable]);
 
   const { data: facturas = [], isLoading } = useQuery<FacturaResumen[]>({
     queryKey: ['facturas'],
@@ -167,6 +232,73 @@ export default function FacturasPage() {
         </div>
       </div>
 
+      {ordenContext !== null && (
+        <div
+          className={`flex items-start justify-between gap-3 rounded-lg border p-4 ${
+            contextoOrdenFacturable
+              ? 'border-emerald-300 bg-emerald-50'
+              : 'border-amber-300 bg-amber-50'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <span
+              className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full ${
+                contextoOrdenFacturable
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-amber-100 text-amber-700'
+              }`}
+            >
+              <Receipt className="h-4 w-4" />
+            </span>
+            <div>
+              <p
+                className={`text-sm font-semibold ${
+                  contextoOrdenFacturable
+                    ? 'text-emerald-900'
+                    : 'text-amber-900'
+                }`}
+              >
+                {contextoOrdenFacturable
+                  ? 'Orden de trabajo lista para facturar'
+                  : 'La orden aún no habilita su factura'}
+              </p>
+              <p
+                className={`mt-0.5 text-sm ${
+                  contextoOrdenFacturable
+                    ? 'text-emerald-800'
+                    : 'text-amber-800'
+                }`}
+              >
+                {ordenContextoData
+                  ? contextoOrdenFacturable
+                    ? `La factura quedará vinculada a la Orden #${ordenContextoData.orden_trabajo_fisica} de ${ordenContextoData.cliente?.nombre ?? 'su cliente'}. Todos sus equipos están en FINALIZADO.`
+                    : `La Orden #${ordenContextoData.orden_trabajo_fisica} tiene equipos que aún no están en FINALIZADO. El sistema rechazará la factura hasta completarlos.`
+                  : 'Cargando datos de la orden vinculada…'}
+              </p>
+              {contextoOrdenFacturable && (
+                <p className="mt-1 text-xs text-emerald-700">
+                  Use "Registrar manual" para precargar el detalle con los
+                  equipos de la orden, o "Importar XML" para absorber el
+                  comprobante del sistema financiero.
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={limpiarContextoOrden}
+            title="Quitar contexto de orden"
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+              contextoOrdenFacturable
+                ? 'text-emerald-700 hover:bg-emerald-100'
+                : 'text-amber-700 hover:bg-amber-100'
+            }`}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white">
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -225,6 +357,14 @@ export default function FacturasPage() {
                       Manual
                     </span>
                   )}
+                  {f.orden_trabajo && (
+                    <span
+                      className={`ml-1 ${badgeClass('border-sky-300 bg-sky-100 text-sky-800')}`}
+                      title={`Vincular a la Orden de Trabajo #${f.orden_trabajo.orden_trabajo_fisica}`}
+                    >
+                      Orden #{f.orden_trabajo.orden_trabajo_fisica}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-1.5">
@@ -270,20 +410,29 @@ export default function FacturasPage() {
       {tipoModal === 'xml' && (
         <ModalImportarXml
           clientes={clientes}
+          clienteInicial={clienteContext ?? ordenContextoData?.cliente?.id ?? undefined}
+          ordenId={ordenContext ?? undefined}
+          ordenFisica={ordenContextoData?.orden_trabajo_fisica}
           onClose={() => setTipoModal(null)}
           onImportado={() => {
             setTipoModal(null);
             queryClient.invalidateQueries({ queryKey: ['facturas'] });
+            limpiarContextoOrden();
           }}
         />
       )}
       {tipoModal === 'manual' && (
         <ModalFacturaManual
           clientes={clientes}
+          clienteInicial={clienteContext ?? ordenContextoData?.cliente?.id ?? undefined}
+          ordenId={ordenContext ?? undefined}
+          ordenFisica={ordenContextoData?.orden_trabajo_fisica}
+          equiposIniciales={ordenContextoData?.equipos}
           onClose={() => setTipoModal(null)}
           onCreada={() => {
             setTipoModal(null);
             queryClient.invalidateQueries({ queryKey: ['facturas'] });
+            limpiarContextoOrden();
           }}
         />
       )}
@@ -303,15 +452,21 @@ export default function FacturasPage() {
 
 function ModalImportarXml({
   clientes,
+  clienteInicial,
+  ordenId,
+  ordenFisica,
   onClose,
   onImportado,
 }: {
   clientes: ClienteOption[];
+  clienteInicial?: number;
+  ordenId?: number;
+  ordenFisica?: string;
   onClose: () => void;
   onImportado: () => void;
 }) {
   const [archivo, setArchivo] = useState<File | null>(null);
-  const [clienteId, setClienteId] = useState<number | ''>('');
+  const [clienteId, setClienteId] = useState<number | ''>(clienteInicial ?? '');
   const [plazo, setPlazo] = useState(30);
   const { toast } = useToast();
   const { alert } = useAlert();
@@ -323,6 +478,9 @@ function ModalImportarXml({
       fd.append('file', archivo as File);
       fd.append('cliente_id', String(clienteId));
       fd.append('plazo_dias', String(plazo));
+      if (ordenId !== undefined) {
+        fd.append('orden_trabajo_id', String(ordenId));
+      }
       const res = await api.post('/facturacion/facturas/importar-xml', fd);
       return res.data;
     },
@@ -353,6 +511,11 @@ function ModalImportarXml({
           encargada financiera. El sistema extrae número, clave de acceso,
           cliente, fechas, subtotal, IVA, total y el detalle de ítems.
         </p>
+        {ordenId !== undefined && (
+          <p className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            La factura quedará vinculada a la Orden #{ordenFisica ?? ordenId}.
+          </p>
+        )}
         <div>
           <label className={labelCls}>Archivo XML *</label>
           <input
@@ -433,22 +596,37 @@ interface FilaDetalle {
 
 function ModalFacturaManual({
   clientes,
+  clienteInicial,
+  ordenId,
+  ordenFisica,
+  equiposIniciales,
   onClose,
   onCreada,
 }: {
   clientes: ClienteOption[];
+  clienteInicial?: number;
+  ordenId?: number;
+  ordenFisica?: string;
+  equiposIniciales?: Array<{ id: number; equipo_descripcion: string }>;
   onClose: () => void;
   onCreada: () => void;
 }) {
   const [numero, setNumero] = useState('');
-  const [clienteId, setClienteId] = useState<number | ''>('');
+  const [clienteId, setClienteId] = useState<number | ''>(clienteInicial ?? '');
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [plazo, setPlazo] = useState(30);
   const [iva, setIva] = useState('');
   const [notas, setNotas] = useState('');
-  const [filas, setFilas] = useState<FilaDetalle[]>([
-    { concepto: '', cantidad: 1, precio: 0 },
-  ]);
+  const [filas, setFilas] = useState<FilaDetalle[]>(() => {
+    if (equiposIniciales && equiposIniciales.length > 0) {
+      return equiposIniciales.map((eq) => ({
+        concepto: eq.equipo_descripcion,
+        cantidad: 1,
+        precio: 0,
+      }));
+    }
+    return [{ concepto: '', cantidad: 1, precio: 0 }];
+  });
   const { toast } = useToast();
   const { alert } = useAlert();
   const queryClient = useQueryClient();
@@ -466,6 +644,7 @@ function ModalFacturaManual({
       const res = await api.post('/facturacion/facturas', {
         numero: numero.trim() || undefined,
         cliente_id: Number(clienteId),
+        orden_trabajo_id: ordenId,
         fecha_emision: fecha,
         plazo_dias: plazo,
         subtotal,
@@ -501,6 +680,14 @@ function ModalFacturaManual({
   return (
     <ModalShell titulo="Registrar factura manualmente" onClose={onClose}>
       <div className="space-y-4">
+        {ordenId !== undefined && (
+          <p className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            La factura quedará vinculada a la Orden #{ordenFisica ?? ordenId}.
+            {equiposIniciales && equiposIniciales.length > 0
+              ? ' El detalle se precargó con los equipos de la orden (ajuste precios si corresponde).'
+              : ''}
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Número (opcional)</label>
