@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  ArrowUpDown,
+  ChevronsUpDown,
   ClipboardList,
   Eye,
   Inbox,
@@ -11,6 +13,10 @@ import {
   Search,
   Trash2,
   X,
+  ArrowDown,
+  ArrowUp,
+  Check,
+  XCircle,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import api from '../../../core/api/axios';
@@ -21,6 +27,8 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import { esUsuarioAdministrador } from '../../../shared/utils/auth';
 import VistaDetalleOrden, {
   type OrdenTrabajoDetalle,
+  ESTADO_COLOR,
+  ESTADO_LABEL,
 } from '../components/VistaDetalleOrden';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
 import EditarOrdenModal from '../components/EditarOrdenModal';
@@ -135,7 +143,40 @@ function EmptyState({ cols, hasFilter }: { cols: number; hasFilter: boolean }) {
 // Page component
 // ---------------------------------------------------------------------------
 
-const COLS = 6;
+const COLS = 7;
+
+// ---------------------------------------------------------------------------
+// Orden del flujo de estados — una orden se considera en el estado "más
+// temprano" presente entre sus equipos (la etapa que la mantiene bloqueada).
+// Se usa para ordenar por estado y para el badge representativo.
+// ---------------------------------------------------------------------------
+const FLUJO_ESTADOS = [
+  'EN_ESPERA',
+  'EN_CALIBRACION',
+  'REVISION_OBT',
+  'PENDIENTE_FIRMA_TECNICO',
+  'REVISION_JEFE',
+  'REVISION_DIRECTOR',
+  'LISTO_PARA_ENTREGA',
+  'FINALIZADO',
+];
+
+function estadoRepresentativo(orden: OrdenTrabajoDetalle): string | null {
+  const estados = (orden.equipos ?? []).map((e) => e.estado);
+  if (estados.length === 0) return null;
+  let menor = FLUJO_ESTADOS.length;
+  let resultado: string | null = null;
+  for (const est of estados) {
+    const idx = FLUJO_ESTADOS.indexOf(est);
+    if (idx !== -1 && idx < menor) {
+      menor = idx;
+      resultado = est;
+    }
+  }
+  if (resultado) return resultado;
+  // Estados fuera del flujo conocido: usar el primero encontrado.
+  return estados[0] ?? null;
+}
 
 export default function RecepcionesPage() {
   const { data: ordenes, isLoading, isError, error } = useOrdenesTrabajo();
@@ -145,6 +186,11 @@ export default function RecepcionesPage() {
 
   const [busqueda, setBusqueda] = useState('');
   const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
+  const [estadoFiltro, setEstadoFiltro] = useState('');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [ordenarPor, setOrdenarPor] = useState<'fecha' | 'estado'>('fecha');
+  const [ordenDir, setOrdenDir] = useState<'asc' | 'desc'>('desc');
   const [ordenSeleccionada, setOrdenSeleccionada] =
     useState<OrdenTrabajoDetalle | null>(null);
   const [editarOrden, setEditarOrden] = useState<OrdenTrabajoDetalle | null>(
@@ -204,16 +250,16 @@ export default function RecepcionesPage() {
   }, [ordenes]);
 
   // ------------------------------------------------------------------
-  // Filtro local por Nº Orden Física, Cliente y Laboratorio — una orden
-  // pasa el filtro de laboratorio si al menos uno de sus equipos
-  // pertenece al laboratorio elegido (una orden puede repartirse entre
-  // varios laboratorios).
+  // Filtro local por Nº Orden Física, Cliente, Laboratorio, Estado y
+  // rango de fechas — una orden pasa el filtro de laboratorio/estado si
+  // al menos uno de sus equipos coincide (una orden puede repartirse
+  // entre varios laboratorios y cada equipo tiene su propio estado).
   // ------------------------------------------------------------------
   const ordenesFiltradas = useMemo(() => {
     const lista = ordenes ?? [];
     const termino = normalize(busqueda.trim());
 
-    return lista.filter((orden) => {
+    let resultado = lista.filter((orden) => {
       if (
         laboratorioFiltro &&
         !orden.equipos?.some(
@@ -222,13 +268,76 @@ export default function RecepcionesPage() {
       ) {
         return false;
       }
+      if (
+        estadoFiltro &&
+        !orden.equipos?.some((equipo) => equipo.estado === estadoFiltro)
+      ) {
+        return false;
+      }
+      if (fechaDesde) {
+        const ingreso = new Date(orden.fecha_ingreso);
+        const desde = new Date(`${fechaDesde}T00:00:00`);
+        if (Number.isNaN(ingreso.getTime()) || ingreso < desde) return false;
+      }
+      if (fechaHasta) {
+        const ingreso = new Date(orden.fecha_ingreso);
+        const hasta = new Date(`${fechaHasta}T23:59:59`);
+        if (Number.isNaN(ingreso.getTime()) || ingreso > hasta) return false;
+      }
       if (!termino) return true;
 
       const numeroOrden = normalize(orden.orden_trabajo_fisica ?? '');
       const cliente = normalize(orden.cliente?.nombre ?? '');
       return numeroOrden.includes(termino) || cliente.includes(termino);
     });
-  }, [ordenes, busqueda, laboratorioFiltro]);
+
+    resultado = [...resultado].sort((a, b) => {
+      let cmp = 0;
+      if (ordenarPor === 'fecha') {
+        cmp =
+          new Date(a.fecha_ingreso).getTime() -
+          new Date(b.fecha_ingreso).getTime();
+      } else {
+        const ia = FLUJO_ESTADOS.indexOf(estadoRepresentativo(a) ?? '');
+        const ib = FLUJO_ESTADOS.indexOf(estadoRepresentativo(b) ?? '');
+        cmp = (ia === -1 ? FLUJO_ESTADOS.length : ia) -
+              (ib === -1 ? FLUJO_ESTADOS.length : ib);
+      }
+      if (Number.isNaN(cmp)) cmp = 0;
+      return ordenDir === 'asc' ? cmp : -cmp;
+    });
+
+    return resultado;
+  }, [
+    ordenes,
+    busqueda,
+    laboratorioFiltro,
+    estadoFiltro,
+    fechaDesde,
+    fechaHasta,
+    ordenarPor,
+    ordenDir,
+  ]);
+
+  const cambiarOrden = (columna: 'fecha' | 'estado') => {
+    if (ordenarPor === columna) {
+      setOrdenDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setOrdenarPor(columna);
+      setOrdenDir(columna === 'fecha' ? 'desc' : 'asc');
+    }
+  };
+
+  const SortIndicator = ({ columna }: { columna: 'fecha' | 'estado' }) =>
+    ordenarPor === columna ? (
+      ordenDir === 'asc' ? (
+        <ArrowUp className="ml-1 inline h-3.5 w-3.5" />
+      ) : (
+        <ArrowDown className="ml-1 inline h-3.5 w-3.5" />
+      )
+    ) : (
+      <ArrowUpDown className="ml-1 inline h-3.5 w-3.5 opacity-40" />
+    );
 
   return (
     <div className="space-y-6 p-6">
@@ -275,6 +384,36 @@ export default function RecepcionesPage() {
             />
           </div>
 
+          <select
+            value={estadoFiltro}
+            onChange={(e) => setEstadoFiltro(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">Todos los estados</option>
+            {FLUJO_ESTADOS.map((s) => (
+              <option key={s} value={s}>
+                {ESTADO_LABEL[s] ?? s}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="date"
+            value={fechaDesde}
+            onChange={(e) => setFechaDesde(e.target.value)}
+            title="Desde fecha de ingreso"
+            aria-label="Filtrar desde fecha de ingreso"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <input
+            type="date"
+            value={fechaHasta}
+            onChange={(e) => setFechaHasta(e.target.value)}
+            title="Hasta fecha de ingreso"
+            aria-label="Filtrar hasta fecha de ingreso"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+
           {esAdministrador && (
             <button
               type="button"
@@ -311,8 +450,29 @@ export default function RecepcionesPage() {
                 <TH>Nº Orden Física</TH>
                 <TH>Nº Proforma</TH>
                 <TH>Cliente</TH>
-                <TH>Fecha de Ingreso</TH>
+                <TH>
+                  <button
+                    type="button"
+                    onClick={() => cambiarOrden('fecha')}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    title="Ordenar por fecha de ingreso"
+                  >
+                    Fecha de Ingreso
+                    <SortIndicator columna="fecha" />
+                  </button>
+                </TH>
                 <TH className="text-center">Equipos</TH>
+                <TH>
+                  <button
+                    type="button"
+                    onClick={() => cambiarOrden('estado')}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    title="Ordenar por estado"
+                  >
+                    Estado
+                    <SortIndicator columna="estado" />
+                  </button>
+                </TH>
                 <TH className="text-center">Acciones</TH>
               </tr>
             </thead>
@@ -347,6 +507,41 @@ export default function RecepcionesPage() {
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm text-foreground">
                       {orden.equipos?.length ?? 0}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4">
+                      {(() => {
+                        const rep = estadoRepresentativo(orden);
+                        if (!rep) {
+                          return (
+                            <span className="italic text-muted-foreground/60">
+                              Sin equipos
+                            </span>
+                          );
+                        }
+                        const distintos = new Set(
+                          (orden.equipos ?? []).map((e) => e.estado),
+                        ).size;
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={cn(
+                                'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                                ESTADO_COLOR[rep] ?? 'bg-muted text-muted-foreground border-border',
+                              )}
+                            >
+                              {ESTADO_LABEL[rep] ?? rep}
+                            </span>
+                            {distintos > 1 && (
+                              <span
+                                className="text-xs text-muted-foreground"
+                                title={`La orden tiene equipos en ${distintos} estados distintos`}
+                              >
+                                +{distintos - 1}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">

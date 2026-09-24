@@ -2,6 +2,9 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   ClipboardList,
   Clock,
   Eye,
@@ -146,6 +149,19 @@ const ESTADO_STYLES: Record<EstadoKey, string> = {
   FINALIZADO:
     'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
 };
+
+// Orden del flujo de estados — se usa para el filtro de estado y para
+// ordenar las filas de la bandeja por etapa del proceso.
+const FLUJO_ESTADOS: EstadoKey[] = [
+  'EN_ESPERA',
+  'EN_CALIBRACION',
+  'REVISION_OBT',
+  'PENDIENTE_FIRMA_TECNICO',
+  'REVISION_JEFE',
+  'REVISION_DIRECTOR',
+  'LISTO_PARA_ENTREGA',
+  'FINALIZADO',
+];
 
 function viewTitle(): string {
   return 'Gestión y seguimiento de equipos de laboratorio';
@@ -551,6 +567,11 @@ export default function BandejaTrabajoPage() {
 
   const [busqueda, setBusqueda] = useState('');
   const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
+  const [estadoFiltro, setEstadoFiltro] = useState('');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [ordenarPor, setOrdenarPor] = useState<'fecha' | 'estado'>('fecha');
+  const [ordenDir, setOrdenDir] = useState<'asc' | 'desc'>('desc');
 
   const esAdministrador = esUsuarioAdministrador();
   const [editarOrden, setEditarOrden] = useState<OrdenTrabajoDetalle | null>(
@@ -635,9 +656,22 @@ export default function BandejaTrabajoPage() {
     const lista = recepciones ?? [];
     const termino = normalize(busqueda.trim());
 
-    return lista.filter((r) => {
+    let resultado = lista.filter((r) => {
       if (laboratorioFiltro && String(r.laboratorio?.id) !== laboratorioFiltro) {
         return false;
+      }
+      if (estadoFiltro && r.estado !== estadoFiltro) {
+        return false;
+      }
+      if (fechaDesde) {
+        const ingreso = new Date(r.fecha_ingreso);
+        const desde = new Date(`${fechaDesde}T00:00:00`);
+        if (Number.isNaN(ingreso.getTime()) || ingreso < desde) return false;
+      }
+      if (fechaHasta) {
+        const ingreso = new Date(r.fecha_ingreso);
+        const hasta = new Date(`${fechaHasta}T23:59:59`);
+        if (Number.isNaN(ingreso.getTime()) || ingreso > hasta) return false;
       }
       if (!termino) return true;
 
@@ -652,7 +686,32 @@ export default function BandejaTrabajoPage() {
       );
       return haystack.includes(termino);
     });
-  }, [recepciones, busqueda, laboratorioFiltro]);
+
+    resultado = [...resultado].sort((a, b) => {
+      let cmp = 0;
+      if (ordenarPor === 'fecha') {
+        cmp =
+          new Date(a.fecha_ingreso).getTime() -
+          new Date(b.fecha_ingreso).getTime();
+      } else {
+        cmp =
+          FLUJO_ESTADOS.indexOf(a.estado) - FLUJO_ESTADOS.indexOf(b.estado);
+      }
+      if (Number.isNaN(cmp)) cmp = 0;
+      return ordenDir === 'asc' ? cmp : -cmp;
+    });
+
+    return resultado;
+  }, [
+    recepciones,
+    busqueda,
+    laboratorioFiltro,
+    estadoFiltro,
+    fechaDesde,
+    fechaHasta,
+    ordenarPor,
+    ordenDir,
+  ]);
 
   // Modal state
   const [isRegistroModalOpen, setIsRegistroModalOpen] = useState(false);
@@ -722,6 +781,26 @@ export default function BandejaTrabajoPage() {
       </div>
     );
   }
+
+  const cambiarOrden = (columna: 'fecha' | 'estado') => {
+    if (ordenarPor === columna) {
+      setOrdenDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setOrdenarPor(columna);
+      setOrdenDir(columna === 'fecha' ? 'desc' : 'asc');
+    }
+  };
+
+  const SortIndicator = ({ columna }: { columna: 'fecha' | 'estado' }) =>
+    ordenarPor === columna ? (
+      ordenDir === 'asc' ? (
+        <ArrowUp className="ml-1 inline h-3.5 w-3.5" />
+      ) : (
+        <ArrowDown className="ml-1 inline h-3.5 w-3.5" />
+      )
+    ) : (
+      <ArrowUpDown className="ml-1 inline h-3.5 w-3.5 opacity-40" />
+    );
 
   return (
     <div className="space-y-6 p-6">
@@ -796,6 +875,36 @@ export default function BandejaTrabajoPage() {
             ))}
           </select>
 
+          <select
+            value={estadoFiltro}
+            onChange={(e) => setEstadoFiltro(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">Todos los estados</option>
+            {FLUJO_ESTADOS.map((s) => (
+              <option key={s} value={s}>
+                {s.replace(/_/g, ' ')}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="date"
+            value={fechaDesde}
+            onChange={(e) => setFechaDesde(e.target.value)}
+            title="Desde fecha de ingreso"
+            aria-label="Filtrar desde fecha de ingreso"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <input
+            type="date"
+            value={fechaHasta}
+            onChange={(e) => setFechaHasta(e.target.value)}
+            title="Hasta fecha de ingreso"
+            aria-label="Filtrar hasta fecha de ingreso"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -829,11 +938,31 @@ export default function BandejaTrabajoPage() {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <TH>Orden Física</TH>
-                <TH>Fecha</TH>
+                <TH>
+                  <button
+                    type="button"
+                    onClick={() => cambiarOrden('fecha')}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    title="Ordenar por fecha de ingreso"
+                  >
+                    Fecha
+                    <SortIndicator columna="fecha" />
+                  </button>
+                </TH>
                 <TH>Cliente</TH>
                 <TH>Equipo</TH>
                 <TH>Laboratorio</TH>
-                <TH className="text-center">Estado</TH>
+                <TH className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => cambiarOrden('estado')}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    title="Ordenar por estado"
+                  >
+                    Estado
+                    <SortIndicator columna="estado" />
+                  </button>
+                </TH>
                 <TH>Técnico</TH>
                 <TH>Observaciones</TH>
                 {(canAssign || canExecute) && (
@@ -1213,7 +1342,13 @@ export default function BandejaTrabajoPage() {
                 ))
               ) : (
                 <EmptyState
-                  hasFilter={busqueda.trim().length > 0 || !!laboratorioFiltro}
+                  hasFilter={
+                  busqueda.trim().length > 0 ||
+                  !!laboratorioFiltro ||
+                  !!estadoFiltro ||
+                  !!fechaDesde ||
+                  !!fechaHasta
+                }
                 />
               )}
             </tbody>
