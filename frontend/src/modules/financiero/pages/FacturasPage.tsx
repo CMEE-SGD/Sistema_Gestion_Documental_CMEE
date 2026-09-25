@@ -1,8 +1,20 @@
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Inbox, Search, Upload } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Banknote,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Inbox,
+  Search,
+  Upload,
+} from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
-import { useFinanciero } from '../FinancieroDemoContext';
+import { useFinanciero } from '../FinancieroContext';
 import { diasParaVencer, estadoDe, totalesFactura, vencimientoDe } from '../calculos';
 import { fmtFecha, fmtUSD, textoDias } from '../formato';
 import type { EstadoFactura, Factura } from '../tipos';
@@ -10,6 +22,7 @@ import {
   Aviso,
   Boton,
   ChipEstadoFactura,
+  ETIQUETA_COBRO,
   EncabezadoPagina,
   Panel,
   PanelLateral,
@@ -18,6 +31,7 @@ import {
   inputCls,
 } from '../ui';
 import DetalleFactura from '../componentes/DetalleFactura';
+import RegistrarCobroModal from '../componentes/RegistrarCobroModal';
 import SubirXmlModal from '../componentes/SubirXmlModal';
 
 const FILTROS: Array<{ clave: 'TODAS' | EstadoFactura; etiqueta: string }> = [
@@ -29,7 +43,39 @@ const FILTROS: Array<{ clave: 'TODAS' | EstadoFactura; etiqueta: string }> = [
   { clave: 'ANULADA', etiqueta: 'Anuladas' },
 ];
 
-const POR_PAGINA = 10;
+const POR_PAGINA = 25;
+
+type Fila = { f: Factura; estado: EstadoFactura; saldo: number; dias: number };
+type ClaveOrden = 'factura' | 'cliente' | 'emision' | 'vencimiento' | 'total' | 'saldo';
+type Orden = { clave: ClaveOrden; dir: 'asc' | 'desc' };
+
+// Al elegir una columna por primera vez se ordena como lo pediría quien la usa:
+// lo más atrasado primero en Vencimiento, lo más grande primero en importes.
+const DIR_INICIAL: Record<ClaveOrden, Orden['dir']> = {
+  factura: 'desc',
+  cliente: 'asc',
+  emision: 'desc',
+  vencimiento: 'asc',
+  total: 'desc',
+  saldo: 'desc',
+};
+
+function valorDeOrden(x: Fila, clave: ClaveOrden): string | number {
+  switch (clave) {
+    case 'factura':
+      return x.f.numero;
+    case 'cliente':
+      return x.f.clienteNombre;
+    case 'emision':
+      return x.f.fechaEmision;
+    case 'vencimiento':
+      return vencimientoDe(x.f);
+    case 'total':
+      return x.f.total;
+    case 'saldo':
+      return x.saldo;
+  }
+}
 
 function coincide(busqueda: string, f: Factura): boolean {
   const q = busqueda.trim().toLowerCase();
@@ -41,21 +87,74 @@ function coincide(busqueda: string, f: Factura): boolean {
   );
 }
 
-const TH = 'px-5 py-3 text-left text-xs font-semibold text-muted-foreground';
+const TH = 'px-4 py-3 text-left text-xs font-semibold text-muted-foreground';
+
+// Encabezado que ordena la tabla. El botón lleva el nombre de la columna y
+// `aria-sort` avisa a los lectores de pantalla cuál columna manda.
+function EncabezadoOrdenable({
+  clave,
+  orden,
+  onOrdenar,
+  derecha,
+  className,
+  children,
+}: {
+  clave: ClaveOrden;
+  orden: Orden;
+  onOrdenar: (clave: ClaveOrden) => void;
+  derecha?: boolean;
+  className?: string;
+  children: string;
+}) {
+  const activa = orden.clave === clave;
+  const Icono = !activa ? ArrowUpDown : orden.dir === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th
+      scope="col"
+      aria-sort={activa ? (orden.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={cn(TH, derecha && 'text-right', className)}
+    >
+      <button
+        type="button"
+        onClick={() => onOrdenar(clave)}
+        className={cn(
+          '-mx-1.5 -my-1 inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-semibold transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          activa ? 'text-foreground' : 'text-muted-foreground',
+        )}
+      >
+        {children}
+        <Icono className={cn('h-3.5 w-3.5', activa ? 'opacity-100' : 'opacity-60')} aria-hidden />
+      </button>
+    </th>
+  );
+}
 
 export default function FacturasPage() {
   const location = useLocation();
-  const { facturas, notasSueltas } = useFinanciero();
-  const abrirInicial = (location.state as { abrir?: number } | null)?.abrir ?? null;
+  const { facturas, notasSueltas, registrarCobro } = useFinanciero();
+  const estadoDeRuta = location.state as { abrir?: number; subir?: boolean } | null;
+  const abrirInicial = estadoDeRuta?.abrir ?? null;
 
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<'TODAS' | EstadoFactura>('TODAS');
   const [pagina, setPagina] = useState(1);
+  const [orden, setOrden] = useState<Orden>({ clave: 'emision', dir: 'desc' });
   const [seleccionId, setSeleccionId] = useState<number | null>(abrirInicial);
-  const [subirAbierto, setSubirAbierto] = useState(false);
+  const [cobrarId, setCobrarId] = useState<number | null>(null);
+  // Se abre sola cuando se llega desde el botón "Subir facturas" del Resumen.
+  const [subirAbierto, setSubirAbierto] = useState(estadoDeRuta?.subir === true);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  const filas = useMemo(
+  const ordenarPor = (clave: ClaveOrden) => {
+    setOrden((o) =>
+      o.clave === clave
+        ? { clave, dir: o.dir === 'asc' ? 'desc' : 'asc' }
+        : { clave, dir: DIR_INICIAL[clave] },
+    );
+    setPagina(1);
+  };
+
+  const filas = useMemo<Fila[]>(
     () =>
       facturas.map((f) => ({
         f,
@@ -76,18 +175,29 @@ export default function FacturasPage() {
     () =>
       filas
         .filter((x) => (filtro === 'TODAS' || x.estado === filtro) && coincide(busqueda, x.f))
-        .sort(
-          (a, b) =>
+        .sort((a, b) => {
+          const va = valorDeOrden(a, orden.clave);
+          const vb = valorDeOrden(b, orden.clave);
+          const cmp =
+            typeof va === 'number' && typeof vb === 'number'
+              ? va - vb
+              : String(va).localeCompare(String(vb), 'es');
+          // Ante empates, lo más reciente primero.
+          return (
+            (orden.dir === 'asc' ? cmp : -cmp) ||
             b.f.fechaEmision.localeCompare(a.f.fechaEmision) ||
-            b.f.numero.localeCompare(a.f.numero),
-        ),
-    [filas, filtro, busqueda],
+            b.f.numero.localeCompare(a.f.numero)
+          );
+        }),
+    [filas, filtro, busqueda, orden],
   );
 
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA));
   const paginaActual = Math.min(pagina, totalPaginas);
   const visibles = filtradas.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA);
   const seleccionada = seleccionId !== null ? facturas.find((f) => f.id === seleccionId) : undefined;
+  const aCobrar = cobrarId !== null ? filas.find((x) => x.f.id === cobrarId) : undefined;
+  const sinFacturas = facturas.length === 0;
 
   return (
     <div className="space-y-6">
@@ -128,6 +238,26 @@ export default function FacturasPage() {
         </Aviso>
       )}
 
+      {sinFacturas && (
+        <Panel>
+          <div className="flex flex-col items-center gap-4 px-2 py-12 text-center">
+            <Inbox className="h-10 w-10 text-muted-foreground/60" />
+            <div className="max-w-md">
+              <p className="text-base font-semibold text-foreground">Todavía no hay facturas</p>
+              <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+                Sube los XML autorizados del SRI, los de facturas y los de notas de crédito. Cada
+                factura aparece aquí con su cobro y su vencimiento.
+              </p>
+            </div>
+            <Boton onClick={() => setSubirAbierto(true)}>
+              <Upload className="h-4 w-4" />
+              Subir facturas
+            </Boton>
+          </div>
+        </Panel>
+      )}
+
+      {!sinFacturas && (
       <Panel sinRelleno>
         <div className="flex flex-col gap-3 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por estado">
@@ -175,17 +305,40 @@ export default function FacturasPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* `relative`: el texto oculto (sr-only) de la tabla queda recortado aquí y no ensancha la página. */}
+        <div className="relative overflow-x-auto">
           <table className="min-w-full">
             <thead>
               <tr className="border-b border-border bg-muted">
-                <th className={TH}>Factura</th>
-                <th className={TH}>Cliente</th>
-                <th className={TH}>Emisión</th>
-                <th className={TH}>Vencimiento</th>
-                <th className={cn(TH, 'text-right')}>Total</th>
-                <th className={cn(TH, 'text-right')}>Saldo</th>
-                <th className={TH}>Estado</th>
+                <EncabezadoOrdenable clave="factura" orden={orden} onOrdenar={ordenarPor}>
+                  Factura
+                </EncabezadoOrdenable>
+                <EncabezadoOrdenable clave="cliente" orden={orden} onOrdenar={ordenarPor}>
+                  Cliente
+                </EncabezadoOrdenable>
+                <EncabezadoOrdenable
+                  clave="emision"
+                  orden={orden}
+                  onOrdenar={ordenarPor}
+                  className="hidden min-[1400px]:table-cell"
+                >
+                  Emisión
+                </EncabezadoOrdenable>
+                <EncabezadoOrdenable clave="vencimiento" orden={orden} onOrdenar={ordenarPor}>
+                  Vencimiento
+                </EncabezadoOrdenable>
+                <EncabezadoOrdenable clave="total" orden={orden} onOrdenar={ordenarPor} derecha>
+                  Total
+                </EncabezadoOrdenable>
+                <EncabezadoOrdenable clave="saldo" orden={orden} onOrdenar={ordenarPor} derecha>
+                  Saldo
+                </EncabezadoOrdenable>
+                <th scope="col" className={TH}>
+                  Estado
+                </th>
+                <th scope="col" className={cn(TH, 'sticky right-0 bg-muted')}>
+                  <span className="sr-only">Acciones</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -195,30 +348,33 @@ export default function FacturasPage() {
                   tabIndex={0}
                   onClick={() => setSeleccionId(f.id)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') setSeleccionId(f.id);
+                    // Enter sobre el botón "Cobrar" no debe abrir además el detalle.
+                    if (e.key === 'Enter' && e.target === e.currentTarget) setSeleccionId(f.id);
                   }}
                   aria-label={`Ver la factura ${f.numero}`}
-                  className="cursor-pointer transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+                  className="group cursor-pointer transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
                 >
-                  <td className="whitespace-nowrap px-5 py-3.5">
+                  <td className="whitespace-nowrap px-4 py-3.5">
                     <div className="fin-codigo text-[13px] text-foreground">{f.numero}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
                       {f.ordenTrabajo ? `Orden ${f.ordenTrabajo}` : 'Sin orden'}
                     </div>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <div className="max-w-64 truncate text-sm font-medium text-foreground">
+                  <td className="px-4 py-3.5">
+                    <div
+                      title={f.clienteNombre}
+                      className="line-clamp-2 min-w-52 max-w-80 text-sm font-medium leading-5 text-foreground"
+                    >
                       {f.clienteNombre}
                     </div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
                       RUC {f.clienteRuc}
-                      {!f.clienteRegistrado && ', cliente no registrado'}
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-5 py-3.5 text-sm fin-cifra text-foreground">
+                  <td className="hidden whitespace-nowrap px-4 py-3.5 text-sm fin-cifra text-foreground min-[1400px]:table-cell">
                     {fmtFecha(f.fechaEmision)}
                   </td>
-                  <td className="whitespace-nowrap px-5 py-3.5 text-sm fin-cifra">
+                  <td className="whitespace-nowrap px-4 py-3.5 text-sm fin-cifra">
                     <div className="text-foreground">{fmtFecha(vencimientoDe(f))}</div>
                     {(estado === 'VENCIDA' || estado === 'PENDIENTE' || estado === 'PARCIAL') && (
                       <div
@@ -231,16 +387,33 @@ export default function FacturasPage() {
                       </div>
                     )}
                   </td>
-                  <td className={cn('whitespace-nowrap px-5 py-3.5 text-sm text-foreground', cifraCls)}>
+                  <td className={cn('whitespace-nowrap px-4 py-3.5 text-sm text-foreground', cifraCls)}>
                     {fmtUSD(f.total)}
                   </td>
-                  <td className={cn('whitespace-nowrap px-5 py-3.5 text-sm font-semibold text-foreground', cifraCls)}>
+                  <td className={cn('whitespace-nowrap px-4 py-3.5 text-sm font-semibold text-foreground', cifraCls)}>
                     {saldo > 0.005 ? fmtUSD(saldo) : <span className="font-normal text-muted-foreground">-</span>}
                   </td>
-                  <td className="whitespace-nowrap px-5 py-3.5">
+                  <td className="whitespace-nowrap px-4 py-3.5">
                     <ChipEstadoFactura estado={estado} />
                     {estado === 'ANULADA' && f.creditos.length > 0 && (
                       <div className="mt-0.5 text-xs text-muted-foreground">Por nota de crédito</div>
+                    )}
+                  </td>
+                  {/* Fija al borde derecho: "Cobrar" queda a la vista aunque la tabla se desplace. */}
+                  <td className="sticky right-0 whitespace-nowrap bg-card px-4 py-3.5 text-right transition-colors group-hover:bg-muted group-focus-visible:bg-muted">
+                    {saldo > 0.005 && !f.anulada && (
+                      <Boton
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Registrar un cobro de la factura ${f.numero}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCobrarId(f.id);
+                        }}
+                      >
+                        <Banknote className="h-3.5 w-3.5" />
+                        Cobrar
+                      </Boton>
                     )}
                   </td>
                 </tr>
@@ -296,6 +469,7 @@ export default function FacturasPage() {
           </div>
         )}
       </Panel>
+      )}
 
       <PanelLateral
         abierto={!!seleccionada}
@@ -304,6 +478,21 @@ export default function FacturasPage() {
       >
         {seleccionada && <DetalleFactura key={seleccionada.id} factura={seleccionada} />}
       </PanelLateral>
+
+      {aCobrar && (
+        <RegistrarCobroModal
+          factura={aCobrar.f}
+          saldo={aCobrar.saldo}
+          onCerrar={() => setCobrarId(null)}
+          onGuardar={(cobro) => {
+            registrarCobro(aCobrar.f.id, cobro);
+            setCobrarId(null);
+            setAviso(
+              `${ETIQUETA_COBRO[cobro.tipo]} de ${fmtUSD(cobro.monto)} registrado en la factura ${aCobrar.f.numero}.`,
+            );
+          }}
+        />
+      )}
 
       {subirAbierto && (
         <SubirXmlModal

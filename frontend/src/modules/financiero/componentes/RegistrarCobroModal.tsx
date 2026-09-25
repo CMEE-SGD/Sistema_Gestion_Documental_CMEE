@@ -143,16 +143,24 @@ export default function RegistrarCobroModal({
               Monto
             </label>
             <div className="flex gap-2">
-              <input
-                id="cobro-monto"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
-                className={cn(inputCls, 'fin-cifra')}
-              />
+              <div className="relative flex-1">
+                <span
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+                  aria-hidden
+                >
+                  $
+                </span>
+                <input
+                  id="cobro-monto"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={monto}
+                  onChange={(e) => setMonto(e.target.value)}
+                  className={cn(inputCls, 'fin-cifra pl-7')}
+                />
+              </div>
               <Boton type="button" variant="outline" size="sm" className="h-auto shrink-0" onClick={() => setMonto(saldo.toFixed(2))}>
                 Todo el saldo
               </Boton>

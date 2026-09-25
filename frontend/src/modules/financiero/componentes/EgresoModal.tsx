@@ -65,7 +65,7 @@ export default function EgresoModal({
           </div>
           <div>
             <label htmlFor="egreso-mes" className={labelCls}>
-              Mes de 2026
+              Mes de {anioDeIso(HOY)}
             </label>
             <select
               id="egreso-mes"
@@ -101,17 +101,25 @@ export default function EgresoModal({
             <label htmlFor="egreso-monto" className={labelCls}>
               Monto
             </label>
-            <input
-              id="egreso-monto"
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              min="0"
-              value={monto}
-              onChange={(e) => setMonto(e.target.value)}
-              placeholder="0.00"
-              className={cn(inputCls, 'fin-cifra')}
-            />
+            <div className="relative">
+              <span
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+                aria-hidden
+              >
+                $
+              </span>
+              <input
+                id="egreso-monto"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                placeholder="0.00"
+                className={cn(inputCls, 'fin-cifra pl-7')}
+              />
+            </div>
           </div>
           <fieldset>
             <legend className={labelCls}>Estado</legend>

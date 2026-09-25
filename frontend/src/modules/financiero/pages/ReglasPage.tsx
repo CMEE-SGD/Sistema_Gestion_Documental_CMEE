@@ -1,5 +1,5 @@
 import { cn } from '../../../shared/utils/utils';
-import { useFinanciero } from '../FinancieroDemoContext';
+import { useFinanciero } from '../FinancieroContext';
 import type { ValorRevision } from '../tipos';
 import { EncabezadoPagina, Panel, colorTexto } from '../ui';
 
@@ -29,13 +29,13 @@ const GRUPOS: Array<{ titulo: string; reglas: Regla[] }> = [
         clave: 'plazo',
         titulo: 'El plazo de crédito sale del XML',
         detalle:
-          'La factura de ejemplo trae 30 días. El vencimiento es la fecha de emisión más ese plazo.',
+          'Las facturas vistas hasta ahora traen 30 días. El vencimiento es la fecha de emisión más ese plazo.',
       },
       {
         clave: 'orden',
         titulo: 'Una factura pertenece a una sola orden de trabajo',
         detalle:
-          'El XML no trae el número de orden, así que se elige a mano. El sistema sugiere las órdenes del mismo cliente por RUC. Vincularla es opcional.',
+          'El XML no trae el número de orden, así que se escribe a mano. Vincularla es opcional.',
       },
       {
         clave: 'equipos',
@@ -95,9 +95,9 @@ const GRUPOS: Array<{ titulo: string; reglas: Regla[] }> = [
       },
       {
         clave: 'cliente',
-        titulo: 'El cliente se busca por RUC',
+        titulo: 'El cliente sale del XML',
         detalle:
-          'Si el RUC no está en Clientes, la factura se guarda igual con la razón social del XML y se avisa.',
+          'Se toman la razón social y el RUC del comprobante. Enlazarlo con el módulo Clientes queda para cuando exista el servidor.',
       },
     ],
   },
@@ -132,26 +132,20 @@ const GRUPOS: Array<{ titulo: string; reglas: Regla[] }> = [
         detalle:
           'Se calcula sobre el disponible después de sumar la devolución de anticipo, que se registra a mano.',
       },
+      {
+        clave: 'mes_parcial',
+        titulo: '"Este mes" se compara con el mismo tramo del mes anterior',
+        detalle:
+          'Si hoy es 25, septiembre del 1 al 25 se compara con agosto del 1 al 25, no con agosto completo. Así una variación negativa a mitad de mes no parece una caída real.',
+      },
     ],
   },
 ];
 
 const OPCIONES: Array<{ valor: ValorRevision; etiqueta: string; activo: string }> = [
-  {
-    valor: 'CORRECTO',
-    etiqueta: 'Correcto',
-    activo: 'border-[var(--fin-ok-fg)] bg-[var(--fin-ok-fg)] text-white',
-  },
-  {
-    valor: 'CORREGIR',
-    etiqueta: 'Corregir',
-    activo: 'border-[var(--fin-error-fg)] bg-[var(--fin-error-fg)] text-white',
-  },
-  {
-    valor: 'NO_SE',
-    etiqueta: 'No sé',
-    activo: 'border-[var(--fin-neutro-fg)] bg-[var(--fin-neutro-fg)] text-white',
-  },
+  { valor: 'CORRECTO', etiqueta: 'Correcto', activo: 'bg-[var(--fin-ok-fg)] text-white' },
+  { valor: 'CORREGIR', etiqueta: 'Corregir', activo: 'bg-[var(--fin-error-fg)] text-white' },
+  { valor: 'NO_SE', etiqueta: 'No sé', activo: 'bg-[var(--fin-neutro-fg)] text-white' },
 ];
 
 export default function ReglasPage() {
@@ -171,8 +165,8 @@ export default function ReglasPage() {
         <span className={cn('font-semibold', colorTexto.ok)}>{cuenta('CORRECTO')} correctas</span>,{' '}
         <span className={cn('font-semibold', colorTexto.error)}>{cuenta('CORREGIR')} por corregir</span>,{' '}
         <span className={cn('font-semibold', colorTexto.neutro)}>{cuenta('NO_SE')} sin saber</span> y{' '}
-        <span className="font-semibold text-foreground">{sinRevisar} sin revisar</span>. Las marcas viven
-        solo en esta pantalla.
+        <span className="font-semibold text-foreground">{sinRevisar} sin revisar</span>. Las marcas se
+        guardan en este navegador.
       </p>
 
       {GRUPOS.map((grupo) => (
@@ -194,7 +188,12 @@ export default function ReglasPage() {
                     <p className="text-sm font-semibold text-foreground">{r.titulo}</p>
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">{r.detalle}</p>
                   </div>
-                  <div className="flex shrink-0 gap-1.5" role="group" aria-label={`Revisión: ${r.titulo}`}>
+                  {/* Un solo control por regla: tres opciones que comparten borde. */}
+                  <div
+                    className="inline-flex shrink-0 divide-x divide-input self-start overflow-hidden rounded-lg border border-input bg-card md:self-center"
+                    role="group"
+                    aria-label={`Revisión: ${r.titulo}`}
+                  >
                     {OPCIONES.map((o) => (
                       <button
                         key={o.valor}
@@ -202,10 +201,8 @@ export default function ReglasPage() {
                         aria-pressed={revision[r.clave] === o.valor}
                         onClick={() => marcarRevision(r.clave, o.valor)}
                         className={cn(
-                          'rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                          revision[r.clave] === o.valor
-                            ? o.activo
-                            : 'border-input bg-card text-foreground hover:bg-muted',
+                          'px-3 py-1.5 text-[13px] font-medium transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                          revision[r.clave] === o.valor ? o.activo : 'text-foreground hover:bg-muted',
                         )}
                       >
                         {o.etiqueta}
@@ -223,8 +220,9 @@ export default function ReglasPage() {
         <h2 className="text-sm font-semibold text-foreground">Fuera de esta maqueta</h2>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
           Notas de crédito sobre facturas ya cobradas (devoluciones), XML de retención de los
-          clientes, alertas de próxima calibración, importación del Excel actual y consulta
-          directa al SRI.
+          clientes, alertas de próxima calibración, guardar los archivos XML y PDF de cada
+          factura, importación del Excel actual, consulta directa al SRI y compartir los datos
+          entre varios equipos.
         </p>
       </section>
     </div>

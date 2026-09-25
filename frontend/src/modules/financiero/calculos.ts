@@ -8,9 +8,13 @@ import type {
 } from './tipos';
 import {
   HOY,
+  MESES,
   MESES_CORTOS,
   anioDeIso,
+  diaDeIso,
+  diasDelMes,
   diferenciaDias,
+  mesAnterior,
   mesDeIso,
   sumarDias,
 } from './formato';
@@ -19,7 +23,6 @@ import {
 export const CMEE_PCT = 85;
 export const ESPE_PCT = 15;
 export const PROVISION_PCT = 10;
-export const DEVOLUCION_DEMO = 1200;
 
 export const redondear = (n: number): number => Math.round(n * 100) / 100;
 
@@ -80,34 +83,22 @@ export interface Antiguedad {
   cantidad: number;
 }
 
-export interface PasoPuente {
-  clave: string;
-  etiqueta: string;
-  corta: string;
-  valor: number;
-  tipo: 'total' | 'resta' | 'suma';
-  rango: [number, number];
-}
-
-const rangoDe = (a: number, b: number): [number, number] => [
-  Math.min(a, b),
-  Math.max(a, b),
-];
-
 export function calcularDashboard(
   facturas: Factura[],
   egresos: Egreso[],
   rango: Rango,
   notasSueltas: NotaCredito[] = [],
+  devolucionAnticipo = 0,
 ) {
   const vigentes = facturas.filter((f) => !f.anulada);
-  const mesActual = mesDeIso(HOY);
-  const anioActual = anioDeIso(HOY);
+  const hoyAnio = anioDeIso(HOY);
+  const hoyMes = mesDeIso(HOY);
+  const hoyDia = diaDeIso(HOY);
 
-  const enMes = (iso: string, mes: number) =>
-    mesDeIso(iso) === mes && anioDeIso(iso) === anioActual;
+  const enMes = (iso: string, anio: number, mes: number) =>
+    anioDeIso(iso) === anio && mesDeIso(iso) === mes;
   const enRango = (iso: string) =>
-    rango === 'ACUMULADO' || enMes(iso, mesActual);
+    rango === 'ACUMULADO' || enMes(iso, hoyAnio, hoyMes);
 
   // Ingreso: bases de las facturas menos las bases de las notas de crédito,
   // cada una en el mes de su propia emisión.
@@ -138,12 +129,15 @@ export function calcularDashboard(
   const cobrado = cobrosDonde(enRango, ['PAGO', 'ENTREGA_EQUIPOS']);
   const retenciones = cobrosDonde(enRango, ['RETENCION']);
 
-  const mesPrevio = mesActual === 1 ? 12 : mesActual - 1;
-  const facturadoPrevio = facturadoDonde((iso) => enMes(iso, mesPrevio));
-  const cobradoPrevio = cobrosDonde(
-    (iso) => enMes(iso, mesPrevio),
-    ['PAGO', 'ENTREGA_EQUIPOS'],
-  );
+  // "Este mes" va hasta hoy, así que se compara con el mismo tramo del mes
+  // anterior (del 1 al día de hoy) y no con el mes anterior completo.
+  const previo = mesAnterior(hoyAnio, hoyMes);
+  const diaCorte = Math.min(hoyDia, diasDelMes(previo.anio, previo.mes));
+  const enTramoPrevio = (iso: string) =>
+    enMes(iso, previo.anio, previo.mes) && diaDeIso(iso) <= diaCorte;
+  const tramoPrevio = `${MESES[previo.mes - 1].toLowerCase()} del 1 al ${diaCorte}`;
+  const facturadoPrevio = facturadoDonde(enTramoPrevio);
+  const cobradoPrevio = cobrosDonde(enTramoPrevio, ['PAGO', 'ENTREGA_EQUIPOS']);
 
   // Cartera: siempre "a hoy", sin importar el rango elegido.
   const conSaldo = vigentes
@@ -169,40 +163,37 @@ export function calcularDashboard(
     antiguedad[idx].cantidad += 1;
   }
 
+  // Últimos 6 meses, contando los cambios de año. El mes en curso está
+  // incompleto: se rotula con el día hasta el que llega.
+  const mesParcial = hoyDia < diasDelMes(hoyAnio, hoyMes);
   const serieMensual = Array.from({ length: 6 }, (_, i) => {
-    const mes = mesActual - 5 + i;
-    const mesReal = mes < 1 ? mes + 12 : mes;
+    let mes = hoyMes - 5 + i;
+    let anio = hoyAnio;
+    if (mes < 1) {
+      mes += 12;
+      anio -= 1;
+    }
+    const parcial = i === 5 && mesParcial;
     return {
-      mes: MESES_CORTOS[mesReal - 1],
-      facturado: facturadoDonde((iso) => enMes(iso, mesReal)),
-      cobrado: cobrosDonde(
-        (iso) => enMes(iso, mesReal),
-        ['PAGO', 'ENTREGA_EQUIPOS'],
-      ),
+      etiqueta: parcial ? `${MESES_CORTOS[mes - 1]} al ${hoyDia}` : MESES_CORTOS[mes - 1],
+      parcial,
+      facturado: facturadoDonde((iso) => enMes(iso, anio, mes)),
+      cobrado: cobrosDonde((iso) => enMes(iso, anio, mes), ['PAGO', 'ENTREGA_EQUIPOS']),
     };
   });
 
-  // Puente del disponible CMEE
+  // Cálculo del disponible CMEE
   const ingresoNeto = facturado;
   const espe = redondear((ingresoNeto * ESPE_PCT) / 100);
   const cmee = redondear(ingresoNeto - espe);
   const egresosRango = egresos.filter(
-    (e) => rango === 'ACUMULADO' || (e.mes === mesActual && e.anio === anioActual),
+    (e) => rango === 'ACUMULADO' || (e.mes === hoyMes && e.anio === hoyAnio),
   );
   const totalEgresos = redondear(egresosRango.reduce((s, e) => s + e.monto, 0));
-  const devolucion = rango === 'ACUMULADO' ? DEVOLUCION_DEMO : 0;
+  const devolucion = rango === 'ACUMULADO' ? redondear(devolucionAnticipo) : 0;
   const disponible = redondear(cmee - totalEgresos + devolucion);
   const provision = redondear((Math.max(disponible, 0) * PROVISION_PCT) / 100);
   const totalDisponible = redondear(disponible - provision);
-
-  const puente: PasoPuente[] = [
-    { clave: 'ingreso', corta: 'Ingreso', etiqueta: 'Ingreso neto', valor: ingresoNeto, tipo: 'total', rango: rangoDe(0, ingresoNeto) },
-    { clave: 'espe', corta: 'ESPE', etiqueta: 'ESPE 15%', valor: -espe, tipo: 'resta', rango: rangoDe(ingresoNeto, cmee) },
-    { clave: 'egresos', corta: 'Egresos', etiqueta: 'Egresos', valor: -totalEgresos, tipo: 'resta', rango: rangoDe(cmee, cmee - totalEgresos) },
-    { clave: 'devolucion', corta: 'Devolución', etiqueta: 'Devolución', valor: devolucion, tipo: 'suma', rango: rangoDe(cmee - totalEgresos, disponible) },
-    { clave: 'provision', corta: 'Provisión', etiqueta: 'Provisión 10%', valor: -provision, tipo: 'resta', rango: rangoDe(disponible, totalDisponible) },
-    { clave: 'total', corta: 'Total', etiqueta: 'Total disponible', valor: totalDisponible, tipo: 'total', rango: rangoDe(0, totalDisponible) },
-  ];
 
   const egresosPorCategoria = (
     Object.keys(CATEGORIAS_EGRESO) as CategoriaEgreso[]
@@ -234,9 +225,10 @@ export function calcularDashboard(
     vencido,
     facturadoPrevio,
     cobradoPrevio,
+    tramoPrevio,
+    mesParcial,
     antiguedad,
     serieMensual,
-    puente,
     ingresoNeto,
     espe,
     cmee,

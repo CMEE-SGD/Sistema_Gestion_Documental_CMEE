@@ -1,6 +1,13 @@
-// Fecha "de hoy" de la maqueta: fija, para que las cifras de demostración
-// (vencimientos, antigüedad de cartera) no cambien de un día a otro.
-export const HOY = '2026-09-23';
+const dos = (n: number): string => String(n).padStart(2, '0');
+
+// Fecha de hoy según el reloj del equipo. Todo lo que depende de "hoy"
+// (vencimientos, cartera por antigüedad, el mes en curso) se calcula con ella.
+const hoyLocalIso = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+};
+
+export const HOY = hoyLocalIso();
 
 export const MESES = [
   'Enero',
@@ -42,7 +49,10 @@ export const fmtUSD = (n: number): string => usd.format(n);
 export const fmtUSDCompacto = (n: number): string => {
   const abs = Math.abs(n);
   const signo = n < 0 ? '-' : '';
-  if (abs >= 1000) return `${signo}$${(abs / 1000).toFixed(1)}k`;
+  if (abs >= 1000) {
+    const miles = abs / 1000;
+    return `${signo}$${Number.isInteger(miles) ? miles : miles.toFixed(1)}k`;
+  }
   return `${signo}$${abs.toFixed(0)}`;
 };
 
@@ -64,6 +74,13 @@ export const fmtFecha = (iso: string): string => {
 
 export const mesDeIso = (iso: string): number => Number(iso.slice(5, 7));
 export const anioDeIso = (iso: string): number => Number(iso.slice(0, 4));
+export const diaDeIso = (iso: string): number => Number(iso.slice(8, 10));
+
+export const diasDelMes = (anio: number, mes: number): number =>
+  new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+
+export const mesAnterior = (anio: number, mes: number): { anio: number; mes: number } =>
+  mes === 1 ? { anio: anio - 1, mes: 12 } : { anio, mes: mes - 1 };
 
 export const textoDias = (dias: number): string => {
   if (dias === 0) return 'vence hoy';

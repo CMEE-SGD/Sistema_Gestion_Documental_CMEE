@@ -59,7 +59,6 @@ export interface Factura {
   numeroAutorizacion: string;
   clienteNombre: string;
   clienteRuc: string;
-  clienteRegistrado: boolean;
   fechaEmision: string;
   plazoDias: number;
   subtotal: number;
@@ -85,12 +84,4 @@ export interface Egreso {
   estado: EstadoEgreso;
   monto: number;
   observacion?: string;
-}
-
-export interface OrdenTrabajoDemo {
-  numero: string;
-  clienteRuc: string;
-  clienteNombre: string;
-  equipos: number;
-  fecha: string;
 }

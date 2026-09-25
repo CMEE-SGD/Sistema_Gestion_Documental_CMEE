@@ -40,3 +40,11 @@ backend/uploads/*
 AGENTS.md
 CLAUDE.md
 AUDITORIA_CMEE.md
+
+# Documentos y datos de la herramienta de diseño (impeccable): son de trabajo
+# local y no forman parte del producto. Anclados a la raiz para no ocultar
+# otros archivos con el mismo nombre en el resto del repositorio.
+/PRODUCT.md
+/DESIGN.md
+/.impeccable/
+/frontend/.impeccable/

@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -14,11 +15,17 @@ import type {
   NotaCredito,
   ValorRevision,
 } from './tipos';
-import { EGRESOS_DEMO, FACTURAS_DEMO } from './datosDemo';
+import {
+  DATOS_VACIOS,
+  cargarDatos,
+  guardarDatos,
+  leerCopia,
+  serializarCopia,
+} from './almacenamiento';
 import { totalesFactura } from './calculos';
 
-// Estado en memoria de la maqueta: al recargar la página o pulsar
-// "Restablecer datos" todo vuelve a los datos de demostración.
+// Estado del módulo. Empieza vacío: todo lo que se ve lo cargó quien lo usa.
+// Se guarda solo en este navegador después de cada cambio.
 
 interface Documentos {
   facturas: Factura[];
@@ -26,11 +33,17 @@ interface Documentos {
   notasSueltas: NotaCredito[];
 }
 
-interface FinancieroDemo {
+interface Financiero {
   facturas: Factura[];
   notasSueltas: NotaCredito[];
   egresos: Egreso[];
   revision: Record<string, ValorRevision>;
+  // Devolución de anticipo del acumulado: se escribe a mano.
+  devolucion: number;
+  // true si no hay ni una factura, nota ni egreso.
+  vacio: boolean;
+  // true si el navegador no dejó guardar los últimos cambios.
+  errorGuardado: boolean;
   registrarCobro: (facturaId: number, cobro: Omit<Cobro, 'id'>) => void;
   anularFactura: (facturaId: number) => void;
   vincularOrden: (facturaId: number, orden: string | null) => void;
@@ -41,17 +54,37 @@ interface FinancieroDemo {
   agregarEgreso: (egreso: Omit<Egreso, 'id'>) => void;
   cambiarEstadoEgreso: (id: number, estado: EstadoEgreso) => void;
   marcarRevision: (clave: string, valor: ValorRevision) => void;
-  restablecer: () => void;
+  establecerDevolucion: (monto: number) => void;
+  vaciar: () => void;
+  exportarCopia: () => string;
+  // null si se cargó; si no, el motivo por el que no se pudo.
+  importarCopia: (contenido: string) => string | null;
 }
 
-const Contexto = createContext<FinancieroDemo | null>(null);
+const Contexto = createContext<Financiero | null>(null);
 
-const INICIAL: Documentos = { facturas: FACTURAS_DEMO, notasSueltas: [] };
+export function FinancieroProvider({ children }: { children: ReactNode }) {
+  const [inicial] = useState(() => cargarDatos() ?? DATOS_VACIOS);
+  const [docs, setDocs] = useState<Documentos>({
+    facturas: inicial.facturas,
+    notasSueltas: inicial.notasSueltas,
+  });
+  const [egresos, setEgresos] = useState<Egreso[]>(inicial.egresos);
+  const [revision, setRevision] = useState<Record<string, ValorRevision>>(inicial.revision);
+  const [devolucion, setDevolucion] = useState(inicial.devolucion);
+  const [errorGuardado, setErrorGuardado] = useState(false);
 
-export function FinancieroDemoProvider({ children }: { children: ReactNode }) {
-  const [docs, setDocs] = useState<Documentos>(INICIAL);
-  const [egresos, setEgresos] = useState<Egreso[]>(EGRESOS_DEMO);
-  const [revision, setRevision] = useState<Record<string, ValorRevision>>({});
+  useEffect(() => {
+    setErrorGuardado(
+      !guardarDatos({
+        facturas: docs.facturas,
+        notasSueltas: docs.notasSueltas,
+        egresos,
+        revision,
+        devolucion,
+      }),
+    );
+  }, [docs, egresos, revision, devolucion]);
 
   const registrarCobro = useCallback(
     (facturaId: number, cobro: Omit<Cobro, 'id'>) => {
@@ -90,23 +123,24 @@ export function FinancieroDemoProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  // Agrega facturas y notas de crédito de una sola vez. Cada nota se aplica a
-  // la factura que modifica; si esa factura no está, queda como "suelta" y se
-  // aplica sola cuando se cargue.
-  const agregarDocumentos = useCallback<FinancieroDemo['agregarDocumentos']>((nuevos) => {
+  // Agrega facturas y notas de crédito de una sola vez. Se ignoran las que ya
+  // están (misma clave de acceso). Cada nota se aplica a la factura que
+  // modifica; si esa factura no está, queda como "suelta" y se aplica sola
+  // cuando se cargue.
+  const agregarDocumentos = useCallback<Financiero['agregarDocumentos']>((nuevos) => {
     setDocs((prev) => {
       const facturas = [...prev.facturas];
-      const numeros = new Set(facturas.map((f) => f.numero));
+      const claves = new Set(facturas.map((f) => f.claveAcceso));
       let siguienteFactura = Math.max(0, ...facturas.map((f) => f.id)) + 1;
       for (const n of nuevos.facturas) {
-        if (numeros.has(n.numero)) continue;
-        numeros.add(n.numero);
+        if (claves.has(n.claveAcceso)) continue;
+        claves.add(n.claveAcceso);
         facturas.push({ ...n, id: siguienteFactura++ });
       }
 
       const notasConocidas = new Set([
-        ...facturas.flatMap((f) => f.creditos.map((c) => c.numero)),
-        ...prev.notasSueltas.map((n) => n.numero),
+        ...facturas.flatMap((f) => f.creditos.map((c) => c.claveAcceso)),
+        ...prev.notasSueltas.map((n) => n.claveAcceso),
       ]);
       let siguienteNota =
         Math.max(
@@ -116,8 +150,8 @@ export function FinancieroDemoProvider({ children }: { children: ReactNode }) {
         ) + 1;
       const notasNuevas: NotaCredito[] = [];
       for (const n of nuevos.notas) {
-        if (notasConocidas.has(n.numero)) continue;
-        notasConocidas.add(n.numero);
+        if (notasConocidas.has(n.claveAcceso)) continue;
+        notasConocidas.add(n.claveAcceso);
         notasNuevas.push({ ...n, id: siguienteNota++ });
       }
 
@@ -150,11 +184,42 @@ export function FinancieroDemoProvider({ children }: { children: ReactNode }) {
     setRevision((prev) => ({ ...prev, [clave]: valor }));
   }, []);
 
-  const restablecer = useCallback(() => {
-    setDocs(INICIAL);
-    setEgresos(EGRESOS_DEMO);
-    setRevision({});
+  const establecerDevolucion = useCallback((monto: number) => {
+    setDevolucion(Math.max(0, Math.round(monto * 100) / 100));
   }, []);
+
+  const aplicar = useCallback((d: typeof DATOS_VACIOS) => {
+    setDocs({ facturas: d.facturas, notasSueltas: d.notasSueltas });
+    setEgresos(d.egresos);
+    setRevision(d.revision);
+    setDevolucion(d.devolucion);
+  }, []);
+
+  const vaciar = useCallback(() => aplicar(DATOS_VACIOS), [aplicar]);
+
+  const exportarCopia = useCallback(
+    () =>
+      serializarCopia({
+        facturas: docs.facturas,
+        notasSueltas: docs.notasSueltas,
+        egresos,
+        revision,
+        devolucion,
+      }),
+    [docs, egresos, revision, devolucion],
+  );
+
+  const importarCopia = useCallback(
+    (contenido: string) => {
+      const lectura = leerCopia(contenido);
+      if (!lectura.ok) return lectura.mensaje;
+      aplicar(lectura.datos);
+      return null;
+    },
+    [aplicar],
+  );
+
+  const vacio = docs.facturas.length === 0 && docs.notasSueltas.length === 0 && egresos.length === 0;
 
   const valor = useMemo(
     () => ({
@@ -162,6 +227,9 @@ export function FinancieroDemoProvider({ children }: { children: ReactNode }) {
       notasSueltas: docs.notasSueltas,
       egresos,
       revision,
+      devolucion,
+      vacio,
+      errorGuardado,
       registrarCobro,
       anularFactura,
       vincularOrden,
@@ -169,12 +237,18 @@ export function FinancieroDemoProvider({ children }: { children: ReactNode }) {
       agregarEgreso,
       cambiarEstadoEgreso,
       marcarRevision,
-      restablecer,
+      establecerDevolucion,
+      vaciar,
+      exportarCopia,
+      importarCopia,
     }),
     [
       docs,
       egresos,
       revision,
+      devolucion,
+      vacio,
+      errorGuardado,
       registrarCobro,
       anularFactura,
       vincularOrden,
@@ -182,15 +256,18 @@ export function FinancieroDemoProvider({ children }: { children: ReactNode }) {
       agregarEgreso,
       cambiarEstadoEgreso,
       marcarRevision,
-      restablecer,
+      establecerDevolucion,
+      vaciar,
+      exportarCopia,
+      importarCopia,
     ],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }
 
-export function useFinanciero(): FinancieroDemo {
+export function useFinanciero(): Financiero {
   const ctx = useContext(Contexto);
-  if (!ctx) throw new Error('useFinanciero debe usarse dentro de FinancieroDemoProvider');
+  if (!ctx) throw new Error('useFinanciero debe usarse dentro de FinancieroProvider');
   return ctx;
 }

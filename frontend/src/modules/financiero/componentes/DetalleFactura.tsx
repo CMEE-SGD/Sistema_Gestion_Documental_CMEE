@@ -4,9 +4,7 @@ import {
   Banknote,
   CalendarClock,
   Check,
-  FileCode,
   FileMinus,
-  FileText,
   Link2,
   Paperclip,
   Percent,
@@ -14,8 +12,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
-import { ORDENES_DEMO } from '../datosDemo';
-import { useFinanciero } from '../FinancieroDemoContext';
+import { useFinanciero } from '../FinancieroContext';
 import {
   diasParaVencer,
   estadoDe,
@@ -88,7 +85,6 @@ export default function DetalleFactura({ factura }: { factura: Factura }) {
   const [aviso, setAviso] = useState<string | null>(null);
   const [ordenElegida, setOrdenElegida] = useState('');
   const [cambiandoOrden, setCambiandoOrden] = useState(false);
-  const [pdf, setPdf] = useState('');
 
   const estado = estadoDe(factura);
   const { cobrado, retenciones, credito, saldo } = totalesFactura(factura);
@@ -97,9 +93,6 @@ export default function DetalleFactura({ factura }: { factura: Factura }) {
   const avance = Math.min(100, ((cobrado + retenciones + credito) / factura.total) * 100);
   const cobros: Cobro[] = [...factura.cobros].sort((a, b) => a.fecha.localeCompare(b.fecha));
 
-  const ordenesSugeridas = ORDENES_DEMO.filter((o) => o.clienteRuc === factura.clienteRuc);
-  const ordenesLista = ordenesSugeridas.length > 0 ? ordenesSugeridas : ORDENES_DEMO;
-  const sugeridas = ordenesSugeridas.length > 0;
   const rucProveedor = factura.infoAdicional['RUC Proveedor'];
 
   // Nota de crédito que anuló esta factura, y la factura que la reemplazó.
@@ -147,11 +140,6 @@ export default function DetalleFactura({ factura }: { factura: Factura }) {
             Posible reemplazo de la factura {reemplazaA.facturaModificada}, anulada por la nota de
             crédito {reemplazaA.numero} el {fmtFecha(reemplazaA.fechaEmision)}, con el mismo cliente y
             el mismo valor.
-          </Aviso>
-        )}
-        {!factura.clienteRegistrado && (
-          <Aviso tono="aviso" className="mt-3 text-[13px]">
-            Este cliente aún no está en el sistema. La factura se guardó con la razón social del XML.
           </Aviso>
         )}
       </div>
@@ -285,32 +273,27 @@ export default function DetalleFactura({ factura }: { factura: Factura }) {
         ) : (
           <div className="space-y-2">
             <label htmlFor="orden-vinculo" className="text-sm text-muted-foreground">
-              {sugeridas
-                ? 'Órdenes de este cliente (sugeridas por RUC)'
-                : 'Este cliente no tiene órdenes recientes. Elige otra orden'}
+              Número de la orden de trabajo
             </label>
             <div className="flex gap-2">
-              <select
+              <input
                 id="orden-vinculo"
+                type="text"
                 value={ordenElegida}
                 onChange={(e) => setOrdenElegida(e.target.value)}
+                placeholder="Ej. 0013563"
+                maxLength={30}
                 className={inputCls}
-              >
-                <option value="">Sin orden vinculada</option>
-                {ordenesLista.map((o) => (
-                  <option key={o.numero} value={o.numero}>
-                    {o.numero}, {o.equipos} {o.equipos === 1 ? 'equipo' : 'equipos'}, {fmtFecha(o.fecha)}
-                  </option>
-                ))}
-              </select>
+              />
               <Boton
                 size="sm"
                 className="h-auto shrink-0"
-                disabled={!ordenElegida}
+                disabled={!ordenElegida.trim()}
                 onClick={() => {
-                  vincularOrden(factura.id, ordenElegida);
+                  const orden = ordenElegida.trim();
+                  vincularOrden(factura.id, orden);
                   setCambiandoOrden(false);
-                  setAviso(`Factura vinculada a la orden ${ordenElegida}.`);
+                  setAviso(`Factura vinculada a la orden ${orden}.`);
                 }}
               >
                 Vincular
@@ -361,30 +344,6 @@ export default function DetalleFactura({ factura }: { factura: Factura }) {
             ))}
           </tbody>
         </table>
-      </Seccion>
-
-      <Seccion titulo="Archivos">
-        <ul className="space-y-2 text-sm">
-          <li className="flex items-center gap-2 text-foreground">
-            <FileCode className="h-4 w-4 text-muted-foreground" />
-            FAC {factura.numero}.xml
-            <span className="text-xs text-muted-foreground">guardado al importar</span>
-          </li>
-          <li className="flex items-center gap-2 text-foreground">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            {pdf ? pdf : <span className="text-muted-foreground">PDF sin adjuntar</span>}
-          </li>
-        </ul>
-        <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors focus-within:ring-1 focus-within:ring-ring hover:bg-accent">
-          <Paperclip className="h-4 w-4" />
-          Adjuntar PDF
-          <input
-            type="file"
-            accept=".pdf"
-            className="sr-only"
-            onChange={(e) => setPdf(e.target.files?.[0]?.name ?? '')}
-          />
-        </label>
       </Seccion>
 
       {estado !== 'ANULADA' && (
