@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { CalendarClock, FileText, Receipt, Wallet } from 'lucide-react';
+import { CalendarClock, ClipboardList, FileText, Receipt, Wallet } from 'lucide-react';
 import Navbar from '../../shared/components/organisms/Navbar';
 import { LayoutUIContext } from '../../shared/context/LayoutUIContext';
 
@@ -24,6 +24,7 @@ export const FinancieroLayout = () => {
     const menuItems = [
         { name: 'Proformas', path: '/financiero/proformas', icon: <FileText className="w-4 h-4" /> },
         { name: 'Facturación', path: '/financiero/facturas', icon: <Receipt className="w-4 h-4" /> },
+        { name: 'Órdenes de trabajo', path: '/financiero/ordenes', icon: <ClipboardList className="w-4 h-4" /> },
         { name: 'Cartera', path: '/financiero/cartera', icon: <Wallet className="w-4 h-4" /> },
         { name: 'Próx. calibraciones', path: '/financiero/proximas-calibraciones', icon: <CalendarClock className="w-4 h-4" /> },
     ];

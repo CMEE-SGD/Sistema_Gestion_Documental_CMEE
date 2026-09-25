@@ -34,13 +34,19 @@ export class RecepcionEquiposController {
   }
 
   @Get()
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess([
+    { app: 'Recepcion Equipos', level: 1 },
+    { app: 'Gestion Financiera', level: 1 },
+  ])
   findAll(@Req() req: any) {
     return this.recepcionService.findAll(req.user);
   }
 
   @Get(':id')
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess([
+    { app: 'Recepcion Equipos', level: 1 },
+    { app: 'Gestion Financiera', level: 1 },
+  ])
   findOne(@Param('id') id: string, @Req() req: any) {
     return this.recepcionService.findOne(+id, req.user);
   }

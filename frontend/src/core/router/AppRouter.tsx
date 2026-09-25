@@ -106,6 +106,7 @@ import ProformasPage from '../../modules/financiero/pages/ProformasPage';
 import FacturasPage from '../../modules/financiero/pages/FacturasPage';
 import CarteraPage from '../../modules/financiero/pages/CarteraPage';
 import ProximasCalibracionesPage from '../../modules/financiero/pages/ProximasCalibracionesPage';
+import OrdenesTrabajoPage from '../../modules/financiero/pages/OrdenesTrabajoPage';
 
 // --- MÓDULO RESUMEN (dashboards) ---
 import { ResumenLayout } from '../../modules/resumen/ResumenLayout';
@@ -239,6 +240,7 @@ const AppContenido = () => {
           <Route index element={<ProformasPage />} />
           <Route path="proformas" element={<ProformasPage />} />
           <Route path="facturas" element={<FacturasPage />} />
+          <Route path="ordenes" element={<OrdenesTrabajoPage />} />
           <Route path="cartera" element={<CarteraPage />} />
           <Route path="proximas-calibraciones" element={<ProximasCalibracionesPage />} />
         </Route>
