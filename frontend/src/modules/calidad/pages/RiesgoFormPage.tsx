@@ -6,16 +6,7 @@ import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
-
-const PROCESOS = [
-    { value: 'DCM', label: 'Direccionamiento Operativo (DCM)' },
-    { value: 'JDT_CALIBRACION', label: 'Calibración y Caracterización (JDT)' },
-    { value: 'JDT_EQUIPOS', label: 'Gestión Equipos y Patrones (JDT)' },
-    { value: 'RSEC', label: 'Recepción, Entrega y Facturación (RSEC)' },
-    { value: 'JDC_DESEMPENO', label: 'Desempeño Organizacional (JDC)' },
-    { value: 'JDC_IMPARCIALIDAD', label: 'Imparcialidad (JDC)' },
-    { value: 'JDA', label: 'Gestión Administrativa (JDA)' },
-];
+import { PROCESOS } from './procesos';
 
 const TRATAMIENTOS = [
     { value: 'EVITAR', label: 'Evitar' },

@@ -6,6 +6,7 @@ import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
+import { nombreProceso } from './procesos';
 
 const condicionStyles: Record<string, string> = {
     ALTO: 'bg-red-100 text-red-700',
@@ -102,7 +103,7 @@ export const RiesgoDetallePage = () => {
                         IDENTIFICACIÓN
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-gray-600 border border-t-0 border-gray-300 rounded-b p-4">
-                        <div><strong>Proceso:</strong> {item.proceso}</div>
+                        <div><strong>Proceso:</strong> {nombreProceso(item.proceso)}</div>
                         <div><strong>Fuente:</strong> {item.fuente || '—'}</div>
                         <div className="md:col-span-4"><strong>Evento:</strong> {item.evento}</div>
                         <div><strong>Causas:</strong> {item.causa || '—'}</div>
