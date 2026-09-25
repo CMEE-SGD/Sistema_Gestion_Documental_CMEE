@@ -228,6 +228,7 @@ const AppContenido = () => {
         <Route path="/administrativo" element={<AdministrativoLayout />}>
           <Route path="recepciones" element={<BandejaTrabajoPage />} />
           <Route path="ordenes" element={<RecepcionesPage />} />
+          <Route path="proformas" element={<ProformasPage />} />
           <Route path="clientes" element={<ClientesPage />} />
           <Route path="certificados" element={<CertificadosPage />} />
           <Route path="reportes" element={<ReportesPage />} />

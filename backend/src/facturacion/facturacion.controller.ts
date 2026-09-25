@@ -33,9 +33,10 @@ import { CreateNotaEntregaDto } from './dto/create-nota-entrega.dto';
  * Módulo financiero del flujograma de calibración. Aplicación independiente
  * ('Gestion Financiera') ligada a la recepción de equipos por sus datos
  * (órdenes, proformas y fechas de calibración). Esquema de niveles:
- * 1 lectura, 4 creación/actualización, 5 eliminación. Los GET de proformas
- * se comparten como catálogo de solo-lectura con 'Recepcion Equipos' para
- * que el flujo de recepción pueda vincular la orden con su proforma.
+ * 1 lectura, 4 creación/actualización, 5 eliminación. Las proformas se
+ * comparten con 'Recepcion Equipos' (lectura y gestión: crear, editar y
+ * eliminar) porque el flujo de recepción puede emitir y vincular sus propias
+ * proformas a la orden de trabajo.
  */
 @UseGuards(JwtAuthGuard, AccessGuard)
 @Controller('facturacion')
@@ -54,7 +55,10 @@ export class FacturacionController {
   }
 
   @Post('proformas')
-  @RequireAccess('Gestion Financiera', 4)
+  @RequireAccess([
+    { app: 'Gestion Financiera', level: 4 },
+    { app: 'Recepcion Equipos', level: 4 },
+  ])
   createProforma(@Body() dto: CreateProformaDto) {
     return this.facturacionService.createProforma(dto);
   }
@@ -69,13 +73,19 @@ export class FacturacionController {
   }
 
   @Patch('proformas/:id')
-  @RequireAccess('Gestion Financiera', 4)
+  @RequireAccess([
+    { app: 'Gestion Financiera', level: 4 },
+    { app: 'Recepcion Equipos', level: 4 },
+  ])
   updateProforma(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProformaDto) {
     return this.facturacionService.updateProforma(id, dto);
   }
 
   @Delete('proformas/:id')
-  @RequireAccess('Gestion Financiera', 5)
+  @RequireAccess([
+    { app: 'Gestion Financiera', level: 5 },
+    { app: 'Recepcion Equipos', level: 5 },
+  ])
   removeProforma(@Param('id', ParseIntPipe) id: number) {
     return this.facturacionService.removeProforma(id);
   }

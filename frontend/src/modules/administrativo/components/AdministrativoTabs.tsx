@@ -3,6 +3,7 @@ import {
   Award,
   BarChart3,
   ClipboardList,
+  FileText,
   Inbox,
   Users,
 } from 'lucide-react';
@@ -29,6 +30,12 @@ export default function AdministrativoTabs() {
       label: 'Órdenes',
       path: '/administrativo/ordenes',
       icon: ClipboardList,
+      visible: puedeVerModulo,
+    },
+    {
+      label: 'Proformas',
+      path: '/administrativo/proformas',
+      icon: FileText,
       visible: puedeVerModulo,
     },
     {

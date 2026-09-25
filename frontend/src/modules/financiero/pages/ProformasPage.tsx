@@ -1,5 +1,9 @@
 // Proformas — entidad formal vinculable a las órdenes de trabajo
-// (flujograma: "se vincula el código de la proforma").
+// (flujograma: "se vincula el código de la proforma"). Página compartida
+// por el módulo financiero (/financiero/proformas) y la recepción de
+// equipos (/administrativo/proformas): ambas pueden crear, editar el estado
+// y eliminar según el nivel de permiso (4 creación/actualización, 5
+// eliminación).
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +18,7 @@ import {
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
-import { esUsuarioAdministrador } from '../../../shared/utils/auth';
+import { esUsuarioAdministrador, tienePermiso } from '../../../shared/utils/auth';
 import {
   ESTADO_PROFORMA_LABEL,
   fmtFecha,
@@ -46,7 +50,19 @@ export default function ProformasPage() {
   const { alert, confirm } = useAlert();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // Las proformas se gestionan desde dos módulos: 'Gestion Financiera'
+  // (módulo financiero) y 'Recepcion Equipos' (recepción de equipos). La
+  // visibilidad de las acciones sigue el esquema de niveles del backend:
+  // 4 creación/actualización, 5 eliminación (además del grupo Administrador).
   const esAdmin = esUsuarioAdministrador();
+  const puedeCrear =
+    esAdmin ||
+    tienePermiso('Gestion Financiera', 4) ||
+    tienePermiso('Recepcion Equipos', 4);
+  const puedeEliminar =
+    esAdmin ||
+    tienePermiso('Gestion Financiera', 5) ||
+    tienePermiso('Recepcion Equipos', 5);
 
   const { data: proformas = [], isLoading } = useQuery<Proforma[]>({
     queryKey: ['proformas'],
@@ -172,13 +188,15 @@ export default function ProformasPage() {
               className={`${inputCls} pl-8`}
             />
           </div>
-          <button
-            type="button"
-            onClick={() => setModalAbierto(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> Nueva proforma
-          </button>
+          {puedeCrear && (
+            <button
+              type="button"
+              onClick={() => setModalAbierto(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" /> Nueva proforma
+            </button>
+          )}
         </div>
       </div>
 
@@ -209,19 +227,25 @@ export default function ProformasPage() {
                   {fmtMoneda(p.monto)}
                 </td>
                 <td className="px-3 py-2">
-                  <select
-                    value={p.estado}
-                    onChange={(e) =>
-                      cambiarEstado.mutate({ id: p.id, estado: e.target.value })
-                    }
-                    className="rounded border border-slate-300 bg-white px-1.5 py-1 text-xs font-medium focus:outline-none"
-                  >
-                    {Object.entries(ESTADO_PROFORMA_LABEL).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
+                  {puedeCrear ? (
+                    <select
+                      value={p.estado}
+                      onChange={(e) =>
+                        cambiarEstado.mutate({ id: p.id, estado: e.target.value })
+                      }
+                      className="rounded border border-slate-300 bg-white px-1.5 py-1 text-xs font-medium focus:outline-none"
+                    >
+                      {Object.entries(ESTADO_PROFORMA_LABEL).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="inline-block rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">
+                      {ESTADO_PROFORMA_LABEL[p.estado] ?? p.estado}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   {p.ordenes_trabajo.length > 0 ? (
@@ -240,7 +264,7 @@ export default function ProformasPage() {
                   )}
                 </td>
                 <td className="px-3 py-2">
-                  {esAdmin && (
+                  {puedeEliminar && (
                     <button
                       type="button"
                       onClick={() => handleEliminar(p)}
