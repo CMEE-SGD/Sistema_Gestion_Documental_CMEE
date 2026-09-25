@@ -24,6 +24,8 @@ import {
   Handshake,
   ArrowUp,
   ArrowDown,
+  ClipboardCheck,
+  UserCog,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
@@ -188,6 +190,16 @@ const STAT_TONE_STYLES = {
     chip: 'bg-emerald-100 dark:bg-emerald-900/30',
     icon: 'text-emerald-600 dark:text-emerald-400',
     value: 'text-emerald-600 dark:text-emerald-400',
+  },
+  violet: {
+    chip: 'bg-violet-100 dark:bg-violet-900/30',
+    icon: 'text-violet-600 dark:text-violet-400',
+    value: 'text-violet-600 dark:text-violet-400',
+  },
+  cyan: {
+    chip: 'bg-cyan-100 dark:bg-cyan-900/30',
+    icon: 'text-cyan-600 dark:text-cyan-400',
+    value: 'text-cyan-600 dark:text-cyan-400',
   },
 } as const;
 
@@ -747,6 +759,15 @@ export default function BandejaTrabajoPage() {
       total: list.length,
       enEspera: list.filter((r) => r.estado === 'EN_ESPERA').length,
       enCalibracion: list.filter((r) => r.estado === 'EN_CALIBRACION').length,
+      revisionTecnica: list.filter(
+        (r) =>
+          r.estado === 'REVISION_OBT' ||
+          r.estado === 'REVISION_JEFE' ||
+          r.estado === 'PENDIENTE_FIRMA_TECNICO',
+      ).length,
+      revisionDirector: list.filter(
+        (r) => r.estado === 'REVISION_DIRECTOR',
+      ).length,
       entregados: list.filter((r) => r.estado === 'FINALIZADO').length,
     };
   }, [recepciones]);
@@ -820,6 +841,18 @@ export default function BandejaTrabajoPage() {
             label="En calibración"
             value={kpis.enCalibracion}
             tone="blue"
+          />
+          <StatItem
+            icon={ClipboardCheck}
+            label="En revisión técnica"
+            value={kpis.revisionTecnica}
+            tone="violet"
+          />
+          <StatItem
+            icon={UserCog}
+            label="Revisión de director"
+            value={kpis.revisionDirector}
+            tone="cyan"
           />
           <StatItem
             icon={CheckCircle}
