@@ -314,7 +314,7 @@ export const RiesgoFormPage = () => {
                         <textarea name="causa" value={form.causa} onChange={handleChange} rows={2} className={inputCls} placeholder="Causas que lo originan..." />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-gray-700">Fuente de procedencia</label>
+                        <label className="text-sm font-medium text-gray-700">Factores de riesgo</label>
                         <input type="text" name="fuente" value={form.fuente} onChange={handleChange} className={inputCls} placeholder="Interna / Externa" />
                     </div>
                     <div className="flex flex-col gap-1.5 md:col-span-2">
