@@ -22,6 +22,8 @@ import {
   ShieldCheck,
   UserCheck,
   Handshake,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
@@ -152,6 +154,17 @@ function viewTitle(): string {
 }
 
 // ---------------------------------------------------------------------------
+const ESTADO_ORDEN: Record<EstadoKey, number> = {
+  EN_ESPERA: 1,
+  EN_CALIBRACION: 2,
+  REVISION_OBT: 3,
+  PENDIENTE_FIRMA_TECNICO: 4,
+  REVISION_JEFE: 5,
+  REVISION_DIRECTOR: 6,
+  LISTO_PARA_ENTREGA: 7,
+  FINALIZADO: 8,
+};
+
 // Sub-components
 // ---------------------------------------------------------------------------
 
@@ -170,6 +183,11 @@ const STAT_TONE_STYLES = {
     chip: 'bg-blue-100 dark:bg-blue-900/30',
     icon: 'text-blue-600 dark:text-blue-400',
     value: 'text-blue-600 dark:text-blue-400',
+  },
+  green: {
+    chip: 'bg-emerald-100 dark:bg-emerald-900/30',
+    icon: 'text-emerald-600 dark:text-emerald-400',
+    value: 'text-emerald-600 dark:text-emerald-400',
   },
 } as const;
 
@@ -551,6 +569,17 @@ export default function BandejaTrabajoPage() {
 
   const [busqueda, setBusqueda] = useState('');
   const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
+  const [ordenPor, setOrdenPor] = useState<'fecha' | 'estado'>('fecha');
+  const [direccion, setDireccion] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (campo: 'fecha' | 'estado') => {
+    if (ordenPor === campo) {
+      setDireccion((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setOrdenPor(campo);
+      setDireccion('desc');
+    }
+  };
 
   const esAdministrador = esUsuarioAdministrador();
   const [editarOrden, setEditarOrden] = useState<OrdenTrabajoDetalle | null>(
@@ -635,7 +664,7 @@ export default function BandejaTrabajoPage() {
     const lista = recepciones ?? [];
     const termino = normalize(busqueda.trim());
 
-    return lista.filter((r) => {
+    const filtradas = lista.filter((r) => {
       if (laboratorioFiltro && String(r.laboratorio?.id) !== laboratorioFiltro) {
         return false;
       }
@@ -652,7 +681,23 @@ export default function BandejaTrabajoPage() {
       );
       return haystack.includes(termino);
     });
-  }, [recepciones, busqueda, laboratorioFiltro]);
+
+    const factor = direccion === 'asc' ? 1 : -1;
+    return [...filtradas].sort((a, b) => {
+      if (ordenPor === 'estado') {
+        const dif = ESTADO_ORDEN[a.estado] - ESTADO_ORDEN[b.estado];
+        if (dif !== 0) return dif * factor;
+        // Desempate: el más reciente primero.
+        return (
+          new Date(b.fecha_ingreso).getTime() - new Date(a.fecha_ingreso).getTime()
+        );
+      }
+      return (
+        (new Date(a.fecha_ingreso).getTime() - new Date(b.fecha_ingreso).getTime()) *
+        factor
+      );
+    });
+  }, [recepciones, busqueda, laboratorioFiltro, ordenPor, direccion]);
 
   // Modal state
   const [isRegistroModalOpen, setIsRegistroModalOpen] = useState(false);
@@ -702,6 +747,7 @@ export default function BandejaTrabajoPage() {
       total: list.length,
       enEspera: list.filter((r) => r.estado === 'EN_ESPERA').length,
       enCalibracion: list.filter((r) => r.estado === 'EN_CALIBRACION').length,
+      entregados: list.filter((r) => r.estado === 'FINALIZADO').length,
     };
   }, [recepciones]);
 
@@ -775,6 +821,12 @@ export default function BandejaTrabajoPage() {
             value={kpis.enCalibracion}
             tone="blue"
           />
+          <StatItem
+            icon={CheckCircle}
+            label="Entregados"
+            value={kpis.entregados}
+            tone="green"
+          />
         </div>
       )}
 
@@ -829,11 +881,11 @@ export default function BandejaTrabajoPage() {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <TH>Orden Física</TH>
-                <TH>Fecha</TH>
+                <SortableTH campo="fecha" ordenPor={ordenPor} direccion={direccion} onSort={handleSort}>Fecha</SortableTH>
                 <TH>Cliente</TH>
                 <TH>Equipo</TH>
                 <TH>Laboratorio</TH>
-                <TH className="text-center">Estado</TH>
+                <SortableTH campo="estado" ordenPor={ordenPor} direccion={direccion} onSort={handleSort} className="text-center">Estado</SortableTH>
                 <TH>Técnico</TH>
                 <TH>Observaciones</TH>
                 {(canAssign || canExecute) && (
@@ -1324,6 +1376,48 @@ function TH({
       )}
     >
       {children}
+    </th>
+  );
+}
+
+// Cabecera ordenable: clic sobre el label alterna la dirección, y la flecha
+// muestra el orden vigente (↕ fija en gris cuando la columna no está activa).
+function SortableTH({
+  campo,
+  ordenPor,
+  direccion,
+  onSort,
+  className,
+  children,
+}: {
+  campo: 'fecha' | 'estado';
+  ordenPor: 'fecha' | 'estado';
+  direccion: 'asc' | 'desc';
+  onSort: (campo: 'fecha' | 'estado') => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const activo = ordenPor === campo;
+  const Icono = activo && direccion === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th
+      className={cn(
+        'px-6 py-3 text-left text-xs font-medium uppercase tracking-wider',
+        activo ? 'text-foreground' : 'text-muted-foreground',
+        className,
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(campo)}
+        className={cn(
+          'inline-flex items-center gap-1 uppercase tracking-wider transition-colors hover:text-foreground focus-visible:outline-none',
+          className?.includes('text-center') ? 'justify-center' : '',
+        )}
+      >
+        {children}
+        <Icono className={cn('h-3.5 w-3.5', activo ? '' : 'opacity-30')} />
+      </button>
     </th>
   );
 }
