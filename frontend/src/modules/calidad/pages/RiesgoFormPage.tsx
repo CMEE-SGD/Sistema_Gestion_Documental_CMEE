@@ -6,16 +6,7 @@ import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
-
-const PROCESOS = [
-    { value: 'DCM', label: 'Direccionamiento Operativo (DCM)' },
-    { value: 'JDT_CALIBRACION', label: 'Calibración y Caracterización (JDT)' },
-    { value: 'JDT_EQUIPOS', label: 'Gestión Equipos y Patrones (JDT)' },
-    { value: 'RSEC', label: 'Recepción, Entrega y Facturación (RSEC)' },
-    { value: 'JDC_DESEMPENO', label: 'Desempeño Organizacional (JDC)' },
-    { value: 'JDC_IMPARCIALIDAD', label: 'Imparcialidad (JDC)' },
-    { value: 'JDA', label: 'Gestión Administrativa (JDA)' },
-];
+import { PROCESOS } from './procesos';
 
 const TRATAMIENTOS = [
     { value: 'EVITAR', label: 'Evitar' },
@@ -323,7 +314,7 @@ export const RiesgoFormPage = () => {
                         <textarea name="causa" value={form.causa} onChange={handleChange} rows={2} className={inputCls} placeholder="Causas que lo originan..." />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-gray-700">Fuente de procedencia</label>
+                        <label className="text-sm font-medium text-gray-700">Factores de riesgo</label>
                         <input type="text" name="fuente" value={form.fuente} onChange={handleChange} className={inputCls} placeholder="Interna / Externa" />
                     </div>
                     <div className="flex flex-col gap-1.5 md:col-span-2">

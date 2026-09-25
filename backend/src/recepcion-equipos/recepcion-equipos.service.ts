@@ -11,6 +11,7 @@ import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
+import { CambiarFaseAdminDto } from './dto/cambiar-fase-admin.dto';
 import { EstadoRecepcion } from '@prisma/client';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import {
@@ -27,7 +28,19 @@ import {
 // con un equipo en la orden.
 function construirOrdenInclude(equipoWhere?: object) {
   return {
-    cliente: { select: { id: true, nombre: true, tipo: true } },
+    cliente: {
+      select: {
+        id: true,
+        nombre: true,
+        ruc: true,
+        representante: true,
+        direccion: true,
+        telefono: true,
+        email: true,
+        tipo: true,
+        activo: true,
+      },
+    },
     equipos: {
       where: equipoWhere,
       include: {
@@ -84,7 +97,19 @@ const EQUIPO_INCLUDE = {
     select: {
       id: true,
       orden_trabajo_fisica: true,
-      cliente: { select: { id: true, nombre: true, tipo: true } },
+      cliente: {
+        select: {
+          id: true,
+          nombre: true,
+          ruc: true,
+          representante: true,
+          direccion: true,
+          telefono: true,
+          email: true,
+          tipo: true,
+          activo: true,
+        },
+      },
     },
   },
 };
@@ -202,10 +227,14 @@ export class RecepcionEquiposService {
   // Evita que un equipo quede etiquetado con una sub-área que en realidad
   // pertenece a otro laboratorio distinto al que se le asignó — mismo
   // criterio que ya se usa para validar servicio_id en certificados.service.ts.
+  // Solo valida las filas que traen sub-área Y laboratorio definido (en la
+  // edición, la sub-área se decide por el laboratorio seleccionado).
   private async validarSubAreasDeEquipos(
-    equipos: { laboratorio_id: number; sub_area_id?: number }[],
+    equipos: { laboratorio_id?: number; sub_area_id?: number }[],
   ) {
-    const conSubArea = equipos.filter((e) => e.sub_area_id != null);
+    const conSubArea = equipos.filter(
+      (e) => e.sub_area_id != null && e.laboratorio_id != null,
+    );
     if (conSubArea.length === 0) return;
 
     const subAreas = await this.prisma.subAreaLaboratorio.findMany({
@@ -298,14 +327,67 @@ export class RecepcionEquiposService {
 
   async update(id: number, dto: UpdateOrdenTrabajoDto) {
     await this.findOne(id);
+
+    const { equipos, ...header } = dto;
+
+    if (equipos && equipos.length > 0) {
+      await this.validarSubAreasDeEquipos(equipos);
+    }
+
     try {
-      const orden = await this.prisma.ordenTrabajo.update({
-        where: { id },
-        data: {
-          ...dto,
-          fecha_ingreso: toDate(dto.fecha_ingreso),
-        },
-        include: construirOrdenInclude(),
+      const orden = await this.prisma.$transaction(async (tx) => {
+        // 1) Cabecera de la orden
+        await tx.ordenTrabajo.update({
+          where: { id },
+          data: {
+            ...header,
+            fecha_ingreso: toDate(header.fecha_ingreso),
+          },
+        });
+
+        // 2) Detalle: los equipos con `id` se actualizan y los que no traen
+        // `id` se crean (equipos nuevos dentro de una orden ya registrada).
+        // La fase (`estado`) queda fuera del DTO — se mueve con el flujo de
+        // estados o con el ajuste manual del administrador.
+        if (equipos && equipos.length > 0) {
+          for (const equipo of equipos) {
+            const dataEquipo: any = {
+              equipo_descripcion: equipo.equipo_descripcion,
+              marca: equipo.marca || null,
+              modelo: equipo.modelo || null,
+              codigo_serie: equipo.codigo_serie || null,
+              codigo_cmee: equipo.codigo_cmee || null,
+              accesorios: equipo.accesorios || null,
+              requerimientos_calibracion:
+                equipo.requerimientos_calibracion || null,
+              laboratorio_id: equipo.laboratorio_id,
+              fecha_ingreso_laboratorio: toDate(
+                equipo.fecha_ingreso_laboratorio,
+              ),
+            };
+            // La sub-área es opcional: solo se toca si el cliente la envía
+            // explícitamente (undefined = dejarla como está; null = quitarla).
+            if (equipo.sub_area_id !== undefined) {
+              dataEquipo.sub_area_id = equipo.sub_area_id;
+            }
+
+            if (equipo.id) {
+              await tx.equipoRecepcion.update({
+                where: { id: equipo.id },
+                data: dataEquipo,
+              });
+            } else {
+              await tx.equipoRecepcion.create({
+                data: { ...dataEquipo, orden_trabajo_id: id },
+              });
+            }
+          }
+        }
+
+        return tx.ordenTrabajo.findUnique({
+          where: { id },
+          include: construirOrdenInclude(),
+        });
       });
       this.notificacionesService.notificarRecepcionActualizada();
       return orden;
@@ -443,6 +525,77 @@ export class RecepcionEquiposService {
       data: { estado },
       include: EQUIPO_INCLUDE,
     });
+  }
+
+  /**
+   * Cambio MANUAL de fase reservado a administradores (nivel 5): corrige
+   * errores del flujo cuando un usuario avanzó o rechazó por equivocación.
+   *
+   * A diferencia de transicionEstado(), NO aplica la máquina de estados — el
+   * admin elige el estado destino libremente (hacia adelante o hacia atrás).
+   * De todos modos queda trazado en historial_estado con accion='AJUSTE_ADMIN'
+   * y se notifica a quien deba actuar en la nueva fase, para que el flujo
+   * retome con la notificación correcta. No borra certificados ni firmas:
+   * la corrección es solo de fase; si hace falta limpiar documentos, el
+   * admin puede rechazar por el flujo normal o eliminar la orden.
+   */
+  async cambiarFaseAdmin(
+    equipoId: number,
+    dto: CambiarFaseAdminDto,
+    user: any,
+  ) {
+    const equipo = await this.findOneEquipo(equipoId);
+    const estadoAnterior = equipo.estado;
+    const estadoNuevo = dto.estado;
+
+    if (estadoNuevo === estadoAnterior) {
+      throw new BadRequestException(
+        `El equipo ya se encuentra en el estado ${estadoNuevo.replace(/_/g, ' ')}`,
+      );
+    }
+
+    const personaId = user?.persona_id ?? null;
+
+    const equipoActualizado = await this.prisma.$transaction(async (tx) => {
+      await tx.equipoRecepcion.update({
+        where: { id: equipoId },
+        data: { estado: estadoNuevo },
+      });
+
+      await tx.historialEstado.create({
+        data: {
+          equipo_recepcion_id: equipoId,
+          estado_anterior: estadoAnterior,
+          estado_nuevo: estadoNuevo,
+          accion: 'AJUSTE_ADMIN',
+          observaciones: dto.observaciones ?? null,
+          realizado_por_id: personaId ?? 1,
+        },
+      });
+
+      return tx.equipoRecepcion.findUnique({
+        where: { id: equipoId },
+        include: EQUIPO_INCLUDE,
+      });
+    });
+
+    // Mismo criterio que transicionEstado: notificar después del commit y sin
+    // dejar que un fallo de notificación revierta o bloquee el cambio (el
+    // helper además nunca lanza).
+    if (equipoActualizado) {
+      await notificarResponsablesEquipo(
+        this.prisma,
+        this.notificacionesService,
+        equipoActualizado,
+        estadoNuevo,
+        {
+          motivo: dto.observaciones ?? undefined,
+        },
+      );
+    }
+    this.notificacionesService.notificarRecepcionActualizada();
+
+    return equipoActualizado;
   }
 
   async transicionEstado(

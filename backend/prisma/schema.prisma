@@ -868,6 +868,10 @@ model OrdenTrabajo {
   recibe_responsable_id Int?
   recibe_responsable    Persona? @relation("PersonaRecibeOrden", fields: [recibe_responsable_id], references: [id])
 
+  // Observaciones generales de la orden — texto libre del usuario al
+  // registrar la recepción (también editable por el administrador).
+  observaciones String? @db.Text
+
   // Un detalle por cada equipo recibido en esta orden
   equipos EquipoRecepcion[]
 

@@ -13,6 +13,12 @@ dist-ssr
 *.local
 *.tsbuildinfo
 
+# vite.config.ts es la fuente; estos los generaba `tsc -b` junto a él y, al
+# estar confirmados, quedaban desactualizados y Vite los prefería al .ts.
+# Ahora tsc emite a node_modules/.tmp (ver tsconfig.node.json).
+vite.config.js
+vite.config.d.ts
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -6,11 +6,13 @@ import {
   Clock,
   Eye,
   FlaskConical,
+  GitBranch,
   Loader2,
   Pencil,
   Plus,
   Search,
   Trash2,
+  FileX,
   UserPlus,
   UploadCloud,
   Inbox,
@@ -20,6 +22,10 @@ import {
   ShieldCheck,
   UserCheck,
   Handshake,
+  ArrowUp,
+  ArrowDown,
+  ClipboardCheck,
+  UserCog,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
@@ -32,8 +38,10 @@ import { Button } from '../../../shared/components/atoms/button';
 import SubirCertificadoModal from '../components/SubirCertificadoModal';
 import ValidacionCertificadoModal from '../components/ValidacionCertificadoModal';
 import FirmarDigitalModal from '../components/FirmarDigitalModal';
+import CambiarFaseModal from '../components/CambiarFaseModal';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
 import EditarOrdenModal from '../components/EditarOrdenModal';
+import VistaDetalleEquipo from '../components/VistaDetalleEquipo';
 import { type OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
 
 // ---------------------------------------------------------------------------
@@ -148,6 +156,17 @@ function viewTitle(): string {
 }
 
 // ---------------------------------------------------------------------------
+const ESTADO_ORDEN: Record<EstadoKey, number> = {
+  EN_ESPERA: 1,
+  EN_CALIBRACION: 2,
+  REVISION_OBT: 3,
+  PENDIENTE_FIRMA_TECNICO: 4,
+  REVISION_JEFE: 5,
+  REVISION_DIRECTOR: 6,
+  LISTO_PARA_ENTREGA: 7,
+  FINALIZADO: 8,
+};
+
 // Sub-components
 // ---------------------------------------------------------------------------
 
@@ -166,6 +185,21 @@ const STAT_TONE_STYLES = {
     chip: 'bg-blue-100 dark:bg-blue-900/30',
     icon: 'text-blue-600 dark:text-blue-400',
     value: 'text-blue-600 dark:text-blue-400',
+  },
+  green: {
+    chip: 'bg-emerald-100 dark:bg-emerald-900/30',
+    icon: 'text-emerald-600 dark:text-emerald-400',
+    value: 'text-emerald-600 dark:text-emerald-400',
+  },
+  violet: {
+    chip: 'bg-violet-100 dark:bg-violet-900/30',
+    icon: 'text-violet-600 dark:text-violet-400',
+    value: 'text-violet-600 dark:text-violet-400',
+  },
+  cyan: {
+    chip: 'bg-cyan-100 dark:bg-cyan-900/30',
+    icon: 'text-cyan-600 dark:text-cyan-400',
+    value: 'text-cyan-600 dark:text-cyan-400',
   },
 } as const;
 
@@ -547,11 +581,28 @@ export default function BandejaTrabajoPage() {
 
   const [busqueda, setBusqueda] = useState('');
   const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
+  const [ordenPor, setOrdenPor] = useState<'fecha' | 'estado'>('fecha');
+  const [direccion, setDireccion] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (campo: 'fecha' | 'estado') => {
+    if (ordenPor === campo) {
+      setDireccion((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setOrdenPor(campo);
+      setDireccion('desc');
+    }
+  };
 
   const esAdministrador = esUsuarioAdministrador();
   const [editarOrden, setEditarOrden] = useState<OrdenTrabajoDetalle | null>(
     null,
   );
+
+  // Hacer clic sobre el equipo abre el detalle de su calibración.
+  const [detalleEquipo, setDetalleEquipo] = useState<{
+    orden: OrdenTrabajoDetalle;
+    equipoId: number;
+  } | null>(null);
 
   const eliminarOrden = useMutation({
     mutationFn: async (id: number) => {
@@ -584,6 +635,33 @@ export default function BandejaTrabajoPage() {
     eliminarOrden.mutate(req.orden.id);
   };
 
+  // Elimina el/los documento(s) cargado(s) del equipo mientras está en
+  // calibración — opción exclusiva de administración (el backend además
+  // valida fase EN_CALIBRACION y nivel de acceso).
+  const handleEliminarDocumento = async (req: BandejaRecepcion) => {
+    const ids = (req.certificados ?? []).map((c) => c.id);
+    if (ids.length === 0) return;
+    if (
+      !(await confirm({
+        title: 'Eliminar documento',
+        message: `¿Eliminar el documento cargado del equipo "${req.equipo_descripcion}"? Esta acción no se puede deshacer.`,
+      }))
+    ) {
+      return;
+    }
+    try {
+      await Promise.all(ids.map((id) => api.delete(`/certificados/${id}`)));
+      queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+      toast({ message: 'Documento eliminado correctamente.' });
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      await alert({
+        message:
+          apiErr?.response?.data?.message || 'No se pudo eliminar el documento.',
+      });
+    }
+  };
+
   const laboratorios = useMemo(() => {
     const mapa = new Map<number, string>();
     for (const r of recepciones ?? []) {
@@ -598,7 +676,7 @@ export default function BandejaTrabajoPage() {
     const lista = recepciones ?? [];
     const termino = normalize(busqueda.trim());
 
-    return lista.filter((r) => {
+    const filtradas = lista.filter((r) => {
       if (laboratorioFiltro && String(r.laboratorio?.id) !== laboratorioFiltro) {
         return false;
       }
@@ -615,7 +693,23 @@ export default function BandejaTrabajoPage() {
       );
       return haystack.includes(termino);
     });
-  }, [recepciones, busqueda, laboratorioFiltro]);
+
+    const factor = direccion === 'asc' ? 1 : -1;
+    return [...filtradas].sort((a, b) => {
+      if (ordenPor === 'estado') {
+        const dif = ESTADO_ORDEN[a.estado] - ESTADO_ORDEN[b.estado];
+        if (dif !== 0) return dif * factor;
+        // Desempate: el más reciente primero.
+        return (
+          new Date(b.fecha_ingreso).getTime() - new Date(a.fecha_ingreso).getTime()
+        );
+      }
+      return (
+        (new Date(a.fecha_ingreso).getTime() - new Date(b.fecha_ingreso).getTime()) *
+        factor
+      );
+    });
+  }, [recepciones, busqueda, laboratorioFiltro, ordenPor, direccion]);
 
   // Modal state
   const [isRegistroModalOpen, setIsRegistroModalOpen] = useState(false);
@@ -635,6 +729,11 @@ export default function BandejaTrabajoPage() {
     certificadoId: number | null;
     tipoDocumento: 'reporte' | 'certificado';
     titulo: string;
+  } | null>(null);
+  const [cambiarFase, setCambiarFase] = useState<{
+    id: number;
+    equipoDescripcion: string;
+    estado: string;
   } | null>(null);
 
   const handleVerCertificado = async (
@@ -660,6 +759,16 @@ export default function BandejaTrabajoPage() {
       total: list.length,
       enEspera: list.filter((r) => r.estado === 'EN_ESPERA').length,
       enCalibracion: list.filter((r) => r.estado === 'EN_CALIBRACION').length,
+      revisionTecnica: list.filter(
+        (r) =>
+          r.estado === 'REVISION_OBT' ||
+          r.estado === 'REVISION_JEFE' ||
+          r.estado === 'PENDIENTE_FIRMA_TECNICO',
+      ).length,
+      revisionDirector: list.filter(
+        (r) => r.estado === 'REVISION_DIRECTOR',
+      ).length,
+      entregados: list.filter((r) => r.estado === 'FINALIZADO').length,
     };
   }, [recepciones]);
 
@@ -733,6 +842,24 @@ export default function BandejaTrabajoPage() {
             value={kpis.enCalibracion}
             tone="blue"
           />
+          <StatItem
+            icon={ClipboardCheck}
+            label="En revisión técnica"
+            value={kpis.revisionTecnica}
+            tone="violet"
+          />
+          <StatItem
+            icon={UserCog}
+            label="Revisión de director"
+            value={kpis.revisionDirector}
+            tone="cyan"
+          />
+          <StatItem
+            icon={CheckCircle}
+            label="Entregados"
+            value={kpis.entregados}
+            tone="green"
+          />
         </div>
       )}
 
@@ -787,12 +914,13 @@ export default function BandejaTrabajoPage() {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <TH>Orden Física</TH>
-                <TH>Fecha</TH>
+                <SortableTH campo="fecha" ordenPor={ordenPor} direccion={direccion} onSort={handleSort}>Fecha</SortableTH>
                 <TH>Cliente</TH>
                 <TH>Equipo</TH>
                 <TH>Laboratorio</TH>
-                <TH className="text-center">Estado</TH>
+                <SortableTH campo="estado" ordenPor={ordenPor} direccion={direccion} onSort={handleSort} className="text-center">Estado</SortableTH>
                 <TH>Técnico</TH>
+                <TH>Observaciones</TH>
                 {(canAssign || canExecute) && (
                   <TH className="text-center">Acción</TH>
                 )}
@@ -802,14 +930,21 @@ export default function BandejaTrabajoPage() {
               {isLoading ? (
                 <TableSkeleton
                   cols={
-                    canAssign || canExecute ? 8 : 7
+                    canAssign || canExecute ? 9 : 8
                   }
                 />
               ) : recepcionesFiltradas.length > 0 ? (
                 recepcionesFiltradas.map((req) => (
                   <tr
                     key={req.id}
-                    className="border-b border-border transition-colors hover:bg-muted/50"
+                    onClick={() =>
+                      setDetalleEquipo({
+                        orden: req.orden,
+                        equipoId: req.id,
+                      })
+                    }
+                    title="Ver detalles de la calibración"
+                    className="cursor-pointer border-b border-border transition-colors hover:bg-muted/50"
                   >
                     <td className="whitespace-nowrap px-6 py-4 font-mono font-medium">
                       <span className="text-primary">
@@ -826,8 +961,21 @@ export default function BandejaTrabajoPage() {
                         </span>
                       )}
                     </td>
-                    <td className="max-w-[220px] truncate px-6 py-4 text-sm text-foreground">
-                      {req.equipo_descripcion}
+                    <td className="max-w-[220px] px-6 py-4 text-sm">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetalleEquipo({
+                            orden: req.orden,
+                            equipoId: req.id,
+                          });
+                        }}
+                        title="Ver detalles de la calibración"
+                        className="block w-full truncate text-left font-medium text-foreground transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:underline"
+                      >
+                        {req.equipo_descripcion}
+                      </button>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
                       {req.laboratorio?.nombre ?? (
@@ -841,12 +989,13 @@ export default function BandejaTrabajoPage() {
                       {req.observacion && (
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={(e) => {
+                            e.stopPropagation();
                             alert({
                               title: 'Motivo de rechazo',
                               message: req.observacion ?? '',
-                            })
-                          }
+                            });
+                          }}
                           className="mx-auto mt-1 inline-flex cursor-pointer items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
                         >
                           <AlertCircle className="h-3 w-3" />
@@ -863,9 +1012,26 @@ export default function BandejaTrabajoPage() {
                         </span>
                       )}
                     </td>
+                    <td className="max-w-[240px] px-6 py-4 text-sm">
+                      {req.orden.observaciones?.trim() ? (
+                        <span
+                          title={req.orden.observaciones}
+                          className="block truncate text-muted-foreground"
+                        >
+                          {req.orden.observaciones}
+                        </span>
+                      ) : (
+                        <span className="italic text-muted-foreground/60">
+                          —
+                        </span>
+                      )}
+                    </td>
                     {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC || esAdministrador) && (
                       <td className="whitespace-nowrap px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                        <div
+                          className="flex items-center justify-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {/* Administrador: Editar orden */}
                           {esAdministrador && (
                             <Button
@@ -875,6 +1041,24 @@ export default function BandejaTrabajoPage() {
                               title="Editar orden"
                             >
                               <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {/* Administrador: Cambiar fase manualmente */}
+                          {esAdministrador && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() =>
+                                setCambiarFase({
+                                  id: req.id,
+                                  equipoDescripcion: req.equipo_descripcion,
+                                  estado: req.estado,
+                                })
+                              }
+                              title="Cambiar fase manualmente"
+                            >
+                              <GitBranch className="h-4 w-4" />
                             </Button>
                           )}
 
@@ -891,6 +1075,38 @@ export default function BandejaTrabajoPage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
+
+                          {/* EN_CALIBRACION: Eliminar documento (solo admin) */}
+                          {esAdministrador &&
+                            req.estado === 'EN_CALIBRACION' &&
+                            (req.certificados?.length ?? 0) > 0 && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleEliminarDocumento(req)}
+                                title="Eliminar documento"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <FileX className="h-4 w-4" />
+                              </Button>
+                            )}
+
+                          {/* OBT: Editar orden mientras no haya técnico asignado —
+                          corrige datos mal cargados por Servicio al Cliente.
+                          Una vez asignado el técnico (estado pasa a
+                          EN_CALIBRACION) el botón desaparece. */}
+                          {canAssign &&
+                            req.estado === 'EN_ESPERA' &&
+                            !req.tecnico && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setEditarOrden(req.orden)}
+                                title="Editar orden"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
 
                           {/* EN_ESPERA: Asignar técnico */}
                           {canAssign && req.estado === 'EN_ESPERA' && !req.tecnico && (
@@ -1103,6 +1319,14 @@ export default function BandejaTrabajoPage() {
         onClose={() => setEditarOrden(null)}
       />
 
+      {detalleEquipo && (
+        <VistaDetalleEquipo
+          orden={detalleEquipo.orden}
+          equipoId={detalleEquipo.equipoId}
+          onClose={() => setDetalleEquipo(null)}
+        />
+      )}
+
       <AsignarTecnicoModal
         open={asignacionTecnico !== null}
         recepcionId={asignacionTecnico?.equipoId ?? null}
@@ -1151,6 +1375,17 @@ export default function BandejaTrabajoPage() {
           queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
         }}
       />
+
+      <CambiarFaseModal
+        isOpen={cambiarFase !== null}
+        onClose={() => setCambiarFase(null)}
+        recepcionId={cambiarFase?.id ?? null}
+        equipoDescripcion={cambiarFase?.equipoDescripcion ?? ''}
+        estadoActual={cambiarFase?.estado ?? ''}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+        }}
+      />
     </div>
   );
 }
@@ -1174,6 +1409,48 @@ function TH({
       )}
     >
       {children}
+    </th>
+  );
+}
+
+// Cabecera ordenable: clic sobre el label alterna la dirección, y la flecha
+// muestra el orden vigente (↕ fija en gris cuando la columna no está activa).
+function SortableTH({
+  campo,
+  ordenPor,
+  direccion,
+  onSort,
+  className,
+  children,
+}: {
+  campo: 'fecha' | 'estado';
+  ordenPor: 'fecha' | 'estado';
+  direccion: 'asc' | 'desc';
+  onSort: (campo: 'fecha' | 'estado') => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const activo = ordenPor === campo;
+  const Icono = activo && direccion === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th
+      className={cn(
+        'px-6 py-3 text-left text-xs font-medium uppercase tracking-wider',
+        activo ? 'text-foreground' : 'text-muted-foreground',
+        className,
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(campo)}
+        className={cn(
+          'inline-flex items-center gap-1 uppercase tracking-wider transition-colors hover:text-foreground focus-visible:outline-none',
+          className?.includes('text-center') ? 'justify-center' : '',
+        )}
+      >
+        {children}
+        <Icono className={cn('h-3.5 w-3.5', activo ? '' : 'opacity-30')} />
+      </button>
     </th>
   );
 }

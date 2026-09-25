@@ -1,8 +1,13 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { FileSignature, Loader2, Upload, X, XCircle } from 'lucide-react';
+import { FileSignature, Loader2, Upload, X, XCircle, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
+import {
+  MENSAJE_PDF_CIFRADO_Y_FIRMADO,
+  pdfEstaCifrado,
+  pdfTieneFirmaDigital,
+} from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
 import ErrorBoundary from '../../../shared/components/molecules/ErrorBoundary';
 import type { PosicionFirma } from '../../../shared/components/organisms/SelectorPosicionFirma';
 
@@ -53,6 +58,8 @@ export default function FirmarDigitalModal({
   const [accion, setAccion] = useState<Accion | null>(null);
   const [pdfDescargado, setPdfDescargado] = useState<Uint8Array | null>(null);
   const [cargandoPdf, setCargandoPdf] = useState(false);
+  // El PDF venía cifrado (protegido con restricciones): se le quita al firmar.
+  const [avisoCifrado, setAvisoCifrado] = useState(false);
   const [posicionFirma, setPosicionFirma] = useState<PosicionFirma | null>(null);
   // Código público del certificado — si se consigue, el sello incluye un QR
   // que apunta a /verificar/:codigo. Es un extra visual: si esta petición
@@ -60,6 +67,7 @@ export default function FirmarDigitalModal({
   const [codigoVerificacion, setCodigoVerificacion] = useState<string | null>(null);
   const [p12File, setP12File] = useState<File | null>(null);
   const [password, setPassword] = useState('');
+  const [verPassword, setVerPassword] = useState(false);
   const [tamanoSello, setTamanoSello] = useState<{ ancho: number; alto: number } | null>(null);
   const [observaciones, setObservaciones] = useState('');
   const [paso, setPaso] = useState<Paso>('idle');
@@ -126,7 +134,17 @@ export default function FirmarDigitalModal({
         );
         if (!res.ok) throw new Error('No se pudo descargar el documento a firmar.');
         const bytes = new Uint8Array(await res.arrayBuffer());
-        if (!cancelado) setPdfDescargado(bytes);
+        // Un PDF cifrado se firma quitándole el cifrado (ver descifrarPdf.ts).
+        // Solo se frena aquí el que ya trae una firma: no se puede reescribir
+        // sin invalidarla, y es mejor avisar ya que después de pedir el .p12.
+        const cifrado = pdfEstaCifrado(bytes);
+        if (cifrado && pdfTieneFirmaDigital(bytes)) {
+          throw new Error(MENSAJE_PDF_CIFRADO_Y_FIRMADO);
+        }
+        if (!cancelado) {
+          setAvisoCifrado(cifrado);
+          setPdfDescargado(bytes);
+        }
       } catch (err) {
         if (!cancelado) {
           setError(err instanceof Error ? err.message : 'No se pudo descargar el documento.');
@@ -172,6 +190,7 @@ export default function FirmarDigitalModal({
     setAccion(null);
     setPdfDescargado(null);
     setCargandoPdf(false);
+    setAvisoCifrado(false);
     setPosicionFirma(null);
     setCodigoVerificacion(null);
     setP12File(null);
@@ -389,16 +408,47 @@ export default function FirmarDigitalModal({
                       Contraseña del certificado{' '}
                       <span className="text-destructive">*</span>
                     </label>
-                    <input
-                      id="p12-password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={enviando}
-                      className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                    />
+                    <div className="relative">
+                      <input
+                        id="p12-password"
+                        type={verPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={enviando}
+                        className="block w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setVerPassword((v) => !v)}
+                        title={
+                          verPassword
+                            ? 'Ocultar contraseña'
+                            : 'Mostrar contraseña'
+                        }
+                        disabled={enviando}
+                        className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {verPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {avisoCifrado && (
+                  <div
+                    role="status"
+                    className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+                  >
+                    Este PDF viene protegido (cifrado con restricciones). Se le
+                    quitará esa protección automáticamente al firmarlo, para
+                    poder colocar el sello; la firma digital protege el
+                    documento contra cambios.
+                  </div>
+                )}
 
                 {cargandoPdf ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground border-t border-border pt-4">
