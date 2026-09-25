@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -11,7 +10,6 @@ import {
   Loader2,
   Pencil,
   Plus,
-  Receipt,
   Search,
   Trash2,
   X,
@@ -26,7 +24,7 @@ import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
-import { esUsuarioAdministrador, tienePermiso } from '../../../shared/utils/auth';
+import { esUsuarioAdministrador } from '../../../shared/utils/auth';
 import VistaDetalleOrden, {
   type OrdenTrabajoDetalle,
   ESTADO_COLOR,
@@ -180,22 +178,11 @@ function estadoRepresentativo(orden: OrdenTrabajoDetalle): string | null {
   return estados[0] ?? null;
 }
 
-/**
- * Una orden habilita su factura cuando TODOS sus equipos llegaron a
- * FINALIZADO. El botón "Facturar" se activa según esta condición y el
- * backend la valida de nuevo al crear/importar la factura.
- */
-function esOrdenFacturable(orden: OrdenTrabajoDetalle): boolean {
-  const equipos = orden.equipos ?? [];
-  return equipos.length > 0 && equipos.every((e) => e.estado === 'FINALIZADO');
-}
-
 export default function RecepcionesPage() {
   const { data: ordenes, isLoading, isError, error } = useOrdenesTrabajo();
   const queryClient = useQueryClient();
   const { alert, confirm } = useAlert();
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const [busqueda, setBusqueda] = useState('');
   const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
@@ -212,7 +199,6 @@ export default function RecepcionesPage() {
   const [nuevaOrdenOpen, setNuevaOrdenOpen] = useState(false);
 
   const esAdministrador = esUsuarioAdministrador();
-  const puedeFacturar = tienePermiso('Gestion Financiera', 1);
 
   const eliminarMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -595,26 +581,6 @@ export default function RecepcionesPage() {
                           <Eye className="h-4 w-4" />
                           Ver Detalle
                         </Button>
-                        {puedeFacturar && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={!esOrdenFacturable(orden)}
-                            onClick={() =>
-                              navigate(
-                                `/financiero/facturas?orden_id=${orden.id}&cliente_id=${orden.cliente?.id ?? ''}`,
-                              )
-                            }
-                            title={
-                              esOrdenFacturable(orden)
-                                ? 'Registrar la factura de esta orden en el módulo financiero'
-                                : 'La factura se habilita cuando todos los equipos de la orden estén FINALIZADO'
-                            }
-                          >
-                            <Receipt className="h-4 w-4" />
-                            Facturar
-                          </Button>
-                        )}
                       </div>
                     </td>
                   </tr>
