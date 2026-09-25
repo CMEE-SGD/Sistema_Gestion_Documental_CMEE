@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { FileSignature, Loader2, Upload, X, XCircle } from 'lucide-react';
+import { FileSignature, Loader2, Upload, X, XCircle, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
 import {
@@ -67,6 +67,7 @@ export default function FirmarDigitalModal({
   const [codigoVerificacion, setCodigoVerificacion] = useState<string | null>(null);
   const [p12File, setP12File] = useState<File | null>(null);
   const [password, setPassword] = useState('');
+  const [verPassword, setVerPassword] = useState(false);
   const [tamanoSello, setTamanoSello] = useState<{ ancho: number; alto: number } | null>(null);
   const [observaciones, setObservaciones] = useState('');
   const [paso, setPaso] = useState<Paso>('idle');
@@ -407,14 +408,33 @@ export default function FirmarDigitalModal({
                       Contraseña del certificado{' '}
                       <span className="text-destructive">*</span>
                     </label>
-                    <input
-                      id="p12-password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={enviando}
-                      className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                    />
+                    <div className="relative">
+                      <input
+                        id="p12-password"
+                        type={verPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={enviando}
+                        className="block w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setVerPassword((v) => !v)}
+                        title={
+                          verPassword
+                            ? 'Ocultar contraseña'
+                            : 'Mostrar contraseña'
+                        }
+                        disabled={enviando}
+                        className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {verPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
