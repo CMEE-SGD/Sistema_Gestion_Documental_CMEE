@@ -237,7 +237,7 @@ const AppContenido = () => {
 
         {/* --- MÓDULO FINANCIERO (independiente, ligado a recepción por sus datos) --- */}
         <Route path="/financiero" element={<FinancieroLayout />}>
-          <Route index element={<ProformasPage />} />
+          <Route index element={<Navigate to="facturas" replace />} />
           <Route path="proformas" element={<ProformasPage />} />
           <Route path="facturas" element={<FacturasPage />} />
           <Route path="ordenes" element={<OrdenesTrabajoPage />} />

@@ -22,8 +22,8 @@ export const FinancieroLayout = () => {
     }, [location.pathname]);
 
     const menuItems = [
-        { name: 'Proformas', path: '/financiero/proformas', icon: <FileText className="w-4 h-4" /> },
         { name: 'Facturación', path: '/financiero/facturas', icon: <Receipt className="w-4 h-4" /> },
+        { name: 'Proformas', path: '/financiero/proformas', icon: <FileText className="w-4 h-4" /> },
         { name: 'Órdenes de trabajo', path: '/financiero/ordenes', icon: <ClipboardList className="w-4 h-4" /> },
         { name: 'Cartera', path: '/financiero/cartera', icon: <Wallet className="w-4 h-4" /> },
         { name: 'Próx. calibraciones', path: '/financiero/proximas-calibraciones', icon: <CalendarClock className="w-4 h-4" /> },
