@@ -11,7 +11,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { EstadoRecepcion } from '@prisma/client';
-import { RecepcionEquiposService } from './recepcion-equipos.service';
+import { RecepcionEquiposService, parseVista } from './recepcion-equipos.service';
 import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
@@ -32,10 +32,22 @@ export class RecepcionEquiposController {
     return this.recepcionService.create(createDto);
   }
 
+  /**
+   * Lista de órdenes con sus equipos. `?vista=` acota cuáles equipos:
+   * `activas` (no FINALIZADO, la bandeja), `archivadas` (FINALIZADO) o
+   * `todas` (por defecto, sin filtro: el comportamiento de siempre).
+   */
   @Get()
   @RequireAccess('Recepcion Equipos', 1)
-  findAll(@Req() req: any) {
-    return this.recepcionService.findAll(req.user);
+  findAll(@Req() req: any, @Query('vista') vista?: string) {
+    return this.recepcionService.findAll(req.user, parseVista(vista));
+  }
+
+  // Debe ir ANTES de ':id': si no, Nest tomaría "resumen" como un id.
+  @Get('resumen')
+  @RequireAccess('Recepcion Equipos', 1)
+  resumen(@Req() req: any) {
+    return this.recepcionService.resumen(req.user);
   }
 
   @Get(':id')

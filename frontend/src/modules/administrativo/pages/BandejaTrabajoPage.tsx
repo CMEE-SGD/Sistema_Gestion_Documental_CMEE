@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -208,15 +209,19 @@ function StatItem({
   label,
   value,
   tone,
+  to,
 }: {
   icon: typeof ClipboardList;
   label: string;
   value: number;
   tone: keyof typeof STAT_TONE_STYLES;
+  /** Si se indica, la tarjeta es un enlace a esa ruta. */
+  to?: string;
 }) {
   const styles = STAT_TONE_STYLES[tone];
-  return (
-    <div className="flex flex-1 items-center gap-3 px-6 py-4">
+  const clase = 'flex flex-1 items-center gap-3 px-6 py-4';
+  const contenido = (
+    <>
       <div
         className={cn(
           'flex h-10 w-10 shrink-0 items-center justify-center rounded-md',
@@ -233,8 +238,24 @@ function StatItem({
           {value}
         </p>
       </div>
-    </div>
+    </>
   );
+
+  if (to) {
+    return (
+      <Link
+        to={to}
+        title={`Ver ${label.toLowerCase()}`}
+        className={cn(
+          clase,
+          'transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none',
+        )}
+      >
+        {contenido}
+      </Link>
+    );
+  }
+  return <div className={clase}>{contenido}</div>;
 }
 
 function StatusBadge({ estado }: { estado: EstadoKey }) {
@@ -515,7 +536,11 @@ function useBandejaData() {
   return useQuery<BandejaRecepcion[]>({
     queryKey: ['bandeja-trabajo', puesto],
     queryFn: async () => {
-      const res = await api.get<OrdenTrabajoDetalle[]>('/recepcion-equipos');
+      // Solo los equipos EN CURSO: los que ya terminaron su flujo
+      // (FINALIZADO) no van en la bandeja, están en la pestaña "Archivadas".
+      const res = await api.get<OrdenTrabajoDetalle[]>('/recepcion-equipos', {
+        params: { vista: 'activas' },
+      });
       return res.data.flatMap((orden) =>
         orden.equipos.map((equipo) => {
           const historial = equipo.historial_estado ?? [];
@@ -538,6 +563,31 @@ function useBandejaData() {
           };
         }),
       );
+    },
+    enabled: !!puesto,
+    retry: 1,
+  });
+}
+
+// Conteo de equipos por estado (incluye los archivados) con el mismo alcance
+// por rol que la lista. La bandeja ya no descarga los equipos archivados, así
+// que "Total" y "Entregados" salen de aquí. La clave empieza con
+// 'bandeja-trabajo' a propósito: todas las invalidaciones existentes (y el
+// tiempo real) la refrescan sin tocar nada más.
+interface ResumenBandeja {
+  total: number;
+  por_estado: Record<string, number>;
+}
+
+function useBandejaResumen() {
+  const user = getUsuarioActual();
+  const puesto = user?.persona?.puesto ?? '';
+
+  return useQuery<ResumenBandeja>({
+    queryKey: ['bandeja-trabajo', 'resumen', puesto],
+    queryFn: async () => {
+      const res = await api.get<ResumenBandeja>('/recepcion-equipos/resumen');
+      return res.data;
     },
     enabled: !!puesto,
     retry: 1,
@@ -578,6 +628,7 @@ export default function BandejaTrabajoPage() {
   const esRSEC = nPuesto.includes('responsable servicio al cliente');
 
   const { data: recepciones, isLoading, error } = useBandejaData();
+  const { data: resumen } = useBandejaResumen();
 
   const [busqueda, setBusqueda] = useState('');
   const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
@@ -752,11 +803,14 @@ export default function BandejaTrabajoPage() {
     }
   };
 
-  // KPI counts
+  // KPI counts. La lista solo trae los equipos en curso; el total y los
+  // entregados (archivados) vienen del resumen del servidor, así los números
+  // son los mismos de siempre. Mientras el resumen carga, el total muestra los
+  // de la lista.
   const kpis = useMemo(() => {
     const list = recepciones ?? [];
     return {
-      total: list.length,
+      total: resumen?.total ?? list.length,
       enEspera: list.filter((r) => r.estado === 'EN_ESPERA').length,
       enCalibracion: list.filter((r) => r.estado === 'EN_CALIBRACION').length,
       revisionTecnica: list.filter(
@@ -768,9 +822,9 @@ export default function BandejaTrabajoPage() {
       revisionDirector: list.filter(
         (r) => r.estado === 'REVISION_DIRECTOR',
       ).length,
-      entregados: list.filter((r) => r.estado === 'FINALIZADO').length,
+      entregados: resumen?.por_estado?.FINALIZADO ?? 0,
     };
-  }, [recepciones]);
+  }, [recepciones, resumen]);
 
   // Guard: no role determined
   if (!puesto) {
@@ -859,6 +913,7 @@ export default function BandejaTrabajoPage() {
             label="Entregados"
             value={kpis.entregados}
             tone="green"
+            to="/administrativo/archivadas"
           />
         </div>
       )}

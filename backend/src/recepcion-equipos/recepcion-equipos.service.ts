@@ -173,6 +173,48 @@ function resolveEquipoWhere(
   return undefined;
 }
 
+// --- Vistas de la lista: en curso / archivadas -----------------------------
+// "Archivado" NO es un dato aparte: es un equipo cuyo flujo ya terminó
+// (FINALIZADO, el único estado terminal). Así el dashboard y los reportes —que
+// cuentan FINALIZADO directo en la base— no cambian, y si el administrador
+// devuelve un equipo a una fase anterior ("Cambiar fase") vuelve solo a la
+// bandeja, sin tener que "desarchivarlo".
+//   activas    → todo lo que NO es FINALIZADO (la bandeja de trabajo).
+//   archivadas → solo lo FINALIZADO.
+//   todas      → sin filtro. Es el comportamiento de siempre y el valor por
+//                defecto, para no cambiar lo que ya consumen otras pantallas
+//                (p. ej. la pestaña "Órdenes") ni las pestañas del navegador
+//                que se quedaron con una versión vieja del frontend.
+export type VistaRecepcion = 'todas' | 'activas' | 'archivadas';
+
+export function parseVista(valor?: string): VistaRecepcion {
+  if (valor === undefined || valor === '') return 'todas';
+  if (valor === 'todas' || valor === 'activas' || valor === 'archivadas') {
+    return valor;
+  }
+  throw new BadRequestException(
+    "El parámetro 'vista' debe ser 'activas', 'archivadas' o 'todas'.",
+  );
+}
+
+function resolveVistaWhere(vista: VistaRecepcion): object | undefined {
+  if (vista === 'activas') return { estado: { not: EstadoRecepcion.FINALIZADO } };
+  if (vista === 'archivadas') return { estado: EstadoRecepcion.FINALIZADO };
+  return undefined;
+}
+
+// Une el alcance por rol con el filtro de la vista sobre el MISMO equipo: un
+// técnico con un equipo suyo archivado y otro ajeno en curso NO debe ver la
+// orden en "en curso" por culpa del equipo ajeno.
+function conVista(
+  equipoWhere: object | undefined,
+  vistaWhere: object | undefined,
+): object | undefined {
+  if (!vistaWhere) return equipoWhere;
+  if (!equipoWhere) return vistaWhere;
+  return { AND: [equipoWhere, vistaWhere] };
+}
+
 @Injectable()
 export class RecepcionEquiposService {
   constructor(
@@ -253,17 +295,25 @@ export class RecepcionEquiposService {
     }
   }
 
-  async findAll(user?: {
-    id: number;
-    isGod?: boolean;
-    persona_id?: number;
-    puesto?: string;
-    laboratorio_id?: number;
-  }) {
+  async findAll(
+    user?: {
+      id: number;
+      isGod?: boolean;
+      persona_id?: number;
+      puesto?: string;
+      laboratorio_id?: number;
+    },
+    vista: VistaRecepcion = 'todas',
+  ) {
+    // Con vista 'todas' (por defecto) vistaWhere es undefined y las consultas
+    // quedan EXACTAMENTE como antes de existir las vistas.
+    const vistaWhere = resolveVistaWhere(vista);
+
     if (user?.isGod) {
       return this.prisma.ordenTrabajo.findMany({
+        where: vistaWhere ? { equipos: { some: vistaWhere } } : undefined,
         orderBy: { fecha_ingreso: 'desc' },
-        include: construirOrdenInclude(),
+        include: construirOrdenInclude(vistaWhere),
       });
     }
 
@@ -273,12 +323,53 @@ export class RecepcionEquiposService {
 
     const where = resolveOrdenWhere(puesto, personaId, labId, user?.isGod);
     const equipoWhere = resolveEquipoWhere(puesto, personaId, labId, user?.isGod);
+    const equipoWhereVista = conVista(equipoWhere, vistaWhere);
 
     return this.prisma.ordenTrabajo.findMany({
-      where,
+      // Solo órdenes con al menos un equipo de esta vista que la persona pueda
+      // ver (no devolver órdenes vacías).
+      where: vistaWhere
+        ? { AND: [where ?? {}, { equipos: { some: equipoWhereVista } }] }
+        : where,
       orderBy: { fecha_ingreso: 'desc' },
-      include: construirOrdenInclude(equipoWhere),
+      include: construirOrdenInclude(equipoWhereVista),
     });
+  }
+
+  /**
+   * Conteo de equipos por estado, con el MISMO alcance por rol que la lista.
+   * Alimenta los indicadores de la bandeja sin descargar los equipos
+   * archivados, que crecen con el tiempo.
+   */
+  async resumen(user?: {
+    id: number;
+    isGod?: boolean;
+    persona_id?: number;
+    puesto?: string;
+    laboratorio_id?: number;
+  }) {
+    const equipoWhere = resolveEquipoWhere(
+      user?.puesto ?? '',
+      user?.persona_id ?? null,
+      user?.laboratorio_id ?? null,
+      user?.isGod,
+    );
+
+    const grupos = await this.prisma.equipoRecepcion.groupBy({
+      by: ['estado'],
+      where: equipoWhere,
+      _count: { _all: true },
+    });
+
+    const porEstado = Object.fromEntries(
+      Object.values(EstadoRecepcion).map((estado) => [estado, 0]),
+    ) as Record<EstadoRecepcion, number>;
+    let total = 0;
+    for (const grupo of grupos) {
+      porEstado[grupo.estado] = grupo._count._all;
+      total += grupo._count._all;
+    }
+    return { total, por_estado: porEstado };
   }
 
   async findOne(
