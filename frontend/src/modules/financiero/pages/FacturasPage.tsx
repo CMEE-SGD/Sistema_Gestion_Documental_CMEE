@@ -993,6 +993,9 @@ function ModalDetalleFactura({
   const { alert, confirm } = useAlert();
   const queryClient = useQueryClient();
   const esAdmin = esUsuarioAdministrador();
+  const [formCobro, setFormCobro] = useState<'pago' | 'compensacion' | null>(
+    null,
+  );
 
   const refrescar = () => {
     queryClient.invalidateQueries({ queryKey: ['factura', facturaId] });
@@ -1217,11 +1220,40 @@ function ModalDetalleFactura({
                 </ul>
 
                 {factura.estado !== 'ANULADA' && factura.saldo > 0.005 && (
-                  <FormPago
-                    facturaId={factura.id}
-                    saldo={factura.saldo}
-                    onCreado={refrescar}
-                  />
+                  <div className="mt-3">
+                    {formCobro === 'pago' ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Nuevo cobro
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setFormCobro(null)}
+                            className="text-xs font-medium text-muted-foreground underline hover:text-slate-700"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                        <FormPago
+                          facturaId={factura.id}
+                          saldo={factura.saldo}
+                          onCreado={() => {
+                            refrescar();
+                            setFormCobro(null);
+                          }}
+                        />
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setFormCobro('pago')}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        <Plus className="h-4 w-4" /> Agregar cobro
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1279,11 +1311,40 @@ function ModalDetalleFactura({
                 </ul>
 
                 {factura.estado !== 'ANULADA' && factura.saldo > 0.005 && (
-                  <FormCompensacion
-                    facturaId={factura.id}
-                    saldo={factura.saldo}
-                    onCreada={refrescar}
-                  />
+                  <div className="mt-3">
+                    {formCobro === 'compensacion' ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Nueva compensación
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setFormCobro(null)}
+                            className="text-xs font-medium text-muted-foreground underline hover:text-slate-700"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                        <FormCompensacion
+                          facturaId={factura.id}
+                          saldo={factura.saldo}
+                          onCreada={() => {
+                            refrescar();
+                            setFormCobro(null);
+                          }}
+                        />
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setFormCobro('compensacion')}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        <Plus className="h-4 w-4" /> Agregar compensación
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
