@@ -3,6 +3,12 @@ import { CheckCircle2, FileSignature, Loader2, Upload, X, XCircle, Eye, EyeOff }
 import { cn } from '../../../shared/utils/utils';
 import { FirmaPdfError } from '../../../shared/utils/FirmaPdfError';
 import { generarUuidV4 } from '../../../shared/utils/uuid';
+import {
+  MENSAJE_PDF_CIFRADO_Y_FIRMADO,
+  pdfEstaCifrado,
+  pdfTieneFirmaDigital,
+} from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
+import ErrorBoundary from '../../../shared/components/molecules/ErrorBoundary';
 import type { PosicionFirma } from '../../../shared/components/organisms/SelectorPosicionFirma';
 
 // Carga diferida: pdfjs-dist (~350KB + worker) solo se descarga cuando
@@ -58,6 +64,8 @@ export default function FirmarDocumentoModal({
   const [accion, setAccion] = useState<Accion | null>(null);
   const [pdfDescargado, setPdfDescargado] = useState<Uint8Array | null>(null);
   const [cargandoPdf, setCargandoPdf] = useState(false);
+  // El PDF venía cifrado (protegido con restricciones): se le quita al firmar.
+  const [avisoCifrado, setAvisoCifrado] = useState(false);
   const [posicionFirma, setPosicionFirma] = useState<PosicionFirma | null>(null);
   const [p12File, setP12File] = useState<File | null>(null);
   const [password, setPassword] = useState('');
@@ -157,7 +165,17 @@ export default function FirmarDocumentoModal({
         const res = await fetch(`${BACKEND_BASE}/${rutaLimpia}`);
         if (!res.ok) throw new Error('No se pudo descargar el documento a firmar.');
         const bytes = new Uint8Array(await res.arrayBuffer());
-        if (!cancelado) setPdfDescargado(bytes);
+        // Un PDF cifrado se firma quitándole el cifrado (ver descifrarPdf.ts).
+        // Solo se frena aquí el que ya trae una firma: no se puede reescribir
+        // sin invalidarla, y es mejor avisar ya que después de pedir el .p12.
+        const cifrado = pdfEstaCifrado(bytes);
+        if (cifrado && pdfTieneFirmaDigital(bytes)) {
+          throw new Error(MENSAJE_PDF_CIFRADO_Y_FIRMADO);
+        }
+        if (!cancelado) {
+          setAvisoCifrado(cifrado);
+          setPdfDescargado(bytes);
+        }
       } catch (err) {
         if (!cancelado) {
           setError(err instanceof Error ? err.message : 'No se pudo descargar el documento.');
@@ -175,6 +193,7 @@ export default function FirmarDocumentoModal({
     setAccion(null);
     setPdfDescargado(null);
     setCargandoPdf(false);
+    setAvisoCifrado(false);
     setPosicionFirma(null);
     setP12File(null);
     setPassword('');
@@ -507,6 +526,18 @@ export default function FirmarDocumentoModal({
                   </div>
                 </div>
 
+                {avisoCifrado && (
+                  <div
+                    role="status"
+                    className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+                  >
+                    Este PDF viene protegido (cifrado con restricciones). Se le
+                    quitará esa protección automáticamente al firmarlo, para
+                    poder colocar el sello; la firma digital protege el
+                    documento contra cambios.
+                  </div>
+                )}
+
                 {cargandoPdf ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground border-t border-border pt-4">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -514,21 +545,23 @@ export default function FirmarDocumentoModal({
                   </div>
                 ) : pdfDescargado ? (
                   <div className="border-t border-border pt-4">
-                    <Suspense
-                      fallback={
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Cargando visor de PDF…
-                        </div>
-                      }
-                    >
-                      <SelectorPosicionFirma
-                        pdfBytes={pdfDescargado}
-                        posicionActual={posicionFirma}
-                        onSeleccionar={setPosicionFirma}
-                        tamanoSello={tamanoSello}
-                      />
-                    </Suspense>
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Cargando visor de PDF…
+                          </div>
+                        }
+                      >
+                        <SelectorPosicionFirma
+                          pdfBytes={pdfDescargado}
+                          posicionActual={posicionFirma}
+                          onSeleccionar={setPosicionFirma}
+                          tamanoSello={tamanoSello}
+                        />
+                      </Suspense>
+                    </ErrorBoundary>
                   </div>
                 ) : null}
               </div>

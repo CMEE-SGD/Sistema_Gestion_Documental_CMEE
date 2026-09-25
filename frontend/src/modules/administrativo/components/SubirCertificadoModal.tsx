@@ -4,6 +4,8 @@ import { UploadCloud, FileText, X, Loader2 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import { descifrarPdf } from '../../../shared/utils/firma-pdf/descifrarPdf';
+import { pdfEstaCifrado } from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
 
 interface Props {
   isOpen: boolean;
@@ -169,10 +171,33 @@ export default function SubirCertificadoModal({
     },
   });
 
+  // Este documento lo firmarán el técnico, el jefe y el director en la
+  // plataforma. Un PDF protegido (cifrado) se acepta: se le quita la protección
+  // al firmarlo (ver descifrarPdf.ts). Pero se comprueba ya, mientras quien lo
+  // generó aún puede corregirlo, que realmente se pueda: sin firma digital
+  // previa ni contraseña para abrirlo. Devuelve el motivo, o null si está bien.
+  const motivoPdfNoFirmable = async (f: File): Promise<string | null> => {
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    if (!pdfEstaCifrado(bytes)) return null;
+    try {
+      await descifrarPdf(bytes);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : 'No se puede firmar este PDF.';
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
     if (selected && selected.type !== 'application/pdf') {
       await alert({ message: 'Solo se permiten archivos PDF' });
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    const motivo = selected ? await motivoPdfNoFirmable(selected) : null;
+    if (motivo) {
+      await alert({ message: motivo });
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -185,6 +210,11 @@ export default function SubirCertificadoModal({
     const dropped = e.dataTransfer.files?.[0] ?? null;
     if (dropped && dropped.type !== 'application/pdf') {
       await alert({ message: 'Solo se permiten archivos PDF' });
+      return;
+    }
+    const motivo = dropped ? await motivoPdfNoFirmable(dropped) : null;
+    if (motivo) {
+      await alert({ message: motivo });
       return;
     }
     setFile(dropped);
