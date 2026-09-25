@@ -6,7 +6,7 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import { XMLParser } from 'fast-xml-parser';
-import { EstadoFactura } from '@prisma/client';
+import { EstadoFactura, EstadoProforma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import { CreateProformaDto } from './dto/create-proforma.dto';
@@ -274,7 +274,9 @@ export class FacturacionService {
             cliente_id: dto.cliente_id,
             fecha_emision: this.toDate(dto.fecha_emision) ?? new Date(),
             monto: dto.monto,
-            estado: dto.estado,
+            // Toda proforma nace EMITIDA; recién al vincularse a una orden de
+            // trabajo pasa a ACEPTADA (ver recepcion-equipos.service.ts).
+            estado: EstadoProforma.EMITIDA,
             observaciones: dto.observaciones,
           },
           include: PROFORMA_INCLUDE,

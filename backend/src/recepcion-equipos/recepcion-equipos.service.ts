@@ -229,7 +229,8 @@ export class RecepcionEquiposService {
 
   /**
    * Si el usuario vincula una proforma, se guarda la FK y se sincroniza el
-   * texto visible n_proforma con su número. null → desvincula (limpia ambos);
+   * texto visible n_proforma con su número; además la proforma pasa a
+   * ACEPTADA (quedó EMITIDA al crearse). null → desvincula (limpia ambos);
    * undefined → no toca nada.
    */
   private async resolverProformaSync(
@@ -248,6 +249,11 @@ export class RecepcionEquiposService {
     if (!proforma) {
       throw new BadRequestException('La proforma seleccionada no existe');
     }
+    // La proforma vinculada a una orden se considera ACEPTADA por el cliente.
+    await this.prisma.proforma.update({
+      where: { id: proforma.id },
+      data: { estado: 'ACEPTADA' },
+    });
     return { proforma_id: proforma.id, n_proforma: proforma.numero };
   }
 
