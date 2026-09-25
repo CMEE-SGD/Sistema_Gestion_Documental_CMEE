@@ -4,7 +4,7 @@
 // permite agregar equipos nuevos a la orden. La fase de cada equipo no se
 // toca desde aquí (se mueve con el flujo o con "cambiar fase" del admin).
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Loader2, Plus, Trash2, UserPlus } from 'lucide-react';
 import api from '../../../core/api/axios';
@@ -100,18 +100,27 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
     Record<number, SubAreaOption[]>
   >({});
 
-  const cargarSubAreas = useCallback(
-    async (laboratorioId: number) => {
-      if (subAreasPorLab[laboratorioId]) return;
-      try {
-        const res = await api.get(`/laboratorios/${laboratorioId}/sub-areas`);
-        setSubAreasPorLab((prev) => ({ ...prev, [laboratorioId]: res.data }));
-      } catch {
-        // Sin sub-áreas para elegir; el equipo sigue asignado al laboratorio.
-      }
-    },
-    [subAreasPorLab],
-  );
+  // Laboratorios cuyas sub-áreas ya se pidieron. Va en una ref y NO en el
+  // estado a propósito: si `cargarSubAreas` dependiera de `subAreasPorLab`,
+  // cambiaría de identidad cada vez que se cargan sub-áreas, y el efecto que
+  // siembra el formulario (que la usa) se volvería a ejecutar y repondría los
+  // datos originales de la orden, deshaciendo al instante lo que la persona
+  // acababa de elegir — p. ej. el laboratorio de un equipo volvía al de antes
+  // y se guardaba sin cambios.
+  const subAreasPedidas = useRef<Set<number>>(new Set());
+
+  const cargarSubAreas = useCallback(async (laboratorioId: number) => {
+    if (subAreasPedidas.current.has(laboratorioId)) return;
+    subAreasPedidas.current.add(laboratorioId);
+    try {
+      const res = await api.get(`/laboratorios/${laboratorioId}/sub-areas`);
+      setSubAreasPorLab((prev) => ({ ...prev, [laboratorioId]: res.data }));
+    } catch {
+      // Sin sub-áreas para elegir; el equipo sigue asignado al laboratorio.
+      // Se permite reintentar la próxima vez que se elija ese laboratorio.
+      subAreasPedidas.current.delete(laboratorioId);
+    }
+  }, []);
 
   // ── Catálogos: se cargan al abrir el modal ──────────────────────────
   useEffect(() => {
