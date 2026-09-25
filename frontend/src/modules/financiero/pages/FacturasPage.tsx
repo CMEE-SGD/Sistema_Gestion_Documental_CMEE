@@ -126,9 +126,11 @@ export default function FacturasPage() {
     return equipos.length > 0 && equipos.every((e) => e.estado === 'FINALIZADO');
   }, [ordenContextoData]);
 
-  // Al llegar desde "Facturar" en los listados, abrir directamente el alta
-  // manual con el detalle precargado (los equipos de la orden). Solo si la
-  // orden efectivamente habilita la factura.
+  // Al llegar desde "Facturar" en los listados, abrir el modal según el modo
+  // elegido (tipo=xml → importar XML; tipo=manual o ausente → alta manual)
+  // con el contexto de la orden precargado. Solo si la orden habilita la
+  // factura.
+  const tipoContexto = searchParams.get('tipo');
   const contextoAutoAbierto = useRef(false);
   useEffect(() => {
     if (
@@ -138,9 +140,9 @@ export default function FacturasPage() {
       !contextoAutoAbierto.current
     ) {
       contextoAutoAbierto.current = true;
-      setTipoModal('manual');
+      setTipoModal(tipoContexto === 'xml' ? 'xml' : 'manual');
     }
-  }, [ordenContext, ordenContextoData, contextoOrdenFacturable]);
+  }, [ordenContext, ordenContextoData, contextoOrdenFacturable, tipoContexto]);
 
   const { data: facturas = [], isLoading } = useQuery<FacturaResumen[]>({
     queryKey: ['facturas'],

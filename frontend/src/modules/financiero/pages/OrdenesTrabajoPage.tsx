@@ -5,12 +5,16 @@ import {
   AlertTriangle,
   ClipboardList,
   Inbox,
+  PenLine,
   Receipt,
   Search,
+  UploadCloud,
+  X,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
+import { Modal } from '../../../shared/components/molecules/Modal';
 import {
   type OrdenTrabajoDetalle,
   ESTADO_COLOR,
@@ -88,6 +92,18 @@ function esOrdenFacturable(orden: OrdenTrabajoDetalle): boolean {
 export default function OrdenesTrabajoPage() {
   const navigate = useNavigate();
   const [busqueda, setBusqueda] = useState('');
+  const [ordenAFacturar, setOrdenAFacturar] =
+    useState<OrdenTrabajoDetalle | null>(null);
+
+  // Navega a facturación con el modo elegido (xml o manual) para que la
+  // página de facturas abra el modal correspondiente con la orden precargada.
+  const irAFactura = (modo: 'xml' | 'manual') => {
+    if (!ordenAFacturar) return;
+    navigate(
+      `/financiero/facturas?orden_id=${ordenAFacturar.id}&cliente_id=${ordenAFacturar.cliente?.id ?? ''}&tipo=${modo}`,
+    );
+    setOrdenAFacturar(null);
+  };
 
   const { data: ordenes, isLoading, isError, error } = useQuery<
     OrdenTrabajoDetalle[]
@@ -263,11 +279,7 @@ export default function OrdenesTrabajoPage() {
                           variant="outline"
                           size="sm"
                           disabled={!facturable}
-                          onClick={() =>
-                            navigate(
-                              `/financiero/facturas?orden_id=${orden.id}&cliente_id=${orden.cliente?.id ?? ''}`,
-                            )
-                          }
+                          onClick={() => setOrdenAFacturar(orden)}
                           title={
                             facturable
                               ? 'Registrar la factura de esta orden'
@@ -311,6 +323,67 @@ export default function OrdenesTrabajoPage() {
           </span>
         </div>
       )}
+
+      {/* Selector de modo de factura: exportar XML o llenar manualmente */}
+      <Modal
+        isOpen={ordenAFacturar !== null}
+        onClose={() => setOrdenAFacturar(null)}
+        title="Registrar factura"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            La factura quedará vinculada a la Orden #
+            <span className="font-semibold text-foreground">
+              {ordenAFacturar?.orden_trabajo_fisica}
+            </span>{' '}
+            de{' '}
+            <span className="font-semibold text-foreground">
+              {ordenAFacturar?.cliente?.nombre ?? 'su cliente'}
+            </span>
+            . ¿Cómo deseas registrar el comprobante?
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => irAFactura('xml')}
+              className="group flex flex-col items-start gap-2 rounded-lg border border-sky-300 bg-sky-50 p-4 text-left transition-colors hover:bg-sky-100"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-sky-800">
+                <UploadCloud className="h-4 w-4" />
+                Importar XML
+              </span>
+              <span className="text-xs text-sky-700">
+                Subir el XML generado por el sistema financiero; se absorben
+                número, fechas, montos y detalle automáticamente.
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => irAFactura('manual')}
+              className="group flex flex-col items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                <PenLine className="h-4 w-4" />
+                Llenar manualmente
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Registrar la factura a mano con el detalle de los equipos de la
+                orden precargado.
+              </span>
+            </button>
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setOrdenAFacturar(null)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-muted-foreground hover:bg-slate-50"
+            >
+              <X className="h-4 w-4" />
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
