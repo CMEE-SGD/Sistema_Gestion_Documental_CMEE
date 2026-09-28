@@ -5,7 +5,7 @@
 // y eliminar según el nivel de permiso (4 creación/actualización, 5
 // eliminación).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   FileText,
@@ -14,9 +14,13 @@ import {
   Plus,
   Search,
   Trash2,
+  UserPlus,
   X,
 } from 'lucide-react';
 import api from '../../../core/api/axios';
+import ClienteFormModal, {
+  type ClienteInstitucionalCreado,
+} from '../../../modules/administrativo/components/ClienteFormModal';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { esUsuarioAdministrador, tienePermiso } from '../../../shared/utils/auth';
@@ -355,12 +359,33 @@ function ModalNuevaProforma({
   const [observaciones, setObservaciones] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
 
+  const queryClient = useQueryClient();
+  // Alta rápida de cliente (mismo patrón que la orden de trabajo): el botón
+  // "Nuevo Cliente" abre ClienteFormModal y, al crearse, se refresca el
+  // catálogo y se selecciona el cliente recién creado.
+  const [clientesDisponibles, setClientesDisponibles] =
+    useState<ClienteOption[]>(clientes);
+  const [clienteModalOpen, setClienteModalOpen] = useState(false);
+
+  useEffect(() => {
+    setClientesDisponibles(clientes);
+  }, [clientes]);
+
+  const handleClienteCreado = async (cliente: ClienteInstitucionalCreado) => {
+    const res = await api.get('/clientes-institucionales');
+    const actualizados = res.data as ClienteOption[];
+    setClientesDisponibles(actualizados);
+    queryClient.setQueryData(['clientes-opciones'], actualizados);
+    setClienteId(cliente.id);
+  };
+
   const invalido =
     clienteId === '' || monto === '' || Number.isNaN(Number(monto));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 py-10">
-      <div className="w-[95vw] max-w-lg rounded-xl border border-border bg-white shadow-lg">
+    <>
+      <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 py-10">
+        <div className="w-[95vw] max-w-lg rounded-xl border border-border bg-white shadow-lg">
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <h3 className="flex items-center gap-2 text-base font-semibold">
             <EmptyIcon className="h-4 w-4" /> Nueva proforma
@@ -384,7 +409,17 @@ function ModalNuevaProforma({
             />
           </div>
           <div>
-            <label className={labelCls}>Cliente *</label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className={labelCls}>Cliente *</label>
+              <button
+                type="button"
+                onClick={() => setClienteModalOpen(true)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Nuevo Cliente
+              </button>
+            </div>
             <select
               className={inputCls}
               value={clienteId}
@@ -393,7 +428,7 @@ function ModalNuevaProforma({
               }
             >
               <option value="">Seleccione un cliente…</option>
-              {clientes.map((c) => (
+              {clientesDisponibles.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nombre}
                 </option>
@@ -472,6 +507,12 @@ function ModalNuevaProforma({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+      <ClienteFormModal
+        open={clienteModalOpen}
+        onClose={() => setClienteModalOpen(false)}
+        onSuccess={handleClienteCreado}
+      />
+    </>
   );
 }
