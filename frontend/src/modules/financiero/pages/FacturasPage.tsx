@@ -316,7 +316,11 @@ export default function FacturasPage() {
           </thead>
           <tbody>
             {filtradas.map((f) => (
-              <tr key={f.id} className="border-b border-slate-200 even:bg-slate-50">
+              <tr
+                key={f.id}
+                onClick={() => navigate(`/financiero/facturas/${f.id}`)}
+                className="cursor-pointer border-b border-slate-200 transition-colors even:bg-slate-50 hover:bg-slate-100"
+              >
                 <td className="px-3 py-2 font-mono text-xs font-semibold">
                   {f.numero}
                 </td>
@@ -370,7 +374,10 @@ export default function FacturasPage() {
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => navigate(`/financiero/facturas/${f.id}`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/financiero/facturas/${f.id}`);
+                      }}
                       title="Ver detalle y cobros"
                       className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-muted-foreground hover:bg-slate-50"
                     >
@@ -379,7 +386,8 @@ export default function FacturasPage() {
                     {esAdmin && (
                       <button
                         type="button"
-                        onClick={async () => {
+                        onClick={async (e) => {
+                          e.stopPropagation();
                           const ok = await confirm({
                             title: 'Eliminar factura',
                             message: `¿Eliminar la factura ${f.numero}? Se eliminarán sus pagos, notas de entrega y compensaciones.`,
