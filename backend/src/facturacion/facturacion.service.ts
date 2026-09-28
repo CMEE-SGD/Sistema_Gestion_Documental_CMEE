@@ -80,6 +80,14 @@ const PROFORMA_INCLUDE = {
 
 @Injectable()
 export class FacturacionService {
+  /**
+   * Raíz absoluta de la carpeta uploads (backend/uploads). Se ancla a
+   * __dirname (igual que el servido estático de main.ts) y NO a process.cwd():
+   * el backend puede arrancarse con cualquier directorio de trabajo y las
+   * escrituras/lecturas de archivos deben apuntar siempre al mismo lugar.
+   */
+  private readonly uploadsRoot = path.resolve(__dirname, '..', '..', 'uploads');
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificaciones: NotificacionesService,
@@ -270,7 +278,7 @@ export class FacturacionService {
     subcarpeta: string,
     prefijo: string,
   ): { ruta: string; original: string } {
-    const dir = path.join('.', 'uploads', 'financiero', subcarpeta);
+    const dir = path.join(this.uploadsRoot, 'financiero', subcarpeta);
     fs.mkdirSync(dir, { recursive: true });
     const ext = path.extname(file.originalname || '.bin');
     const nombre = `${prefijo}-${Date.now()}${ext}`;
@@ -281,15 +289,35 @@ export class FacturacionService {
     };
   }
 
+  /** Valida y guarda el PDF/imagen adjunto de una proforma. */
+  private guardarArchivoProforma(
+    file: Express.Multer.File,
+  ): { ruta: string; original: string } {
+    const permitidos = new Set([
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+    ]);
+    if (!permitidos.has(file.mimetype)) {
+      throw new BadRequestException(
+        'El archivo debe ser un PDF o una imagen (PNG/JPEG/WebP).',
+      );
+    }
+    return this.guardarArchivo(file, 'proformas', 'PF');
+  }
+
   // ------------------------------------------------------------------
   // PROFORMAS
   // ------------------------------------------------------------------
 
-  async createProforma(dto: CreateProformaDto) {
+  async createProforma(dto: CreateProformaDto, file?: Express.Multer.File) {
     const cliente = await this.prisma.clienteInstitucional.findUnique({
       where: { id: dto.cliente_id },
     });
     if (!cliente) throw new NotFoundException('Cliente institucional no encontrado');
+
+    const archivo = file ? this.guardarArchivoProforma(file) : undefined;
 
     return this.crearConNumeroUnico(
       async () => dto.numero ?? (await this.generarNumeroSecuencia('proforma')),
@@ -304,6 +332,8 @@ export class FacturacionService {
             // trabajo pasa a ACEPTADA (ver recepcion-equipos.service.ts).
             estado: EstadoProforma.EMITIDA,
             observaciones: dto.observaciones,
+            archivo: archivo?.ruta,
+            archivo_nombre: archivo?.original,
           },
           include: PROFORMA_INCLUDE,
         }),
@@ -325,6 +355,22 @@ export class FacturacionService {
     });
     if (!proforma) throw new NotFoundException(`Proforma ${id} no encontrada`);
     return { ...proforma, monto: this.n(proforma.monto) };
+  }
+
+  /** Ruta física y nombre original del archivo adjunto de una proforma. */
+  async descargarArchivoProforma(id: number) {
+    const proforma = await this.findOneProforma(id);
+    if (!proforma.archivo) {
+      throw new NotFoundException('La proforma no tiene archivo adjunto.');
+    }
+    return {
+      filePath: path.join(
+        this.uploadsRoot,
+        proforma.archivo.replace(/^\/uploads\//, ''),
+      ),
+      nombreOriginal:
+        proforma.archivo_nombre || `proforma_${proforma.numero}.pdf`,
+    };
   }
 
   /**
@@ -367,13 +413,25 @@ export class FacturacionService {
   }
 
   async removeProforma(id: number) {
-    await this.findOneProforma(id);
+    const proforma = await this.findOneProforma(id);
     // Desvincula las órdenes que la referenciaban (n_proforma queda como texto)
     await this.prisma.ordenTrabajo.updateMany({
       where: { proforma_id: id },
       data: { proforma_id: null },
     });
     await this.prisma.proforma.delete({ where: { id } });
+    // Limpia el archivo adjunto del disco, si la proforma lo tenía.
+    if (proforma.archivo) {
+      try {
+        const abs = path.join(
+          this.uploadsRoot,
+          proforma.archivo.replace(/^\/uploads\//, ''),
+        );
+        fs.rmSync(abs, { force: true });
+      } catch {
+        // El archivo pudo no existir; no bloqueamos la eliminación.
+      }
+    }
     return { id };
   }
 
@@ -581,7 +639,10 @@ export class FacturacionService {
 
     if (factura.ruta_xml) {
       try {
-        const abs = path.join('.', factura.ruta_xml.replace(/^\/uploads\//, 'uploads'));
+        const abs = path.join(
+          this.uploadsRoot,
+          factura.ruta_xml.replace(/^\/uploads\//, ''),
+        );
         fs.rmSync(abs, { force: true });
       } catch {
         // eliminar el archivo es best-effort

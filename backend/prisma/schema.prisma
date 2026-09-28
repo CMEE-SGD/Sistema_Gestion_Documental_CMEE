@@ -1479,6 +1479,10 @@ model Proforma {
   estado       EstadoProforma @default(EMITIDA)
   observaciones String?   @db.Text
 
+  // Archivo adjunto (PDF/imagen de la cotización) subido al crear la proforma.
+  archivo       String?   @db.VarChar(500)
+  archivo_nombre String?  @db.VarChar(255)
+
   ordenes_trabajo OrdenTrabajo[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz

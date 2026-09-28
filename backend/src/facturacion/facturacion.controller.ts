@@ -1,13 +1,18 @@
+import { createReadStream, existsSync } from 'fs';
+import { extname } from 'path';
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
   Query,
   Req,
+  Res,
   UploadedFile,
   UploadedFiles,
   UseGuards,
@@ -60,8 +65,83 @@ export class FacturacionController {
     { app: 'Gestion Financiera', level: 4 },
     { app: 'Recepcion Equipos', level: 4 },
   ])
-  createProforma(@Body() dto: CreateProformaDto) {
-    return this.facturacionService.createProforma(dto);
+  @UseInterceptors(
+    FileInterceptor('archivo', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  createProforma(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: Record<string, string>,
+  ) {
+    // Endpoint multipart (campo 'archivo' opcional): los campos de texto
+    // llegan como string, por eso se coercionan aquí antes del DTO.
+    const clienteId = body?.cliente_id ? Number(body.cliente_id) : NaN;
+    if (!Number.isInteger(clienteId)) {
+      throw new BadRequestException('El cliente es obligatorio.');
+    }
+    const monto =
+      body?.monto !== undefined && body.monto !== ''
+        ? Number(body.monto)
+        : NaN;
+    if (!Number.isFinite(monto)) {
+      throw new BadRequestException('El monto es obligatorio.');
+    }
+    const dto: CreateProformaDto = {
+      cliente_id: clienteId,
+      monto,
+      numero: body?.numero?.trim() || undefined,
+      fecha_emision: body?.fecha_emision || undefined,
+      observaciones: body?.observaciones?.trim() || undefined,
+    };
+    return this.facturacionService.createProforma(dto, file);
+  }
+
+  @Get('proformas/:id/archivo')
+  @RequireAccess([
+    { app: 'Gestion Financiera', level: 1 },
+    { app: 'Recepcion Equipos', level: 1 },
+  ])
+  async descargarArchivoProforma(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: any,
+  ) {
+    const { filePath, nombreOriginal } =
+      await this.facturacionService.descargarArchivoProforma(id);
+    if (!existsSync(filePath)) {
+      throw new NotFoundException(
+        'El archivo de la proforma ya no está disponible en el servidor',
+      );
+    }
+    const ext = extname(filePath).toLowerCase();
+    const mime =
+      ext === '.pdf'
+        ? 'application/pdf'
+        : ext === '.png'
+          ? 'image/png'
+          : ext === '.jpg' || ext === '.jpeg'
+            ? 'image/jpeg'
+            : ext === '.webp'
+              ? 'image/webp'
+              : 'application/octet-stream';
+    res.setHeader('Content-Type', mime);
+    const nombreAscii = (nombreOriginal || `proforma_${id}`)
+      .replace(/[^\x20-\x7E]/g, '_')
+      .replace(/"/g, '');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${nombreAscii}"; filename*=UTF-8''${encodeURIComponent(nombreOriginal || `proforma_${id}`)}`,
+    );
+    const stream = createReadStream(filePath);
+    stream.on('error', () => {
+      if (!res.headersSent) {
+        res.status(500).end();
+      } else {
+        res.end();
+      }
+    });
+    stream.pipe(res);
   }
 
   @Get('proformas/:id')

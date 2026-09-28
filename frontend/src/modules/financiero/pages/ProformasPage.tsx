@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   FileText,
   Loader2,
+  Paperclip,
   Plus,
   Search,
   Trash2,
@@ -19,6 +20,7 @@ import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { esUsuarioAdministrador, tienePermiso } from '../../../shared/utils/auth';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 import {
   ESTADO_PROFORMA_LABEL,
   fmtFecha,
@@ -41,6 +43,8 @@ interface Proforma {
   monto: number;
   estado: string;
   observaciones: string | null;
+  archivo: string | null;
+  archivo_nombre: string | null;
   ordenes_trabajo: { id: number; orden_trabajo_fisica: string }[];
 }
 
@@ -98,8 +102,16 @@ export default function ProformasPage() {
       monto: number;
       numero?: string;
       observaciones?: string;
+      archivo?: File;
     }) => {
-      const res = await api.post('/facturacion/proformas', payload);
+      const fd = new FormData();
+      fd.append('cliente_id', String(payload.cliente_id));
+      fd.append('fecha_emision', payload.fecha_emision);
+      fd.append('monto', String(payload.monto));
+      if (payload.numero) fd.append('numero', payload.numero);
+      if (payload.observaciones) fd.append('observaciones', payload.observaciones);
+      if (payload.archivo) fd.append('archivo', payload.archivo);
+      const res = await api.post('/facturacion/proformas', fd);
       return res.data;
     },
     onSuccess: () => {
@@ -210,6 +222,7 @@ export default function ProformasPage() {
               <th className="px-3 py-2 text-right font-semibold">Monto</th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
               <th className="px-3 py-2 text-left font-semibold">Órdenes vinculadas</th>
+              <th className="px-3 py-2 text-left font-semibold">Archivo</th>
               <th className="px-3 py-2 text-left font-semibold">Acciones</th>
             </tr>
           </thead>
@@ -264,6 +277,21 @@ export default function ProformasPage() {
                   )}
                 </td>
                 <td className="px-3 py-2">
+                  {p.archivo ? (
+                    <a
+                      href={buildFileUrl(p.archivo) ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={p.archivo_nombre || 'Ver archivo adjunto'}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
                   {puedeEliminar && (
                     <button
                       type="button"
@@ -279,7 +307,7 @@ export default function ProformasPage() {
             ))}
             {filtradas.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
                   Sin proformas registradas.
                 </td>
               </tr>
@@ -316,6 +344,7 @@ function ModalNuevaProforma({
     monto: number;
     numero?: string;
     observaciones?: string;
+    archivo?: File;
   }) => void;
   guardando: boolean;
 }) {
@@ -324,6 +353,7 @@ function ModalNuevaProforma({
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [monto, setMonto] = useState('');
   const [observaciones, setObservaciones] = useState('');
+  const [archivo, setArchivo] = useState<File | null>(null);
 
   const invalido =
     clienteId === '' || monto === '' || Number.isNaN(Number(monto));
@@ -401,6 +431,18 @@ function ModalNuevaProforma({
               onChange={(e) => setObservaciones(e.target.value)}
             />
           </div>
+          <div>
+            <label className={labelCls}>Archivo (PDF o imagen, opcional)</label>
+            <input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+              className={`${inputCls} file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-600 hover:file:bg-slate-200`}
+              onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+            />
+            {archivo && (
+              <p className="mt-1 text-xs text-muted-foreground">{archivo.name}</p>
+            )}
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
@@ -419,6 +461,7 @@ function ModalNuevaProforma({
                   fecha_emision: fecha,
                   monto: Number(monto),
                   observaciones: observaciones.trim() || undefined,
+                  archivo: archivo ?? undefined,
                 })
               }
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
