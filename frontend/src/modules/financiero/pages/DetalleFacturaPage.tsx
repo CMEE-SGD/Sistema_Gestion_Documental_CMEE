@@ -28,6 +28,7 @@ import {
   getPuesto,
 } from '../../../shared/utils/auth';
 import { useConfiguracionGeneral } from '../../../shared/hooks/useConfiguracionGeneral';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
 import {
   badgeClass,
   ESTADO_FACTURA_LABEL,
@@ -246,7 +247,6 @@ export default function DetalleFacturaPage() {
     );
   }
 
-  const apiBase = import.meta.env.VITE_API_URL as string | undefined;
   const rucEmisor = factura.info_adicional?.['RUC Proveedor'] || '—';
 
   return (
@@ -280,7 +280,7 @@ export default function DetalleFacturaPage() {
         </div>
         {factura.ruta_xml && (
           <a
-            href={`${apiBase ?? ''}${factura.ruta_xml}`}
+            href={buildFileUrl(factura.ruta_xml) ?? ''}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
@@ -487,7 +487,7 @@ export default function DetalleFacturaPage() {
                     )}
                     {p.ruta_comprobante && (
                       <a
-                        href={`${apiBase ?? ''}${p.ruta_comprobante}`}
+                        href={buildFileUrl(p.ruta_comprobante) ?? ''}
                         target="_blank"
                         rel="noreferrer"
                         className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 underline"
@@ -566,7 +566,7 @@ export default function DetalleFacturaPage() {
                       <div className="mt-1 flex gap-3 text-xs">
                         {c.ruta_acta && (
                           <a
-                            href={`${apiBase ?? ''}${c.ruta_acta}`}
+                            href={buildFileUrl(c.ruta_acta) ?? ''}
                             target="_blank"
                             rel="noreferrer"
                             className="font-medium text-sky-700 underline"
@@ -576,7 +576,7 @@ export default function DetalleFacturaPage() {
                         )}
                         {c.ruta_factura_compra && (
                           <a
-                            href={`${apiBase ?? ''}${c.ruta_factura_compra}`}
+                            href={buildFileUrl(c.ruta_factura_compra) ?? ''}
                             target="_blank"
                             rel="noreferrer"
                             className="font-medium text-sky-700 underline"
@@ -990,7 +990,7 @@ function FormPago({
           />
         </div>
         <div>
-          <label className={labelCls}>Comprobante (PDF)</label>
+          <label className={labelCls}>Comprobante (PDF o imagen)</label>
           <input
             type="file"
             accept=".pdf,image/*"
