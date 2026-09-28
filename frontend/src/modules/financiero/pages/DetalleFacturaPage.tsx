@@ -1034,7 +1034,6 @@ function FormCompensacion({
   onCreada: () => void;
 }) {
   const [descripcion, setDescripcion] = useState('');
-  const [autorizacion, setAutorizacion] = useState(false);
   const [descuento, setDescuento] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [facturaCompra, setFacturaCompra] = useState<File | null>(null);
@@ -1047,7 +1046,9 @@ function FormCompensacion({
     mutationFn: async () => {
       const fd = new FormData();
       fd.append('descripcion_equipo', descripcion.trim());
-      fd.append('autorizacion_previa', String(autorizacion));
+      // El formulario solo se habilita tras la aprobación del Director, por
+      // lo que la autorización previa queda registrada implícitamente.
+      fd.append('autorizacion_previa', 'true');
       fd.append('observaciones', observaciones.trim());
       if (descuento !== '') fd.append('descuento_autorizado', descuento);
       if (facturaCompra) fd.append('factura_compra', facturaCompra);
@@ -1064,7 +1065,6 @@ function FormCompensacion({
           'Compensación registrada: la factura quedó abonada por entrega de equipos.',
       });
       setDescripcion('');
-      setAutorizacion(false);
       setDescuento('');
       setObservaciones('');
       setFacturaCompra(null);
@@ -1123,17 +1123,6 @@ function FormCompensacion({
               Excede el saldo pendiente ({fmtMoneda(saldo)}).
             </p>
           )}
-        </div>
-        <div className="flex items-end pb-1">
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={autorizacion}
-              onChange={(e) => setAutorizacion(e.target.checked)}
-              className="rounded border-slate-300 text-primary focus:ring-primary"
-            />
-            Autorización previa obtenida
-          </label>
         </div>
         <div>
           <label className={labelCls}>Factura de compra (PDF)</label>
