@@ -110,6 +110,13 @@ export default function SubirCertificadoModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [servicioId, setServicioId] = useState<string>('');
+  // Fase A del flujograma: el laboratorio que sube el certificado conoce y
+  // registra aquí cuándo se calibró y cuándo vence la próxima calibración
+  // (base de las alertas de la Fase D).
+  const [fechaCalibracion, setFechaCalibracion] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [fechaProxima, setFechaProxima] = useState('');
 
   const { data: servicios } = useQuery({
     queryKey: ['servicios', 'subir-certificado', laboratorioId],
@@ -141,6 +148,10 @@ export default function SubirCertificadoModal({
       formData.append('file', file);
       formData.append('recepcion_equipo_id', recepcionId.toString());
       if (servicioId) formData.append('servicio_id', servicioId);
+      if (fechaCalibracion)
+        formData.append('fecha_calibracion', fechaCalibracion);
+      if (fechaProxima)
+        formData.append('fecha_proxima_calibracion', fechaProxima);
 
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE}/certificados/upload`, {
@@ -220,10 +231,18 @@ export default function SubirCertificadoModal({
     setFile(dropped);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
     if (!servicioId) return;
+    if (!fechaCalibracion || !fechaProxima) return;
+    if (fechaProxima < fechaCalibracion) {
+      await alert({
+        message:
+          'La fecha de próxima calibración debe ser posterior a la fecha de calibración.',
+      });
+      return;
+    }
     mutation.mutate();
   };
 
@@ -289,6 +308,54 @@ export default function SubirCertificadoModal({
               )}
             </div>
 
+            {/* Fechas de calibración (Fase A) */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="fecha-calibracion"
+                  className="mb-1.5 block text-sm font-medium text-foreground"
+                >
+                  Fecha de calibración{' '}
+                  <span className="text-destructive">*</span>
+                </label>
+                <input
+                  id="fecha-calibracion"
+                  type="date"
+                  value={fechaCalibracion}
+                  onChange={(e) => setFechaCalibracion(e.target.value)}
+                  className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="fecha-proxima"
+                  className="mb-1.5 block text-sm font-medium text-foreground"
+                >
+                  Fecha de próxima calibración{' '}
+                  <span className="text-destructive">*</span>
+                </label>
+                <input
+                  id="fecha-proxima"
+                  type="date"
+                  min={fechaCalibracion}
+                  value={fechaProxima}
+                  onChange={(e) => setFechaProxima(e.target.value)}
+                  className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Corresponde a las fechas declaradas en el certificado: cuándo se
+              calibró el equipo y cuándo vence la próxima calibración (base de
+              las alertas de próxima calibración).
+            </p>
+            {fechaProxima && fechaProxima < fechaCalibracion && (
+              <p className="text-xs text-destructive">
+                La fecha de próxima calibración debe ser posterior a la fecha
+                de calibración.
+              </p>
+            )}
+
             {/* Reporte + certificado (un solo PDF) */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
@@ -316,7 +383,13 @@ export default function SubirCertificadoModal({
             </button>
             <button
               type="submit"
-              disabled={!file || !servicioId || mutation.isPending}
+              disabled={
+                !file ||
+                !servicioId ||
+                !fechaCalibracion ||
+                !fechaProxima ||
+                mutation.isPending
+              }
               className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-50"
             >
               {mutation.isPending ? (

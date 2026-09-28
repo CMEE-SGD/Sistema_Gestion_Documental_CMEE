@@ -39,6 +39,8 @@ export class CertificadosController {
     @Body('recepcion_equipo_id', ParseIntPipe) recepcionEquipoId: number,
     @Req() req: any,
     @Body('servicio_id') servicioId?: string,
+    @Body('fecha_calibracion') fechaCalibracion?: string,
+    @Body('fecha_proxima_calibracion') fechaProximaCalibracion?: string,
   ) {
     if (!file) {
       throw new BadRequestException(
@@ -50,6 +52,8 @@ export class CertificadosController {
       recepcionEquipoId,
       req.user,
       servicioId ? Number(servicioId) : undefined,
+      fechaCalibracion,
+      fechaProximaCalibracion,
     );
   }
 
