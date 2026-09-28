@@ -7,11 +7,26 @@
 import { type ReactNode, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, FileDown, Loader2, Plus, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Ban,
+  CheckCircle2,
+  Clock4,
+  FileDown,
+  Loader2,
+  Plus,
+  ShieldCheck,
+  ShieldQuestion,
+  Trash2,
+  X,
+} from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
-import { esUsuarioAdministrador } from '../../../shared/utils/auth';
+import {
+  esUsuarioAdministrador,
+  getPuesto,
+} from '../../../shared/utils/auth';
 import { useConfiguracionGeneral } from '../../../shared/hooks/useConfiguracionGeneral';
 import {
   badgeClass,
@@ -82,11 +97,22 @@ interface CompensacionDetalle {
   observaciones: string | null;
 }
 
+interface SolicitudCompensacionDetalle {
+  id: number;
+  estado: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
+  observaciones: string | null;
+  resuelto_at: string | null;
+  createdAt: string;
+  solicitado_por: PersonaResumen | null;
+  resuelto_por: PersonaResumen | null;
+}
+
 interface FacturaDetalle extends FacturaResumen {
   detalle: DetalleItem[];
   pagos: PagoDetalle[];
   notas_entrega: NotaEntregaDetalle[];
   compensaciones: CompensacionDetalle[];
+  solicitud_compensacion: SolicitudCompensacionDetalle | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,10 +127,10 @@ export default function DetalleFacturaPage() {
   const { alert, confirm } = useAlert();
   const queryClient = useQueryClient();
   const esAdmin = esUsuarioAdministrador();
+  const esDirector = esAdmin || getPuesto().toLowerCase().includes('director');
   const { nombreInstitucion } = useConfiguracionGeneral();
-  const [formCobro, setFormCobro] = useState<'pago' | 'compensacion' | null>(
-    null,
-  );
+  const [formCobro, setFormCobro] = useState<'pago' | null>(null);
+  const [modalAutorizacion, setModalAutorizacion] = useState(false);
 
   const { data: factura, isLoading } = useQuery<FacturaDetalle>({
     queryKey: ['factura', facturaId],
@@ -120,6 +146,59 @@ export default function DetalleFacturaPage() {
     queryClient.invalidateQueries({ queryKey: ['facturas'] });
     queryClient.invalidateQueries({ queryKey: ['cartera'] });
   };
+
+  const solicitarAutorizacion = useMutation({
+    mutationFn: async () => {
+      const res = await api.post(
+        `/facturacion/facturas/${facturaId}/compensacion/solicitar`,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      toast({
+        message:
+          'Solicitud enviada al Director. Se notificará para su aprobación.',
+      });
+      setModalAutorizacion(false);
+      refrescar();
+    },
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      setModalAutorizacion(false);
+      void alert({
+        message:
+          apiErr?.response?.data?.message ||
+          'No se pudo enviar la solicitud de autorización.',
+      });
+    },
+  });
+
+  const resolverAutorizacion = useMutation({
+    mutationFn: async (estado: 'APROBADA' | 'RECHAZADA') => {
+      const res = await api.post(
+        `/facturacion/facturas/${facturaId}/compensacion/autorizar`,
+        { estado },
+      );
+      return res.data;
+    },
+    onSuccess: (_, estado) => {
+      toast({
+        message:
+          estado === 'APROBADA'
+            ? 'Compensación autorizada. El formulario ya está habilitado.'
+            : 'Solicitud de compensación rechazada.',
+      });
+      refrescar();
+    },
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      void alert({
+        message:
+          apiErr?.response?.data?.message ||
+          'No se pudo registrar la resolución de la solicitud.',
+      });
+    },
+  });
 
   const cambiarEstado = useMutation({
     mutationFn: async (estado: string) => {
@@ -517,37 +596,107 @@ export default function DetalleFacturaPage() {
               </ul>
 
               {factura.estado !== 'ANULADA' && factura.saldo > 0.005 && (
-                <div className="mt-3">
-                  {formCobro === 'compensacion' ? (
+                <div className="mt-3 space-y-3">
+                  {factura.solicitud_compensacion?.estado === 'APROBADA' ? (
                     <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Nueva compensación
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setFormCobro(null)}
-                          className="text-xs font-medium text-muted-foreground underline hover:text-slate-700"
-                        >
-                          Cancelar
-                        </button>
+                      <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div>
+                          <p className="font-semibold">
+                            Autorización concedida por el Director
+                          </p>
+                          <p className="mt-0.5 text-emerald-700">
+                            {factura.solicitud_compensacion.resuelto_por
+                              ? `Aprobada por ${factura.solicitud_compensacion.resuelto_por.nombre} ${factura.solicitud_compensacion.resuelto_por.apellidos}`
+                              : 'Aprobada por el Director'}{' '}
+                            el{' '}
+                            {fmtFecha(
+                              factura.solicitud_compensacion.resuelto_at,
+                            )}
+                            . Ya puede registrar la compensación.
+                          </p>
+                        </div>
                       </div>
                       <FormCompensacion
                         facturaId={factura.id}
                         saldo={factura.saldo}
-                        onCreada={() => {
-                          refrescar();
-                          setFormCobro(null);
-                        }}
+                        onCreada={refrescar}
                       />
                     </>
+                  ) : factura.solicitud_compensacion?.estado ===
+                    'PENDIENTE' ? (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <p className="flex items-center gap-1.5 font-semibold">
+                        <Clock4 className="h-4 w-4" />
+                        Autorización pendiente del Director
+                      </p>
+                      <p className="mt-0.5 text-amber-700">
+                        Solicitada el{' '}
+                        {fmtFecha(factura.solicitud_compensacion.createdAt)}
+                        {factura.solicitud_compensacion.solicitado_por
+                          ? ` por ${factura.solicitud_compensacion.solicitado_por.nombre} ${factura.solicitud_compensacion.solicitado_por.apellidos}`
+                          : ''}
+                        . El formulario se habilitará una vez aprobada.
+                      </p>
+                      {esDirector && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={resolverAutorizacion.isPending}
+                            onClick={() =>
+                              resolverAutorizacion.mutate('APROBADA')
+                            }
+                            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            {resolverAutorizacion.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            )}
+                            Aprobar autorización
+                          </button>
+                          <button
+                            type="button"
+                            disabled={resolverAutorizacion.isPending}
+                            onClick={() =>
+                              resolverAutorizacion.mutate('RECHAZADA')
+                            }
+                            className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                          >
+                            <Ban className="h-3.5 w-3.5" /> Rechazar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : factura.solicitud_compensacion?.estado === 'RECHAZADA' ? (
+                    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                      <p className="flex items-center gap-1.5 font-semibold">
+                        <X className="h-4 w-4" />
+                        Solicitud rechazada por el Director
+                      </p>
+                      {factura.solicitud_compensacion.observaciones && (
+                        <p className="mt-0.5 text-red-600">
+                          Motivo:{' '}
+                          {factura.solicitud_compensacion.observaciones}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setModalAutorizacion(true)}
+                        className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-300 bg-white px-2.5 py-1 font-medium text-red-700 hover:bg-red-100"
+                      >
+                        <ShieldQuestion className="h-3.5 w-3.5" />
+                        Solicitar nuevamente
+                      </button>
+                    </div>
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setFormCobro('compensacion')}
+                      onClick={() => setModalAutorizacion(true)}
                       className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
                     >
-                      <Plus className="h-4 w-4" /> Agregar compensación
+                      <Plus className="h-4 w-4" /> Agregar compensación (requiere
+                      autorización)
                     </button>
                   )}
                 </div>
@@ -631,6 +780,59 @@ export default function DetalleFacturaPage() {
             </button>
           )}
         </div>
+
+        {/* Modal: solicitud de autorización al Director para compensar */}
+        {modalAutorizacion && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldQuestion className="h-5 w-5 text-amber-600" />
+                  <h3 className="text-base font-semibold text-slate-800">
+                    Autorización del Director
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalAutorizacion(false)}
+                  className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Cerrar"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                El registro de una compensación (pago con entrega de equipos)
+                requiere la autorización previa del Director. Al enviar la
+                solicitud, el Director recibirá una notificación para revisar y
+                aprobar la compensación; el formulario se habilitará una vez
+                aprobada.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalAutorizacion(false)}
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={solicitarAutorizacion.isPending}
+                  onClick={() => solicitarAutorizacion.mutate()}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {solicitarAutorizacion.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4" />
+                  )}
+                  Solicitar autorización
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -75,6 +75,8 @@ const NotificationBell = () => {
       navigate(`/gestordocumental/documento/${encodeId(n.referencia_id)}`);
     } else if (n.tipo === 'recepcion_equipos') {
       navigate('/administrativo/recepciones');
+    } else if (n.tipo === 'compensacion_autorizacion' && n.referencia_id) {
+      navigate(`/financiero/facturas/${n.referencia_id}`);
     }
     setOpen(false);
   };

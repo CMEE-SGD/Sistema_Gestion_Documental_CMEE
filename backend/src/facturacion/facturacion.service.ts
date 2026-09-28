@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { CreateFacturaDto } from './dto/create-factura.dto';
 import { UpdateFacturaDto } from './dto/update-factura.dto';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto';
 import { RegistrarCompensacionDto } from './dto/registrar-compensacion.dto';
+import { ResolverAutorizacionCompensacionDto } from './dto/resolver-autorizacion-compensacion.dto';
 import { CreateNotaEntregaDto } from './dto/create-nota-entrega.dto';
 
 const CLIENTE_SELECT = {
@@ -60,6 +62,13 @@ const FACTURA_INCLUDE = {
     orderBy: { id: 'desc' as const },
   },
   compensaciones: true,
+  solicitudes_compensacion: {
+    include: {
+      solicitado_por: { select: { id: true, nombre: true, apellidos: true } },
+      resuelto_por: { select: { id: true, nombre: true, apellidos: true } },
+    },
+    orderBy: { id: 'desc' as const },
+  },
 };
 
 const PROFORMA_INCLUDE = {
@@ -143,6 +152,12 @@ export class FacturacionService {
     const total = this.n(f.total);
     const saldo = total - pagado;
 
+    // Última solicitud de autorización de compensación (si existe).
+    const { solicitudes_compensacion, ...resto } = f;
+    const solicitudCompensacion = Array.isArray(solicitudes_compensacion)
+      ? (solicitudes_compensacion[0] ?? null)
+      : null;
+
     let estado: EstadoFactura = f.estado;
     if (estado !== 'ANULADA') {
       if (saldo <= 0.005) estado = 'PAGADA';
@@ -159,13 +174,24 @@ export class FacturacionService {
     );
 
     return {
-      ...f,
+      ...resto,
       subtotal: this.n(f.subtotal),
       iva: this.n(f.iva),
       total,
       pagado,
       saldo,
       estado,
+      solicitud_compensacion: solicitudCompensacion
+        ? {
+            id: solicitudCompensacion.id,
+            estado: solicitudCompensacion.estado,
+            observaciones: solicitudCompensacion.observaciones,
+            resuelto_at: solicitudCompensacion.resuelto_at,
+            createdAt: solicitudCompensacion.created_at,
+            solicitado_por: solicitudCompensacion.solicitado_por,
+            resuelto_por: solicitudCompensacion.resuelto_por,
+          }
+        : null,
       estado_cartera:
         estado !== 'ANULADA' && saldo > 0.005
           ? dias < 0
@@ -718,6 +744,171 @@ export class FacturacionService {
 
     await this.actualizarEstadoPorSaldo(facturaId);
     return this.findOneFactura(facturaId);
+  }
+
+  // ------------------------------------------------------------------
+  // AUTORIZACIÓN DE COMPENSACIONES (por el Director)
+  // ------------------------------------------------------------------
+
+  /** Puestos cuyo nombre contiene "director" → destinatarios de las notificaciones. */
+  private async personasDirector() {
+    const puestos = await this.prisma.personaPuesto.findMany({
+      where: {
+        activo: true,
+        puesto: { nombre: { contains: 'director', mode: 'insensitive' } },
+      },
+      select: { persona_id: true },
+    });
+    return [...new Set(puestos.map((p) => p.persona_id))];
+  }
+
+  /**
+   * El usuario financiero solicita al Director la autorización para registrar
+   * una compensación. Crea la solicitud PENDIENTE y notifica a todos los
+   * directores activos para que la aprueben desde el detalle de la factura.
+   */
+  async solicitarAutorizacionCompensacion(facturaId: number, userId: number) {
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      select: { id: true, numero: true, estado: true },
+    });
+    if (!factura) {
+      throw new NotFoundException(`Factura ${facturaId} no encontrada`);
+    }
+    if (factura.estado === 'ANULADA') {
+      throw new BadRequestException(
+        'No se puede solicitar autorización para una factura anulada.',
+      );
+    }
+
+    const ultima = await this.prisma.solicitudCompensacion.findFirst({
+      where: { factura_id: facturaId },
+      orderBy: { id: 'desc' },
+    });
+    if (ultima?.estado === 'PENDIENTE') {
+      throw new BadRequestException(
+        'Ya existe una solicitud de autorización pendiente para esta factura.',
+      );
+    }
+    if (ultima?.estado === 'APROBADA') {
+      throw new BadRequestException(
+        'La compensación de esta factura ya fue autorizada por el Director.',
+      );
+    }
+
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: userId },
+      select: { persona_id: true },
+    });
+
+    const solicitud = await this.prisma.solicitudCompensacion.create({
+      data: {
+        factura_id: facturaId,
+        solicitado_por_id: usuario?.persona_id ?? null,
+        estado: 'PENDIENTE',
+      },
+      include: {
+        solicitado_por: { select: { id: true, nombre: true, apellidos: true } },
+      },
+    });
+
+    const mensaje = `Solicitud de autorización para compensar la factura ${factura.numero} (entrega de equipos). Apruebe o rechace desde el detalle de la factura.`;
+    for (const personaId of await this.personasDirector()) {
+      await this.notificaciones.crear(
+        'compensacion_autorizacion',
+        mensaje,
+        personaId,
+        factura.id,
+      );
+    }
+
+    return solicitud;
+  }
+
+  /**
+   * El Director aprueba o rechaza la solicitud pendiente. Solo pueden resolver
+   * los usuarios cuyo puesto contenga "director" (o el usuario administrador).
+   * Al resolver se notifica al solicitante: si es APROBADA, el formulario de
+   * compensación queda habilitado en el detalle de la factura.
+   */
+  async autorizarCompensacion(
+    facturaId: number,
+    userId: number,
+    isGod: boolean,
+    dto: ResolverAutorizacionCompensacionDto,
+  ) {
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      select: { id: true, numero: true },
+    });
+    if (!factura) {
+      throw new NotFoundException(`Factura ${facturaId} no encontrada`);
+    }
+
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: userId },
+      include: {
+        persona: {
+          select: {
+            id: true,
+            puestos: {
+              where: { activo: true },
+              orderBy: { orden_puesto: 'asc' },
+              take: 1,
+              include: { puesto: { select: { nombre: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    const puesto =
+      usuario?.persona?.puestos?.[0]?.puesto?.nombre?.toLowerCase() ?? '';
+    const esDirector = puesto.includes('director');
+    if (!isGod && !esDirector) {
+      throw new ForbiddenException(
+        'Solo el Director puede autorizar compensaciones.',
+      );
+    }
+
+    const solicitud = await this.prisma.solicitudCompensacion.findFirst({
+      where: { factura_id: facturaId, estado: 'PENDIENTE' },
+      orderBy: { id: 'desc' },
+    });
+    if (!solicitud) {
+      throw new BadRequestException(
+        'No hay una solicitud de autorización pendiente para esta factura.',
+      );
+    }
+
+    const resuelta = await this.prisma.solicitudCompensacion.update({
+      where: { id: solicitud.id },
+      data: {
+        estado: dto.estado,
+        observaciones: dto.observaciones ?? null,
+        resuelto_por_id: usuario?.persona?.id ?? null,
+        resuelto_at: new Date(),
+      },
+    });
+
+    if (solicitud.solicitado_por_id) {
+      const mensaje =
+        dto.estado === 'APROBADA'
+          ? `La compensación de la factura ${factura.numero} fue APROBADA por el Director. Ya puede registrarla.`
+          : `La solicitud de compensación de la factura ${factura.numero} fue RECHAZADA${
+              dto.observaciones ? ` — Motivo: "${dto.observaciones}"` : ''
+            }.`;
+      await this.notificaciones.crear(
+        dto.estado === 'APROBADA'
+          ? 'compensacion_autorizada'
+          : 'compensacion_rechazada',
+        mensaje,
+        solicitud.solicitado_por_id,
+        factura.id,
+      );
+    }
+
+    return resuelta;
   }
 
   // ------------------------------------------------------------------

@@ -27,6 +27,7 @@ import { UpdateFacturaDto } from './dto/update-factura.dto';
 import { ImportarXmlFacturaDto } from './dto/importar-xml-factura.dto';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto';
 import { RegistrarCompensacionDto } from './dto/registrar-compensacion.dto';
+import { ResolverAutorizacionCompensacionDto } from './dto/resolver-autorizacion-compensacion.dto';
 import { CreateNotaEntregaDto } from './dto/create-nota-entrega.dto';
 
 /**
@@ -206,6 +207,36 @@ export class FacturacionController {
   ) {
     const personaId = req.user?.persona_id ?? null;
     return this.facturacionService.registrarCompensacion(id, dto, files, personaId);
+  }
+
+  // El usuario financiero solicita la autorización del Director antes de
+  // registrar una compensación (entrega de equipos).
+  @Post('facturas/:id/compensacion/solicitar')
+  @RequireAccess('Gestion Financiera', 4)
+  solicitarAutorizacionCompensacion(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+  ) {
+    return this.facturacionService.solicitarAutorizacionCompensacion(
+      id,
+      req.user.id,
+    );
+  }
+
+  // El Director aprueba o rechaza la solicitud (sin acceso a Gestion
+  // Financiera: la validación de puesto se hace en el servicio).
+  @Post('facturas/:id/compensacion/autorizar')
+  autorizarCompensacion(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ResolverAutorizacionCompensacionDto,
+    @Req() req: any,
+  ) {
+    return this.facturacionService.autorizarCompensacion(
+      id,
+      req.user.id,
+      req.user.isGod === true,
+      dto,
+    );
   }
 
   // ---------------------- CARTERA Y ALERTAS ----------------------

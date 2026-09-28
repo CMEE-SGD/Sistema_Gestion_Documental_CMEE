@@ -181,6 +181,8 @@ model Persona {
   // --- Módulo financiero: quién entrega y quién registra pagos ---
   notas_entrega_entregadas NotaEntrega[] @relation("PersonaEntregaNota")
   pagos_registrados        Pago[]        @relation("PersonaRegistraPago")
+  solicitudes_compensacion_enviadas SolicitudCompensacion[] @relation("PersonaSolicitaCompensacion")
+  compensaciones_autorizadas       SolicitudCompensacion[] @relation("PersonaResuelveCompensacion")
 
   @@map("persona")
 }
@@ -1547,6 +1549,7 @@ model Factura {
   notas_entrega NotaEntrega[]
   pagos       Pago[]
   compensaciones Compensacion[]
+  solicitudes_compensacion SolicitudCompensacion[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -1609,6 +1612,32 @@ model Compensacion {
 
   @@index([factura_id])
   @@map("compensaciones")
+}
+
+// Solicitud de autorización al Director para registrar una compensación (pago
+// con entrega de equipos). El formulario de compensación solo se habilita
+// cuando la solicitud está APROBADA. Una sola solicitud PENDIENTE a la vez;
+// si se rechaza, se puede volver a solicitar.
+model SolicitudCompensacion {
+  id         Int    @id @default(autoincrement())
+  factura_id Int
+  factura    Factura @relation(fields: [factura_id], references: [id], onDelete: Cascade)
+
+  solicitado_por_id Int?
+  solicitado_por    Persona? @relation("PersonaSolicitaCompensacion", fields: [solicitado_por_id], references: [id])
+
+  // PENDIENTE | APROBADA | RECHAZADA
+  estado        String  @default("PENDIENTE") @db.VarChar(20)
+  observaciones String? @db.Text
+
+  resuelto_por_id Int?
+  resuelto_por    Persona? @relation("PersonaResuelveCompensacion", fields: [resuelto_por_id], references: [id])
+  resuelto_at     DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([factura_id])
+  @@map("solicitud_compensacion")
 }
 
 model Pago {
