@@ -1,7 +1,8 @@
 // Detalle de factura — página completa dentro del módulo financiero
 // (/financiero/facturas/:id), abierta en "ventana nueva" desde el listado de
-// facturación. Muestra cabecera, ítems, cobros (pagos + compensación), nota de
-// entrega y cambio de estado.
+// facturación. Se presenta como una FACTURA FÍSICA (documento) para facilitar
+// la lectura; debajo quedan las acciones operativas del sistema: cobros
+// (pagos + compensación), nota de entrega y cambio de estado.
 
 import { type ReactNode, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,6 +12,7 @@ import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { esUsuarioAdministrador } from '../../../shared/utils/auth';
+import { useConfiguracionGeneral } from '../../../shared/hooks/useConfiguracionGeneral';
 import {
   badgeClass,
   ESTADO_FACTURA_LABEL,
@@ -99,6 +101,7 @@ export default function DetalleFacturaPage() {
   const { alert, confirm } = useAlert();
   const queryClient = useQueryClient();
   const esAdmin = esUsuarioAdministrador();
+  const { nombreInstitucion } = useConfiguracionGeneral();
   const [formCobro, setFormCobro] = useState<'pago' | 'compensacion' | null>(
     null,
   );
@@ -165,10 +168,11 @@ export default function DetalleFacturaPage() {
   }
 
   const apiBase = import.meta.env.VITE_API_URL as string | undefined;
+  const rucEmisor = factura.info_adicional?.['RUC Proveedor'] || '—';
 
   return (
     <div className="space-y-4">
-      {/* Encabezado */}
+      {/* Barra superior: navegación y acciones */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -191,7 +195,7 @@ export default function DetalleFacturaPage() {
               )}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Detalle, cobros y estado de la factura.
+              Vista previa de la factura como documento.
             </p>
           </div>
         </div>
@@ -207,357 +211,426 @@ export default function DetalleFacturaPage() {
         )}
       </div>
 
-      {/* Datos de cabecera */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border border-slate-300 bg-slate-50 p-4 text-sm sm:grid-cols-3 lg:grid-cols-4">
-        <InfoCampo label="Cliente" valor={factura.cliente?.nombre || '—'} />
-        <InfoCampo
-          label="RUC comprador (XML)"
-          valor={factura.ruc_cliente || factura.cliente?.ruc || '—'}
-        />
-        <InfoCampo
-          label="Razón social (XML)"
-          valor={factura.razon_social_cliente || '—'}
-        />
-        <InfoCampo label="Emisión" valor={fmtFecha(factura.fecha_emision)} />
-        <InfoCampo
-          label="Vencimiento"
-          valor={fmtFecha(factura.fecha_vencimiento)}
-        />
-        <InfoCampo label="Plazo" valor={`${factura.plazo_dias} días`} />
-        <InfoCampo label="Subtotal" valor={fmtMoneda(factura.subtotal)} />
-        <InfoCampo label="IVA" valor={fmtMoneda(factura.iva)} />
-        <InfoCampo label="Total" valor={fmtMoneda(factura.total)} />
-        <InfoCampo label="Pagado" valor={fmtMoneda(factura.pagado)} />
-        <InfoCampo
-          label="Saldo"
-          valor={fmtMoneda(factura.saldo)}
-          resaltado={factura.saldo > 0.005}
-        />
-        {factura.clave_acceso && (
-          <div>
-            <span className={labelCls}>Clave de acceso</span>
-            <p className="mt-0.5 break-all font-mono text-xs">{factura.clave_acceso}</p>
-          </div>
-        )}
-        {factura.numero_autorizacion && (
-          <div>
-            <span className={labelCls}>Nº autorización SRI</span>
-            <p className="break-all font-mono text-xs">
-              {factura.numero_autorizacion}
-            </p>
-          </div>
-        )}
-        {factura.fecha_autorizacion && (
-          <InfoCampo
-            label="Fecha autorización"
-            valor={new Date(factura.fecha_autorizacion).toLocaleString('es-EC')}
-          />
-        )}
-        {factura.ambiente && (
-          <InfoCampo label="Ambiente SRI" valor={factura.ambiente} />
-        )}
-        {factura.info_adicional?.['RUC Proveedor'] && (
-          <InfoCampo
-            label="RUC proveedor (XML)"
-            valor={factura.info_adicional['RUC Proveedor']}
-          />
-        )}
-      </div>
-
-      {/* Ítems */}
-      <Seccion titulo="Detalle de ítems">
-        <div className="overflow-x-auto rounded-md border border-slate-300">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-100 text-slate-600">
-                <th className="px-3 py-1.5 text-left font-semibold">Concepto</th>
-                <th className="px-3 py-1.5 text-right font-semibold">Cant.</th>
-                <th className="px-3 py-1.5 text-right font-semibold">P. unitario</th>
-                <th className="px-3 py-1.5 text-right font-semibold">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {factura.detalle.map((d) => (
-                <tr key={d.id} className="border-t border-slate-200">
-                  <td className="px-3 py-2">
-                    {d.concepto}
-                    {d.equipo_recepcion && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        (equipo: {d.equipo_recepcion.equipo_descripcion})
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right">{d.cantidad}</td>
-                  <td className="px-3 py-2 text-right">
-                    {fmtMoneda(d.precio_unitario)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-semibold">
-                    {fmtMoneda(d.valor_total)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Seccion>
-
-      {/* Cobros */}
-      <Seccion titulo="Cobros">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div>
-            <h4 className="mb-2 text-sm font-semibold text-slate-700">
-              Pagos registrados
-            </h4>
-            <ul className="space-y-2">
-              {factura.pagos.map((p) => (
-                <li
-                  key={p.id}
-                  className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">{fmtMoneda(p.monto)}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {fmtFecha(p.fecha)} ·{' '}
-                      {METODO_PAGO_LABEL[p.metodo] || p.metodo}
-                    </span>
-                  </div>
-                  {(p.referencia || p.observaciones) && (
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {p.referencia}
-                      {p.referencia && p.observaciones ? ' — ' : ''}
-                      {p.observaciones}
-                    </p>
-                  )}
-                  {p.registrado_por && (
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Registrado por: {p.registrado_por.nombre}{' '}
-                      {p.registrado_por.apellidos}
-                    </p>
-                  )}
-                  {p.ruta_comprobante && (
-                    <a
-                      href={`${apiBase ?? ''}${p.ruta_comprobante}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 underline"
-                    >
-                      <FileDown className="h-3 w-3" /> Comprobante
-                    </a>
-                  )}
-                </li>
-              ))}
-              {factura.pagos.length === 0 && (
-                <li className="rounded-md border border-dashed border-slate-300 px-3 py-3 text-center text-xs text-muted-foreground">
-                  Sin pagos registrados todavía.
-                </li>
-              )}
-            </ul>
-
-            {factura.estado !== 'ANULADA' && factura.saldo > 0.005 && (
-              <div className="mt-3">
-                {formCobro === 'pago' ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Nuevo cobro
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setFormCobro(null)}
-                        className="text-xs font-medium text-muted-foreground underline hover:text-slate-700"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                    <FormPago
-                      facturaId={factura.id}
-                      saldo={factura.saldo}
-                      onCreado={() => {
-                        refrescar();
-                        setFormCobro(null);
-                      }}
-                    />
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setFormCobro('pago')}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    <Plus className="h-4 w-4" /> Agregar cobro
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h4 className="mb-2 text-sm font-semibold text-slate-700">
-              Compensación (pago con entrega de equipos)
-            </h4>
-            <ul className="space-y-2">
-              {factura.compensaciones.map((c) => (
-                <li
-                  key={c.id}
-                  className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                >
-                  <p className="font-semibold">
-                    {c.descripcion_equipo || 'Entrega de equipos'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Autorización previa:{' '}
-                    {c.autorizacion_previa ? 'sí' : 'no'} · Valor acordado:{' '}
-                    {c.descuento_autorizado
-                      ? fmtMoneda(c.descuento_autorizado)
-                      : '—'}
-                  </p>
-                  {(c.ruta_acta || c.ruta_factura_compra) && (
-                    <div className="mt-1 flex gap-3 text-xs">
-                      {c.ruta_acta && (
-                        <a
-                          href={`${apiBase ?? ''}${c.ruta_acta}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-medium text-sky-700 underline"
-                        >
-                          Acta de compensación
-                        </a>
-                      )}
-                      {c.ruta_factura_compra && (
-                        <a
-                          href={`${apiBase ?? ''}${c.ruta_factura_compra}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-medium text-sky-700 underline"
-                        >
-                          Factura de compra
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </li>
-              ))}
-              {factura.compensaciones.length === 0 && (
-                <li className="rounded-md border border-dashed border-slate-300 px-3 py-3 text-center text-xs text-muted-foreground">
-                  Sin compensaciones registradas.
-                </li>
-              )}
-            </ul>
-
-            {factura.estado !== 'ANULADA' && factura.saldo > 0.005 && (
-              <div className="mt-3">
-                {formCobro === 'compensacion' ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Nueva compensación
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setFormCobro(null)}
-                        className="text-xs font-medium text-muted-foreground underline hover:text-slate-700"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                    <FormCompensacion
-                      facturaId={factura.id}
-                      saldo={factura.saldo}
-                      onCreada={() => {
-                        refrescar();
-                        setFormCobro(null);
-                      }}
-                    />
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setFormCobro('compensacion')}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    <Plus className="h-4 w-4" /> Agregar compensación
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </Seccion>
-
-      {/* Nota de entrega */}
-      <Seccion titulo="Nota de entrega">
-        <ul className="space-y-2">
-          {factura.notas_entrega.map((n) => (
-            <li
-              key={n.id}
-              className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-semibold">{n.numero}</span>
-                <span className="text-xs text-muted-foreground">
-                  {fmtFecha(n.fecha_entrega || n.fecha)}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Recibido por: {n.recibido_por || '—'}
-                {n.entregado_por
-                  ? ` · Entregó: ${n.entregado_por.nombre} ${n.entregado_por.apellidos}`
-                  : ''}
+      {/* ============ DOCUMENTO: FACTURA FÍSICA ============ */}
+      <div className="overflow-x-auto">
+        <div className="mx-auto max-w-4xl rounded-xl border border-slate-300 bg-white p-6 shadow-sm">
+          {/* Cabecera del documento: emisor + número */}
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-slate-800 pb-4">
+            <div>
+              <p className="text-lg font-bold uppercase leading-tight text-slate-900">
+                {nombreInstitucion}
               </p>
-              {n.observaciones && (
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {n.observaciones}
+              <p className="mt-1 text-sm text-slate-600">
+                RUC: <span className="font-medium">{rucEmisor}</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-extrabold tracking-widest text-red-700">
+                FACTURA
+              </p>
+              <p className="mt-1 text-sm font-semibold">Nº {factura.numero}</p>
+              {factura.ambiente && (
+                <p className="text-xs text-slate-500">
+                  Ambiente: {factura.ambiente}
                 </p>
               )}
-            </li>
-          ))}
-          {factura.notas_entrega.length === 0 && (
-            <li className="rounded-md border border-dashed border-slate-300 px-3 py-3 text-center text-xs text-muted-foreground">
-              Sin nota de entrega registrada.
-            </li>
-          )}
-        </ul>
-        <FormNotaEntrega facturaId={factura.id} onCreada={refrescar} />
-      </Seccion>
+            </div>
+          </div>
 
-      {/* Estado / acciones */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-300 p-4">
-        <div className="flex items-center gap-3">
-          <span className={labelCls}>Cambiar estado</span>
-          <select
-            value={factura.estado}
-            onChange={(e) => cambiarEstado.mutate(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:outline-none"
-          >
-            <option value="EMITIDA">Emitida</option>
-            <option value="PARCIAL">Pago parcial</option>
-            <option value="PAGADA">Cobrada</option>
-            <option value="ANULADA">Anulada</option>
-          </select>
-          <span className="text-xs text-muted-foreground">
-            PARCIAL / PAGADA se recalculan solos al registrar cobros.
-          </span>
+          {/* Fechas y estado del documento */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-slate-200 py-4 text-sm sm:grid-cols-4">
+            <FieldDoc label="Fecha de emisión" valor={fmtFecha(factura.fecha_emision)} />
+            <FieldDoc label="Fecha de vencimiento" valor={fmtFecha(factura.fecha_vencimiento)} />
+            <FieldDoc label="Plazo" valor={`${factura.plazo_dias} días`} />
+            <FieldDoc
+              label="Estado"
+              valor={ESTADO_FACTURA_LABEL[factura.estado] || factura.estado}
+            />
+          </div>
+
+          {/* Cliente */}
+          <div className="border-b border-slate-200 py-4 text-sm">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+              Cliente / Comprador
+            </p>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-3">
+              <FieldDoc
+                label="Razón social"
+                valor={
+                  factura.razon_social_cliente ||
+                  factura.cliente?.nombre ||
+                  '—'
+                }
+              />
+              <FieldDoc label="RUC / Cédula" valor={factura.ruc_cliente || '—'} />
+              <FieldDoc
+                label="Cliente interno"
+                valor={factura.cliente?.nombre || '—'}
+              />
+            </div>
+          </div>
+
+          {/* Detalle de ítems */}
+          <div className="py-4">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b-2 border-slate-800 text-left text-xs uppercase tracking-wide text-slate-600">
+                  <th className="py-1.5 pr-2 text-right font-bold">Cant.</th>
+                  <th className="px-2 py-1.5 font-bold">Descripción</th>
+                  <th className="px-2 py-1.5 text-right font-bold">
+                    P. Unitario
+                  </th>
+                  <th className="py-1.5 pl-2 text-right font-bold">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {factura.detalle.map((d) => (
+                  <tr key={d.id} className="border-b border-slate-200 align-top">
+                    <td className="py-2 pr-2 text-right">{d.cantidad}</td>
+                    <td className="px-2 py-2">
+                      {d.concepto}
+                      {d.equipo_recepcion && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          (equipo: {d.equipo_recepcion.equipo_descripcion})
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {fmtMoneda(d.precio_unitario)}
+                    </td>
+                    <td className="py-2 pl-2 text-right font-semibold">
+                      {fmtMoneda(d.valor_total)}
+                    </td>
+                  </tr>
+                ))}
+                {factura.detalle.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="py-4 text-center text-muted-foreground"
+                    >
+                      Sin ítems registrados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Totales */}
+          <div className="flex justify-end border-t-2 border-slate-800 pt-4">
+            <div className="w-full max-w-xs space-y-1.5 text-sm">
+              <RowTotal label="Subtotal" valor={fmtMoneda(factura.subtotal)} />
+              <RowTotal label="IVA" valor={fmtMoneda(factura.iva)} />
+              <div className="flex items-baseline justify-between border-t-2 border-slate-800 pt-1.5 text-base font-extrabold text-slate-900">
+                <span>TOTAL</span>
+                <span>{fmtMoneda(factura.total)}</span>
+              </div>
+              <div className="flex items-baseline justify-between border-t border-dashed border-slate-300 pt-1.5 text-emerald-700">
+                <span>Pagado</span>
+                <span className="font-semibold">{fmtMoneda(factura.pagado)}</span>
+              </div>
+              <div
+                className={`flex items-baseline justify-between ${
+                  factura.saldo > 0.005 ? 'text-red-700' : 'text-emerald-700'
+                }`}
+              >
+                <span>Saldo pendiente</span>
+                <span className="font-semibold">{fmtMoneda(factura.saldo)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Clave de acceso y autorización SRI */}
+          <div className="mt-5 grid grid-cols-1 gap-x-4 gap-y-1.5 border-t border-slate-200 pt-4 text-xs text-slate-600 sm:grid-cols-2">
+            {factura.clave_acceso && (
+              <p className={labelCls}>
+                Clave de acceso
+                <span className="mt-0.5 block break-all font-mono text-[11px] text-slate-800">
+                  {factura.clave_acceso}
+                </span>
+              </p>
+            )}
+            {factura.numero_autorizacion && (
+              <p className={labelCls}>
+                Nº de autorización SRI
+                <span className="mt-0.5 block break-all font-mono text-[11px] text-slate-800">
+                  {factura.numero_autorizacion}
+                </span>
+              </p>
+            )}
+            {factura.fecha_autorizacion && (
+              <p className={labelCls}>
+                Fecha de autorización
+                <span className="mt-0.5 block text-[11px] text-slate-800">
+                  {new Date(factura.fecha_autorizacion).toLocaleString('es-EC')}
+                </span>
+              </p>
+            )}
+          </div>
         </div>
-        {esAdmin && (
-          <button
-            type="button"
-            onClick={async () => {
-              const ok = await confirm({
-                title: 'Eliminar factura',
-                message: `¿Eliminar la factura ${factura.numero}? Se eliminarán sus pagos, notas de entrega y compensaciones.`,
-              });
-              if (ok) {
-                await api.delete(`/facturacion/facturas/${factura.id}`);
-                toast({ message: 'Factura eliminada.' });
-                refrescar();
-                navigate('/financiero/facturas');
-              }
-            }}
-            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
-          >
-            <Trash2 className="h-4 w-4" /> Eliminar factura
-          </button>
-        )}
+      </div>
+
+      {/* ============ GESTIÓN DEL SISTEMA ============ */}
+      <div className="mx-auto max-w-4xl space-y-4">
+        {/* Cobros */}
+        <Seccion titulo="Cobros">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div>
+              <h4 className="mb-2 text-sm font-semibold text-slate-700">
+                Pagos registrados
+              </h4>
+              <ul className="space-y-2">
+                {factura.pagos.map((p) => (
+                  <li
+                    key={p.id}
+                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">{fmtMoneda(p.monto)}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {fmtFecha(p.fecha)} ·{' '}
+                        {METODO_PAGO_LABEL[p.metodo] || p.metodo}
+                      </span>
+                    </div>
+                    {(p.referencia || p.observaciones) && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {p.referencia}
+                        {p.referencia && p.observaciones ? ' — ' : ''}
+                        {p.observaciones}
+                      </p>
+                    )}
+                    {p.registrado_por && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Registrado por: {p.registrado_por.nombre}{' '}
+                        {p.registrado_por.apellidos}
+                      </p>
+                    )}
+                    {p.ruta_comprobante && (
+                      <a
+                        href={`${apiBase ?? ''}${p.ruta_comprobante}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 underline"
+                      >
+                        <FileDown className="h-3 w-3" /> Comprobante
+                      </a>
+                    )}
+                  </li>
+                ))}
+                {factura.pagos.length === 0 && (
+                  <li className="rounded-md border border-dashed border-slate-300 px-3 py-3 text-center text-xs text-muted-foreground">
+                    Sin pagos registrados todavía.
+                  </li>
+                )}
+              </ul>
+
+              {factura.estado !== 'ANULADA' && factura.saldo > 0.005 && (
+                <div className="mt-3">
+                  {formCobro === 'pago' ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Nuevo cobro
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setFormCobro(null)}
+                          className="text-xs font-medium text-muted-foreground underline hover:text-slate-700"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                      <FormPago
+                        facturaId={factura.id}
+                        saldo={factura.saldo}
+                        onCreado={() => {
+                          refrescar();
+                          setFormCobro(null);
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setFormCobro('pago')}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                    >
+                      <Plus className="h-4 w-4" /> Agregar cobro
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h4 className="mb-2 text-sm font-semibold text-slate-700">
+                Compensación (pago con entrega de equipos)
+              </h4>
+              <ul className="space-y-2">
+                {factura.compensaciones.map((c) => (
+                  <li
+                    key={c.id}
+                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                  >
+                    <p className="font-semibold">
+                      {c.descripcion_equipo || 'Entrega de equipos'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Autorización previa:{' '}
+                      {c.autorizacion_previa ? 'sí' : 'no'} · Valor acordado:{' '}
+                      {c.descuento_autorizado
+                        ? fmtMoneda(c.descuento_autorizado)
+                        : '—'}
+                    </p>
+                    {(c.ruta_acta || c.ruta_factura_compra) && (
+                      <div className="mt-1 flex gap-3 text-xs">
+                        {c.ruta_acta && (
+                          <a
+                            href={`${apiBase ?? ''}${c.ruta_acta}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-sky-700 underline"
+                          >
+                            Acta de compensación
+                          </a>
+                        )}
+                        {c.ruta_factura_compra && (
+                          <a
+                            href={`${apiBase ?? ''}${c.ruta_factura_compra}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-sky-700 underline"
+                          >
+                            Factura de compra
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                ))}
+                {factura.compensaciones.length === 0 && (
+                  <li className="rounded-md border border-dashed border-slate-300 px-3 py-3 text-center text-xs text-muted-foreground">
+                    Sin compensaciones registradas.
+                  </li>
+                )}
+              </ul>
+
+              {factura.estado !== 'ANULADA' && factura.saldo > 0.005 && (
+                <div className="mt-3">
+                  {formCobro === 'compensacion' ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Nueva compensación
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setFormCobro(null)}
+                          className="text-xs font-medium text-muted-foreground underline hover:text-slate-700"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                      <FormCompensacion
+                        facturaId={factura.id}
+                        saldo={factura.saldo}
+                        onCreada={() => {
+                          refrescar();
+                          setFormCobro(null);
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setFormCobro('compensacion')}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                    >
+                      <Plus className="h-4 w-4" /> Agregar compensación
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </Seccion>
+
+        {/* Nota de entrega */}
+        <Seccion titulo="Nota de entrega">
+          <ul className="space-y-2">
+            {factura.notas_entrega.map((n) => (
+              <li
+                key={n.id}
+                className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-semibold">{n.numero}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {fmtFecha(n.fecha_entrega || n.fecha)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Recibido por: {n.recibido_por || '—'}
+                  {n.entregado_por
+                    ? ` · Entregó: ${n.entregado_por.nombre} ${n.entregado_por.apellidos}`
+                    : ''}
+                </p>
+                {n.observaciones && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {n.observaciones}
+                  </p>
+                )}
+              </li>
+            ))}
+            {factura.notas_entrega.length === 0 && (
+              <li className="rounded-md border border-dashed border-slate-300 px-3 py-3 text-center text-xs text-muted-foreground">
+                Sin nota de entrega registrada.
+              </li>
+            )}
+          </ul>
+          <FormNotaEntrega facturaId={factura.id} onCreada={refrescar} />
+        </Seccion>
+
+        {/* Estado / acciones */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-300 p-4">
+          <div className="flex items-center gap-3">
+            <span className={labelCls}>Cambiar estado</span>
+            <select
+              value={factura.estado}
+              onChange={(e) => cambiarEstado.mutate(e.target.value)}
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:outline-none"
+            >
+              <option value="EMITIDA">Emitida</option>
+              <option value="PARCIAL">Pago parcial</option>
+              <option value="PAGADA">Cobrada</option>
+              <option value="ANULADA">Anulada</option>
+            </select>
+            <span className="text-xs text-muted-foreground">
+              PARCIAL / PAGADA se recalculan solos al registrar cobros.
+            </span>
+          </div>
+          {esAdmin && (
+            <button
+              type="button"
+              onClick={async () => {
+                const ok = await confirm({
+                  title: 'Eliminar factura',
+                  message: `¿Eliminar la factura ${factura.numero}? Se eliminarán sus pagos, notas de entrega y compensaciones.`,
+                });
+                if (ok) {
+                  await api.delete(`/facturacion/facturas/${factura.id}`);
+                  toast({ message: 'Factura eliminada.' });
+                  refrescar();
+                  navigate('/financiero/facturas');
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
+            >
+              <Trash2 className="h-4 w-4" /> Eliminar factura
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -567,21 +640,22 @@ export default function DetalleFacturaPage() {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function InfoCampo({
-  label,
-  valor,
-  resaltado,
-}: {
-  label: string;
-  valor: string;
-  resaltado?: boolean;
-}) {
+function FieldDoc({ label, valor }: { label: string; valor: string }) {
   return (
     <div>
-      <span className={labelCls}>{label}</span>
-      <p className={`mt-0.5 font-medium ${resaltado ? 'text-red-700' : ''}`}>
-        {valor}
-      </p>
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+      <p className="mt-0.5 font-medium text-slate-800">{valor}</p>
+    </div>
+  );
+}
+
+function RowTotal({ label, valor }: { label: string; valor: string }) {
+  return (
+    <div className="flex items-baseline justify-between">
+      <span className="text-slate-600">{label}</span>
+      <span className="font-semibold text-slate-800">{valor}</span>
     </div>
   );
 }
