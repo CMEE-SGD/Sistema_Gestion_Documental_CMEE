@@ -37,6 +37,10 @@ backend/uploads/*
 *.sql
 !backend/prisma/migrations/**/*.sql
 
+# Respaldo de BD y seeds de datos demo (se mantienen solo en local)
+database/
+backend/prisma/seed-*.cjs
+
 AGENTS.md
 CLAUDE.md
 AUDITORIA_CMEE.md
