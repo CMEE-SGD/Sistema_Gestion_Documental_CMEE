@@ -104,6 +104,7 @@ import ReportesPage from '../../modules/administrativo/pages/ReportesPage';
 import { FinancieroLayout } from '../../modules/financiero/FinancieroLayout';
 import ProformasPage from '../../modules/financiero/pages/ProformasPage';
 import FacturasPage from '../../modules/financiero/pages/FacturasPage';
+import DetalleFacturaPage from '../../modules/financiero/pages/DetalleFacturaPage';
 import CarteraPage from '../../modules/financiero/pages/CarteraPage';
 import ProximasCalibracionesPage from '../../modules/financiero/pages/ProximasCalibracionesPage';
 import OrdenesTrabajoPage from '../../modules/financiero/pages/OrdenesTrabajoPage';
@@ -240,6 +241,7 @@ const AppContenido = () => {
           <Route index element={<Navigate to="facturas" replace />} />
           <Route path="proformas" element={<ProformasPage />} />
           <Route path="facturas" element={<FacturasPage />} />
+          <Route path="facturas/:id" element={<DetalleFacturaPage />} />
           <Route path="ordenes" element={<OrdenesTrabajoPage />} />
           <Route path="cartera" element={<CarteraPage />} />
           <Route path="proximas-calibraciones" element={<ProximasCalibracionesPage />} />
