@@ -248,7 +248,12 @@ export class FacturacionController {
   }
 
   @Get('proximas-calibraciones')
-  @RequireAccess('Gestion Financiera', 1)
+  // Alertas de la Fase D, compartidas en lectura con 'Recepcion Equipos' (la
+  // página también se ofrece desde el módulo de recepción).
+  @RequireAccess([
+    { app: 'Gestion Financiera', level: 1 },
+    { app: 'Recepcion Equipos', level: 1 },
+  ])
   proximasCalibraciones(@Query('horizonte') horizonte?: string) {
     const h = horizonte ? parseInt(horizonte, 10) : undefined;
     return this.facturacionService.proximasCalibraciones(

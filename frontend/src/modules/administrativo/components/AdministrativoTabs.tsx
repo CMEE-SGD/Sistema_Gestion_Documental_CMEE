@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   Award,
   BarChart3,
+  CalendarClock,
   ClipboardList,
   FileText,
   Inbox,
@@ -48,6 +49,12 @@ export default function AdministrativoTabs() {
       label: 'Certificados',
       path: '/administrativo/certificados',
       icon: Award,
+      visible: puedeVerModulo,
+    },
+    {
+      label: 'Próx. calibraciones',
+      path: '/administrativo/proximas-calibraciones',
+      icon: CalendarClock,
       visible: puedeVerModulo,
     },
     {

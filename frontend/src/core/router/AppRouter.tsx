@@ -233,6 +233,7 @@ const AppContenido = () => {
           <Route path="proformas" element={<ProformasPage />} />
           <Route path="clientes" element={<ClientesPage />} />
           <Route path="certificados" element={<CertificadosPage />} />
+          <Route path="proximas-calibraciones" element={<ProximasCalibracionesPage />} />
           <Route path="reportes" element={<ReportesPage />} />
         </Route>
 
