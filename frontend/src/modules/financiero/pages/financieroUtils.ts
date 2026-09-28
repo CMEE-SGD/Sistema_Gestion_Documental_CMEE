@@ -3,9 +3,9 @@
 
 export const fmtMoneda = (n: number | string | null | undefined): string => {
   const v = Number(n ?? 0);
-  if (!Number.isFinite(v)) return 'Bs 0,00';
+  if (!Number.isFinite(v)) return 'USD 0,00';
   return (
-    'Bs ' +
+    'USD ' +
     v.toLocaleString('es-BO', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,

@@ -1109,7 +1109,7 @@ function FormCompensacion({
           />
         </div>
         <div>
-          <label className={labelCls}>Valor acordado (Bs)</label>
+          <label className={labelCls}>Valor acordado (USD)</label>
           <input
             type="number"
             min={0}

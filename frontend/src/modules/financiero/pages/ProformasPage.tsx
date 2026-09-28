@@ -381,7 +381,7 @@ function ModalNuevaProforma({
               />
             </div>
             <div>
-              <label className={labelCls}>Monto (Bs) *</label>
+              <label className={labelCls}>Monto (USD) *</label>
               <input
                 type="number"
                 min={0}
