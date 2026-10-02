@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Edit3, Trash2 } from 'lucide-react';
+import { Plus, Search, Eye, Edit3, Trash2, AlertTriangle } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
@@ -16,6 +16,7 @@ export const AuditoriasPage = () => {
     const [loading, setLoading] = useState(true);
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<string>('todas');
+    const [periodicidad, setPeriodicidad] = useState<any>(null);
 
     const puedeCrear = tienePermiso('Gestion de Calidad', 5);
     const puedeEditar = tienePermiso('Gestion de Calidad', 4);
@@ -33,7 +34,35 @@ export const AuditoriasPage = () => {
         }
     };
 
-    useEffect(() => { fetchAuditorias(); }, []);
+    useEffect(() => {
+        fetchAuditorias();
+        // Control de periodicidad (MC22 22.5.1): intervalo máximo de 12 meses
+        // entre auditorías internas. Si el endpoint falla, la lista sigue operativa.
+        api.get('/calidad/auditorias/periodicidad')
+            .then(res => setPeriodicidad(res.data))
+            .catch(error => console.error('Error cargando periodicidad de auditorías', error));
+    }, []);
+
+    const fmtFecha = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : '—');
+
+    const periodicidadMensaje = () => {
+        const p = periodicidad;
+        if (!p) return '';
+        if (p.estado === 'SIN_REGISTRO') {
+            return 'No se ha registrado ninguna auditoría interna, por lo que no puede acreditarse el intervalo anual de 12 meses exigido por el Manual de Calidad.';
+        }
+        const ult = p.ultimaAuditoria;
+        // Incumplimientos históricos: un hueco >12 meses entre auditorías consecutivas.
+        const huecos = (p.incumplimientos ?? []).filter((i: any) => !i.abierta);
+        if (huecos.length > 0) {
+            const h = huecos[0];
+            return `Se detectaron ${huecos.length} intervalo(s) entre auditorías internas consecutivas que superaron los 12 meses. El más reciente: entre ${h.desdeCodigo} (${fmtFecha(h.desde)}) y ${h.hastaCodigo} (${fmtFecha(h.hasta)}), ${h.dias} días.`;
+        }
+        if (p.estado === 'VENCIDA') {
+            return `La última auditoría interna (${ult.codigo}) se realizó el ${fmtFecha(ult.fecha)} y el intervalo máximo de 12 meses se venció el ${fmtFecha(p.fechaLimite)}, hace ${Math.abs(p.diasRestantes)} días.`;
+        }
+        return `La última auditoría interna (${ult.codigo}) se realizó el ${fmtFecha(ult.fecha)}. Debe repetirse antes del ${fmtFecha(p.fechaLimite)}: faltan ${p.diasRestantes} días.`;
+    };
 
     const filtradas = auditorias.filter(a => {
         if (filtroEstado !== 'todas' && a.estado !== filtroEstado) return false;
@@ -76,6 +105,55 @@ export const AuditoriasPage = () => {
                     </Button>
                 )}
             </div>
+
+            {periodicidad && periodicidad.estado !== 'VIGENTE' && (
+                <div className={`mb-4 flex flex-wrap items-start gap-3 p-4 rounded-lg shadow-sm border ${
+                    periodicidad.estado === 'POR_VENCER' ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'
+                }`}>
+                    <AlertTriangle className={`w-5 h-5 mt-0.5 shrink-0 ${periodicidad.estado === 'POR_VENCER' ? 'text-amber-600' : 'text-red-600'}`} />
+                    <div className="flex-1 min-w-[260px]">
+                        <p className={`text-sm font-semibold ${periodicidad.estado === 'POR_VENCER' ? 'text-amber-800' : 'text-red-800'}`}>
+                            {periodicidad.estado === 'SIN_REGISTRO'
+                                ? 'Sin auditorías internas registradas — MC22 22.5.1'
+                                : periodicidad.estado === 'POR_VENCER'
+                                    ? 'Periodicidad de auditoría interna por vencer — MC22 22.5.1'
+                                    : 'Periodicidad de auditoría interna vencida — MC22 22.5.1'}
+                        </p>
+                        <p className={`text-sm mt-1 ${periodicidad.estado === 'POR_VENCER' ? 'text-amber-700' : 'text-red-700'}`}>
+                            {periodicidadMensaje()}
+                        </p>
+                        {periodicidad.auditoriaProgramada && (
+                            <p className="text-xs mt-1 text-muted-foreground">
+                                Auditoría {periodicidad.auditoriaProgramada.codigo} programada para el {fmtFecha(periodicidad.auditoriaProgramada.fecha)}.
+                            </p>
+                        )}
+                        {Array.isArray(periodicidad.intervalos) && periodicidad.intervalos.length > 1 && (
+                            <details className="mt-2 text-xs">
+                                <summary className="cursor-pointer text-muted-foreground hover:underline">
+                                    Intervalos entre auditorías internas evaluados ({periodicidad.totalAuditorias} auditorías realizadas)
+                                </summary>
+                                <ul className="mt-1 space-y-0.5">
+                                    {periodicidad.intervalos.map((i: any, idx: number) => (
+                                        <li key={idx} className={i.cumple ? 'text-emerald-700' : 'text-red-700'}>
+                                            {i.cumple ? '✓' : '✗'} {i.desdeCodigo} → {i.hastaCodigo ?? 'hoy'}: {i.dias} días
+                                            {i.abierta
+                                                ? ` (ciclo en curso, límite ${fmtFecha(i.limite)})`
+                                                : i.cumple
+                                                    ? ''
+                                                    : ` — superó el límite del ${fmtFecha(i.limite)}`}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </details>
+                        )}
+                    </div>
+                    {puedeCrear && (
+                        <Button variant="default" onClick={() => navigate('/calidad/auditorias/nueva')}>
+                            <Plus className="w-4 h-4 mr-1" /> Registrar auditoría
+                        </Button>
+                    )}
+                </div>
+            )}
 
             <div className="mb-4 flex items-center gap-3 bg-white p-3 rounded-lg shadow-sm border border-gray-200 w-full max-w-lg">
                 <Search className="w-4 h-4 text-gray-400" />

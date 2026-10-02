@@ -131,6 +131,21 @@ export class CalidadController {
     return this.calidadService.generarCodigoAuditoria();
   }
 
+  /**
+   * Control de periodicidad (MC22 22.5.1): la auditoría interna debe repetirse
+   * al menos una vez al año sin superar el intervalo de 12 meses.
+   * ?margen=90 → días de anticipación para marcar la auditoría como POR_VENCER.
+   * Debe declararse antes de `auditorias/:id` para no ser capturada por el :id.
+   */
+  @Get('auditorias/periodicidad')
+  @RequireAccess('Gestion de Calidad', 2)
+  periodicidadAuditoria(@Query('margen') margen?: string) {
+    const dias = Number(margen);
+    return this.calidadService.getPeriodicidadAuditoria(
+      Number.isFinite(dias) && dias > 0 ? dias : undefined,
+    );
+  }
+
   @Get('auditorias/:id')
   @RequireAccess('Gestion de Calidad', 2)
   findOneAuditoria(@Param('id', ParseIntPipe) id: number) {

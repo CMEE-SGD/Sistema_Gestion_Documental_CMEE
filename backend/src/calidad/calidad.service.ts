@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { EstadoNC, CondicionRiesgo } from '@prisma/client';
+import { EstadoNC, CondicionRiesgo, EstadoAuditoria } from '@prisma/client';
 import { CreateAuditoriaDto } from './dto/create-auditoria.dto';
 import { UpdateAuditoriaDto } from './dto/update-auditoria.dto';
 import { CreateNcDto } from './dto/create-nc.dto';
@@ -160,6 +160,168 @@ export class CalidadService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /**
+   * Control de periodicidad de las auditorías internas (MC22, 22.5.1):
+   * "La periodicidad de las auditorías será, al menos, una vez al año sin que
+   * supere los 12 meses".
+   *
+   * El requisito tiene dos facetas y se evalúan las dos:
+   *  1. Que no haya pasado más de 12 meses desde la última auditoría interna
+   *     realizada (intervalo abierto: última → hoy).
+   *  2. Que NINGÚN intervalo entre auditorías internas consecutivas haya
+   *     superado los 12 meses: un hueco en medio de la serie es incumplimiento
+   *     aunque la última auditoría sea reciente.
+   *
+   * Considera como "realizada" solo la auditoría interna cerrada o con fecha de
+   * fin registrada — una auditoría merelyamente planificada no acredita el
+   * cumplimiento del intervalo anual.
+   *
+   * Devuelve la última auditoría realizada, la fecha límite (12 meses después),
+   * todos los intervalos evaluados y el estado del ciclo:
+   *   SIN_REGISTRO — nunca se ha registrado una auditoría interna
+   *   VENCIDA      — algún intervalo (incluido el abierto) superó los 12 meses
+   *   POR_VENCER   — dentro del margen previo (por defecto 90 días)
+   *   VIGENTE      — dentro del intervalo
+   */
+  async getPeriodicidadAuditoria(margenDias = 90) {
+    const auditorias = await this.prisma.auditoriaInterna.findMany({
+      where: { activo: true, tipo: 'INTERNA' },
+      select: {
+        id: true,
+        codigo: true,
+        alcance: true,
+        fecha_inicio: true,
+        fecha_fin: true,
+        estado: true,
+        responsable: { select: { id: true, nombre: true, apellidos: true } },
+      },
+      orderBy: { fecha_inicio: 'desc' },
+    });
+
+    const realizadas = auditorias
+      .filter((a) => a.estado === EstadoAuditoria.CERRADA || a.fecha_fin !== null)
+      .map((a) => ({ ...a, fecha: a.fecha_fin ?? a.fecha_inicio }))
+      .sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+
+    // Próxima auditoría ya programada (evita alertar si el ciclo está en marcha).
+    const hoy = new Date();
+    const programada = auditorias
+      .filter(
+        (a) =>
+          a.estado !== EstadoAuditoria.CERRADA &&
+          a.fecha_inicio.getTime() >= hoy.getTime(),
+      )
+      .sort((a, b) => a.fecha_inicio.getTime() - b.fecha_inicio.getTime())[0];
+
+    const resumenProgramada = programada
+      ? {
+          id: programada.id,
+          codigo: programada.codigo,
+          fecha: programada.fecha_inicio,
+          estado: programada.estado,
+        }
+      : null;
+
+    const ultima = realizadas[0] ?? null;
+    if (!ultima) {
+      return {
+        estado: 'SIN_REGISTRO',
+        diasRestantes: null,
+        diasTranscurridos: null,
+        fechaLimite: null,
+        ultimaAuditoria: null,
+        auditoriaProgramada: resumenProgramada,
+        intervalos: [],
+        incumplimientos: [],
+        abiertaIncumplida: false,
+        totalAuditorias: 0,
+        margenDias,
+      };
+    }
+
+    // Suma 12 meses calendario (conserva el día; feb-29 → 01/03 en años no bisiestos).
+    const agregarMeses = (fecha: Date, meses: number) => {
+      const d = new Date(fecha);
+      d.setMonth(d.getMonth() + meses);
+      return d;
+    };
+
+    const msPorDia = 1000 * 60 * 60 * 24;
+    const fechaLimite = agregarMeses(ultima.fecha, 12);
+    const diasRestantes = Math.ceil((fechaLimite.getTime() - hoy.getTime()) / msPorDia);
+    const diasTranscurridos = Math.floor((hoy.getTime() - ultima.fecha.getTime()) / msPorDia);
+
+    // Serie cronológica ascendente para evaluar los intervalos consecutivos.
+    const serie = [...realizadas].sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+
+    // Intervalos entre auditorías consecutivas (históricos) más el intervalo
+    // abierto de la última auditoría hasta hoy, que es el ciclo en curso.
+    const intervalos: Array<{
+      desde: Date;
+      desdeCodigo: string;
+      hasta: Date;
+      hastaCodigo: string | null;
+      dias: number;
+      limite: Date;
+      cumple: boolean;
+      abierta: boolean;
+    }> = serie.slice(1).map((a, i) => {
+      const previa = serie[i];
+      const limite = agregarMeses(previa.fecha, 12);
+      return {
+        desde: previa.fecha,
+        desdeCodigo: previa.codigo,
+        hasta: a.fecha,
+        hastaCodigo: a.codigo,
+        dias: Math.floor((a.fecha.getTime() - previa.fecha.getTime()) / msPorDia),
+        limite,
+        cumple: a.fecha.getTime() <= limite.getTime(),
+        abierta: false,
+      };
+    });
+
+    const abierta = {
+      desde: ultima.fecha,
+      desdeCodigo: ultima.codigo,
+      hasta: hoy,
+      hastaCodigo: null as string | null,
+      dias: diasTranscurridos,
+      limite: fechaLimite,
+      cumple: hoy.getTime() <= fechaLimite.getTime(),
+      abierta: true,
+    };
+    intervalos.push(abierta);
+
+    const incumplimientos = intervalos.filter((i) => !i.cumple);
+    const abiertaIncumplida = !abierta.cumple;
+
+    const estado =
+      incumplimientos.length > 0
+        ? 'VENCIDA'
+        : diasRestantes <= margenDias
+          ? 'POR_VENCER'
+          : 'VIGENTE';
+
+    return {
+      estado,
+      diasRestantes,
+      diasTranscurridos,
+      fechaLimite,
+      ultimaAuditoria: {
+        id: ultima.id,
+        codigo: ultima.codigo,
+        fecha: ultima.fecha,
+        responsable: ultima.responsable,
+      },
+      auditoriaProgramada: resumenProgramada,
+      intervalos,
+      incumplimientos,
+      abiertaIncumplida,
+      totalAuditorias: realizadas.length,
+      margenDias,
+    };
   }
 
   async findOneAuditoria(id: number) {
