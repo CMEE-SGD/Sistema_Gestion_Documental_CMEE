@@ -326,7 +326,8 @@ export const AuditoriaFormPage = () => {
             const fd = new FormData();
             if (id) fd.append('codigo', formData.codigo);
             fd.append('tipo', formData.tipo);
-            fd.append('estado', formData.estado);
+            // El estado NO se envía: la auditoría nace en PLANIFICADA y los
+            // cambios posteriores pasan por la máquina de estados del backend.
             fd.append('fecha_inicio', formData.fecha_inicio);
             if (formData.fecha_fin) fd.append('fecha_fin', formData.fecha_fin);
             fd.append('documentos_referencia', JSON.stringify(documentosReferenciaTexto.split('\n').map(s => s.trim()).filter(Boolean)));
@@ -415,11 +416,14 @@ export const AuditoriaFormPage = () => {
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-medium text-gray-700">Estado</label>
-                            <select name="estado" value={formData.estado} onChange={handleChange} className={`${inputCls} bg-white`}>
-                                <option value="PLANIFICADA">Planificada</option>
-                                <option value="EN_CURSO">En curso</option>
-                                <option value="CERRADA">Cerrada</option>
-                            </select>
+                            <input
+                                type="text"
+                                readOnly
+                                value={id ? (formData.estado || 'PLANIFICADA') : 'PLANIFICADA'}
+                                className={`${inputCls} bg-gray-100 text-gray-700 cursor-not-allowed`}
+                                title="El estado se cambia desde el detalle de la auditoría, para que quede registrado en la trazabilidad"
+                            />
+                            <p className="text-xs text-gray-500">Se modifica desde el detalle de la auditoría.</p>
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-medium text-gray-700">Fecha de inicio <span className="text-red-500">*</span></label>
