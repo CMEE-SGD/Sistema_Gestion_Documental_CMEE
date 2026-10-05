@@ -266,7 +266,19 @@ export default function ProformasPage() {
           </thead>
           <tbody>
             {filtradas.map((p) => (
-              <tr key={p.id} className="border-b border-slate-200 even:bg-slate-50">
+              <tr
+                key={p.id}
+                onClick={() => setDetalleId(p.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setDetalleId(p.id);
+                  }
+                }}
+                tabIndex={0}
+                title="Ver detalle de la proforma"
+                className="cursor-pointer border-b border-slate-200 even:bg-slate-50 hover:bg-slate-100 focus:outline-none focus-visible:bg-slate-100"
+              >
                 <td className="px-3 py-2">
                   <button
                     type="button"
@@ -288,6 +300,7 @@ export default function ProformasPage() {
                   {puedeCrear ? (
                     <select
                       value={p.estado}
+                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) =>
                         cambiarEstado.mutate({ id: p.id, estado: e.target.value })
                       }
@@ -327,6 +340,7 @@ export default function ProformasPage() {
                       href={buildFileUrl(p.archivo) ?? '#'}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
                       title={p.archivo_nombre || 'Ver archivo adjunto'}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100"
                     >
@@ -340,7 +354,10 @@ export default function ProformasPage() {
                   {puedeEliminar && (
                     <button
                       type="button"
-                      onClick={() => handleEliminar(p)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEliminar(p);
+                      }}
                       title="Eliminar proforma"
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
                     >
