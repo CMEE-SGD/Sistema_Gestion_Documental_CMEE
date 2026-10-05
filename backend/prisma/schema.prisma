@@ -183,6 +183,7 @@ model Persona {
   pagos_registrados        Pago[]        @relation("PersonaRegistraPago")
   solicitudes_compensacion_enviadas SolicitudCompensacion[] @relation("PersonaSolicitaCompensacion")
   compensaciones_autorizadas       SolicitudCompensacion[] @relation("PersonaResuelveCompensacion")
+  egresos_registrados              Egreso[]      @relation("PersonaRegistraEgreso")
 
   @@map("persona")
 }
@@ -1686,4 +1687,47 @@ model Pago {
   @@index([factura_id])
   @@index([compensacion_id])
   @@map("pagos")
+}
+
+// ==========================================
+// EGRESOS — registro de compras/proveedores
+// ==========================================
+// Surge de la importación del Excel que emite el sistema tributario (SIAT):
+// un egreso es un documento de compra (Factura, Nota de Venta, Liquidación
+// de Compra o Comprobante de Anticipo) a un proveedor.
+model Egreso {
+  id Int @id @default(autoincrement())
+
+  fecha             DateTime @db.Date
+  tipo_documento    String   @db.VarChar(100)
+  numero_documento  String   @db.VarChar(100)
+  numero_documento_relacionado String? @db.VarChar(100)
+  autorizacion      String?  @db.VarChar(500)
+  proveedor         String   @db.VarChar(255)
+  identificacion    String?  @db.VarChar(50)
+  referencia        String?  @db.VarChar(255)
+
+  subtotal_iva Decimal @default(0) @db.Decimal(12, 2)
+  subtotal_cero Decimal @default(0) @db.Decimal(12, 2)
+  iva           Decimal @default(0) @db.Decimal(12, 2)
+  ice           Decimal @default(0) @db.Decimal(12, 2)
+  total         Decimal @default(0) @db.Decimal(12, 2)
+  saldo         Decimal @default(0) @db.Decimal(12, 2)
+  retenciones   Decimal @default(0) @db.Decimal(12, 2)
+
+  estado           String  @default("Pagado") @db.VarChar(50)
+  dias_vencimiento Int?
+  fecha_vencimiento DateTime? @db.Date
+  forma_pago       String? @db.VarChar(50)
+  tipo_emision     String? @db.VarChar(50)
+  descripcion      String? @db.Text
+
+  registrado_por_id Int?
+  registrado_por    Persona? @relation("PersonaRegistraEgreso", fields: [registrado_por_id], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([fecha])
+  @@index([estado])
+  @@map("egresos")
 }

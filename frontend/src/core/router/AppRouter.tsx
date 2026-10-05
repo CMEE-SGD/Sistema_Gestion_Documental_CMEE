@@ -108,6 +108,7 @@ import DetalleFacturaPage from '../../modules/financiero/pages/DetalleFacturaPag
 import CarteraPage from '../../modules/financiero/pages/CarteraPage';
 import ProximasCalibracionesPage from '../../modules/financiero/pages/ProximasCalibracionesPage';
 import OrdenesTrabajoPage from '../../modules/financiero/pages/OrdenesTrabajoPage';
+import EgresosPage from '../../modules/financiero/pages/EgresosPage';
 
 // --- MÓDULO RESUMEN (dashboards) ---
 import { ResumenLayout } from '../../modules/resumen/ResumenLayout';
@@ -245,6 +246,7 @@ const AppContenido = () => {
           <Route path="facturas/:id" element={<DetalleFacturaPage />} />
           <Route path="ordenes" element={<OrdenesTrabajoPage />} />
           <Route path="cartera" element={<CarteraPage />} />
+          <Route path="egresos" element={<EgresosPage />} />
           <Route path="proximas-calibraciones" element={<ProximasCalibracionesPage />} />
         </Route>
 

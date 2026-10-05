@@ -27,6 +27,7 @@ import { ConfiguracionGeneralModule } from './configuracion-general/configuracio
 import { DashboardModule } from './dashboard/dashboard.module';
 import { CapacitacionesModule } from './capacitaciones/capacitaciones.module';
 import { FacturacionModule } from './facturacion/facturacion.module';
+import { EgresosModule } from './egresos/egresos.module';
 
 /** Módulo controlador o servicio para gestionar la entidad AppModule. */
 @Module({
@@ -61,6 +62,7 @@ import { FacturacionModule } from './facturacion/facturacion.module';
     DashboardModule,
     CapacitacionesModule,
     FacturacionModule,
+    EgresosModule,
   ],
   controllers: [],
   providers: [],
