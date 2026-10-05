@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  FileText,
   Loader2,
   Search,
   Trash2,
@@ -24,13 +25,21 @@ interface Egreso {
   fecha: string;
   tipo_documento: string;
   numero_documento: string;
+  numero_documento_relacionado: string | null;
   autorizacion: string | null;
   proveedor: string;
   identificacion: string | null;
   referencia: string | null;
+  subtotal_iva: string;
+  subtotal_cero: string;
+  iva: string;
+  ice: string;
   total: string;
   saldo: string;
+  retenciones: string;
   estado: string;
+  dias_vencimiento: number | null;
+  fecha_vencimiento: string | null;
   forma_pago: string | null;
   tipo_emision: string | null;
   descripcion: string | null;
@@ -51,6 +60,7 @@ const ESTADO_STYLE: Record<string, string> = {
 export default function EgresosPage() {
   const [busqueda, setBusqueda] = useState('');
   const [modalImportar, setModalImportar] = useState(false);
+  const [detalleId, setDetalleId] = useState<number | null>(null);
   const { alert, confirm } = useAlert();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -148,6 +158,9 @@ export default function EgresosPage() {
     if (ok) vaciarMutation.mutate();
   };
 
+  const egresoDetalle =
+    detalleId !== null ? egresos.find((e) => e.id === detalleId) ?? null : null;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -223,7 +236,19 @@ export default function EgresosPage() {
           </thead>
           <tbody>
             {filtrados.map((e) => (
-              <tr key={e.id} className="border-b border-slate-200 even:bg-slate-50">
+              <tr
+                key={e.id}
+                onClick={() => setDetalleId(e.id)}
+                onKeyDown={(ev) => {
+                  if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault();
+                    setDetalleId(e.id);
+                  }
+                }}
+                tabIndex={0}
+                title="Ver detalle del egreso"
+                className="cursor-pointer border-b border-slate-200 even:bg-slate-50 hover:bg-slate-100 focus:outline-none focus-visible:bg-slate-100"
+              >
                 <td className="px-3 py-2 whitespace-nowrap">{fmtFecha(e.fecha)}</td>
                 <td className="px-3 py-2 font-mono text-xs font-semibold">
                   {e.numero_documento}
@@ -261,7 +286,10 @@ export default function EgresosPage() {
                   <td className="px-3 py-2">
                     <button
                       type="button"
-                      onClick={() => handleEliminar(e)}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        handleEliminar(e);
+                      }}
                       title="Eliminar egreso"
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
                     >
@@ -314,6 +342,13 @@ export default function EgresosPage() {
 
       {modalImportar && (
         <ModalImportarExcel onClose={() => setModalImportar(false)} />
+      )}
+
+      {egresoDetalle && (
+        <ModalDetalleEgreso
+          egreso={egresoDetalle}
+          onClose={() => setDetalleId(null)}
+        />
       )}
     </div>
   );
@@ -422,6 +457,148 @@ function ModalImportarExcel({ onClose }: { onClose: () => void }) {
             >
               {importar.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Importar y extraer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// Detalle (solo lectura) de un egreso
+// ===========================================================================
+
+function ModalDetalleEgreso({
+  egreso,
+  onClose,
+}: {
+  egreso: Egreso;
+  onClose: () => void;
+}) {
+  const o = egreso;
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 py-10">
+      <div className="w-[95vw] max-w-2xl rounded-xl border border-border bg-white shadow-lg">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h3 className="flex items-center gap-2 text-base font-semibold">
+            <FileText className="h-4 w-4" /> Detalle de egreso
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-mono text-lg font-bold text-primary">
+              {o.numero_documento}
+            </span>
+            <span
+              className={`inline-block rounded border px-2 py-0.5 text-xs font-medium ${
+                ESTADO_STYLE[o.estado] ??
+                'border-slate-300 bg-slate-100 text-slate-700'
+              }`}
+            >
+              {o.estado}
+            </span>
+          </div>
+          <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className={labelCls}>Fecha</dt>
+              <dd className="font-semibold">{fmtFecha(o.fecha)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Tipo de documento</dt>
+              <dd className="font-semibold">{o.tipo_documento}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Proveedor</dt>
+              <dd className="font-semibold">{o.proveedor}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Identificación</dt>
+              <dd>{o.identificacion || '—'}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Autorización</dt>
+              <dd className="break-all">{o.autorizacion || '—'}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Documento relacionado</dt>
+              <dd>{o.numero_documento_relacionado || '—'}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Referencia</dt>
+              <dd>{o.referencia || '—'}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Forma de pago</dt>
+              <dd>{o.forma_pago || '—'}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Subtotal IVA &gt; 0%</dt>
+              <dd className="text-right">{fmtMoneda(o.subtotal_iva)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Subtotal IVA 0%</dt>
+              <dd className="text-right">{fmtMoneda(o.subtotal_cero)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>IVA</dt>
+              <dd className="text-right">{fmtMoneda(o.iva)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>ICE</dt>
+              <dd className="text-right">{fmtMoneda(o.ice)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Total</dt>
+              <dd className="text-right font-bold">{fmtMoneda(o.total)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Saldo</dt>
+              <dd
+                className={`text-right ${Number(o.saldo) > 0 ? 'font-semibold text-amber-600' : ''}`}
+              >
+                {fmtMoneda(o.saldo)}
+              </dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Retenciones</dt>
+              <dd className="text-right">{fmtMoneda(o.retenciones)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Días de vencimiento</dt>
+              <dd className="text-right">
+                {o.dias_vencimiento !== null && o.dias_vencimiento !== undefined
+                  ? o.dias_vencimiento
+                  : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Fecha de vencimiento</dt>
+              <dd>{fmtFecha(o.fecha_vencimiento)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Tipo de emisión</dt>
+              <dd>{o.tipo_emision || '—'}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className={labelCls}>Descripción</dt>
+              <dd className="whitespace-pre-wrap">{o.descripcion || '—'}</dd>
+            </div>
+          </dl>
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-muted-foreground hover:bg-slate-50"
+            >
+              Cerrar
             </button>
           </div>
         </div>
