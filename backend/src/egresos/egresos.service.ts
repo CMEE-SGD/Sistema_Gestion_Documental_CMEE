@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateEgresoDto } from './dto/create-egreso.dto';
+import { UpdateEgresoDto } from './dto/update-egreso.dto';
 
 interface EgresoData {
   fecha: Date;
@@ -280,6 +282,58 @@ export class EgresosService {
     }
     await this.prisma.egreso.delete({ where: { id } });
     return { eliminado: id };
+  }
+
+  /** Alta manual de un egreso (viáticos y otros gastos fuera del Excel). */
+  async crear(dto: CreateEgresoDto, registradoPorId: number | null) {
+    const esViatico = dto.es_viatico ?? false;
+    return this.prisma.egreso.create({
+      data: {
+        fecha: new Date(dto.fecha),
+        tipo_documento: dto.tipo_documento,
+        numero_documento: dto.numero_documento,
+        numero_documento_relacionado: dto.numero_documento_relacionado ?? null,
+        autorizacion: dto.autorizacion ?? null,
+        proveedor: dto.proveedor,
+        identificacion: dto.identificacion ?? null,
+        referencia: dto.referencia ?? null,
+        subtotal_iva: dto.subtotal_iva ?? 0,
+        subtotal_cero: dto.subtotal_cero ?? 0,
+        iva: dto.iva ?? 0,
+        ice: dto.ice ?? 0,
+        total: dto.total,
+        saldo: dto.saldo ?? 0,
+        retenciones: dto.retenciones ?? 0,
+        estado: dto.estado ?? 'Pagado',
+        dias_vencimiento: dto.dias_vencimiento ?? null,
+        fecha_vencimiento: dto.fecha_vencimiento
+          ? new Date(dto.fecha_vencimiento)
+          : null,
+        forma_pago: dto.forma_pago ?? null,
+        tipo_emision: dto.tipo_emision ?? null,
+        descripcion: dto.descripcion ?? null,
+        es_viatico: esViatico,
+        cumple_viatico: esViatico ? (dto.cumple_viatico ?? null) : null,
+        registrado_por_id: registradoPorId,
+      },
+    });
+  }
+
+  /** Actualiza el control de viáticos de un egreso (¿Cumple?). */
+  async actualizar(id: number, dto: UpdateEgresoDto) {
+    const existe = await this.prisma.egreso.findUnique({ where: { id } });
+    if (!existe) {
+      throw new NotFoundException('El egreso no existe.');
+    }
+    return this.prisma.egreso.update({
+      where: { id },
+      data: {
+        ...(dto.es_viatico !== undefined && { es_viatico: dto.es_viatico }),
+        ...(dto.cumple_viatico !== undefined && {
+          cumple_viatico: dto.cumple_viatico,
+        }),
+      },
+    });
   }
 
   async eliminarTodos() {

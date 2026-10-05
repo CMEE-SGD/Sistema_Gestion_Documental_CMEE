@@ -1722,6 +1722,11 @@ model Egreso {
   tipo_emision     String? @db.VarChar(50)
   descripcion      String? @db.Text
 
+  // Viáticos: egresos que no vienen del Excel (se registran manualmente) y
+  // llevan un control de cumplimiento (checkbox ¿Cumple?).
+  es_viatico      Boolean @default(false)
+  cumple_viatico  Boolean?
+
   registrado_por_id Int?
   registrado_por    Persona? @relation("PersonaRegistraEgreso", fields: [registrado_por_id], references: [id])
 
