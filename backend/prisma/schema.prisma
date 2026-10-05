@@ -1745,3 +1745,26 @@ model Egreso {
   @@index([estado])
   @@map("egresos")
 }
+
+// ==========================================
+// DISTRIBUCIÓN DE RESULTADOS (reparto entre empresas)
+// ==========================================
+// Las cuentas se comparten entre dos empresas: cada una recibe un porcentaje
+// de un base definible (`neto` = facturas − egresos, `cobrado` = pagos,
+// `facturado` = total facturas, `todos` = cada indicador) mensual/total.
+// Fila única (id fijo 1). La editan desde el Resumen financiero.
+model DistribucionResultado {
+  id                   Int     @id @default(1)
+  habilitada           Boolean @default(true)
+  empresa_a_nombre     String  @db.VarChar(120)
+  empresa_a_porcentaje Decimal @db.Decimal(5, 2)
+  empresa_b_nombre     String  @db.VarChar(120)
+  empresa_b_porcentaje Decimal @db.Decimal(5, 2)
+  base                 String  @db.VarChar(20) @default("neto")
+  nota                 String? @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("distribucion_resultado")
+}

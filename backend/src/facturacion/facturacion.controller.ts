@@ -10,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -29,6 +30,7 @@ import { CreateProformaDto } from './dto/create-proforma.dto';
 import { UpdateProformaDto } from './dto/update-proforma.dto';
 import { CreateFacturaDto } from './dto/create-factura.dto';
 import { UpdateFacturaDto } from './dto/update-factura.dto';
+import { UpdateDistribucionDto } from './dto/update-distribucion.dto';
 import { ImportarXmlFacturaDto } from './dto/importar-xml-factura.dto';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto';
 import { RegistrarCompensacionDto } from './dto/registrar-compensacion.dto';
@@ -325,6 +327,28 @@ export class FacturacionController {
   @RequireAccess('Gestion Financiera', 1)
   cartera() {
     return this.facturacionService.cartera();
+  }
+
+  // ---------------------- DISTRIBUCIÓN DE RESULTADOS ----------------------
+  // Reparto 15% / 85% entre las dos empresas que llevan las cuentas. La
+  // configuración (nombres, %, base) es editable desde el Resumen financiero.
+
+  @Get('distribucion')
+  @RequireAccess('Gestion Financiera', 1)
+  distribucion() {
+    return this.facturacionService.configurarDistribucion();
+  }
+
+  @Get('distribucion/resumen')
+  @RequireAccess('Gestion Financiera', 1)
+  resumenDistribucion() {
+    return this.facturacionService.resumenDistribucion();
+  }
+
+  @Put('distribucion')
+  @RequireAccess('Gestion Financiera', 4)
+  actualizarDistribucion(@Body() dto: UpdateDistribucionDto) {
+    return this.facturacionService.actualizarDistribucion(dto);
   }
 
   @Get('proximas-calibraciones')

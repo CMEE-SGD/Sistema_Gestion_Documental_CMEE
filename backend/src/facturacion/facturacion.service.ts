@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import { CreateProformaDto } from './dto/create-proforma.dto';
 import { UpdateProformaDto } from './dto/update-proforma.dto';
+import { UpdateDistribucionDto } from './dto/update-distribucion.dto';
 import { CreateFacturaDto } from './dto/create-factura.dto';
 import { UpdateFacturaDto } from './dto/update-factura.dto';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto';
@@ -1022,6 +1023,146 @@ export class FacturacionService {
       total_por_vencer: porVencer.reduce((s, i) => s + i.saldo, 0),
       conteo_vencida: vencida.length,
       conteo_por_vencer: porVencer.length,
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // DISTRIBUCIÓN DE RESULTADOS (reparto 15% / 85% entre dos empresas)
+  // ------------------------------------------------------------------
+
+  /** Fila única de configuración; si no existe se crea con valores por defecto. */
+  private async obtenerDistribucion() {
+    let cfg = await this.prisma.distribucionResultado.findUnique({
+      where: { id: 1 },
+    });
+    if (!cfg) {
+      cfg = await this.prisma.distribucionResultado.create({
+        data: {
+          id: 1,
+          habilitada: true,
+          empresa_a_nombre: 'Empresa A',
+          empresa_a_porcentaje: 15,
+          empresa_b_nombre: 'Empresa B',
+          empresa_b_porcentaje: 85,
+          base: 'neto',
+        },
+      });
+    }
+    return cfg;
+  }
+
+  async configurarDistribucion() {
+    const cfg = await this.obtenerDistribucion();
+    return {
+      habilitada: cfg.habilitada,
+      empresa_a: {
+        nombre: cfg.empresa_a_nombre,
+        porcentaje: this.n(cfg.empresa_a_porcentaje),
+      },
+      empresa_b: {
+        nombre: cfg.empresa_b_nombre,
+        porcentaje: this.n(cfg.empresa_b_porcentaje),
+      },
+      base: cfg.base,
+      nota: cfg.nota,
+    };
+  }
+
+  async actualizarDistribucion(dto: UpdateDistribucionDto) {
+    await this.obtenerDistribucion();
+    const data: any = {};
+    if (dto.habilitada !== undefined) data.habilitada = dto.habilitada;
+    if (dto.empresa_a_nombre !== undefined)
+      data.empresa_a_nombre = dto.empresa_a_nombre;
+    if (dto.empresa_a_porcentaje !== undefined)
+      data.empresa_a_porcentaje = dto.empresa_a_porcentaje;
+    if (dto.empresa_b_nombre !== undefined)
+      data.empresa_b_nombre = dto.empresa_b_nombre;
+    if (dto.empresa_b_porcentaje !== undefined)
+      data.empresa_b_porcentaje = dto.empresa_b_porcentaje;
+    if (dto.base !== undefined) data.base = dto.base;
+    if (dto.nota !== undefined) data.nota = dto.nota;
+    await this.prisma.distribucionResultado.update({
+      where: { id: 1 },
+      data,
+    });
+    return this.resumenDistribucion();
+  }
+
+  /**
+   * Calcula el monto a repartir para cada base (`neto` = facturas − egresos,
+   * `cobrado` = pagos, `facturado` = total facturas) por mes y total, aplicando
+   * los % de cada empresa. La vista `todos` la arma el frontend con los totales.
+   */
+  async resumenDistribucion() {
+    const cfg = await this.obtenerDistribucion();
+    const [facturas, egresos] = await Promise.all([
+      this.prisma.factura.findMany({
+        where: { NOT: { estado: 'ANULADA' } },
+        select: {
+          fecha_emision: true,
+          total: true,
+          pagos: { select: { monto: true, fecha: true } },
+        },
+      }),
+      this.prisma.egreso.findMany({ select: { fecha: true, total: true } }),
+    ]);
+
+    const redondear2 = (x: number) => Math.round(x * 100) / 100;
+    const mesDe = (d: Date) => d.toISOString().slice(0, 7);
+    const sumar = (map: Map<string, number>, key: string, valor: number) => {
+      map.set(key, (map.get(key) ?? 0) + valor);
+    };
+
+    const facturado = new Map<string, number>();
+    const cobrado = new Map<string, number>();
+    const egresosMes = new Map<string, number>();
+
+    for (const f of facturas) {
+      const t = this.n(f.total);
+      if (t) sumar(facturado, mesDe(f.fecha_emision), t);
+      for (const p of f.pagos ?? []) {
+        const m = this.n(p.monto);
+        if (m) sumar(cobrado, mesDe(p.fecha), m);
+      }
+    }
+    for (const e of egresos) {
+      const t = this.n(e.total);
+      if (t) sumar(egresosMes, mesDe(e.fecha), t);
+    }
+
+    const neto = new Map<string, number>();
+    for (const k of new Set([...facturado.keys(), ...egresosMes.keys()])) {
+      neto.set(k, (facturado.get(k) ?? 0) - (egresosMes.get(k) ?? 0));
+    }
+
+    const pctA = this.n(cfg.empresa_a_porcentaje);
+    const pctB = this.n(cfg.empresa_b_porcentaje);
+
+    const construir = (map: Map<string, number>) => {
+      const meses = [...map.keys()].sort();
+      const total = redondear2(meses.reduce((s, k) => s + (map.get(k) ?? 0), 0));
+      return {
+        total,
+        por_mes: meses.map((k) => {
+          const v = map.get(k) ?? 0;
+          return {
+            mes: k,
+            total: redondear2(v),
+            empresa_a: redondear2((v * pctA) / 100),
+            empresa_b: redondear2((v * pctB) / 100),
+          };
+        }),
+      };
+    };
+
+    return {
+      config: await this.configurarDistribucion(),
+      bases: {
+        neto: construir(neto),
+        cobrado: construir(cobrado),
+        facturado: construir(facturado),
+      },
     };
   }
 
