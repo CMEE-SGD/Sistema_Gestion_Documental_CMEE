@@ -7,7 +7,7 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import { XMLParser } from 'fast-xml-parser';
-import { EstadoFactura, EstadoProforma } from '@prisma/client';
+import { EstadoFactura, EstadoProforma, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import { CreateProformaDto } from './dto/create-proforma.dto';
@@ -158,7 +158,10 @@ export class FacturacionService {
       0,
     );
     const total = this.n(f.total);
-    const saldo = total - pagado;
+    // La retención de IVA la aplica el cliente (agente de retención) al pagar;
+    // por eso el saldo por cobrar es total − retención_iva − pagos.
+    const retencion = this.n(f.retencion_iva);
+    const saldo = total - retencion - pagado;
 
     // Última solicitud de autorización de compensación (si existe).
     const { solicitudes_compensacion, ...resto } = f;
@@ -186,6 +189,9 @@ export class FacturacionService {
       subtotal: this.n(f.subtotal),
       iva: this.n(f.iva),
       total,
+      retencion_iva: retencion,
+      porcentaje_retencion_iva: this.n(f.porcentaje_retencion_iva),
+      retenciones: f.retenciones ?? null,
       pagado,
       saldo,
       estado,
@@ -502,6 +508,12 @@ export class FacturacionService {
             subtotal,
             iva,
             total,
+            retencion_iva: dto.retencion_iva ?? 0,
+            porcentaje_retencion_iva: dto.porcentaje_retencion_iva ?? 0,
+            retenciones:
+              dto.retenciones && dto.retenciones.length > 0
+                ? (dto.retenciones as unknown as Prisma.InputJsonValue)
+                : undefined,
             plazo_dias: plazo,
             fecha_vencimiento: vencimiento,
             notas: dto.notas,
@@ -586,6 +598,12 @@ export class FacturacionService {
         subtotal: datos.subtotal,
         iva: datos.iva,
         total: datos.total,
+        retencion_iva: datos.retencion_iva,
+        porcentaje_retencion_iva: datos.porcentaje_retencion_iva,
+        retenciones:
+          datos.retenciones.length > 0
+            ? (datos.retenciones as unknown as Prisma.InputJsonValue)
+            : undefined,
         plazo_dias: plazo,
         fecha_vencimiento: vencimiento,
         detalle: {
@@ -608,6 +626,12 @@ export class FacturacionService {
       estado: dto.estado,
       notas: dto.notas,
     };
+    if (dto.retencion_iva !== undefined) {
+      data.retencion_iva = dto.retencion_iva;
+    }
+    if (dto.porcentaje_retencion_iva !== undefined) {
+      data.porcentaje_retencion_iva = dto.porcentaje_retencion_iva;
+    }
     if (dto.plazo_dias !== undefined) {
       const actual = await this.prisma.factura.findUnique({
         where: { id },
@@ -700,7 +724,8 @@ export class FacturacionService {
       0,
     );
     const total = this.n(factura.total);
-    return { factura, pagado, saldo: total - pagado };
+    const retencion = this.n(factura.retencion_iva);
+    return { factura, pagado, saldo: total - retencion - pagado };
   }
 
   private async actualizarEstadoPorSaldo(facturaId: number) {
@@ -1113,6 +1138,25 @@ export class FacturacionService {
     return Number.isNaN(d.getTime()) ? new Date() : d;
   }
 
+  /**
+   * Porcentaje de retención de IVA según el catálogo de codigoPorcentaje del
+   * SRI (usado cuando el XML no trae `porcentajeRetener`):
+   * 1=30% bienes/servicios, 2=70% servicios professionales/consultoría,
+   * 3=100% personas naturales, 6=10% contribuyente especial, 7=20% idem,
+   * 8=50% (régimen simplificado/TMC).
+   */
+  private porcentajePorCodigoRetencion(codigoPorcentaje: string): number {
+    const tabla: Record<string, number> = {
+      '1': 30,
+      '2': 70,
+      '3': 100,
+      '6': 10,
+      '7': 20,
+      '8': 50,
+    };
+    return tabla[codigoPorcentaje] ?? 0;
+  }
+
   private parsearXmlSRI(xmlText: string) {
     const parser = new XMLParser({ ignoreAttributes: true, parseTagValue: false });
     let raiz: any;
@@ -1215,6 +1259,38 @@ export class FacturacionService {
       valor_total: this.nDesdeString(d?.precioTotalSinImpuesto, 0),
     }));
 
+    // Retenciones del comprobante (<retenciones><retencion>): se aplican al
+    // pagar y van dirigidas al emisor. codigo: 1 = IVA, 2 = RENTA (IR).
+    // Se conserva el detalle completo y se resume la parte de IVA.
+    const rawRetenciones = factura?.retenciones?.retencion;
+    const retencionesArr = Array.isArray(rawRetenciones)
+      ? rawRetenciones
+      : rawRetenciones
+        ? [rawRetenciones]
+        : [];
+    const retenciones = retencionesArr
+      .filter((r: any) => r && typeof r === 'object')
+      .map((r: any) => ({
+        codigo: String(r?.codigo ?? ''),
+        codigoPorcentaje: String(r?.codigoPorcentaje ?? ''),
+        baseImponible: this.nDesdeString(r?.baseImponible, 0),
+        porcentajeRetener: this.nDesdeString(r?.porcentajeRetener, 0),
+        valorRetenido: this.nDesdeString(r?.valorRetenido, 0),
+      }))
+      .filter((r) => r.codigo !== '');
+    const redondear2 = (n: number) => Math.round(n * 100) / 100;
+    const retencionesIva = retenciones.filter((r) => r.codigo === '1');
+    const retencionIvaTotal = redondear2(
+      retencionesIva.reduce((s, r) => s + r.valorRetenido, 0),
+    );
+    const primeraIva = retencionesIva[0];
+    const porcentajeRetencionIva =
+      primeraIva && primeraIva.porcentajeRetener > 0
+        ? redondear2(primeraIva.porcentajeRetener)
+        : primeraIva
+          ? this.porcentajePorCodigoRetencion(primeraIva.codigoPorcentaje)
+          : 0;
+
     // infoAdicional → { [nombre]: valor } (p. ej. "RUC Proveedor").
     const infoAdicional: Record<string, string> = {};
     const rawCampos = factura?.infoAdicional?.campoAdicional;
@@ -1255,6 +1331,9 @@ export class FacturacionService {
       subtotal: this.nDesdeString(inf?.totalSinImpuestos, 0),
       iva,
       total: this.nDesdeString(inf?.importeTotal, 0),
+      retencion_iva: retencionIvaTotal,
+      porcentaje_retencion_iva: porcentajeRetencionIva,
+      retenciones,
       detalle,
       numero_autorizacion: informacionAutorizacion.numero,
       fecha_autorizacion: informacionAutorizacion.fecha,

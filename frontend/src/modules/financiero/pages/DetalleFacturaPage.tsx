@@ -4,12 +4,13 @@
 // la lectura; debajo quedan las acciones operativas del sistema: cobros
 // (pagos + compensación), nota de entrega y cambio de estado.
 
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Ban,
+  Calculator,
   CheckCircle2,
   Clock4,
   FileDown,
@@ -401,6 +402,16 @@ export default function DetalleFacturaPage() {
             <div className="w-full max-w-xs space-y-1.5 text-sm">
               <RowTotal label="Subtotal" valor={fmtMoneda(factura.subtotal)} />
               <RowTotal label="IVA" valor={fmtMoneda(factura.iva)} />
+              {factura.retencion_iva > 0.005 && (
+                <RowTotal
+                  label={`Retención IVA${
+                    factura.porcentaje_retencion_iva > 0
+                      ? ` (${factura.porcentaje_retencion_iva}%)`
+                      : ''
+                  }`}
+                  valor={`- ${fmtMoneda(factura.retencion_iva)}`}
+                />
+              )}
               <div className="flex items-baseline justify-between border-t-2 border-slate-800 pt-1.5 text-base font-extrabold text-slate-900">
                 <span>TOTAL</span>
                 <span>{fmtMoneda(factura.total)}</span>
@@ -448,6 +459,17 @@ export default function DetalleFacturaPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* ============ RETENCIÓN DE IVA (editable) ============ */}
+      <div className="mx-auto max-w-4xl">
+        <Seccion titulo="Retención de IVA">
+          <PanelRetencion
+            facturaId={facturaId}
+            factura={factura}
+            onGuardado={refrescar}
+          />
+        </Seccion>
       </div>
 
       {/* ============ GESTIÓN DEL SISTEMA ============ */}
@@ -875,6 +897,175 @@ function Seccion({
         {titulo}
       </h3>
       {children}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Retención de IVA — panel editable en el detalle de la factura
+// ---------------------------------------------------------------------------
+
+function PanelRetencion({
+  facturaId,
+  factura,
+  onGuardado,
+}: {
+  facturaId: number;
+  factura: FacturaDetalle;
+  onGuardado: () => void;
+}) {
+  const [pct, setPct] = useState(
+    String(factura.porcentaje_retencion_iva || 0),
+  );
+  const [monto, setMonto] = useState(String(factura.retencion_iva || 0));
+  const { toast } = useToast();
+  const { alert } = useAlert();
+
+  // Sincroniza si el detalle se recarga (otro panel guarda/cambia datos).
+  useEffect(() => {
+    setPct(String(factura.porcentaje_retencion_iva || 0));
+    setMonto(String(factura.retencion_iva || 0));
+  }, [factura.porcentaje_retencion_iva, factura.retencion_iva]);
+
+  const montoN = Number(monto);
+  const montoValido = Number.isFinite(montoN) && montoN >= 0 ? montoN : 0;
+  const pctN = Number(pct) || 0;
+  const ivaN = Number(factura.iva) || 0;
+  const autoPct = Math.round(ivaN * (pctN / 100) * 100) / 100;
+
+  const aplicarPct = (v: number) => {
+    setPct(String(v));
+    if (v > 0) {
+      setMonto(String(Math.round(ivaN * (v / 100) * 100) / 100));
+    } else {
+      setMonto('0');
+    }
+  };
+
+  const guardar = useMutation({
+    mutationFn: async () => {
+      const res = await api.patch(`/facturacion/facturas/${facturaId}`, {
+        retencion_iva: montoValido,
+        porcentaje_retencion_iva: pctN,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      toast({ message: 'Retención de IVA actualizada.' });
+      onGuardado();
+    },
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      void alert({
+        message:
+          apiErr?.response?.data?.message || 'No se pudo guardar la retención.',
+      });
+    },
+  });
+
+  const retenciones = factura.retenciones ?? [];
+
+  return (
+    <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4">
+      <p className="mb-3 text-sm text-rose-800">
+        La retención del IVA la aplica el cliente (agente de retención) al
+        pagar. La cartera por cobrar se calcula como{' '}
+        <span className="font-semibold">total − retención − pagos</span>. Si el
+        XML trae la sección{' '}
+        <span className="font-mono">&lt;retenciones&gt;</span>, se extrae
+        automáticamente; aquí se puede ajustar.
+      </p>
+
+      {retenciones.length > 0 && (
+        <div className="mb-3 overflow-x-auto rounded-md border border-rose-200 bg-white">
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr className="bg-rose-100 text-rose-800">
+                <th className="px-2 py-1.5 text-left font-semibold">Tipo</th>
+                <th className="px-2 py-1.5 text-right font-semibold">%</th>
+                <th className="px-2 py-1.5 text-right font-semibold">Base</th>
+                <th className="px-2 py-1.5 text-right font-semibold">
+                  Retenido
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {retenciones.map((r, i) => (
+                <tr key={i} className="border-t border-rose-100">
+                  <td className="px-2 py-1">
+                    {r.codigo === '1'
+                      ? 'IVA'
+                      : r.codigo === '2'
+                        ? 'RENTA'
+                        : `Código ${r.codigo}`}
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    {r.porcentajeRetener > 0
+                      ? `${r.porcentajeRetener}%`
+                      : '—'}
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    {fmtMoneda(r.baseImponible)}
+                  </td>
+                  <td className="px-2 py-1 text-right font-semibold">
+                    {fmtMoneda(r.valorRetenido)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-4">
+        <div>
+          <label className={labelCls}>% Retención</label>
+          <select
+            className={inputCls}
+            value={pct}
+            onChange={(e) => aplicarPct(Number(e.target.value))}
+          >
+            <option value="0">Sin retención</option>
+            <option value="10">10% (bienes, C.E.)</option>
+            <option value="20">20% (servicios, C.E.)</option>
+            <option value="30">30% (bienes/servicios)</option>
+            <option value="70">70% (servicios/consultoría)</option>
+            <option value="100">100% (persona natural)</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Monto retenido ($)</label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            className={inputCls}
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Auto ({pctN}% × IVA)</label>
+          <div className="mt-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-right text-sm font-semibold text-slate-700">
+            {fmtMoneda(autoPct)}
+          </div>
+        </div>
+        <div>
+          <button
+            type="button"
+            disabled={guardar.isPending}
+            onClick={() => guardar.mutate()}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {guardar.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Calculator className="h-4 w-4" />
+            )}
+            Guardar retención
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -64,6 +64,17 @@ export interface FacturaResumen {
   subtotal: number;
   iva: number;
   total: number;
+  // Retención de IVA (Ecuador): el cliente retiene al pagar; el saldo por
+  // cobrar es total − retención_iva − pagos. `retenciones` = detalle del XML.
+  retencion_iva: number;
+  porcentaje_retencion_iva: number;
+  retenciones?: Array<{
+    codigo: string;
+    codigoPorcentaje: string;
+    baseImponible: number;
+    porcentajeRetener: number;
+    valorRetenido: number;
+  }> | null;
   pagado: number;
   saldo: number;
   estado: string;
@@ -309,6 +320,7 @@ export default function FacturasPage() {
               <th className="px-3 py-2 text-left font-semibold">Vencimiento</th>
               <th className="px-3 py-2 text-right font-semibold">Total</th>
               <th className="px-3 py-2 text-right font-semibold">Saldo</th>
+              <th className="px-3 py-2 text-right font-semibold">Ret. IVA</th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
               <th className="px-3 py-2 text-left font-semibold">Origen</th>
               <th className="px-3 py-2 text-left font-semibold">Acciones</th>
@@ -340,6 +352,22 @@ export default function FacturasPage() {
                   }`}
                 >
                   {fmtMoneda(f.saldo)}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {f.retencion_iva > 0.005 ? (
+                    <>
+                      <span className="font-semibold text-rose-700">
+                        {fmtMoneda(f.retencion_iva)}
+                      </span>
+                      {f.porcentaje_retencion_iva > 0 && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          ({f.porcentaje_retencion_iva}%)
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <span className={badgeClass(ESTADO_FACTURA_STYLE[f.estado])}>
@@ -406,7 +434,7 @@ export default function FacturasPage() {
             ))}
             {filtradas.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground">
                   Sin facturas registradas.
                 </td>
               </tr>
@@ -511,7 +539,10 @@ function ModalImportarXml({
         <p className="text-sm text-muted-foreground">
           Suba el XML de la factura electrónica generado por el sistema de la
           encargada financiera. El sistema extrae número, clave de acceso,
-          cliente, fechas, subtotal, IVA, total y el detalle de ítems.
+          cliente, fechas, subtotal, IVA, total, el detalle de ítems y, si el
+          XML trae la sección{' '}
+          <span className="font-mono">&lt;retenciones&gt;</span>, la
+          retención de IVA (se descuenta del saldo por cobrar).
         </p>
         {ordenId !== undefined && (
           <p className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -618,6 +649,8 @@ function ModalFacturaManual({
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [plazo, setPlazo] = useState(30);
   const [iva, setIva] = useState('');
+  const [retPct, setRetPct] = useState('0');
+  const [retMonto, setRetMonto] = useState('0');
   const [notas, setNotas] = useState('');
   const [filas, setFilas] = useState<FilaDetalle[]>(() => {
     if (equiposIniciales && equiposIniciales.length > 0) {
@@ -636,6 +669,25 @@ function ModalFacturaManual({
   const subtotal = filas.reduce((s, f) => s + f.cantidad * f.precio, 0);
   const ivaN = iva === '' ? 0 : Number(iva);
   const total = subtotal + (Number.isNaN(ivaN) ? 0 : ivaN);
+  // Retención de IVA: se descuenta del saldo por cobrar (el cliente retiene
+  // al pagar). Al elegir un % se calcula automáticamente sobre el IVA.
+  const retN = retMonto === '' ? 0 : Number(retMonto);
+  const retValido = Number.isFinite(retN) && retN >= 0 ? retN : 0;
+  const netoPorCobrar = Math.max(0, total - retValido);
+  // Retención calculada para el % elegido: % × IVA (referencia al digitar).
+  const retAuto =
+    Math.round((Number.isNaN(ivaN) ? 0 : ivaN) * (Number(retPct) / 100) * 100) /
+    100;
+
+  const aplicarRetPct = (pct: number) => {
+    setRetPct(String(pct));
+    if (pct > 0) {
+      const base = Number.isNaN(ivaN) ? 0 : ivaN;
+      setRetMonto(String(Math.round(base * (pct / 100) * 100) / 100));
+    } else {
+      setRetMonto('0');
+    }
+  };
 
   const actualizarFila = (i: number, campo: keyof FilaDetalle, valor: string | number) => {
     setFilas((prev) => prev.map((f, idx) => (idx === i ? { ...f, [campo]: valor } : f)));
@@ -652,6 +704,8 @@ function ModalFacturaManual({
         subtotal,
         iva: Number.isNaN(ivaN) ? 0 : ivaN,
         total,
+        retencion_iva: retValido,
+        porcentaje_retencion_iva: Number(retPct) || 0,
         notas: notas.trim() || undefined,
         detalle: filas
           .filter((f) => f.concepto.trim())
@@ -845,6 +899,52 @@ function ModalFacturaManual({
               {fmtMoneda(total)}
             </div>
           </div>
+        </div>
+
+        {/* Retención de IVA (Ecuador) */}
+        <div className="rounded-md border border-rose-200 bg-rose-50 p-3">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-rose-700">
+            Retención de IVA — se descuenta del saldo por cobrar
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className={labelCls}>% Retención</label>
+              <select
+                className={inputCls}
+                value={retPct}
+                onChange={(e) => aplicarRetPct(Number(e.target.value))}
+              >
+                <option value="0">Sin retención</option>
+                <option value="10">10% (bienes, C.E.)</option>
+                <option value="20">20% (servicios, C.E.)</option>
+                <option value="30">30% (bienes/servicios)</option>
+                <option value="70">70% (servicios/consultoría)</option>
+                <option value="100">100% (persona natural)</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Monto retenido</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                className={inputCls}
+                value={retMonto}
+                onChange={(e) => setRetMonto(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Neto por cobrar</label>
+              <div className="mt-1 rounded-md border border-emerald-300 bg-white px-2.5 py-1.5 text-right font-bold text-emerald-700">
+                {fmtMoneda(netoPorCobrar)}
+              </div>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] text-rose-600">
+            Al elegir un % se calcula automáticamente:{' '}
+            {retPct}% × IVA {fmtMoneda(Number.isNaN(ivaN) ? 0 : ivaN)} ={' '}
+            {fmtMoneda(retAuto)}. Ajuste el monto si el comprobante difiere.
+          </p>
         </div>
 
         <div>
