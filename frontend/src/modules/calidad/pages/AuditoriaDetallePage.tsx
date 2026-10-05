@@ -8,6 +8,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
+import { nombreMotivoAdicional } from './auditorias';
 
 const GRUPOS_EQUIPO = [
     { label: null, secciones: ['EVALUADOR_LIDER', 'EVALUADOR_CALIDAD'] },
@@ -185,7 +186,20 @@ export const AuditoriaDetallePage = () => {
                                 auditoria.estado === 'EN_CURSO' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
                             }`}>{auditoria.estado}</span>
                             <span className={`px-3 py-1 rounded-full text-xs font-bold ${esExterna ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-700'}`}>{esExterna ? 'EXTERNA' : 'INTERNA'}</span>
+                            {auditoria.adicional && (
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-fuchsia-100 text-fuchsia-700" title="Complementa a las auditorías programadas (MC22 22.5.2)">ADICIONAL</span>
+                            )}
                         </div>
+                        {auditoria.adicional && (
+                            <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-md px-3 py-2 mb-3">
+                                <p className="text-sm text-fuchsia-900">
+                                    <strong>Motivo de la auditoría adicional:</strong> {nombreMotivoAdicional(auditoria.motivo_adicional)}
+                                </p>
+                                {auditoria.detalle_adicional && (
+                                    <p className="text-sm text-fuchsia-800 mt-1 whitespace-pre-wrap">{auditoria.detalle_adicional}</p>
+                                )}
+                            </div>
+                        )}
                         {esExterna ? (
                             <p className="text-gray-600 text-sm mb-3">{auditoria.nombre_oec || 'Evaluación externa de OEC'}</p>
                         ) : (

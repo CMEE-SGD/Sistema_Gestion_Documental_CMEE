@@ -6,6 +6,7 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { decodeId } from '../../../shared/utils/ids';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
+import { MOTIVOS_AUDITORIA_ADICIONAL } from './auditorias';
 
 const AutoGrowTextarea = (props: TextareaHTMLAttributes<HTMLTextAreaElement>) => {
     const ref = useRef<HTMLTextAreaElement>(null);
@@ -170,6 +171,9 @@ export const AuditoriaFormPage = () => {
         alcance: '',
         responsable_id: '',
         responsable_auditoria: '',
+        adicional: false,
+        motivo_adicional: '',
+        detalle_adicional: '',
         observaciones: '',
         nombre_oec: '',
         expediente_nro: '',
@@ -205,6 +209,7 @@ export const AuditoriaFormPage = () => {
     const [testificaciones, setTestificaciones] = useState<{ test: string; metodo_ensayo: string; metodo_magnitud: string; muestra: string; evaluador: string }[]>([]);
 
     const esExterna = formData.tipo === 'EXTERNA';
+const motivoAdicionalActual = MOTIVOS_AUDITORIA_ADICIONAL.find(m => m.value === formData.motivo_adicional);
 
     useEffect(() => {
         const cargar = async () => {
@@ -231,6 +236,9 @@ export const AuditoriaFormPage = () => {
                         alcance: a.alcance || '',
                         responsable_id: a.responsable_id?.toString() || '',
                         responsable_auditoria: a.responsable_auditoria || '',
+                        adicional: a.adicional === true,
+                        motivo_adicional: a.motivo_adicional || '',
+                        detalle_adicional: a.detalle_adicional || '',
                         observaciones: a.observaciones || '',
                         nombre_oec: a.nombre_oec || '',
                         expediente_nro: a.expediente_nro || '',
@@ -279,7 +287,25 @@ export const AuditoriaFormPage = () => {
 
     const handleChange = (e: any) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => ({
+            ...prev,
+            [name]: value,
+            // Las auditorías adicionales son internas: al pasar a EXTERNA se
+            // limpia el bloque para no mandar un motivo que el backend rechaza.
+            ...(name === 'tipo' && value === 'EXTERNA'
+                ? { adicional: false, motivo_adicional: '', detalle_adicional: '' }
+                : {}),
+        }));
+    };
+
+    const handleAdicionalChange = (e: any) => {
+        const marcado = e.target.checked;
+        setFormData(prev => ({
+            ...prev,
+            adicional: marcado,
+            motivo_adicional: marcado ? prev.motivo_adicional : '',
+            detalle_adicional: marcado ? prev.detalle_adicional : '',
+        }));
     };
 
     const handleResponsableChange = (e: any) => {
@@ -321,6 +347,10 @@ export const AuditoriaFormPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (formData.adicional && !formData.motivo_adicional) {
+            await alert({ message: 'Indique el motivo de la auditoría adicional: es obligatorio para justificar por qué se complementa el programa.' });
+            return;
+        }
         setLoading(true);
         try {
             const fd = new FormData();
@@ -368,6 +398,11 @@ export const AuditoriaFormPage = () => {
                 if (formData.responsable_id) fd.append('responsable_id', parseInt(formData.responsable_id).toString());
                 if (formData.responsable_auditoria) fd.append('responsable_auditoria', formData.responsable_auditoria);
                 fd.append('equipo_auditor', JSON.stringify(equipoAuditor));
+                // Auditoría adicional (MC22 22.5.2): solo internas. El motivo es
+                // obligatorio y lo valida también el backend.
+                fd.append('adicional', formData.adicional ? 'true' : 'false');
+                if (formData.adicional && formData.motivo_adicional) fd.append('motivo_adicional', formData.motivo_adicional);
+                if (formData.adicional && formData.detalle_adicional) fd.append('detalle_adicional', formData.detalle_adicional);
             }
             if (archivo) fd.append('archivo_planificacion', archivo);
 
@@ -578,6 +613,46 @@ export const AuditoriaFormPage = () => {
                     <div className={seccionCls}>ALCANCE</div>
                     <div className="border border-t-0 border-gray-300 rounded-b p-4">
                         <AutoGrowTextarea name="alcance" value={formData.alcance} onChange={handleChange} rows={3} className={textareaCls} placeholder="Aplica al sistema de gestión del Dpto. de Calidad y Dpto. Técnico del CMEE..." />
+                    </div>
+                </div>
+                )}
+
+                {/* Auditoría adicional (MC22 22.5.2) */}
+                {!esExterna && (
+                <div>
+                    <div className={seccionCls}>AUDITORÍA ADICIONAL</div>
+                    <div className="border border-t-0 border-gray-300 rounded-b p-4 flex flex-col gap-4">
+                        <label className="flex items-start gap-2.5 cursor-pointer">
+                            <input type="checkbox" checked={formData.adicional} onChange={handleAdicionalChange} className="mt-1 w-4 h-4 accent-blue-600" />
+                            <span className="text-sm text-gray-700">
+                                Esta auditoría complementa las auditorías programadas del área técnica.
+                                <span className="block text-xs text-gray-500 mt-0.5">
+                                    Procede cuando se introducen cambios significativos en el Sistema de Gestión de la Calidad,
+                                    cuando existe sospecha o certeza de que no se cumplen los requisitos de calidad, o cuando la
+                                    implantación de una acción correctiva puede no ser eficaz.
+                                </span>
+                            </span>
+                        </label>
+                        {formData.adicional && (
+                            <>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-gray-700">Motivo <span className="text-red-500">*</span></label>
+                                    <select name="motivo_adicional" value={formData.motivo_adicional} onChange={handleChange} className={`${inputCls} bg-white`}>
+                                        <option value="">Seleccione el motivo...</option>
+                                        {MOTIVOS_AUDITORIA_ADICIONAL.map(m => (
+                                            <option key={m.value} value={m.value}>{m.label}</option>
+                                        ))}
+                                    </select>
+                                    {motivoAdicionalActual && (
+                                        <p className="text-xs text-gray-500">{motivoAdicionalActual.descripcion}</p>
+                                    )}
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-gray-700">Justificación</label>
+                                    <AutoGrowTextarea name="detalle_adicional" value={formData.detalle_adicional} onChange={handleChange} rows={3} className={textareaCls} placeholder="Ej: Se modificó el procedimiento de verificación de equipos; se audita el laboratorio de calibración para evaluar el impacto del cambio." />
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
                 )}

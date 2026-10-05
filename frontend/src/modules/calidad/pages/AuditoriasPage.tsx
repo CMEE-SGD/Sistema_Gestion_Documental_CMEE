@@ -7,6 +7,7 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { encodeId } from '../../../shared/utils/ids';
+import { nombreMotivoAdicional } from './auditorias';
 
 export const AuditoriasPage = () => {
     const navigate = useNavigate();
@@ -188,7 +189,12 @@ export const AuditoriasPage = () => {
                             <tr key={a.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/calidad/auditorias/${encodeId(a.id)}`)}>
                                 <td className="px-4 py-3 font-medium text-gray-800">{a.codigo}</td>
                                 <td className="px-4 py-3">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${a.tipo === 'EXTERNA' ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-700'}`}>{a.tipo === 'EXTERNA' ? 'EXTERNA' : 'INTERNA'}</span>
+                                    <div className="flex flex-col gap-1 items-start">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${a.tipo === 'EXTERNA' ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-700'}`}>{a.tipo === 'EXTERNA' ? 'EXTERNA' : 'INTERNA'}</span>
+                                        {a.adicional && (
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-fuchsia-100 text-fuchsia-700" title={nombreMotivoAdicional(a.motivo_adicional)}>ADICIONAL</span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{a.alcance || a.nombre_oec || '-'}</td>
                                 <td className="px-4 py-3 text-gray-600">{a.responsable ? `${a.responsable.nombre} ${a.responsable.apellidos}` : (a.persona_contacto || '-')}</td>

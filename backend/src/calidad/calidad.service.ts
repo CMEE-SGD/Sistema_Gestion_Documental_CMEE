@@ -58,6 +58,33 @@ const TRANSICIONES_AUDITORIA: Record<EstadoAuditoria, EstadoAuditoria[]> = {
 const MOTIVO_REAPERTURA_AUDITORIA =
   'Debe indicar el motivo de la reapertura (auditoría cerrada por error o supervisión posterior al cierre).';
 
+/**
+ * Valida los datos de auditoría adicional (MC22 22.5.2). El área técnica
+ * complementa las auditorías programadas cuando: se introduce un cambio
+ * significativo en el SGC, cuando hay sospecha o certeza de incumplimiento, o
+ * cuando la implantación de una acción correctiva puede no ser eficaz.
+ */
+function validarAuditoriaAdicional(data: { tipo?: any; adicional?: boolean | null; motivo_adicional?: any }) {
+    const adicional = data.adicional === true;
+    const motivo = data.motivo_adicional ?? null;
+
+    if (adicional && data.tipo === 'EXTERNA') {
+      throw new BadRequestException(
+        'Las auditorías adicionales son internas; una evaluación externa de OEC no se registra como adicional',
+      );
+    }
+    if (adicional && !motivo) {
+      throw new BadRequestException(
+        'Debe indicar el motivo de la auditoría adicional: cambio significativo en el SGC, sospecha o certeza de incumplimiento, o ineffectividad de una acción correctiva',
+      );
+    }
+    if (!adicional && motivo) {
+      throw new BadRequestException(
+        'El motivo corresponde a una auditoría adicional: marque la auditoría como adicional',
+      );
+    }
+  }
+
 @Injectable()
 export class CalidadService {
   constructor(private prisma: PrismaService) {}
@@ -142,6 +169,7 @@ export class CalidadService {
    */
   async createAuditoria(data: any, personaId?: number | null) {
     await this.validarIndependenciaAuditores(data.responsable_id, data.equipo_auditor);
+    validarAuditoriaAdicional(data);
     return this.prisma.$transaction(async (tx) => {
       const auditoria = await tx.auditoriaInterna.create({
         data: {
@@ -152,6 +180,9 @@ export class CalidadService {
           fecha_fin: data.fecha_fin ? new Date(data.fecha_fin) : null,
           responsable_id: data.responsable_id,
           estado: EstadoAuditoria.PLANIFICADA,
+          adicional: data.adicional === true,
+          motivo_adicional: data.adicional === true ? data.motivo_adicional : null,
+          detalle_adicional: data.adicional === true ? data.detalle_adicional : null,
           descripcion: data.descripcion,
           objeto: data.objeto,
           documentos_referencia: data.documentos_referencia,
@@ -409,10 +440,31 @@ export class CalidadService {
     );
     // Se descarta cualquier 'estado' que venga en el cuerpo de la petición.
     const { estado: _estadoIgnorado, ...resto } = data as any;
+    // La validación mira el estado RESULTANTE y no el enviado: al desmarcar
+    // "adicional" el motivo se limpia, así que no debe leerse el motivo previo
+    // (si se leyera, "adicional=false + motivo almacenado" se rechazaría a sí
+    // mismo y sería imposible desmarcar).
+    const adicionalResultante =
+      resto.adicional !== undefined ? resto.adicional === true : existente.adicional;
+    validarAuditoriaAdicional({
+      tipo: resto.tipo ?? existente.tipo,
+      adicional: adicionalResultante,
+      motivo_adicional: !adicionalResultante
+        ? null
+        : resto.motivo_adicional !== undefined
+          ? resto.motivo_adicional
+          : existente.motivo_adicional,
+    });
     return this.prisma.auditoriaInterna.update({
       where: { id },
       data: {
         ...resto,
+        // Al desmarcar "adicional" se limpian motivo y detalle, para no dejar
+        // un motivo huérfano que contradiga la marca. La marca y el motivo
+        // enviado ya vienen en `...resto`: aquí no se repiten porque un
+        // `undefined` los sobrescribiría y Prisma no aplicaría el cambio.
+        motivo_adicional: resto.adicional === false ? null : resto.motivo_adicional,
+        detalle_adicional: resto.adicional === false ? null : resto.detalle_adicional,
         fecha_inicio: data.fecha_inicio ? new Date(data.fecha_inicio) : undefined,
         fecha_fin: data.fecha_fin ? new Date(data.fecha_fin) : undefined,
         fecha_elaboracion: data.fecha_elaboracion ? new Date(data.fecha_elaboracion) : data.fecha_elaboracion === '' ? null : undefined,
