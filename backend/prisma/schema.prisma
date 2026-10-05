@@ -1140,6 +1140,17 @@ enum TipoAuditoria {
   EXTERNA
 }
 
+// MC22 22.5.2 — circunstancias que obligan a complementar las auditorías
+// programadas del área técnica con auditorías adicionales.
+enum MotivoAuditoriaAdicional {
+  // Cambios significativos en el SGC, para evaluar su impacto.
+  CAMBIO_SIGNIFICATIVO_SGC
+  // Sospecha o certeza de que no se cumplen los requisitos de calidad.
+  SOSPECHA_INCUMPLIMIENTO
+  // La implantación de una AC puede no ser eficaz: hay que comprobarlo.
+  IMPLANTACION_AC_EFFICACIDAD
+}
+
 enum EstadoAuditoria {
   PLANIFICADA
   EN_CURSO
@@ -1193,6 +1204,11 @@ model AuditoriaInterna {
   responsable_id        Int?
   responsable           Persona?        @relation("AuditoriaResponsable", fields: [responsable_id], references: [id], onDelete: Restrict)
   estado                EstadoAuditoria @default(PLANIFICADA)
+  // Auditoría adicional a las programadas (MC22 22.5.2). Solo aplica a las
+  // internas: las evaluaciones de OEC siguen su propio circuito.
+  adicional             Boolean                      @default(false)
+  motivo_adicional      MotivoAuditoriaAdicional?
+  detalle_adicional     String?                      @db.Text
   descripcion           String?         @db.Text
   objeto                String?         @db.Text
   documentos_referencia Json?

@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import { CalidadService } from './calidad.service';
 import { CreateAuditoriaDto } from './dto/create-auditoria.dto';
 import { UpdateAuditoriaDto } from './dto/update-auditoria.dto';
+import { CambiarEstadoAuditoriaDto } from './dto/cambiar-estado-auditoria.dto';
 import { CreateNcDto } from './dto/create-nc.dto';
 import { UpdateNcDto } from './dto/update-nc.dto';
 import { CambiarEstadoNcDto } from './dto/cambiar-estado-nc.dto';
@@ -104,12 +105,16 @@ export class CalidadController {
   @Post('auditorias')
   @RequireAccess('Gestion de Calidad', 5)
   @UseInterceptors(FileInterceptor('archivo_planificacion', { storage: memoryStorage() }))
-  async createAuditoria(@Body() dto: CreateAuditoriaDto, @UploadedFile() file?: Express.Multer.File) {
+  async createAuditoria(
+    @Body() dto: CreateAuditoriaDto,
+    @UploadedFile() file?: Express.Multer.File,
+    @Request() req?: any,
+  ) {
     const data: any = this.parsearJson(dto);
     data.codigo = await this.calidadService.generarCodigoAuditoria();
     if (file) data.archivo_planificacion = this.guardarArchivo(file, data.codigo, 'planificaciones');
     try {
-      return await this.calidadService.createAuditoria(data);
+      return await this.calidadService.createAuditoria(data, req?.user?.persona_id ?? null);
     } catch (error: any) {
       console.error('Error creando auditoría:', error);
       if (error instanceof BadRequestException) throw error;
@@ -129,6 +134,37 @@ export class CalidadController {
   @RequireAccess('Gestion de Calidad', 2)
   siguienteCodigoAuditoria() {
     return this.calidadService.generarCodigoAuditoria();
+  }
+
+  /**
+   * Control de periodicidad (MC22 22.5.1): la auditoría interna debe repetirse
+   * al menos una vez al año sin superar el intervalo de 12 meses.
+   * ?margen=90 → días de anticipación para marcar la auditoría como POR_VENCER.
+   * Debe declararse antes de `auditorias/:id` para no ser capturada por el :id.
+   */
+  @Get('auditorias/periodicidad')
+  @RequireAccess('Gestion de Calidad', 2)
+  periodicidadAuditoria(@Query('margen') margen?: string) {
+    const dias = Number(margen);
+    return this.calidadService.getPeriodicidadAuditoria(
+      Number.isFinite(dias) && dias > 0 ? dias : undefined,
+    );
+  }
+
+  /**
+   * Transición de estado de la auditoría. El estado ya no se edita desde el
+   * formulario: pasa por aquí, que valida la máquina de estados y deja el
+   * registro en `auditoria_historial` (estado anterior → nuevo, usuario, fecha).
+   * `fecha_fin` se acepta en el cierre, que lo exige como guarda.
+   */
+  @Patch('auditorias/:id/estado')
+  @RequireAccess('Gestion de Calidad', 4)
+  async cambiarEstadoAuditoria(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CambiarEstadoAuditoriaDto,
+    @Request() req: any,
+  ) {
+    return this.calidadService.transicionarEstadoAuditoria(id, dto, req.user?.persona_id ?? null);
   }
 
   @Get('auditorias/:id')

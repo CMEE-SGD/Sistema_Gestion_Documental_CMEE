@@ -6,27 +6,29 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  CheckCircle,
+  ClipboardCheck,
   ClipboardList,
   Clock,
   Eye,
+  FileSignature,
+  FileX,
   FlaskConical,
   GitBranch,
+  Handshake,
+  Inbox,
   Loader2,
   Pencil,
   Plus,
   Receipt,
   Search,
-  Trash2,
-  FileX,
-  UserPlus,
-  UploadCloud,
-  Inbox,
-  X,
-  CheckCircle,
-  FileSignature,
   ShieldCheck,
+  Trash2,
+  UploadCloud,
   UserCheck,
-  Handshake,
+  UserCog,
+  UserPlus,
+  X,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
@@ -179,7 +181,6 @@ function viewTitle(): string {
   return 'Gestión y seguimiento de equipos de laboratorio';
 }
 
-// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
@@ -198,6 +199,21 @@ const STAT_TONE_STYLES = {
     chip: 'bg-blue-100 dark:bg-blue-900/30',
     icon: 'text-blue-600 dark:text-blue-400',
     value: 'text-blue-600 dark:text-blue-400',
+  },
+  green: {
+    chip: 'bg-emerald-100 dark:bg-emerald-900/30',
+    icon: 'text-emerald-600 dark:text-emerald-400',
+    value: 'text-emerald-600 dark:text-emerald-400',
+  },
+  violet: {
+    chip: 'bg-violet-100 dark:bg-violet-900/30',
+    icon: 'text-violet-600 dark:text-violet-400',
+    value: 'text-violet-600 dark:text-violet-400',
+  },
+  cyan: {
+    chip: 'bg-cyan-100 dark:bg-cyan-900/30',
+    icon: 'text-cyan-600 dark:text-cyan-400',
+    value: 'text-cyan-600 dark:text-cyan-400',
   },
 } as const;
 
@@ -775,6 +791,16 @@ export default function BandejaTrabajoPage() {
       total: list.length,
       enEspera: list.filter((r) => r.estado === 'EN_ESPERA').length,
       enCalibracion: list.filter((r) => r.estado === 'EN_CALIBRACION').length,
+      revisionTecnica: list.filter(
+        (r) =>
+          r.estado === 'REVISION_OBT' ||
+          r.estado === 'REVISION_JEFE' ||
+          r.estado === 'PENDIENTE_FIRMA_TECNICO',
+      ).length,
+      revisionDirector: list.filter(
+        (r) => r.estado === 'REVISION_DIRECTOR',
+      ).length,
+      entregados: list.filter((r) => r.estado === 'FINALIZADO').length,
     };
   }, [recepciones]);
 
@@ -868,6 +894,24 @@ export default function BandejaTrabajoPage() {
             value={kpis.enCalibracion}
             tone="blue"
           />
+          <StatItem
+            icon={ClipboardCheck}
+            label="En revisión técnica"
+            value={kpis.revisionTecnica}
+            tone="violet"
+          />
+          <StatItem
+            icon={UserCog}
+            label="Revisión de director"
+            value={kpis.revisionDirector}
+            tone="cyan"
+          />
+          <StatItem
+            icon={CheckCircle}
+            label="Entregados"
+            value={kpis.entregados}
+            tone="green"
+          />
         </div>
       )}
 
@@ -952,7 +996,7 @@ export default function BandejaTrabajoPage() {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <TH>Orden Física</TH>
-                <TH>
+<TH>
                   <button
                     type="button"
                     onClick={() => cambiarOrden('fecha')}

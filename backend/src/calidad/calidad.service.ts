@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { EstadoNC, CondicionRiesgo } from '@prisma/client';
+import { EstadoNC, CondicionRiesgo, EstadoAuditoria } from '@prisma/client';
 import { CreateAuditoriaDto } from './dto/create-auditoria.dto';
 import { UpdateAuditoriaDto } from './dto/update-auditoria.dto';
+import { CambiarEstadoAuditoriaDto } from './dto/cambiar-estado-auditoria.dto';
 import { CreateNcDto } from './dto/create-nc.dto';
 import { UpdateNcDto } from './dto/update-nc.dto';
 import { CambiarEstadoNcDto } from './dto/cambiar-estado-nc.dto';
@@ -29,6 +30,60 @@ const TRANSICIONES_NC: Record<EstadoNC, EstadoNC[]> = {
   VERIFICADA: [EstadoNC.CERRADA, EstadoNC.EN_CURSO],
   CERRADA: [],
 };
+
+/**
+ * Máquina de estados de una auditoría interna.
+ * PLANIFICADA → el programa de auditoría está aprobado y agendado
+ * EN_CURSO     → la auditoría se está ejecutando (equipo auditor trabajando)
+ * CERRADA      → la auditoría fue realizada (terminal)
+ *
+ * A diferencia del estado, que antes se editaba libremente desde el formulario
+ * sin dejar rastro, cada cambio queda registrado en `auditoria_historial` con el
+ * estado anterior, el nuevo, el usuario y la fecha. Esto da la trazabilidad que
+ * el acreditador revisa: quién pasó la auditoría de planificada a cerrada y
+ * cuándo.
+ *
+ * Se permite CERRADA → EN_CURSO para reabrir una auditoría cerrada por error,
+ * pero solo con motivo obligatorio (supervisión posterior al cierre), que queda
+ * en el historial. Y EN_CURSO → PLANIFICADA para reprogramar una auditoría que
+ * aún no se ejecuta.
+ */
+const TRANSICIONES_AUDITORIA: Record<EstadoAuditoria, EstadoAuditoria[]> = {
+  PLANIFICADA: [EstadoAuditoria.EN_CURSO],
+  EN_CURSO: [EstadoAuditoria.CERRADA, EstadoAuditoria.PLANIFICADA],
+  CERRADA: [EstadoAuditoria.EN_CURSO],
+};
+
+/** Motivos de reapertura admitidos al pasar una auditoría de CERRADA a EN_CURSO. */
+const MOTIVO_REAPERTURA_AUDITORIA =
+  'Debe indicar el motivo de la reapertura (auditoría cerrada por error o supervisión posterior al cierre).';
+
+/**
+ * Valida los datos de auditoría adicional (MC22 22.5.2). El área técnica
+ * complementa las auditorías programadas cuando: se introduce un cambio
+ * significativo en el SGC, cuando hay sospecha o certeza de incumplimiento, o
+ * cuando la implantación de una acción correctiva puede no ser eficaz.
+ */
+function validarAuditoriaAdicional(data: { tipo?: any; adicional?: boolean | null; motivo_adicional?: any }) {
+    const adicional = data.adicional === true;
+    const motivo = data.motivo_adicional ?? null;
+
+    if (adicional && data.tipo === 'EXTERNA') {
+      throw new BadRequestException(
+        'Las auditorías adicionales son internas; una evaluación externa de OEC no se registra como adicional',
+      );
+    }
+    if (adicional && !motivo) {
+      throw new BadRequestException(
+        'Debe indicar el motivo de la auditoría adicional: cambio significativo en el SGC, sospecha o certeza de incumplimiento, o ineffectividad de una acción correctiva',
+      );
+    }
+    if (!adicional && motivo) {
+      throw new BadRequestException(
+        'El motivo corresponde a una auditoría adicional: marque la auditoría como adicional',
+      );
+    }
+  }
 
 @Injectable()
 export class CalidadService {
@@ -107,48 +162,72 @@ export class CalidadService {
     }
   }
 
-  async createAuditoria(data: any) {
+  /**
+   * Registra una auditoría. Nace siempre en PLANIFICADA: el estado ya no se
+   * fija desde el formulario, se mueve con la máquina de estados
+   * (transicionarEstadoAuditoria), que valida y deja historial.
+   */
+  async createAuditoria(data: any, personaId?: number | null) {
     await this.validarIndependenciaAuditores(data.responsable_id, data.equipo_auditor);
-    return this.prisma.auditoriaInterna.create({
-      data: {
-        codigo: data.codigo,
-        tipo: data.tipo,
-        alcance: data.alcance,
-        fecha_inicio: new Date(data.fecha_inicio),
-        fecha_fin: data.fecha_fin ? new Date(data.fecha_fin) : null,
-        responsable_id: data.responsable_id,
-        estado: data.estado,
-        descripcion: data.descripcion,
-        objeto: data.objeto,
-        documentos_referencia: data.documentos_referencia,
-        responsable_auditoria: data.responsable_auditoria,
-        equipo_auditor: data.equipo_auditor,
-        cronograma: data.cronograma,
-        testificaciones: data.testificaciones,
-        observaciones: data.observaciones,
-        archivo_planificacion: data.archivo_planificacion,
-        nombre_oec: data.nombre_oec,
-        expediente_nro: data.expediente_nro,
-        tipo_oec: data.tipo_oec,
-        email_oec: data.email_oec,
-        ciudad_pais: data.ciudad_pais,
-        telefono_oec: data.telefono_oec,
-        direccion_oficina: data.direccion_oficina,
-        localizaciones_criticas: data.localizaciones_criticas,
-        persona_contacto: data.persona_contacto,
-        norma_acreditacion: data.norma_acreditacion,
-        actividades_evaluacion: data.actividades_evaluacion,
-        tipo_evaluacion: data.tipo_evaluacion,
-        fecha_evaluacion_anterior: data.fecha_evaluacion_anterior,
-        fecha_testificacion: data.fecha_testificacion,
-        localizaciones_evaluacion: data.localizaciones_evaluacion,
-        idioma_evaluacion: data.idioma_evaluacion,
-        fecha_elaboracion: data.fecha_elaboracion ? new Date(data.fecha_elaboracion) : null,
-        elaborado_por: data.elaborado_por,
-      },
-      include: {
-        responsable: { select: { id: true, nombre: true, apellidos: true } },
-      },
+    validarAuditoriaAdicional(data);
+    return this.prisma.$transaction(async (tx) => {
+      const auditoria = await tx.auditoriaInterna.create({
+        data: {
+          codigo: data.codigo,
+          tipo: data.tipo,
+          alcance: data.alcance,
+          fecha_inicio: new Date(data.fecha_inicio),
+          fecha_fin: data.fecha_fin ? new Date(data.fecha_fin) : null,
+          responsable_id: data.responsable_id,
+          estado: EstadoAuditoria.PLANIFICADA,
+          adicional: data.adicional === true,
+          motivo_adicional: data.adicional === true ? data.motivo_adicional : null,
+          detalle_adicional: data.adicional === true ? data.detalle_adicional : null,
+          descripcion: data.descripcion,
+          objeto: data.objeto,
+          documentos_referencia: data.documentos_referencia,
+          responsable_auditoria: data.responsable_auditoria,
+          equipo_auditor: data.equipo_auditor,
+          cronograma: data.cronograma,
+          testificaciones: data.testificaciones,
+          observaciones: data.observaciones,
+          archivo_planificacion: data.archivo_planificacion,
+          nombre_oec: data.nombre_oec,
+          expediente_nro: data.expediente_nro,
+          tipo_oec: data.tipo_oec,
+          email_oec: data.email_oec,
+          ciudad_pais: data.ciudad_pais,
+          telefono_oec: data.telefono_oec,
+          direccion_oficina: data.direccion_oficina,
+          localizaciones_criticas: data.localizaciones_criticas,
+          persona_contacto: data.persona_contacto,
+          norma_acreditacion: data.norma_acreditacion,
+          actividades_evaluacion: data.actividades_evaluacion,
+          tipo_evaluacion: data.tipo_evaluacion,
+          fecha_evaluacion_anterior: data.fecha_evaluacion_anterior,
+          fecha_testificacion: data.fecha_testificacion,
+          localizaciones_evaluacion: data.localizaciones_evaluacion,
+          idioma_evaluacion: data.idioma_evaluacion,
+          fecha_elaboracion: data.fecha_elaboracion ? new Date(data.fecha_elaboracion) : null,
+          elaborado_por: data.elaborado_por,
+        },
+        include: {
+          responsable: { select: { id: true, nombre: true, apellidos: true } },
+        },
+      });
+
+      await tx.auditoriaHistorial.create({
+        data: {
+          auditoria_id: auditoria.id,
+          estado_anterior: null,
+          estado_nuevo: EstadoAuditoria.PLANIFICADA,
+          accion: 'CREACION',
+          observaciones: 'Auditoría registrada como programada',
+          realizado_por_id: personaId ?? null,
+        },
+      });
+
+      return auditoria;
     });
   }
 
@@ -160,6 +239,168 @@ export class CalidadService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /**
+   * Control de periodicidad de las auditorías internas (MC22, 22.5.1):
+   * "La periodicidad de las auditorías será, al menos, una vez al año sin que
+   * supere los 12 meses".
+   *
+   * El requisito tiene dos facetas y se evalúan las dos:
+   *  1. Que no haya pasado más de 12 meses desde la última auditoría interna
+   *     realizada (intervalo abierto: última → hoy).
+   *  2. Que NINGÚN intervalo entre auditorías internas consecutivas haya
+   *     superado los 12 meses: un hueco en medio de la serie es incumplimiento
+   *     aunque la última auditoría sea reciente.
+   *
+   * Considera como "realizada" solo la auditoría interna cerrada o con fecha de
+   * fin registrada — una auditoría merelyamente planificada no acredita el
+   * cumplimiento del intervalo anual.
+   *
+   * Devuelve la última auditoría realizada, la fecha límite (12 meses después),
+   * todos los intervalos evaluados y el estado del ciclo:
+   *   SIN_REGISTRO — nunca se ha registrado una auditoría interna
+   *   VENCIDA      — algún intervalo (incluido el abierto) superó los 12 meses
+   *   POR_VENCER   — dentro del margen previo (por defecto 90 días)
+   *   VIGENTE      — dentro del intervalo
+   */
+  async getPeriodicidadAuditoria(margenDias = 90) {
+    const auditorias = await this.prisma.auditoriaInterna.findMany({
+      where: { activo: true, tipo: 'INTERNA' },
+      select: {
+        id: true,
+        codigo: true,
+        alcance: true,
+        fecha_inicio: true,
+        fecha_fin: true,
+        estado: true,
+        responsable: { select: { id: true, nombre: true, apellidos: true } },
+      },
+      orderBy: { fecha_inicio: 'desc' },
+    });
+
+    const realizadas = auditorias
+      .filter((a) => a.estado === EstadoAuditoria.CERRADA || a.fecha_fin !== null)
+      .map((a) => ({ ...a, fecha: a.fecha_fin ?? a.fecha_inicio }))
+      .sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+
+    // Próxima auditoría ya programada (evita alertar si el ciclo está en marcha).
+    const hoy = new Date();
+    const programada = auditorias
+      .filter(
+        (a) =>
+          a.estado !== EstadoAuditoria.CERRADA &&
+          a.fecha_inicio.getTime() >= hoy.getTime(),
+      )
+      .sort((a, b) => a.fecha_inicio.getTime() - b.fecha_inicio.getTime())[0];
+
+    const resumenProgramada = programada
+      ? {
+          id: programada.id,
+          codigo: programada.codigo,
+          fecha: programada.fecha_inicio,
+          estado: programada.estado,
+        }
+      : null;
+
+    const ultima = realizadas[0] ?? null;
+    if (!ultima) {
+      return {
+        estado: 'SIN_REGISTRO',
+        diasRestantes: null,
+        diasTranscurridos: null,
+        fechaLimite: null,
+        ultimaAuditoria: null,
+        auditoriaProgramada: resumenProgramada,
+        intervalos: [],
+        incumplimientos: [],
+        abiertaIncumplida: false,
+        totalAuditorias: 0,
+        margenDias,
+      };
+    }
+
+    // Suma 12 meses calendario (conserva el día; feb-29 → 01/03 en años no bisiestos).
+    const agregarMeses = (fecha: Date, meses: number) => {
+      const d = new Date(fecha);
+      d.setMonth(d.getMonth() + meses);
+      return d;
+    };
+
+    const msPorDia = 1000 * 60 * 60 * 24;
+    const fechaLimite = agregarMeses(ultima.fecha, 12);
+    const diasRestantes = Math.ceil((fechaLimite.getTime() - hoy.getTime()) / msPorDia);
+    const diasTranscurridos = Math.floor((hoy.getTime() - ultima.fecha.getTime()) / msPorDia);
+
+    // Serie cronológica ascendente para evaluar los intervalos consecutivos.
+    const serie = [...realizadas].sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+
+    // Intervalos entre auditorías consecutivas (históricos) más el intervalo
+    // abierto de la última auditoría hasta hoy, que es el ciclo en curso.
+    const intervalos: Array<{
+      desde: Date;
+      desdeCodigo: string;
+      hasta: Date;
+      hastaCodigo: string | null;
+      dias: number;
+      limite: Date;
+      cumple: boolean;
+      abierta: boolean;
+    }> = serie.slice(1).map((a, i) => {
+      const previa = serie[i];
+      const limite = agregarMeses(previa.fecha, 12);
+      return {
+        desde: previa.fecha,
+        desdeCodigo: previa.codigo,
+        hasta: a.fecha,
+        hastaCodigo: a.codigo,
+        dias: Math.floor((a.fecha.getTime() - previa.fecha.getTime()) / msPorDia),
+        limite,
+        cumple: a.fecha.getTime() <= limite.getTime(),
+        abierta: false,
+      };
+    });
+
+    const abierta = {
+      desde: ultima.fecha,
+      desdeCodigo: ultima.codigo,
+      hasta: hoy,
+      hastaCodigo: null as string | null,
+      dias: diasTranscurridos,
+      limite: fechaLimite,
+      cumple: hoy.getTime() <= fechaLimite.getTime(),
+      abierta: true,
+    };
+    intervalos.push(abierta);
+
+    const incumplimientos = intervalos.filter((i) => !i.cumple);
+    const abiertaIncumplida = !abierta.cumple;
+
+    const estado =
+      incumplimientos.length > 0
+        ? 'VENCIDA'
+        : diasRestantes <= margenDias
+          ? 'POR_VENCER'
+          : 'VIGENTE';
+
+    return {
+      estado,
+      diasRestantes,
+      diasTranscurridos,
+      fechaLimite,
+      ultimaAuditoria: {
+        id: ultima.id,
+        codigo: ultima.codigo,
+        fecha: ultima.fecha,
+        responsable: ultima.responsable,
+      },
+      auditoriaProgramada: resumenProgramada,
+      intervalos,
+      incumplimientos,
+      abiertaIncumplida,
+      totalAuditorias: realizadas.length,
+      margenDias,
+    };
   }
 
   async findOneAuditoria(id: number) {
@@ -174,22 +415,56 @@ export class CalidadService {
           },
           orderBy: { createdAt: 'desc' },
         },
+        historial: {
+          include: {
+            realizado_por: { select: { id: true, nombre: true, apellidos: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
     if (!auditoria) throw new NotFoundException(`Auditoría con ID ${id} no encontrada`);
     return auditoria;
   }
 
+  /**
+   * Edición de los datos de la auditoría. El estado NO se toca aquí: los cambios
+   * de estado pasan por la máquina de estados (transicionarEstadoAuditoria) para
+   * que queden validados y registrados en el historial.
+   */
   async updateAuditoria(id: number, data: UpdateAuditoriaDto) {
     const existente = await this.findOneAuditoria(id);
     await this.validarIndependenciaAuditores(
       data.responsable_id ?? existente.responsable_id,
       data.equipo_auditor ?? (existente.equipo_auditor as any[]),
     );
+    // Se descarta cualquier 'estado' que venga en el cuerpo de la petición.
+    const { estado: _estadoIgnorado, ...resto } = data as any;
+    // La validación mira el estado RESULTANTE y no el enviado: al desmarcar
+    // "adicional" el motivo se limpia, así que no debe leerse el motivo previo
+    // (si se leyera, "adicional=false + motivo almacenado" se rechazaría a sí
+    // mismo y sería imposible desmarcar).
+    const adicionalResultante =
+      resto.adicional !== undefined ? resto.adicional === true : existente.adicional;
+    validarAuditoriaAdicional({
+      tipo: resto.tipo ?? existente.tipo,
+      adicional: adicionalResultante,
+      motivo_adicional: !adicionalResultante
+        ? null
+        : resto.motivo_adicional !== undefined
+          ? resto.motivo_adicional
+          : existente.motivo_adicional,
+    });
     return this.prisma.auditoriaInterna.update({
       where: { id },
       data: {
-        ...data,
+        ...resto,
+        // Al desmarcar "adicional" se limpian motivo y detalle, para no dejar
+        // un motivo huérfano que contradiga la marca. La marca y el motivo
+        // enviado ya vienen en `...resto`: aquí no se repiten porque un
+        // `undefined` los sobrescribiría y Prisma no aplicaría el cambio.
+        motivo_adicional: resto.adicional === false ? null : resto.motivo_adicional,
+        detalle_adicional: resto.adicional === false ? null : resto.detalle_adicional,
         fecha_inicio: data.fecha_inicio ? new Date(data.fecha_inicio) : undefined,
         fecha_fin: data.fecha_fin ? new Date(data.fecha_fin) : undefined,
         fecha_elaboracion: data.fecha_elaboracion ? new Date(data.fecha_elaboracion) : data.fecha_elaboracion === '' ? null : undefined,
@@ -205,6 +480,115 @@ export class CalidadService {
     return this.prisma.auditoriaInterna.update({
       where: { id },
       data: { activo: false },
+    });
+  }
+
+  /**
+   * Transición de estado validada por la máquina de estados de la auditoría.
+   * Registra el historial (estado anterior → nuevo, usuario, fecha, motivo).
+   *
+   * Guardas de integridad (MC22 22.5.2):
+   * - No se puede ejecutar (EN_CURSO) una auditoría interna sin alcance ni
+   *   equipo auditor designado: ISO/IEC 17025:2018 8.8.2 exige auditores
+   *   asignados, y el MC22 exige que el JDC designe el equipo.
+   * - No se puede cerrar (CERRADA) sin la fecha de término de la auditoría.
+   * - No se puede reabrir (CERRADA → EN_CURSO) sin motivo.
+   *
+   * Las guardas no aplican a las evaluaciones externas (OEC/acreditación), que
+   * siguen su propio circuito y no se ejecutan bajo este ciclo.
+   */
+  async transicionarEstadoAuditoria(
+    id: number,
+    dto: CambiarEstadoAuditoriaDto,
+    personaId?: number | null,
+  ) {
+    const auditoria = await this.prisma.auditoriaInterna.findUnique({ where: { id } });
+    if (!auditoria || !auditoria.activo) {
+      throw new NotFoundException(`Auditoría con ID ${id} no encontrada`);
+    }
+
+    const estadoAnterior = auditoria.estado;
+    const estadoNuevo = dto.estado;
+
+    if (estadoNuevo === estadoAnterior) {
+      throw new BadRequestException(`La auditoría ya se encuentra en estado ${estadoAnterior}`);
+    }
+
+    const permitidas = TRANSICIONES_AUDITORIA[estadoAnterior] || [];
+    if (!permitidas.includes(estadoNuevo)) {
+      throw new BadRequestException(
+        `Transición no permitida: ${estadoAnterior} → ${estadoNuevo}. Permitidas: ${permitidas.length ? permitidas.join(', ') : 'ninguna'}`,
+      );
+    }
+
+    const esInterna = auditoria.tipo !== 'EXTERNA';
+
+    if (esInterna && estadoNuevo === EstadoAuditoria.EN_CURSO) {
+      if (!auditoria.alcance || !auditoria.alcance.trim()) {
+        throw new BadRequestException(
+          'No se puede iniciar la ejecución sin el alcance de la auditoría definido',
+        );
+      }
+      const equipo = Array.isArray(auditoria.equipo_auditor) ? auditoria.equipo_auditor : [];
+      if (equipo.length === 0) {
+        throw new BadRequestException(
+          'No se puede iniciar la ejecución sin el equipo auditor designado',
+        );
+      }
+    }
+
+    let fechaFinCierre: Date | null = auditoria.fecha_fin;
+    if (estadoNuevo === EstadoAuditoria.CERRADA) {
+      fechaFinCierre = dto.fecha_fin ? new Date(dto.fecha_fin) : auditoria.fecha_fin;
+      if (!fechaFinCierre) {
+        throw new BadRequestException(
+          'No se puede cerrar la auditoría sin la fecha de término de la ejecución',
+        );
+      }
+      if (fechaFinCierre.getTime() < new Date(auditoria.fecha_inicio).getTime()) {
+        throw new BadRequestException(
+          'La fecha de término no puede ser anterior a la fecha de inicio de la auditoría',
+        );
+      }
+    }
+
+    const reabre = estadoAnterior === EstadoAuditoria.CERRADA;
+    if (reabre && (!dto.observaciones || !dto.observaciones.trim())) {
+      throw new BadRequestException(MOTIVO_REAPERTURA_AUDITORIA);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.auditoriaInterna.update({
+        where: { id },
+        data: {
+          estado: estadoNuevo,
+          fecha_fin: estadoNuevo === EstadoAuditoria.CERRADA ? fechaFinCierre : undefined,
+        },
+      });
+
+      await tx.auditoriaHistorial.create({
+        data: {
+          auditoria_id: id,
+          estado_anterior: estadoAnterior,
+          estado_nuevo: estadoNuevo,
+          accion: reabre ? 'REAPERTURA' : 'ESTADO',
+          observaciones: dto.observaciones ?? null,
+          realizado_por_id: personaId ?? null,
+        },
+      });
+
+      return tx.auditoriaInterna.findUnique({
+        where: { id },
+        include: {
+          responsable: { select: { id: true, nombre: true, apellidos: true } },
+          historial: {
+            include: {
+              realizado_por: { select: { id: true, nombre: true, apellidos: true } },
+            },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
     });
   }
 

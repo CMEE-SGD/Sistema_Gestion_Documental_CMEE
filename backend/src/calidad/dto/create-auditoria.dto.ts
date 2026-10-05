@@ -1,6 +1,6 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, IsEnum, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, IsEnum, IsDateString, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { TipoAuditoria, EstadoAuditoria } from '@prisma/client';
+import { TipoAuditoria, EstadoAuditoria, MotivoAuditoriaAdicional } from '@prisma/client';
 
 export class CreateAuditoriaDto {
   @IsString()
@@ -59,6 +59,23 @@ export class CreateAuditoriaDto {
   @IsString()
   @IsOptional()
   observaciones?: string;
+
+  // ===== Auditoría adicional (MC22 22.5.2) =====
+  // Complementa a las auditorías programadas. El backend exige motivo cuando
+  // adicional = true, y lo rechaza en auditorías externas.
+
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => (value === true || value === 'true' ? true : value === false || value === 'false' ? false : value))
+  adicional?: boolean;
+
+  @IsEnum(MotivoAuditoriaAdicional)
+  @IsOptional()
+  motivo_adicional?: MotivoAuditoriaAdicional;
+
+  @IsString()
+  @IsOptional()
+  detalle_adicional?: string;
 
   @IsString()
   @IsOptional()

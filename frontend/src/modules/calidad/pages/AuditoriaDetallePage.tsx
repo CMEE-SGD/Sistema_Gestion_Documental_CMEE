@@ -1,6 +1,6 @@
 import { useEffect, useState, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Edit3, Eye, CircleCheck, CircleX } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit3, Eye, CircleCheck, CircleX, History, Lock, PlayCircle, RotateCcw, Undo2 } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
@@ -8,6 +8,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
+import { nombreMotivoAdicional } from './auditorias';
 
 const GRUPOS_EQUIPO = [
     { label: null, secciones: ['EVALUADOR_LIDER', 'EVALUADOR_CALIDAD'] },
@@ -32,6 +33,62 @@ const normalizarCronograma = (lista: any[]) => {
     return grupos;
 };
 
+/**
+ * Máquina de estados de la auditoría — espejo de TRANSICIONES_AUDITORIA del
+ * backend (calidad.service.ts). El backend sigue siendo quien valida: esto solo
+ * evita mostrar botones que van a ser rechazados.
+ */
+const TRANSICIONES_AUDITORIA: Record<string, string[]> = {
+    PLANIFICADA: ['EN_CURSO'],
+    EN_CURSO: ['CERRADA', 'PLANIFICADA'],
+    CERRADA: ['EN_CURSO'],
+};
+
+/** Etiqueta, icono y requisitos de cada transición según el estado de origen. */
+const accionTransicion = (desde: string, hasta: string) => {
+    if (desde === 'PLANIFICADA' && hasta === 'EN_CURSO') {
+        return {
+            texto: 'Iniciar ejecución',
+            descripcion: 'Marca la auditoría como en ejecución. Exige alcance y equipo auditor designado.',
+            icono: PlayCircle,
+            clase: 'bg-blue-600 hover:bg-blue-700',
+            requiereFecha: false,
+            requiereMotivo: false,
+        };
+    }
+    if (desde === 'EN_CURSO' && hasta === 'CERRADA') {
+        return {
+            texto: 'Cerrar auditoría',
+            descripcion: 'Registra la fecha de término de la ejecución.',
+            icono: Lock,
+            clase: 'bg-emerald-600 hover:bg-emerald-700',
+            requiereFecha: true,
+            requiereMotivo: false,
+        };
+    }
+    if (desde === 'EN_CURSO' && hasta === 'PLANIFICADA') {
+        return {
+            texto: 'Reprogramar',
+            descripcion: 'Devuelve la auditoría a planificada para reagendarla.',
+            icono: Undo2,
+            clase: 'bg-gray-100 hover:bg-gray-200 text-gray-700',
+            requiereFecha: false,
+            requiereMotivo: false,
+        };
+    }
+    if (desde === 'CERRADA' && hasta === 'EN_CURSO') {
+        return {
+            texto: 'Reabrir auditoría',
+            descripcion: 'Reabre una auditoría cerrada. El motivo queda en la trazabilidad.',
+            icono: RotateCcw,
+            clase: 'bg-amber-500 hover:bg-amber-600',
+            requiereFecha: false,
+            requiereMotivo: true,
+        };
+    }
+    return null;
+};
+
 export const AuditoriaDetallePage = () => {
     const { id: rawId } = useParams<{id: string}>();
     const id = decodeId(rawId!);
@@ -41,10 +98,48 @@ export const AuditoriaDetallePage = () => {
     const [auditoria, setAuditoria] = useState<any>(null);
     const [ncs, setNcs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    // Transición de estado en curso: null = ninguna. La fecha de término y el
+    // motivo de reapertura son guardas del backend, así que se piden aquí.
+    const [transicion, setTransicion] = useState<{ hasta: string; requiereFecha: boolean; requiereMotivo: boolean } | null>(null);
+    const [fechaFin, setFechaFin] = useState('');
+    const [motivo, setMotivo] = useState('');
+    const [guardando, setGuardando] = useState(false);
 
     const esExterna = auditoria?.tipo === 'EXTERNA';
     const puedeCrearNC = tienePermiso('Gestion de Calidad', 5);
     const puedeEditarNC = tienePermiso('Gestion de Calidad', 4);
+    const puedeCambiarEstado = tienePermiso('Gestion de Calidad', 4);
+
+    const hoyISO = () => new Date().toISOString().slice(0, 10);
+
+    const abrirTransicion = (hasta: string, requiereFecha: boolean, requiereMotivo: boolean) => {
+        setTransicion({ hasta, requiereFecha, requiereMotivo });
+        setFechaFin(auditoria?.fecha_fin ? new Date(auditoria.fecha_fin).toISOString().slice(0, 10) : hoyISO());
+        setMotivo('');
+    };
+
+    const confirmarTransicion = async () => {
+        if (!transicion) return;
+        if (transicion.requiereMotivo && !motivo.trim()) {
+            await alert({ message: 'Debe indicar el motivo de la reapertura.' });
+            return;
+        }
+        setGuardando(true);
+        try {
+            await api.patch(`/calidad/auditorias/${id}/estado`, {
+                estado: transicion.hasta,
+                observaciones: motivo.trim() || undefined,
+                fecha_fin: transicion.requiereFecha ? fechaFin : undefined,
+            });
+            toast({ message: 'Estado de la auditoría actualizado.' });
+            setTransicion(null);
+            fetchData();
+        } catch (error: any) {
+            await alert({ message: error.response?.data?.message || 'Error al cambiar el estado de la auditoría.' });
+        } finally {
+            setGuardando(false);
+        }
+    };
 
     const fetchData = async () => {
         try {
@@ -91,7 +186,20 @@ export const AuditoriaDetallePage = () => {
                                 auditoria.estado === 'EN_CURSO' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
                             }`}>{auditoria.estado}</span>
                             <span className={`px-3 py-1 rounded-full text-xs font-bold ${esExterna ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-700'}`}>{esExterna ? 'EXTERNA' : 'INTERNA'}</span>
+                            {auditoria.adicional && (
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-fuchsia-100 text-fuchsia-700" title="Complementa a las auditorías programadas (MC22 22.5.2)">ADICIONAL</span>
+                            )}
                         </div>
+                        {auditoria.adicional && (
+                            <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-md px-3 py-2 mb-3">
+                                <p className="text-sm text-fuchsia-900">
+                                    <strong>Motivo de la auditoría adicional:</strong> {nombreMotivoAdicional(auditoria.motivo_adicional)}
+                                </p>
+                                {auditoria.detalle_adicional && (
+                                    <p className="text-sm text-fuchsia-800 mt-1 whitespace-pre-wrap">{auditoria.detalle_adicional}</p>
+                                )}
+                            </div>
+                        )}
                         {esExterna ? (
                             <p className="text-gray-600 text-sm mb-3">{auditoria.nombre_oec || 'Evaluación externa de OEC'}</p>
                         ) : (
@@ -116,6 +224,32 @@ export const AuditoriaDetallePage = () => {
                             </div>
                         )}
                     </div>
+
+                    {/* Cambio de estado — el estado ya no se edita en el formulario */}
+                    {puedeCambiarEstado && (
+                        <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
+                            {(TRANSICIONES_AUDITORIA[auditoria.estado] || []).map((hasta) => {
+                                const accion = accionTransicion(auditoria.estado, hasta);
+                                if (!accion) return null;
+                                const Icono = accion.icono;
+                                return (
+                                    <button
+                                        key={hasta}
+                                        onClick={() => abrirTransicion(hasta, accion.requiereFecha, accion.requiereMotivo)}
+                                        className={`flex items-center gap-1.5 px-4 py-2 text-white text-sm font-medium rounded-md shadow-sm transition-colors ${accion.clase}`}
+                                    >
+                                        <Icono className="w-4 h-4" /> {accion.texto}
+                                    </button>
+                                );
+                            })}
+                            {auditoria.estado === 'PLANIFICADA' && !esExterna &&
+                                (!auditoria.alcance || !auditoria.equipo_auditor?.length) && (
+                                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 max-w-[260px] text-right">
+                                        Para iniciar la ejecución requiere alcance y equipo auditor designado.
+                                    </p>
+                                )}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -412,6 +546,110 @@ export const AuditoriaDetallePage = () => {
                     </table>
                 )}
             </div>
+
+            {/* Trazabilidad del estado de la auditoría */}
+            {auditoria.historial && auditoria.historial.length > 0 && (
+                <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <History className="w-4 h-4 text-gray-500" />
+                        <h2 className="text-lg font-bold text-gray-800">Trazabilidad del estado</h2>
+                    </div>
+                    <ol className="relative border-l border-gray-200 ml-2 space-y-5">
+                        {auditoria.historial.map((h: any, i: number) => (
+                            <li key={i} className="ml-6">
+                                <span className={`absolute -left-[7px] mt-1.5 w-3.5 h-3.5 rounded-full border-2 border-white ${h.estado_nuevo === 'CERRADA' ? 'bg-emerald-500' : h.estado_nuevo === 'EN_CURSO' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <span className="text-sm font-semibold text-gray-800">
+                                        {h.estado_anterior ? `${h.estado_anterior} → ${h.estado_nuevo}` : `Inicio → ${h.estado_nuevo}`}
+                                    </span>
+                                    <span className="text-xs text-gray-500">{new Date(h.createdAt).toLocaleString()}</span>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                    {h.accion === 'CREACION' ? 'Registro de la auditoría' : h.accion === 'REAPERTURA' ? 'Reapertura' : 'Cambio de estado'}
+                                    {h.realizado_por ? ` — ${h.realizado_por.nombre} ${h.realizado_por.apellidos}` : ''}
+                                </div>
+                                {h.observaciones && <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{h.observaciones}</div>}
+                            </li>
+                        ))}
+                    </ol>
+                </div>
+            )}
+
+            {/* Modal de cambio de estado */}
+            {transicion && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+                        <div className="px-5 py-3 border-b border-gray-200 bg-gray-50">
+                            <h3 className="font-bold text-gray-800">
+                                {accionTransicion(auditoria.estado, transicion.hasta)?.texto}
+                            </h3>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                {auditoria.codigo}: {auditoria.estado} → {transicion.hasta}
+                            </p>
+                        </div>
+                        <div className="p-5 flex flex-col gap-4">
+                            <p className="text-sm text-gray-600">
+                                {accionTransicion(auditoria.estado, transicion.hasta)?.descripcion}
+                            </p>
+                            {transicion.requiereFecha && (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-gray-700">
+                                        Fecha de término de la ejecución <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={fechaFin}
+                                        min={new Date(auditoria.fecha_inicio).toISOString().slice(0, 10)}
+                                        onChange={(e) => setFechaFin(e.target.value)}
+                                        className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-blue-500"
+                                    />
+                                </div>
+                            )}
+                            {transicion.requiereMotivo && (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-gray-700">
+                                        Motivo de la reapertura <span className="text-red-500">*</span>
+                                    </label>
+                                    <textarea
+                                        value={motivo}
+                                        onChange={(e) => setMotivo(e.target.value)}
+                                        rows={3}
+                                        placeholder="Ej: se detectó un hallazgo omitido en el informe; se audita nuevamente el proceso."
+                                        className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-blue-500 resize-none"
+                                    />
+                                </div>
+                            )}
+                            {!transicion.requiereFecha && !transicion.requiereMotivo && (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-gray-700">Observaciones (opcional)</label>
+                                    <textarea
+                                        value={motivo}
+                                        onChange={(e) => setMotivo(e.target.value)}
+                                        rows={2}
+                                        className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-blue-500 resize-none"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2">
+                            <button
+                                onClick={() => setTransicion(null)}
+                                disabled={guardando}
+                                className="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmarTransicion}
+                                disabled={guardando || (transicion.requiereMotivo && !motivo.trim()) || (transicion.requiereFecha && !fechaFin)}
+                                className="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                            >
+                                {guardando ? 'Guardando...' : 'Confirmar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
