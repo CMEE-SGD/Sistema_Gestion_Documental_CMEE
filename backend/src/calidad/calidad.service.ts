@@ -14,22 +14,32 @@ import { UpdateQuejaDto } from './dto/update-queja.dto';
 
 
 /**
- * Máquina de estados de una No Conformidad.
+ * Máquina de estados de una No Conformidad (MC21 21.5.1).
  * ABIERTA  → se registra la NC (sin acciones todavía)
  * EN_CURSO → el OEC entrega/implementa el plan de acciones
- * VERIFICADA → el Jefe de Calidad verificó la eficacia (resultado EFICAZ)
- * CERRADA  → cierre formal (terminal)
+ * VERIFICADA → se verificó la eficacia de las acciones (resultado EFICAZ)
+ * CERRADA  → cierre formal
  *
- * Se permite EN_CURSO → CERRADA (cierre directo) para el flujo simplificado
- * sin verificación. Para quitar VERIFICADA a futuro basta con eliminar el
- * estado del enum y de este mapa.
+ * El cierre exige pasar por VERIFICADA: MC21 21.5.1 d dice "implantada la acción
+ * correctiva y verificada su idoneidad, el JDC procederá al cierre", por lo que
+ * EN_CURSO → CERRADA (cierre directo sin verificación) queda fuera y con él se
+ * elimina el atajo por el que una NC se cerraba sin que nadie comprobara que las
+ * acciones fueran eficaces.
+ *
+ * Desde CERRADA se admite la reapertura a EN_CURSO, pero solo con motivo
+ * obligatorio (Anexo I: "cierre de N.C. — SI/NO, vuelve a identificación"), que
+ * queda registrado en `no_conformidad_historial` con acción REAPERTURA.
  */
 const TRANSICIONES_NC: Record<EstadoNC, EstadoNC[]> = {
   ABIERTA: [EstadoNC.EN_CURSO],
-  EN_CURSO: [EstadoNC.VERIFICADA, EstadoNC.CERRADA, EstadoNC.ABIERTA],
+  EN_CURSO: [EstadoNC.VERIFICADA, EstadoNC.ABIERTA],
   VERIFICADA: [EstadoNC.CERRADA, EstadoNC.EN_CURSO],
-  CERRADA: [],
+  CERRADA: [EstadoNC.EN_CURSO],
 };
+
+/** Motivo exigido al reabrir una no conformidad cerrada. */
+const MOTIVO_REAPERTURA_NC =
+  'Debe indicar el motivo de la reapertura de la no conformidad.';
 
 /**
  * Máquina de estados de una auditoría interna.
@@ -695,10 +705,23 @@ export class CalidadService {
   }
 
   async updateNc(id: number, data: UpdateNcDto) {
-    await this.findOneNc(id);
+    const actual = await this.findOneNc(id);
     const clean = { ...(data as any) };
     // El estado solo se modifica vía el endpoint de transición (máquina de estados)
     delete clean.estado;
+    // Con la NC ya cerrada, lo que sostiene el cierre (plan de acción,
+    // verificación de eficacia y fecha de cierre) es evidencia: no se reescribe.
+    // Para cambiarlo hay que reabrir la NC indicando el motivo (MC21 Anexo I).
+    // El resto de campos descriptivos sí se pueden corregir.
+    if (actual.estado === EstadoNC.CERRADA) {
+      const intocables = ['plan_accion', 'plan_accion_archivo', 'verificacion_eficacia', 'fecha_cierre']
+        .filter((campo) => clean[campo] !== undefined);
+      if (intocables.length > 0) {
+        throw new BadRequestException(
+          `La no conformidad está CERRADA: no se puede modificar ${intocables.join(', ')}. Reábrala indicando el motivo para cambiarlo.`,
+        );
+      }
+    }
     return this.prisma.noConformidad.update({
       where: { id },
       data: {
@@ -719,6 +742,10 @@ export class CalidadService {
    * Transición de estado validada por la máquina de estados.
    * Registra el historial (estado anterior → nuevo, usuario, fecha, observaciones)
    * y administra fecha_cierre (se fija al CERRADA y se limpia al reabrir).
+   *
+   * Guardas: sin plan de acción no se inicia la ejecución; sin verificación
+   * EFICAZ no se marca VERIFICADA ni se cierra; reabrir una NC cerrada exige
+   * motivo, que queda en el historial con acción REAPERTURA.
    */
   async transicionarEstadoNc(id: number, dto: CambiarEstadoNcDto, personaId?: number | null) {
     const nc = await this.prisma.noConformidad.findUnique({ where: { id } });
@@ -742,11 +769,22 @@ export class CalidadService {
     if (estadoNuevo === EstadoNC.EN_CURSO && !nc.plan_accion) {
       throw new BadRequestException('No se puede iniciar la ejecución sin un plan de acción registrado');
     }
-    if (estadoNuevo === EstadoNC.VERIFICADA) {
+    // MC21 21.5.1 d: la eficacia debe constar como EFICAZ antes de dar la NC por
+    // cerrada, y tanto al marcarla VERIFICADA como al cerrarla.
+    if (estadoNuevo === EstadoNC.VERIFICADA || estadoNuevo === EstadoNC.CERRADA) {
       const verif: any = nc.verificacion_eficacia;
       if (!verif || verif.resultado !== 'EFICAZ') {
-        throw new BadRequestException('No se puede marcar la NC como VERIFICADA sin una verificación de eficacia con resultado EFICAZ');
+        throw new BadRequestException(
+          estadoNuevo === EstadoNC.CERRADA
+            ? 'No se puede cerrar la NC sin una verificación de eficacia con resultado EFICAZ registrada en el plan de acción'
+            : 'No se puede marcar la NC como VERIFICADA sin una verificación de eficacia con resultado EFICAZ',
+        );
       }
+    }
+
+    const reabre = estadoAnterior === EstadoNC.CERRADA;
+    if (reabre && (!dto.observaciones || !dto.observaciones.trim())) {
+      throw new BadRequestException(MOTIVO_REAPERTURA_NC);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -769,7 +807,7 @@ export class CalidadService {
           nc_id: id,
           estado_anterior: estadoAnterior,
           estado_nuevo: estadoNuevo,
-          accion: 'ESTADO',
+          accion: reabre ? 'REAPERTURA' : 'ESTADO',
           observaciones: dto.observaciones ?? null,
           realizado_por_id: personaId ?? null,
         },

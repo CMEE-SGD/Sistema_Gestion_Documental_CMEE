@@ -128,6 +128,12 @@ export const PlanAccionPage = () => {
     const handleSave = async () => {
         setLoading(true);
         try {
+            // El plan de una NC cerrada es un registro de lo cerrado: no se
+            // modifica sin reapertura (MC21 Anexo I).
+            if (estadoNc === 'CERRADA') {
+                await alert({ message: 'La no conformidad está CERRADA. Reábrala indicando el motivo si necesita modificar el plan de acción.' });
+                return;
+            }
             const fd = new FormData();
             fd.append('plan_accion', JSON.stringify({ analisisExtension, obExtension, analisisCausa, obCausa, causaRaiz, correcciones, accionesCorrectivas }));
             if (correccionFile) fd.append('plan_accion_archivo', correccionFile);
@@ -157,6 +163,11 @@ export const PlanAccionPage = () => {
         }
         setLoading(true);
         try {
+            // Una NC cerrada solo se modifica reabriéndola con motivo (MC21 Anexo I).
+            if (estadoNc === 'CERRADA') {
+                await alert({ message: 'La no conformidad está CERRADA. Debe reabrirla indicando el motivo antes de registrar una nueva verificación de eficacia.' });
+                return;
+            }
             const persona = personas.find(p => p.id === Number(verificadorId));
             const verif = {
                 aprobado_por: persona ? `${persona.nombre} ${persona.apellidos}` : '',
