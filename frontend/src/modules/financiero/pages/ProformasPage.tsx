@@ -6,6 +6,7 @@
 // eliminación).
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   FileText,
@@ -55,6 +56,11 @@ interface Proforma {
 export default function ProformasPage() {
   const [busqueda, setBusqueda] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
+  // Deep link: el N° proforma del detalle de una orden (VistaDetalleOrden)
+  // navega a esta pestaña con ?proforma=<id>; el detalle se abre al cargar.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const proformaParam = searchParams.get('proforma');
+  const [detalleId, setDetalleId] = useState<number | null>(null);
   const { alert, confirm } = useAlert();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -98,6 +104,34 @@ export default function ProformasPage() {
         p.estado.toLowerCase().includes(q),
     );
   }, [proformas, busqueda]);
+
+  // Abre el detalle de la proforma indicada en la URL (?proforma=<id>), usado
+  // como enlace desde el detalle de las órdenes de trabajo.
+  useEffect(() => {
+    if (!proformaParam) return;
+    const pid = Number(proformaParam);
+    if (
+      Number.isInteger(pid) &&
+      pid > 0 &&
+      proformas.some((p) => p.id === pid)
+    ) {
+      setDetalleId(pid);
+    }
+  }, [proformaParam, proformas]);
+
+  const cerrarDetalle = () => {
+    setDetalleId(null);
+    if (proformaParam) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('proforma');
+      setSearchParams(next, { replace: true });
+    }
+  };
+
+  const proformaDetalle =
+    detalleId !== null
+      ? proformas.find((p) => p.id === detalleId) ?? null
+      : null;
 
   const crearMutation = useMutation({
     mutationFn: async (payload: {
@@ -233,8 +267,15 @@ export default function ProformasPage() {
           <tbody>
             {filtradas.map((p) => (
               <tr key={p.id} className="border-b border-slate-200 even:bg-slate-50">
-                <td className="px-3 py-2 font-mono text-xs font-semibold">
-                  {p.numero}
+                <td className="px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setDetalleId(p.id)}
+                    title="Ver detalle de la proforma"
+                    className="font-mono text-xs font-semibold text-foreground transition-colors hover:text-primary hover:underline"
+                  >
+                    {p.numero}
+                  </button>
                 </td>
                 <td className="px-3 py-2">{p.cliente?.nombre || '—'}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
@@ -326,6 +367,13 @@ export default function ProformasPage() {
           onClose={() => setModalAbierto(false)}
           onSubmit={(payload) => crearMutation.mutate(payload)}
           guardando={crearMutation.isPending}
+        />
+      )}
+
+      {proformaDetalle && (
+        <ModalDetalleProforma
+          proforma={proformaDetalle}
+          onClose={cerrarDetalle}
         />
       )}
     </div>
@@ -514,5 +562,113 @@ function ModalNuevaProforma({
         onSuccess={handleClienteCreado}
       />
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Modal de detalle (solo lectura) de una proforma
+// ---------------------------------------------------------------------------
+function ModalDetalleProforma({
+  proforma,
+  onClose,
+}: {
+  proforma: Proforma;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 py-10">
+      <div className="w-[95vw] max-w-2xl rounded-xl border border-border bg-white shadow-lg">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h3 className="flex items-center gap-2 text-base font-semibold">
+            <FileText className="h-4 w-4" /> Detalle de proforma
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-mono text-lg font-bold text-primary">
+              {proforma.numero}
+            </span>
+            <span className="inline-block rounded border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+              {ESTADO_PROFORMA_LABEL[proforma.estado] ?? proforma.estado}
+            </span>
+          </div>
+          <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className={labelCls}>Cliente</dt>
+              <dd className="font-semibold">
+                {proforma.cliente?.nombre || '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Fecha de emisión</dt>
+              <dd className="font-semibold">{fmtFecha(proforma.fecha_emision)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Monto</dt>
+              <dd className="font-semibold">{fmtMoneda(proforma.monto)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Órdenes vinculadas</dt>
+              <dd>
+                {proforma.ordenes_trabajo.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {proforma.ordenes_trabajo.map((o) => (
+                      <span
+                        key={o.id}
+                        className="inline-block rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
+                      >
+                        OT #{o.orden_trabajo_fisica}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className={labelCls}>Observaciones</dt>
+              <dd className="whitespace-pre-wrap">
+                {proforma.observaciones || '—'}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className={labelCls}>Archivo adjunto</dt>
+              <dd>
+                {proforma.archivo ? (
+                  <a
+                    href={buildFileUrl(proforma.archivo) ?? '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                    {proforma.archivo_nombre || 'Ver archivo'}
+                  </a>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </dd>
+            </div>
+          </dl>
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-muted-foreground hover:bg-slate-50"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

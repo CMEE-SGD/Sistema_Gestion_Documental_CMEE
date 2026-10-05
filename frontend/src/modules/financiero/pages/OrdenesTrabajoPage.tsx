@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   AlertTriangle,
   ClipboardList,
@@ -230,7 +230,19 @@ export default function OrdenesTrabajoPage() {
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-sm text-foreground">
-                        {orden.n_proforma || (
+                        {orden.n_proforma ? (
+                          orden.proforma_id ? (
+                            <Link
+                              to={`/financiero/proformas?proforma=${orden.proforma_id}`}
+                              title="Ver detalle de la proforma"
+                              className="text-primary hover:underline"
+                            >
+                              {orden.n_proforma}
+                            </Link>
+                          ) : (
+                            orden.n_proforma
+                          )
+                        ) : (
                           <span className="italic text-muted-foreground/60">—</span>
                         )}
                       </td>

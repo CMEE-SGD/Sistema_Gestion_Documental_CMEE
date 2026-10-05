@@ -1,6 +1,7 @@
 // PATCH: Componente read‑only que emula la cuadrícula densa del Excel legacy.
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { X, Printer } from 'lucide-react';
 import ClienteDatosCard, {
   type ClienteDatos,
@@ -62,6 +63,7 @@ export interface OrdenTrabajoDetalle {
   id: number;
   orden_trabajo_fisica: string;
   n_proforma: string | null;
+  proforma_id: number | null;
   fecha_ingreso: string;
   observaciones: string | null;
   recibe_responsable_id: number | null;
@@ -189,9 +191,19 @@ export default function VistaDetalleOrden({ orden, onClose }: Props) {
                 <span className="block text-xs font-medium text-slate-400 uppercase tracking-wide">
                   N° Proforma
                 </span>
-                <span className="text-base font-semibold">
-                  {orden.n_proforma || '—'}
-                </span>
+                {orden.proforma_id ? (
+                  <Link
+                    to={`/administrativo/proformas?proforma=${orden.proforma_id}`}
+                    title="Ver detalle de la proforma"
+                    className="text-base font-semibold text-primary hover:underline"
+                  >
+                    {orden.n_proforma || '—'}
+                  </Link>
+                ) : (
+                  <span className="text-base font-semibold">
+                    {orden.n_proforma || '—'}
+                  </span>
+                )}
               </div>
               <div>
                 <span className="block text-xs font-medium text-slate-400 uppercase tracking-wide">
