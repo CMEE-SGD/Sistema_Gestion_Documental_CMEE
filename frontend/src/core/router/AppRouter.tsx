@@ -114,6 +114,7 @@ import EgresosPage from '../../modules/financiero/pages/EgresosPage';
 import { ResumenLayout } from '../../modules/resumen/ResumenLayout';
 import DashboardClientes from '../../modules/resumen/pages/DashboardClientes';
 import DashboardLaboratorios from '../../modules/resumen/pages/DashboardLaboratorios';
+import DashboardFinanciero from '../../modules/resumen/pages/DashboardFinanciero';
 
 // --- PÚBLICO (sin sesión) ---
 import VerificarCertificadoPage from '../../modules/publico/pages/VerificarCertificadoPage';
@@ -252,7 +253,8 @@ const AppContenido = () => {
 
         {/* --- MÓDULO RESUMEN (dashboards) --- */}
         <Route path="/resumen" element={<ResumenLayout />}>
-          <Route index element={<Navigate to="clientes" replace />} />
+          <Route index element={<Navigate to="financiero" replace />} />
+          <Route path="financiero" element={<DashboardFinanciero />} />
           <Route path="clientes" element={<DashboardClientes />} />
           <Route path="laboratorios" element={<DashboardLaboratorios />} />
         </Route>
