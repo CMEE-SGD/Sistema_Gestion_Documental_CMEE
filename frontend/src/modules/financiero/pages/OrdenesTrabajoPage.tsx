@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   AlertTriangle,
+  CheckCircle2,
   ClipboardList,
   Inbox,
   PenLine,
@@ -20,6 +21,7 @@ import {
   ESTADO_COLOR,
   ESTADO_LABEL,
 } from '../../administrativo/components/VistaDetalleOrden';
+import type { FacturaResumen } from './FacturasPage';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,6 +117,30 @@ export default function OrdenesTrabajoPage() {
     },
     retry: 1,
   });
+
+  // Facturas ya emitidas: mismo queryKey que FacturasPage para reutilizar la
+  // caché. Sirve para saber qué órdenes ya fueron facturadas.
+  const { data: facturas = [] } = useQuery<FacturaResumen[]>({
+    queryKey: ['facturas'],
+    queryFn: async () => {
+      const res = await api.get<FacturaResumen[]>('/facturacion/facturas');
+      return res.data;
+    },
+  });
+
+  // Índice orden de trabajo → factura. Si una orden originó más de una factura
+  // (re-facturación), se conserva la de mayor id (la más reciente) para abrir
+  // su detalle.
+  const facturaPorOrden = useMemo(() => {
+    const mapa = new Map<number, FacturaResumen>();
+    for (const factura of facturas) {
+      const ordenId = factura.orden_trabajo?.id;
+      if (!ordenId) continue;
+      const actual = mapa.get(ordenId);
+      if (!actual || factura.id > actual.id) mapa.set(ordenId, factura);
+    }
+    return mapa;
+  }, [facturas]);
 
   const ordenesFiltradas = useMemo(() => {
     const lista = ordenes ?? [];
@@ -215,6 +241,7 @@ export default function OrdenesTrabajoPage() {
               ) : ordenesFiltradas.length > 0 ? (
                 ordenesFiltradas.map((orden) => {
                   const facturable = esOrdenFacturable(orden);
+                  const facturaEmitida = facturaPorOrden.get(orden.id);
                   const rep = estadoRepresentativo(orden);
                   const distintos = new Set(
                     (orden.equipos ?? []).map((e) => e.estado),
@@ -287,20 +314,35 @@ export default function OrdenesTrabajoPage() {
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={!facturable}
-                          onClick={() => setOrdenAFacturar(orden)}
-                          title={
-                            facturable
-                              ? 'Registrar la factura de esta orden'
-                              : 'La factura se habilita cuando todos los equipos de la orden estén FINALIZADO'
-                          }
-                        >
-                          <Receipt className="h-4 w-4" />
-                          Facturar
-                        </Button>
+                        {facturaEmitida ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              navigate(`/financiero/facturas/${facturaEmitida.id}`)
+                            }
+                            title={`Ver el detalle de la factura ${facturaEmitida.numero}`}
+                            className="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            Facturado
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!facturable}
+                            onClick={() => setOrdenAFacturar(orden)}
+                            title={
+                              facturable
+                                ? 'Registrar la factura de esta orden'
+                                : 'La factura se habilita cuando todos los equipos de la orden estén FINALIZADO'
+                            }
+                          >
+                            <Receipt className="h-4 w-4" />
+                            Facturar
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -331,7 +373,9 @@ export default function OrdenesTrabajoPage() {
           <span>
             {ordenesFiltradas.length} de {ordenes?.length ?? 0} órdenes ·{' '}
             {ordenes?.filter(esOrdenFacturable).length ?? 0} listas para
-            facturar
+            facturar ·{' '}
+            {(ordenes ?? []).filter((o) => facturaPorOrden.has(o.id)).length}{' '}
+            facturadas
           </span>
         </div>
       )}
