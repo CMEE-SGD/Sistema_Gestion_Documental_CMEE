@@ -86,6 +86,62 @@ function esOrdenFacturable(orden: OrdenTrabajoDetalle): boolean {
   return equipos.length > 0 && equipos.every((e) => e.estado === 'FINALIZADO');
 }
 
+// ---------------------------------------------------------------------------
+// Filtros (mismo criterio de períodos que el Resumen financiero)
+// ---------------------------------------------------------------------------
+
+type FiltroFacturacion = 'todos' | 'listos' | 'facturados';
+type PeriodoOrdenes =
+  | 'todos'
+  | 'ultimos30'
+  | 'esteMes'
+  | 'mesAnterior'
+  | 'esteAnio'
+  | 'personalizado';
+
+function fechaInput(d: Date): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${dia}`;
+}
+
+/**
+ * Devuelve el rango [desde, hasta] (fechas 'YYYY-MM-DD') del período elegido.
+ * Igual criterio que el select de "Período" de los dashboards del Resumen.
+ */
+function rangoParaPeriodo(
+  periodo: PeriodoOrdenes,
+  fechaInicio: string,
+  fechaFin: string,
+): { desde?: string; hasta?: string } {
+  const hoy = new Date();
+  const anio = hoy.getFullYear();
+  const mes = hoy.getMonth();
+  switch (periodo) {
+    case 'ultimos30': {
+      const desde = new Date();
+      desde.setDate(hoy.getDate() - 29);
+      return { desde: fechaInput(desde), hasta: fechaInput(hoy) };
+    }
+    case 'esteMes':
+      return {
+        desde: `${anio}-${String(mes + 1).padStart(2, '0')}-01`,
+        hasta: fechaInput(hoy),
+      };
+    case 'mesAnterior': {
+      const primerDia = new Date(anio, mes - 1, 1);
+      const ultimoDia = new Date(anio, mes, 0);
+      return { desde: fechaInput(primerDia), hasta: fechaInput(ultimoDia) };
+    }
+    case 'esteAnio':
+      return { desde: `${anio}-01-01`, hasta: fechaInput(hoy) };
+    case 'personalizado':
+      return { desde: fechaInicio || undefined, hasta: fechaFin || undefined };
+    default:
+      return {};
+  }
+}
+
 /**
  * Vista de solo lectura de órdenes de trabajo dentro del módulo financiero.
  * La única acción disponible es "Facturar": la orden se origina y administra
@@ -96,6 +152,25 @@ export default function OrdenesTrabajoPage() {
   const [busqueda, setBusqueda] = useState('');
   const [ordenAFacturar, setOrdenAFacturar] =
     useState<OrdenTrabajoDetalle | null>(null);
+
+  // Filtros de la lista: estado de facturación + rango de fechas (como el
+  // Resumen). Por defecto no ocultan nada.
+  const [filtroFacturacion, setFiltroFacturacion] =
+    useState<FiltroFacturacion>('todos');
+  const [periodo, setPeriodo] = useState<PeriodoOrdenes>('todos');
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
+
+  const hayFiltros =
+    filtroFacturacion !== 'todos' || periodo !== 'todos' || busqueda.trim() !== '';
+
+  const limpiarFiltros = () => {
+    setFiltroFacturacion('todos');
+    setPeriodo('todos');
+    setFechaInicio('');
+    setFechaFin('');
+    setBusqueda('');
+  };
 
   // Navega a facturación con el modo elegido (xml o manual) para que la
   // página de facturas abra el modal correspondiente con la orden precargada.
@@ -145,18 +220,43 @@ export default function OrdenesTrabajoPage() {
   const ordenesFiltradas = useMemo(() => {
     const lista = ordenes ?? [];
     const termino = normalize(busqueda.trim());
-    if (!termino) return lista;
+
+    // Rango de fechas activo, aplicado sobre la fecha de ingreso de la orden.
+    const rango = periodo === 'todos' ? {} : rangoParaPeriodo(periodo, fechaInicio, fechaFin);
+
     return lista.filter((orden) => {
-      const numeroOrden = normalize(orden.orden_trabajo_fisica ?? '');
-      const cliente = normalize(orden.cliente?.nombre ?? '');
-      const proforma = normalize(orden.n_proforma ?? '');
-      return (
-        numeroOrden.includes(termino) ||
-        cliente.includes(termino) ||
-        proforma.includes(termino)
-      );
+      // 1) Estado de facturación (Todos / Listos / Facturados)
+      if (filtroFacturacion === 'listos') {
+        if (!esOrdenFacturable(orden) || facturaPorOrden.has(orden.id)) {
+          return false;
+        }
+      } else if (filtroFacturacion === 'facturados') {
+        if (!facturaPorOrden.has(orden.id)) return false;
+      }
+
+      // 2) Rango de fechas sobre fecha_ingreso (comparación 'YYYY-MM-DD').
+      if (rango.desde || rango.hasta) {
+        const fecha = orden.fecha_ingreso?.slice(0, 10);
+        if (!fecha) return false;
+        if (rango.desde && fecha < rango.desde) return false;
+        if (rango.hasta && fecha > rango.hasta) return false;
+      }
+
+      // 3) Búsqueda de texto (Nº orden, cliente, proforma)
+      if (termino) {
+        const numeroOrden = normalize(orden.orden_trabajo_fisica ?? '');
+        const cliente = normalize(orden.cliente?.nombre ?? '');
+        const proforma = normalize(orden.n_proforma ?? '');
+        return (
+          numeroOrden.includes(termino) ||
+          cliente.includes(termino) ||
+          proforma.includes(termino)
+        );
+      }
+
+      return true;
     });
-  }, [ordenes, busqueda]);
+  }, [ordenes, busqueda, filtroFacturacion, periodo, fechaInicio, fechaFin, facturaPorOrden]);
 
   return (
     <div className="space-y-4">
@@ -185,6 +285,94 @@ export default function OrdenesTrabajoPage() {
             className="h-9 w-64 rounded-md border border-input bg-background pl-9 pr-3 text-sm shadow-sm outline-none transition-colors focus:border-primary"
           />
         </div>
+      </div>
+
+      {/* Barra de filtros: estado de facturación + rango de fechas */}
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">
+            Facturación
+          </span>
+          <div className="inline-flex items-center rounded-md border border-input bg-background p-0.5">
+            {(
+              [
+                { id: 'todos', label: 'Todos' },
+                { id: 'listos', label: 'Listos para facturar' },
+                { id: 'facturados', label: 'Facturados' },
+              ] as const
+            ).map((op) => (
+              <button
+                key={op.id}
+                type="button"
+                onClick={() => setFiltroFacturacion(op.id)}
+                className={cn(
+                  'rounded px-3 py-1.5 text-sm font-medium transition-colors',
+                  filtroFacturacion === op.id
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {op.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">
+            Período
+          </span>
+          <select
+            value={periodo}
+            onChange={(e) => setPeriodo(e.target.value as PeriodoOrdenes)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition-colors focus:border-primary"
+          >
+            <option value="todos">Todo el histórico</option>
+            <option value="ultimos30">Últimos 30 días</option>
+            <option value="esteMes">Este mes</option>
+            <option value="mesAnterior">Mes anterior</option>
+            <option value="esteAnio">Este año</option>
+            <option value="personalizado">Personalizado</option>
+          </select>
+        </div>
+
+        {periodo === 'personalizado' && (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">
+                Desde
+              </span>
+              <input
+                type="date"
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
+                className="h-9 w-[150px] rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition-colors focus:border-primary"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">
+                Hasta
+              </span>
+              <input
+                type="date"
+                value={fechaFin}
+                onChange={(e) => setFechaFin(e.target.value)}
+                className="h-9 w-[150px] rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition-colors focus:border-primary"
+              />
+            </div>
+          </>
+        )}
+
+        {hayFiltros && (
+          <button
+            type="button"
+            onClick={limpiarFiltros}
+            className="inline-flex h-9 items-center gap-1.5 self-end rounded-md border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+            Limpiar filtros
+          </button>
+        )}
       </div>
 
       {/* Tabla */}
@@ -352,8 +540,10 @@ export default function OrdenesTrabajoPage() {
                   <td colSpan={7} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
                       <Inbox className="h-8 w-8" />
-                      {busqueda.trim() ? (
-                        <span>No hay órdenes que coincidan con la búsqueda.</span>
+                      {hayFiltros ? (
+                        <span>
+                          No hay órdenes que coincidan con los filtros.
+                        </span>
                       ) : (
                         <span>No hay órdenes de trabajo registradas.</span>
                       )}
@@ -371,10 +561,14 @@ export default function OrdenesTrabajoPage() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <ClipboardList className="h-4 w-4" />
           <span>
-            {ordenesFiltradas.length} de {ordenes?.length ?? 0} órdenes ·{' '}
-            {ordenes?.filter(esOrdenFacturable).length ?? 0} listas para
-            facturar ·{' '}
-            {(ordenes ?? []).filter((o) => facturaPorOrden.has(o.id)).length}{' '}
+            {ordenesFiltradas.length} de {(ordenes ?? []).length} órdenes ·{' '}
+            {
+              ordenesFiltradas.filter(
+                (o) => esOrdenFacturable(o) && !facturaPorOrden.has(o.id),
+              ).length
+            }{' '}
+            listas para facturar ·{' '}
+            {ordenesFiltradas.filter((o) => facturaPorOrden.has(o.id)).length}{' '}
             facturadas
           </span>
         </div>
