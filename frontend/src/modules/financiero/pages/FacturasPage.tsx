@@ -32,7 +32,13 @@ import {
   labelCls,
   METODO_PAGO_LABEL,
   PLAZOS_CREDITO,
+  rangoParaPeriodo,
 } from './financieroUtils';
+import {
+  BarraFiltrosFinanciero,
+  FILTROS_INICIALES,
+  type FiltrosFinanciero,
+} from '../components/BarraFiltrosFinanciero';
 
 export interface ClienteOption {
   id: number;
@@ -85,9 +91,38 @@ export interface FacturaResumen {
   dias_restantes: number;
 }
 
+// Segmentos de estado de la factura para la barra de filtros.
+const OPCIONES_ESTADO_FACTURA: { id: string; label: string }[] = [
+  { id: 'todos', label: 'Todas' },
+  { id: 'por_cobrar', label: 'Por cobrar' },
+  { id: 'cobradas', label: 'Cobradas' },
+  { id: 'anuladas', label: 'Anuladas' },
+];
+
+/** Estado de factura incluido en cada segmento (por cobrar = EMITIDA/PARCIAL). */
+function estadoFacturaEnSegmento(estado: string, segmento: string): boolean {
+  switch (segmento) {
+    case 'por_cobrar':
+      return estado === 'EMITIDA' || estado === 'PARCIAL';
+    case 'cobradas':
+      return estado === 'PAGADA';
+    case 'anuladas':
+      return estado === 'ANULADA';
+    default:
+      return true;
+  }
+}
+
 export default function FacturasPage() {
   const [busqueda, setBusqueda] = useState('');
   const [tipoModal, setTipoModal] = useState<'xml' | 'manual' | null>(null);
+  // Filtros de la lista: estado (Por cobrar/Cobradas/Anuladas) + rango de
+  // fechas. Por defecto no ocultan nada.
+  const [filtros, setFiltros] = useState<FiltrosFinanciero>(FILTROS_INICIALES);
+  const hayFiltros =
+    filtros.estado !== 'todos' ||
+    filtros.periodo !== 'todos' ||
+    busqueda.trim() !== '';
   const { alert, confirm } = useAlert();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -189,14 +224,35 @@ export default function FacturasPage() {
 
   const filtradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return facturas;
-    return facturas.filter(
-      (f) =>
-        f.numero.toLowerCase().includes(q) ||
-        (f.cliente?.nombre ?? '').toLowerCase().includes(q) ||
-        (f.estado ?? '').toLowerCase().includes(q),
-    );
-  }, [facturas, busqueda]);
+    const rango =
+      filtros.periodo === 'todos'
+        ? {}
+        : rangoParaPeriodo(filtros.periodo, filtros.fechaInicio, filtros.fechaFin);
+
+    return facturas.filter((f) => {
+      // 1) Estado (Todas / Por cobrar / Cobradas / Anuladas)
+      if (!estadoFacturaEnSegmento(f.estado, filtros.estado)) return false;
+
+      // 2) Rango de fechas sobre fecha_emision ('YYYY-MM-DD').
+      if (rango.desde || rango.hasta) {
+        const fecha = f.fecha_emision?.slice(0, 10);
+        if (!fecha) return false;
+        if (rango.desde && fecha < rango.desde) return false;
+        if (rango.hasta && fecha > rango.hasta) return false;
+      }
+
+      // 3) Búsqueda de texto
+      if (q) {
+        return (
+          f.numero.toLowerCase().includes(q) ||
+          (f.cliente?.nombre ?? '').toLowerCase().includes(q) ||
+          (f.estado ?? '').toLowerCase().includes(q)
+        );
+      }
+
+      return true;
+    });
+  }, [facturas, busqueda, filtros]);
 
   if (isLoading) {
     return (
@@ -242,6 +298,15 @@ export default function FacturasPage() {
           </button>
         </div>
       </div>
+
+      <BarraFiltrosFinanciero
+        labelEstado="Estado"
+        opcionesEstado={OPCIONES_ESTADO_FACTURA}
+        valores={filtros}
+        onChange={setFiltros}
+        busquedaActiva={busqueda.trim() !== ''}
+        onLimpiarAdicional={() => setBusqueda('')}
+      />
 
       {ordenContext !== null && (
         <div
@@ -435,13 +500,21 @@ export default function FacturasPage() {
             {filtradas.length === 0 && (
               <tr>
                 <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground">
-                  Sin facturas registradas.
+                  {hayFiltros
+                    ? 'No hay facturas que coincidan con los filtros.'
+                    : 'Sin facturas registradas.'}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {facturas.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {filtradas.length} de {facturas.length} facturas
+        </p>
+      )}
 
       {tipoModal === 'xml' && (
         <ModalImportarXml

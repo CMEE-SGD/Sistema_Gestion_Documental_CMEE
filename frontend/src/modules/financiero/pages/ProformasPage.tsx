@@ -32,7 +32,13 @@ import {
   fmtMoneda,
   inputCls,
   labelCls,
+  rangoParaPeriodo,
 } from './financieroUtils';
+import {
+  BarraFiltrosFinanciero,
+  FILTROS_INICIALES,
+  type FiltrosFinanciero,
+} from '../components/BarraFiltrosFinanciero';
 
 interface ClienteOption {
   id: number;
@@ -53,9 +59,38 @@ interface Proforma {
   ordenes_trabajo: { id: number; orden_trabajo_fisica: string }[];
 }
 
+// Segmentos de estado de la proforma para la barra de filtros.
+const OPCIONES_ESTADO_PROFORMA: { id: string; label: string }[] = [
+  { id: 'todos', label: 'Todas' },
+  { id: 'vigentes', label: 'Vigentes' },
+  { id: 'vencidas', label: 'Vencidas' },
+  { id: 'canceladas', label: 'Canceladas' },
+];
+
+/** Estado de proforma incluido en cada segmento (EMITIDA/ACEPTADA = vigente). */
+function estadoProformaEnSegmento(estado: string, segmento: string): boolean {
+  switch (segmento) {
+    case 'vigentes':
+      return estado === 'EMITIDA' || estado === 'ACEPTADA';
+    case 'vencidas':
+      return estado === 'VENCIDA';
+    case 'canceladas':
+      return estado === 'CANCELADA';
+    default:
+      return true;
+  }
+}
+
 export default function ProformasPage() {
   const [busqueda, setBusqueda] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
+  // Filtros de la lista: estado (Todas/Vigentes/Vencidas/Canceladas) + rango
+  // de fechas. Por defecto no ocultan nada.
+  const [filtros, setFiltros] = useState<FiltrosFinanciero>(FILTROS_INICIALES);
+  const hayFiltros =
+    filtros.estado !== 'todos' ||
+    filtros.periodo !== 'todos' ||
+    busqueda.trim() !== '';
   // Deep link: el N° proforma del detalle de una orden (VistaDetalleOrden)
   // navega a esta pestaña con ?proforma=<id>; el detalle se abre al cargar.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -96,14 +131,35 @@ export default function ProformasPage() {
 
   const filtradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return proformas;
-    return proformas.filter(
-      (p) =>
-        p.numero.toLowerCase().includes(q) ||
-        p.cliente?.nombre.toLowerCase().includes(q) ||
-        p.estado.toLowerCase().includes(q),
-    );
-  }, [proformas, busqueda]);
+    const rango =
+      filtros.periodo === 'todos'
+        ? {}
+        : rangoParaPeriodo(filtros.periodo, filtros.fechaInicio, filtros.fechaFin);
+
+    return proformas.filter((p) => {
+      // 1) Estado (Todas / Vigentes / Vencidas / Canceladas)
+      if (!estadoProformaEnSegmento(p.estado, filtros.estado)) return false;
+
+      // 2) Rango de fechas sobre fecha_emision ('YYYY-MM-DD').
+      if (rango.desde || rango.hasta) {
+        const fecha = p.fecha_emision?.slice(0, 10);
+        if (!fecha) return false;
+        if (rango.desde && fecha < rango.desde) return false;
+        if (rango.hasta && fecha > rango.hasta) return false;
+      }
+
+      // 3) Búsqueda de texto
+      if (q) {
+        return (
+          p.numero.toLowerCase().includes(q) ||
+          (p.cliente?.nombre ?? '').toLowerCase().includes(q) ||
+          p.estado.toLowerCase().includes(q)
+        );
+      }
+
+      return true;
+    });
+  }, [proformas, busqueda, filtros]);
 
   // Abre el detalle de la proforma indicada en la URL (?proforma=<id>), usado
   // como enlace desde el detalle de las órdenes de trabajo.
@@ -250,6 +306,15 @@ export default function ProformasPage() {
         </div>
       </div>
 
+      <BarraFiltrosFinanciero
+        labelEstado="Estado"
+        opcionesEstado={OPCIONES_ESTADO_PROFORMA}
+        valores={filtros}
+        onChange={setFiltros}
+        busquedaActiva={busqueda.trim() !== ''}
+        onLimpiarAdicional={() => setBusqueda('')}
+      />
+
       <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white">
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -370,13 +435,21 @@ export default function ProformasPage() {
             {filtradas.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
-                  Sin proformas registradas.
+                  {hayFiltros
+                    ? 'No hay proformas que coincidan con los filtros.'
+                    : 'Sin proformas registradas.'}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {proformas.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {filtradas.length} de {proformas.length} proformas
+        </p>
+      )}
 
       {modalAbierto && (
         <ModalNuevaProforma

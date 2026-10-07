@@ -22,6 +22,12 @@ import {
   ESTADO_LABEL,
 } from '../../administrativo/components/VistaDetalleOrden';
 import type { FacturaResumen } from './FacturasPage';
+import {
+  BarraFiltrosFinanciero,
+  FILTROS_INICIALES,
+  type FiltrosFinanciero,
+} from '../components/BarraFiltrosFinanciero';
+import { rangoParaPeriodo } from './financieroUtils';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -91,56 +97,12 @@ function esOrdenFacturable(orden: OrdenTrabajoDetalle): boolean {
 // ---------------------------------------------------------------------------
 
 type FiltroFacturacion = 'todos' | 'listos' | 'facturados';
-type PeriodoOrdenes =
-  | 'todos'
-  | 'ultimos30'
-  | 'esteMes'
-  | 'mesAnterior'
-  | 'esteAnio'
-  | 'personalizado';
 
-function fechaInput(d: Date): string {
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dia = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${dia}`;
-}
-
-/**
- * Devuelve el rango [desde, hasta] (fechas 'YYYY-MM-DD') del período elegido.
- * Igual criterio que el select de "Período" de los dashboards del Resumen.
- */
-function rangoParaPeriodo(
-  periodo: PeriodoOrdenes,
-  fechaInicio: string,
-  fechaFin: string,
-): { desde?: string; hasta?: string } {
-  const hoy = new Date();
-  const anio = hoy.getFullYear();
-  const mes = hoy.getMonth();
-  switch (periodo) {
-    case 'ultimos30': {
-      const desde = new Date();
-      desde.setDate(hoy.getDate() - 29);
-      return { desde: fechaInput(desde), hasta: fechaInput(hoy) };
-    }
-    case 'esteMes':
-      return {
-        desde: `${anio}-${String(mes + 1).padStart(2, '0')}-01`,
-        hasta: fechaInput(hoy),
-      };
-    case 'mesAnterior': {
-      const primerDia = new Date(anio, mes - 1, 1);
-      const ultimoDia = new Date(anio, mes, 0);
-      return { desde: fechaInput(primerDia), hasta: fechaInput(ultimoDia) };
-    }
-    case 'esteAnio':
-      return { desde: `${anio}-01-01`, hasta: fechaInput(hoy) };
-    case 'personalizado':
-      return { desde: fechaInicio || undefined, hasta: fechaFin || undefined };
-    default:
-      return {};
-  }
-}
+const OPCIONES_FACTURACION: { id: FiltroFacturacion; label: string }[] = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'listos', label: 'Listos para facturar' },
+  { id: 'facturados', label: 'Facturados' },
+];
 
 /**
  * Vista de solo lectura de órdenes de trabajo dentro del módulo financiero.
@@ -155,22 +117,13 @@ export default function OrdenesTrabajoPage() {
 
   // Filtros de la lista: estado de facturación + rango de fechas (como el
   // Resumen). Por defecto no ocultan nada.
-  const [filtroFacturacion, setFiltroFacturacion] =
-    useState<FiltroFacturacion>('todos');
-  const [periodo, setPeriodo] = useState<PeriodoOrdenes>('todos');
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
+  const [filtros, setFiltros] = useState<FiltrosFinanciero>(FILTROS_INICIALES);
 
+  const filtroFacturacion = filtros.estado as FiltroFacturacion;
   const hayFiltros =
-    filtroFacturacion !== 'todos' || periodo !== 'todos' || busqueda.trim() !== '';
-
-  const limpiarFiltros = () => {
-    setFiltroFacturacion('todos');
-    setPeriodo('todos');
-    setFechaInicio('');
-    setFechaFin('');
-    setBusqueda('');
-  };
+    filtros.estado !== 'todos' ||
+    filtros.periodo !== 'todos' ||
+    busqueda.trim() !== '';
 
   // Navega a facturación con el modo elegido (xml o manual) para que la
   // página de facturas abra el modal correspondiente con la orden precargada.
@@ -222,7 +175,10 @@ export default function OrdenesTrabajoPage() {
     const termino = normalize(busqueda.trim());
 
     // Rango de fechas activo, aplicado sobre la fecha de ingreso de la orden.
-    const rango = periodo === 'todos' ? {} : rangoParaPeriodo(periodo, fechaInicio, fechaFin);
+    const rango =
+      filtros.periodo === 'todos'
+        ? {}
+        : rangoParaPeriodo(filtros.periodo, filtros.fechaInicio, filtros.fechaFin);
 
     return lista.filter((orden) => {
       // 1) Estado de facturación (Todos / Listos / Facturados)
@@ -256,7 +212,7 @@ export default function OrdenesTrabajoPage() {
 
       return true;
     });
-  }, [ordenes, busqueda, filtroFacturacion, periodo, fechaInicio, fechaFin, facturaPorOrden]);
+  }, [ordenes, busqueda, filtros, filtroFacturacion, facturaPorOrden]);
 
   return (
     <div className="space-y-4">
@@ -288,92 +244,14 @@ export default function OrdenesTrabajoPage() {
       </div>
 
       {/* Barra de filtros: estado de facturación + rango de fechas */}
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-muted-foreground">
-            Facturación
-          </span>
-          <div className="inline-flex items-center rounded-md border border-input bg-background p-0.5">
-            {(
-              [
-                { id: 'todos', label: 'Todos' },
-                { id: 'listos', label: 'Listos para facturar' },
-                { id: 'facturados', label: 'Facturados' },
-              ] as const
-            ).map((op) => (
-              <button
-                key={op.id}
-                type="button"
-                onClick={() => setFiltroFacturacion(op.id)}
-                className={cn(
-                  'rounded px-3 py-1.5 text-sm font-medium transition-colors',
-                  filtroFacturacion === op.id
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {op.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-muted-foreground">
-            Período
-          </span>
-          <select
-            value={periodo}
-            onChange={(e) => setPeriodo(e.target.value as PeriodoOrdenes)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition-colors focus:border-primary"
-          >
-            <option value="todos">Todo el histórico</option>
-            <option value="ultimos30">Últimos 30 días</option>
-            <option value="esteMes">Este mes</option>
-            <option value="mesAnterior">Mes anterior</option>
-            <option value="esteAnio">Este año</option>
-            <option value="personalizado">Personalizado</option>
-          </select>
-        </div>
-
-        {periodo === 'personalizado' && (
-          <>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">
-                Desde
-              </span>
-              <input
-                type="date"
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                className="h-9 w-[150px] rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition-colors focus:border-primary"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">
-                Hasta
-              </span>
-              <input
-                type="date"
-                value={fechaFin}
-                onChange={(e) => setFechaFin(e.target.value)}
-                className="h-9 w-[150px] rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition-colors focus:border-primary"
-              />
-            </div>
-          </>
-        )}
-
-        {hayFiltros && (
-          <button
-            type="button"
-            onClick={limpiarFiltros}
-            className="inline-flex h-9 items-center gap-1.5 self-end rounded-md border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-            Limpiar filtros
-          </button>
-        )}
-      </div>
+      <BarraFiltrosFinanciero
+        labelEstado="Facturación"
+        opcionesEstado={OPCIONES_FACTURACION}
+        valores={filtros}
+        onChange={setFiltros}
+        busquedaActiva={busqueda.trim() !== ''}
+        onLimpiarAdicional={() => setBusqueda('')}
+      />
 
       {/* Tabla */}
       <div className="overflow-hidden rounded-lg border border-border bg-white shadow-sm">
