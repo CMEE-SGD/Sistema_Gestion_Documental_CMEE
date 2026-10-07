@@ -450,6 +450,17 @@ export class FacturacionService {
     const facturas = await this.prisma.factura.findMany({
       include: {
         cliente: CLIENTE_SELECT,
+        // Orden de trabajo que originó la factura: lo usa el listado de órdenes
+        // para alternar "Facturar" / "Facturado" y enlazar al detalle.
+        orden_trabajo: {
+          select: {
+            id: true,
+            orden_trabajo_fisica: true,
+            fecha_ingreso: true,
+            proforma_id: true,
+            n_proforma: true,
+          },
+        },
         pagos: { select: { monto: true } },
       },
       orderBy: { fecha_emision: 'desc' },
