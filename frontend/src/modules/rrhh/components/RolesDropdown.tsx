@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, User } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 interface Rol {
   id: number;
@@ -63,26 +63,21 @@ const RolesDropdown = ({ roles, seleccionados, onToggle }: RolesDropdownProps) =
       </button>
 
       {abierto && (
-        <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-300 rounded-sm shadow-lg z-20 p-3 max-h-80 overflow-y-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {roles.map((rol) => (
-              <label
-                key={rol.id}
-                className="flex items-center gap-2.5 cursor-pointer hover:bg-gray-100 p-2.5 w-full rounded border border-transparent hover:border-gray-200 transition-colors"
-              >
-                <input
-                  type="checkbox"
-                  checked={seleccionados.includes(rol.id)}
-                  onChange={() => onToggle(rol.id)}
-                  className="w-3.5 h-3.5 text-blue-600 rounded-sm cursor-pointer"
-                />
-                <div className="w-4 h-4 flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4 fill-blue-800 text-blue-800" />
-                </div>
-                <span className="font-medium text-gray-700">{rol.nombre}</span>
-              </label>
-            ))}
-          </div>
+        <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-300 rounded-sm shadow-lg z-20 py-1 max-h-72 overflow-y-auto">
+          {roles.map((rol) => (
+            <label
+              key={rol.id}
+              className="flex items-center gap-2.5 cursor-pointer hover:bg-blue-50 px-3 py-2 w-full transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={seleccionados.includes(rol.id)}
+                onChange={() => onToggle(rol.id)}
+                className="w-3.5 h-3.5 text-blue-600 rounded-sm cursor-pointer shrink-0"
+              />
+              <span className="text-gray-700">{rol.nombre}</span>
+            </label>
+          ))}
         </div>
       )}
     </div>
