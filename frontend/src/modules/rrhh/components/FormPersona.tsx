@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, FileText, Briefcase, Image as ImageIcon, Trash2, X } from 'lucide-react';
 import { Button } from '../../../shared/components/atoms/button';
 import LabelRow from './LabelRow';
+import RolesDropdown from './RolesDropdown';
 import { FormPersonaProps } from '../interfaces/FormPersonaProps';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
@@ -271,15 +272,7 @@ const FormPersona = ({
 
         <div className="border-t border-gray-300 pt-6 mb-10">
           <h3 className="font-bold text-[12px] mb-5 text-gray-900 underline uppercase tracking-wide">Roles</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {rolesLista.map((rol: any) => (
-              <label key={rol.id} className="flex items-center gap-2.5 cursor-pointer hover:bg-gray-100 p-2.5 w-full rounded border border-transparent hover:border-gray-200 transition-colors">
-                <input type="checkbox" checked={formData.roles.includes(rol.id)} onChange={() => handleRoleToggle(rol.id)} className="w-3.5 h-3.5 text-blue-600 rounded-sm cursor-pointer" />
-                <div className="w-4 h-4 flex items-center justify-center shrink-0"><User className="w-4 h-4 fill-blue-800 text-blue-800" /></div>
-                <span className="font-medium text-gray-700">{rol.nombre}</span>
-              </label>
-            ))}
-          </div>
+          <RolesDropdown roles={rolesLista} seleccionados={formData.roles} onToggle={handleRoleToggle} />
         </div>
 
         {/* 👇 SELECT DE 3 ESTADOS */}
