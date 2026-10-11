@@ -97,6 +97,23 @@ function esOrdenFacturable(orden: OrdenTrabajoDetalle): boolean {
   return equipos.length > 0 && equipos.every((e) => e.estado === 'FINALIZADO');
 }
 
+/**
+ * El RECEPTOR de la orden (quien la registró, `recibe_responsable_id`) es
+ * quien registra la entrega: sube el comprobante (foto/PDF) + monto y marca
+ * la orden como entregada. Se mantiene "Responsable Servicio al Cliente"
+ * (esRSEC) como alternativa si ese rol existe en la instalación.
+ */
+function esReceptorDeOrden(
+  orden: OrdenTrabajoDetalle,
+  personaId?: number | null,
+): boolean {
+  return (
+    personaId != null &&
+    orden.recibe_responsable_id != null &&
+    orden.recibe_responsable_id === personaId
+  );
+}
+
 interface PersonaOption {
   id: number;
   nombre: string;
@@ -1140,7 +1157,7 @@ export default function BandejaTrabajoPage() {
                         </span>
                       )}
                     </td>
-                    {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC || esAdministrador) && (
+                    {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC || esAdministrador || esReceptorDeOrden(req.orden, user?.persona_id)) && (
                       <td className="whitespace-nowrap px-6 py-4 text-center">
                         <div
                           className="flex items-center justify-center gap-2"
@@ -1367,8 +1384,10 @@ export default function BandejaTrabajoPage() {
                             </Button>
                           )}
 
-                          {/* LISTO_PARA_ENTREGA: Entregar (RSEC) */}
-                          {req.estado === 'LISTO_PARA_ENTREGA' && esRSEC && (
+                          {/* LISTO_PARA_ENTREGA: Entregar (receptor de la orden o RSEC) */}
+                          {req.estado === 'LISTO_PARA_ENTREGA' &&
+                            (esRSEC ||
+                              esReceptorDeOrden(req.orden, user?.persona_id)) && (
                             <Button
                               variant="default"
                               size="sm"

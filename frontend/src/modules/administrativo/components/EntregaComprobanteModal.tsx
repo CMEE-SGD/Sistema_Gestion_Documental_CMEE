@@ -175,8 +175,9 @@ export default function EntregaComprobanteModal({
         <form onSubmit={handleSubmit}>
           <div className="p-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Servicio al Cliente debe registrar el comprobante de pago (foto o
-              PDF) y el monto antes de entregar. Esto habilita la facturación.
+              El receptor de la orden debe registrar el comprobante de pago
+              (foto o PDF) y el monto antes de entregar. Esto habilita la
+              facturación.
             </p>
 
             {/* Decisión */}

@@ -215,8 +215,8 @@ export class RecepcionEquiposService {
   }
 
   /**
-   * Servicio al Cliente registra el comprobante (foto o PDF) y el monto de la
-   * orden en la fase "Listo para entrega". Es requisito para pasar a
+   * El receptor de la orden registra el comprobante (foto o PDF) y el monto de
+   * la orden en la fase "Listo para entrega". Es requisito para pasar a
    * FINALIZADO. Si se reemplaza el comprobante, se borra el archivo anterior
    * (mejor esfuerzo).
    */
@@ -992,18 +992,28 @@ export class RecepcionEquiposService {
         break;
 
       case EstadoRecepcion.LISTO_PARA_ENTREGA: {
-        if (!esRSEC) {
+        // La entrega la registra el RECEPTOR de la orden (quien la recibió,
+        // recibe_responsable_id) o, si existe, el Responsable Servicio al
+        // Cliente.
+        const ordenEntrega = await this.prisma.ordenTrabajo.findUnique({
+          where: { id: equipo.orden_trabajo_id },
+          select: {
+            comprobante_ruta: true,
+            monto_comprobante: true,
+            recibe_responsable_id: true,
+          },
+        });
+        const esReceptor =
+          ordenEntrega?.recibe_responsable_id != null &&
+          ordenEntrega.recibe_responsable_id === personaId;
+        if (!esRSEC && !esReceptor) {
           throw new ForbiddenException(
-            'Solo Responsable Servicio al Cliente puede finalizar la entrega',
+            'Solo el receptor de la orden puede finalizar la entrega',
           );
         }
         if (accion === 'APROBAR') {
-          // Requisito del flujo: antes de entregar, Servicio al Cliente debe
-          // haber subido el comprobante (foto o PDF) y el monto de la orden.
-          const ordenEntrega = await this.prisma.ordenTrabajo.findUnique({
-            where: { id: equipo.orden_trabajo_id },
-            select: { comprobante_ruta: true, monto_comprobante: true },
-          });
+          // Requisito del flujo: antes de entregar, el receptor debe haber
+          // subido el comprobante (foto o PDF) y el monto de la orden.
           if (
             !ordenEntrega?.comprobante_ruta ||
             ordenEntrega.monto_comprobante == null

@@ -92,7 +92,7 @@ export class RecepcionEquiposController {
     return this.recepcionService.transicionEstado(+id, dto, req.user);
   }
 
-  // Servicio al Cliente sube el comprobante (foto o PDF) y el monto de la
+  // El receptor de la orden sube el comprobante (foto o PDF) y el monto de la
   // orden en la fase "Listo para entrega". Es requisito para finalizar la
   // entrega; la factura hereda estos datos al facturar la orden.
   @Patch('orden/:id/comprobante')
