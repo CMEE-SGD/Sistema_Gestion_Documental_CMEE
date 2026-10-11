@@ -273,7 +273,7 @@ function ModalDistribucion({
               className={inputCls}
               value={nombreA}
               onChange={(e) => setNombreA(e.target.value)}
-              placeholder="Empresa A"
+              placeholder="p. ej. ESPE Innovativa"
             />
           </div>
           <div>
@@ -294,7 +294,7 @@ function ModalDistribucion({
               className={inputCls}
               value={nombreB}
               onChange={(e) => setNombreB(e.target.value)}
-              placeholder="Empresa B"
+              placeholder="p. ej. Centro (CMEE)"
             />
           </div>
           <div>

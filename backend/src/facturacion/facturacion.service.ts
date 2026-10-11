@@ -1051,11 +1051,15 @@ export class FacturacionService {
         data: {
           id: 1,
           habilitada: true,
-          empresa_a_nombre: 'Empresa A',
+          // Reparto por cada factura: 85% para el centro (CMEE) y 15% para
+          // ESPE Innovativa. Base por defecto `facturado` = total de cada
+          // factura (no incluye egresos ni pagos).
+          empresa_a_nombre: 'ESPE Innovativa',
           empresa_a_porcentaje: 15,
-          empresa_b_nombre: 'Empresa B',
+          empresa_b_nombre: 'Centro de Metrología del Ejército Ecuatoriano',
           empresa_b_porcentaje: 85,
-          base: 'neto',
+          base: 'facturado',
+          nota: 'Reparto sobre el total de cada factura: 85% al centro (CMEE) y 15% a ESPE Innovativa.',
         },
       });
     }
