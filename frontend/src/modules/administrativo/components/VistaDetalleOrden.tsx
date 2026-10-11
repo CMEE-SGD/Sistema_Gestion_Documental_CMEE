@@ -70,6 +70,12 @@ export interface OrdenTrabajoDetalle {
   cliente_id: number;
   cliente: ClienteResumen;
   equipos: EquipoResumen[];
+  // Comprobante de pago/entrega subido por Servicio al Cliente en "Listo para
+  // entrega" (la factura hereda estos datos).
+  comprobante_ruta?: string | null;
+  comprobante_nombre?: string | null;
+  monto_comprobante?: number | string | null;
+  comprobante_subido_at?: string | null;
   createdAt: string;
   updatedAt: string;
 }

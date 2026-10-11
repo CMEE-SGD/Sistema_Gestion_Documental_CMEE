@@ -40,6 +40,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import { Button } from '../../../shared/components/atoms/button';
 import SubirCertificadoModal from '../components/SubirCertificadoModal';
 import ValidacionCertificadoModal from '../components/ValidacionCertificadoModal';
+import EntregaComprobanteModal from '../components/EntregaComprobanteModal';
 import FirmarDigitalModal from '../components/FirmarDigitalModal';
 import CambiarFaseModal from '../components/CambiarFaseModal';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
@@ -755,6 +756,17 @@ export default function BandejaTrabajoPage() {
   const [isValidacionModalOpen, setIsValidacionModalOpen] = useState(false);
   const [selectedValidacionRecepcion, setSelectedValidacionRecepcion] =
     useState<{ id: number; estado: string; titulo: string } | null>(null);
+  const [isEntregaModalOpen, setIsEntregaModalOpen] = useState(false);
+  const [selectedEntrega, setSelectedEntrega] = useState<{
+    recepcionId: number;
+    ordenId: number;
+    ordenFisica?: string;
+    comprobanteActual?: {
+      ruta?: string | null;
+      nombre?: string | null;
+      monto?: number | string | null;
+    } | null;
+  } | null>(null);
   const [isFirmaModalOpen, setIsFirmaModalOpen] = useState(false);
   const [selectedFirma, setSelectedFirma] = useState<{
     recepcionId: number;
@@ -1361,14 +1373,19 @@ export default function BandejaTrabajoPage() {
                               variant="default"
                               size="sm"
                               onClick={() => {
-                                setSelectedValidacionRecepcion({
-                                  id: req.id,
-                                  estado: req.estado,
-                                  titulo: 'Marcar como Entregado',
+                                setSelectedEntrega({
+                                  recepcionId: req.id,
+                                  ordenId: req.orden.id,
+                                  ordenFisica: req.orden.orden_trabajo_fisica,
+                                  comprobanteActual: {
+                                    ruta: req.orden.comprobante_ruta ?? null,
+                                    nombre: req.orden.comprobante_nombre ?? null,
+                                    monto: req.orden.monto_comprobante ?? null,
+                                  },
                                 });
-                                setIsValidacionModalOpen(true);
+                                setIsEntregaModalOpen(true);
                               }}
-                              title="Marcar como entregado"
+                              title="Registrar comprobante y marcar como entregado"
                               className="bg-teal-600 hover:bg-teal-700 text-white"
                             >
                               <Handshake className="h-4 w-4" />
@@ -1481,6 +1498,21 @@ export default function BandejaTrabajoPage() {
         recepcionId={selectedValidacionRecepcion?.id ?? null}
         estadoActual={selectedValidacionRecepcion?.estado ?? ''}
         tituloAccion={selectedValidacionRecepcion?.titulo ?? ''}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+        }}
+      />
+
+      <EntregaComprobanteModal
+        isOpen={isEntregaModalOpen}
+        onClose={() => {
+          setIsEntregaModalOpen(false);
+          setSelectedEntrega(null);
+        }}
+        recepcionId={selectedEntrega?.recepcionId ?? null}
+        ordenId={selectedEntrega?.ordenId ?? null}
+        ordenFisica={selectedEntrega?.ordenFisica}
+        comprobanteActual={selectedEntrega?.comprobanteActual}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
         }}

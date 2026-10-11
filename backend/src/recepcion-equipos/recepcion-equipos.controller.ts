@@ -8,8 +8,13 @@ import {
   Query,
   Delete,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  ParseIntPipe,
   Req,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { EstadoRecepcion } from '@prisma/client';
 import { RecepcionEquiposService } from './recepcion-equipos.service';
 import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
@@ -85,6 +90,26 @@ export class RecepcionEquiposController {
     @Req() req: any,
   ) {
     return this.recepcionService.transicionEstado(+id, dto, req.user);
+  }
+
+  // Servicio al Cliente sube el comprobante (foto o PDF) y el monto de la
+  // orden en la fase "Listo para entrega". Es requisito para finalizar la
+  // entrega; la factura hereda estos datos al facturar la orden.
+  @Patch('orden/:id/comprobante')
+  @RequireAccess('Recepcion Equipos', 4)
+  @UseInterceptors(
+    FileInterceptor('comprobante', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  subirComprobante(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('monto') monto: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: any,
+  ) {
+    return this.recepcionService.subirComprobanteOrden(id, file, monto, req.user);
   }
 
   // Cambio manual de fase reservado a administración (nivel 5, el más alto —

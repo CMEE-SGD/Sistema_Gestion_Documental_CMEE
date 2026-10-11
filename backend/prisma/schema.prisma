@@ -167,6 +167,7 @@ model Persona {
   fases_participadas       FaseParticipante[]
   equipos_tecnicos         EquipoRecepcion[]    @relation("TecnicoRecepcion")
   ordenes_recibidas        OrdenTrabajo[]       @relation("PersonaRecibeOrden")
+  comprobantes_ordenes     OrdenTrabajo[]       @relation("PersonaComprobanteOrden")
   certificados_subidos     Certificado[]        @relation("TecnicoCertificado")
   historial_estados        HistorialEstado[]    @relation("HistorialEstadoPersona")
     firmas_digitales         FirmaDigital[]       @relation("FirmanteDigital")
@@ -894,6 +895,19 @@ model OrdenTrabajo {
   // FINALIZADO (la factura se habilita al completarse la orden).
   facturas Factura[] @relation("FacturaOrdenTrabajo")
 
+  // Comprobante de pago/entrega (foto o PDF) y monto subidos por Servicio al
+  // Cliente en la fase "Listo para entrega". La factura hereda estos datos.
+  comprobante_ruta          String?   @db.VarChar(500)
+  comprobante_nombre        String?   @db.VarChar(255)
+  monto_comprobante         Decimal?  @db.Decimal(12, 2)
+  comprobante_subido_por_id Int?
+  comprobante_subido_por    Persona?  @relation("PersonaComprobanteOrden", fields: [comprobante_subido_por_id], references: [id])
+  comprobante_subido_at     DateTime? @db.Timestamptz
+
+  // true cuando ya se notificó a financiero que la orden quedó lista para
+  // facturar (todos los equipos en FINALIZADO).
+  notificado_facturacion Boolean @default(false)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -1548,6 +1562,13 @@ model Factura {
   // orden → factura en el módulo financiero.
   orden_trabajo_id Int?
   orden_trabajo    OrdenTrabajo? @relation("FacturaOrdenTrabajo", fields: [orden_trabajo_id], references: [id])
+
+  // Comprobante de pago/entrega (foto o PDF) y monto que registró Servicio al
+  // Cliente al entregar la orden. Snapshot al momento de facturar: permite
+  // ver el comprobante desde la factura sin depender de la orden.
+  comprobante_ruta   String?  @db.VarChar(500)
+  comprobante_nombre String?  @db.VarChar(255)
+  monto_comprobante  Decimal? @db.Decimal(12, 2)
 
   // Datos del receptor tal como vienen en el XML (el RUC del comprador puede
   // diferir del registro interno del cliente).

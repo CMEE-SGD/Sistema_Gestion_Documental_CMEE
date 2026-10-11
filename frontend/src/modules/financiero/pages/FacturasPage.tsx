@@ -63,6 +63,11 @@ export interface FacturaResumen {
     id: number;
     orden_trabajo_fisica: string;
   } | null;
+  // Comprobante de entrega (foto/PDF) y monto que registró Servicio al
+  // Cliente en la orden; la factura lo hereda al crearse.
+  comprobante_ruta?: string | null;
+  comprobante_nombre?: string | null;
+  monto_comprobante?: number | null;
   razon_social_cliente: string | null;
   ruc_cliente: string | null;
   fecha_emision: string;
@@ -148,6 +153,9 @@ export default function FacturasPage() {
       return res.data as {
         id: number;
         orden_trabajo_fisica: string;
+        comprobante_ruta?: string | null;
+        comprobante_nombre?: string | null;
+        monto_comprobante?: number | string | null;
         cliente?: { id: number; nombre: string };
         equipos?: Array<{
           id: number;
@@ -537,6 +545,13 @@ export default function FacturasPage() {
           ordenId={ordenContext ?? undefined}
           ordenFisica={ordenContextoData?.orden_trabajo_fisica}
           equiposIniciales={ordenContextoData?.equipos}
+          montoComprobante={
+            ordenContextoData?.monto_comprobante != null
+              ? Number(ordenContextoData.monto_comprobante)
+              : null
+          }
+          comprobanteRuta={ordenContextoData?.comprobante_ruta}
+          comprobanteNombre={ordenContextoData?.comprobante_nombre}
           onClose={() => setTipoModal(null)}
           onCreada={() => {
             setTipoModal(null);
@@ -706,6 +721,9 @@ function ModalFacturaManual({
   ordenId,
   ordenFisica,
   equiposIniciales,
+  montoComprobante,
+  comprobanteRuta,
+  comprobanteNombre,
   onClose,
   onCreada,
 }: {
@@ -714,9 +732,17 @@ function ModalFacturaManual({
   ordenId?: number;
   ordenFisica?: string;
   equiposIniciales?: Array<{ id: number; equipo_descripcion: string }>;
+  /** Monto registrado en el comprobante de entrega (Servicio al Cliente). */
+  montoComprobante?: number | null;
+  comprobanteRuta?: string | null;
+  comprobanteNombre?: string | null;
   onClose: () => void;
   onCreada: () => void;
 }) {
+  const montoBase =
+    montoComprobante != null && Number(montoComprobante) > 0
+      ? Number(montoComprobante)
+      : null;
   const [numero, setNumero] = useState('');
   const [clienteId, setClienteId] = useState<number | ''>(clienteInicial ?? '');
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
@@ -732,6 +758,9 @@ function ModalFacturaManual({
         cantidad: 1,
         precio: 0,
       }));
+    }
+    if (montoBase != null) {
+      return [{ concepto: 'Servicios de calibración', cantidad: 1, precio: montoBase }];
     }
     return [{ concepto: '', cantidad: 1, precio: 0 }];
   });
@@ -816,6 +845,49 @@ function ModalFacturaManual({
               ? ' El detalle se precargó con los equipos de la orden (ajuste precios si corresponde).'
               : ''}
           </p>
+        )}
+        {montoBase != null && (
+          <div className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-medium">
+                  Comprobante de entrega registrado por Servicio al Cliente
+                </p>
+                <p className="text-sky-800">
+                  Monto: <span className="font-semibold">{fmtMoneda(montoBase)}</span>
+                  {comprobanteRuta && (
+                    <>
+                      {' · '}
+                      <a
+                        href={comprobanteRuta}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 underline hover:text-sky-700"
+                      >
+                        Ver comprobante
+                        {comprobanteNombre ? ` (${comprobanteNombre})` : ''}
+                      </a>
+                    </>
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setFilas([
+                    {
+                      concepto: 'Servicios de calibración',
+                      cantidad: 1,
+                      precio: montoBase,
+                    },
+                  ])
+                }
+                className="shrink-0 rounded-md border border-sky-400 bg-white px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100"
+              >
+                Usar monto como total
+              </button>
+            </div>
+          </div>
         )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>

@@ -77,6 +77,10 @@ const NotificationBell = () => {
       navigate('/administrativo/recepciones');
     } else if (n.tipo === 'compensacion_autorizacion' && n.referencia_id) {
       navigate(`/financiero/facturas/${n.referencia_id}`);
+    } else if (n.tipo === 'orden_lista_facturar' && n.referencia_id) {
+      // Orden completa (todos sus equipos entregados): abrir el alta de la
+      // factura con el contexto de la orden precargado.
+      navigate(`/financiero/facturas?orden_id=${n.referencia_id}`);
     }
     setOpen(false);
   };

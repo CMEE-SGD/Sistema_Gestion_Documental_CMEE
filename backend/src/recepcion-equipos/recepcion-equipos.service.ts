@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as fs from 'fs';
+import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
@@ -176,10 +177,196 @@ function resolveEquipoWhere(
 
 @Injectable()
 export class RecepcionEquiposService {
+  private readonly uploadsRoot = path.resolve(
+    __dirname,
+    '..',
+    '..',
+    'uploads',
+  );
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificacionesService: NotificacionesService,
   ) {}
+
+  /** Guarda el comprobante de entrega en uploads/entrega/comprobantes/. */
+  private guardarComprobante(file: Express.Multer.File, ordenFisica: string) {
+    const permitidos = new Set([
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+    ]);
+    if (!permitidos.has(file.mimetype)) {
+      throw new BadRequestException(
+        'El comprobante debe ser un PDF o una imagen (PNG/JPEG/WebP).',
+      );
+    }
+    const dir = path.join(this.uploadsRoot, 'entrega', 'comprobantes');
+    fs.mkdirSync(dir, { recursive: true });
+    const ext = path.extname(file.originalname || '.bin');
+    const seguro = ordenFisica.replace(/[^a-zA-Z0-9-_]/g, '');
+    const nombre = `COMP-${seguro}-${Date.now()}${ext}`;
+    fs.writeFileSync(path.join(dir, nombre), file.buffer);
+    return {
+      ruta: `/uploads/entrega/comprobantes/${nombre}`,
+      original: file.originalname,
+    };
+  }
+
+  /**
+   * Servicio al Cliente registra el comprobante (foto o PDF) y el monto de la
+   * orden en la fase "Listo para entrega". Es requisito para pasar a
+   * FINALIZADO. Si se reemplaza el comprobante, se borra el archivo anterior
+   * (mejor esfuerzo).
+   */
+  async subirComprobanteOrden(
+    ordenId: number,
+    file: Express.Multer.File | undefined,
+    montoRaw: unknown,
+    user: any,
+  ) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id: ordenId },
+      select: {
+        id: true,
+        orden_trabajo_fisica: true,
+        comprobante_ruta: true,
+      },
+    });
+    if (!orden) {
+      throw new NotFoundException(`Orden de trabajo ${ordenId} no encontrada`);
+    }
+
+    if (!file && !orden.comprobante_ruta) {
+      throw new BadRequestException(
+        'Adjunte la foto o PDF del comprobante de pago.',
+      );
+    }
+
+    const monto = Number(montoRaw);
+    if (!Number.isFinite(monto) || monto <= 0) {
+      throw new BadRequestException('Ingrese un monto válido (mayor a 0).');
+    }
+
+    let ruta = orden.comprobante_ruta;
+    let nombreOriginal: string | null | undefined;
+    if (file) {
+      const guardado = this.guardarComprobante(file, orden.orden_trabajo_fisica);
+      ruta = guardado.ruta;
+      nombreOriginal = guardado.original;
+    }
+
+    const actualizada = await this.prisma.ordenTrabajo.update({
+      where: { id: ordenId },
+      data: {
+        comprobante_ruta: ruta,
+        ...(file ? { comprobante_nombre: nombreOriginal } : {}),
+        monto_comprobante: monto,
+        comprobante_subido_por_id: user?.persona_id ?? null,
+        comprobante_subido_at: new Date(),
+      },
+      select: {
+        id: true,
+        comprobante_ruta: true,
+        comprobante_nombre: true,
+        monto_comprobante: true,
+        comprobante_subido_at: true,
+      },
+    });
+
+    if (file && orden.comprobante_ruta && orden.comprobante_ruta !== ruta) {
+      try {
+        const abs = path.join(
+          this.uploadsRoot,
+          orden.comprobante_ruta.replace(/^\/uploads\//, ''),
+        );
+        fs.rmSync(abs, { force: true });
+      } catch {
+        /* mejor esfuerzo */
+      }
+    }
+
+    return actualizada;
+  }
+
+  /** Personas con acceso a la aplicación 'Gestion Financiera' (nivel ≥ 1). */
+  private async personasFinanciero(): Promise<number[]> {
+    const usuarios = await this.prisma.usuario.findMany({
+      where: {
+        estado_cuenta: true,
+        bloqueado: false,
+        grupos: {
+          some: {
+            aplicaciones: {
+              some: {
+                nivel: { gte: 1 },
+                aplicacion: { nombre: 'Gestion Financiera' },
+              },
+            },
+          },
+        },
+      },
+      select: { persona_id: true },
+    });
+    return [...new Set(usuarios.map((u) => u.persona_id))];
+  }
+
+  /**
+   * Notifica una sola vez a Financiero que la orden quedó completa (todos sus
+   * equipos FINALIZADO) y lista para facturar. Nunca lanza: un fallo al
+   * notificar no debe revertir la transición de estado.
+   */
+  private async notificarOrdenListaFacturar(ordenId: number) {
+    try {
+      const orden = await this.prisma.ordenTrabajo.findUnique({
+        where: { id: ordenId },
+        select: {
+          id: true,
+          orden_trabajo_fisica: true,
+          notificado_facturacion: true,
+          monto_comprobante: true,
+          cliente: { select: { nombre: true } },
+          equipos: { select: { estado: true } },
+        },
+      });
+      if (!orden || orden.notificado_facturacion) return;
+
+      const completa =
+        orden.equipos.length > 0 &&
+        orden.equipos.every(
+          (e) => e.estado === EstadoRecepcion.FINALIZADO,
+        );
+      if (!completa) return;
+
+      await this.prisma.ordenTrabajo.update({
+        where: { id: ordenId },
+        data: { notificado_facturacion: true },
+      });
+
+      const monto = Number(orden.monto_comprobante ?? 0);
+      const mensaje = `La orden #${orden.orden_trabajo_fisica} de ${
+        orden.cliente?.nombre ?? 'su cliente'
+      } está lista para facturar: todos sus equipos fueron entregados. Comprobante y monto${
+        monto > 0 ? ` (USD ${monto.toFixed(2)})` : ''
+      } registrados.`;
+
+      for (const personaId of await this.personasFinanciero()) {
+        await this.notificacionesService.crear(
+          'orden_lista_facturar',
+          mensaje,
+          personaId,
+          orden.id,
+        );
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(
+        '[notificaciones] No se pudo notificar a financiero:',
+        error,
+      );
+    }
+  }
 
   async create(dto: CreateOrdenTrabajoDto) {
     const existe = await this.prisma.ordenTrabajo.findUnique({
@@ -804,18 +991,33 @@ export class RecepcionEquiposService {
         estadoNuevo = EstadoRecepcion.REVISION_JEFE;
         break;
 
-      case EstadoRecepcion.LISTO_PARA_ENTREGA:
+      case EstadoRecepcion.LISTO_PARA_ENTREGA: {
         if (!esRSEC) {
           throw new ForbiddenException(
             'Solo Responsable Servicio al Cliente puede finalizar la entrega',
           );
         }
         if (accion === 'APROBAR') {
+          // Requisito del flujo: antes de entregar, Servicio al Cliente debe
+          // haber subido el comprobante (foto o PDF) y el monto de la orden.
+          const ordenEntrega = await this.prisma.ordenTrabajo.findUnique({
+            where: { id: equipo.orden_trabajo_id },
+            select: { comprobante_ruta: true, monto_comprobante: true },
+          });
+          if (
+            !ordenEntrega?.comprobante_ruta ||
+            ordenEntrega.monto_comprobante == null
+          ) {
+            throw new BadRequestException(
+              'Antes de entregar debe subir el comprobante (foto o PDF) y el monto de la orden.',
+            );
+          }
           estadoNuevo = EstadoRecepcion.FINALIZADO;
         } else {
           estadoNuevo = EstadoRecepcion.REVISION_DIRECTOR;
         }
         break;
+      }
 
       default:
         throw new BadRequestException(
@@ -896,6 +1098,13 @@ export class RecepcionEquiposService {
         },
       );
     }
+
+    // Orden completa tras esta entrega → se avisa a Financiero para facturar
+    // (una sola vez por orden).
+    if (equipoActualizado && estadoNuevo === EstadoRecepcion.FINALIZADO) {
+      await this.notificarOrdenListaFacturar(equipo.orden_trabajo_id);
+    }
+
     this.notificacionesService.notificarRecepcionActualizada();
 
     return equipoActualizado;

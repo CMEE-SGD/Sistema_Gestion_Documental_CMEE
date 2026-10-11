@@ -393,6 +393,10 @@ export class FacturacionService {
         id: true,
         orden_trabajo_fisica: true,
         n_proforma: true,
+        comprobante_ruta: true,
+        comprobante_nombre: true,
+        monto_comprobante: true,
+        comprobante_subido_at: true,
         cliente: { select: { id: true, nombre: true } },
         equipos: {
           select: { id: true, equipo_descripcion: true, estado: true },
@@ -485,9 +489,11 @@ export class FacturacionService {
 
     // Si la factura nace de una orden, ésta debe tener TODOS sus equipos FINALIZADO.
     let ordenId: number | undefined;
+    let ordenFacturable: any = null;
     if (dto.orden_trabajo_id !== undefined) {
       const orden = await this.validarOrdenFacturable(dto.orden_trabajo_id);
       ordenId = orden.id;
+      ordenFacturable = orden;
     }
 
     const detalle = (dto.detalle ?? []).map((d) => ({
@@ -501,7 +507,12 @@ export class FacturacionService {
 
     const subtotal = dto.subtotal ?? detalle.reduce((s, d) => s + d.valor_total, 0);
     const iva = dto.iva ?? 0;
-    const total = dto.total ?? subtotal + iva;
+    // Si no se indica total, se precarga con el monto del comprobante que subió
+    // Servicio al Cliente (o, en su defecto, subtotal + IVA).
+    const montoComprobante = this.n(ordenFacturable?.monto_comprobante);
+    const total =
+      dto.total ??
+      (montoComprobante > 0 ? montoComprobante : subtotal + iva);
     const fechaEmision = this.toDate(dto.fecha_emision) ?? new Date();
     const plazo = dto.plazo_dias ?? 30;
     const vencimiento = new Date(fechaEmision);
@@ -516,6 +527,10 @@ export class FacturacionService {
             clave_acceso: dto.clave_acceso || null,
             cliente_id: dto.cliente_id,
             orden_trabajo_id: ordenId ?? null,
+            // Comprobante de entrega (hereda de la orden) → queda vinculado.
+            comprobante_ruta: ordenFacturable?.comprobante_ruta ?? null,
+            comprobante_nombre: ordenFacturable?.comprobante_nombre ?? null,
+            monto_comprobante: ordenFacturable?.monto_comprobante ?? null,
             fecha_emision: fechaEmision,
             subtotal,
             iva,
@@ -558,9 +573,11 @@ export class FacturacionService {
 
     // Si la factura nace de una orden, ésta debe tener TODOS sus equipos FINALIZADO.
     let ordenId: number | undefined;
+    let ordenFacturable: any = null;
     if (dto.orden_trabajo_id !== undefined) {
       const orden = await this.validarOrdenFacturable(dto.orden_trabajo_id);
       ordenId = orden.id;
+      ordenFacturable = orden;
     }
 
     const existente = await this.prisma.factura.findUnique({
@@ -604,6 +621,10 @@ export class FacturacionService {
             : undefined,
         cliente_id: dto.cliente_id,
         orden_trabajo_id: ordenId ?? null,
+        // Comprobante de entrega (hereda de la orden) → queda vinculado.
+        comprobante_ruta: ordenFacturable?.comprobante_ruta ?? null,
+        comprobante_nombre: ordenFacturable?.comprobante_nombre ?? null,
+        monto_comprobante: ordenFacturable?.monto_comprobante ?? null,
         razon_social_cliente: datos.razon_social_cliente,
         ruc_cliente: datos.ruc_cliente,
         fecha_emision: fechaEmision,

@@ -289,6 +289,20 @@ export default function DetalleFacturaPage() {
             <FileDown className="h-3.5 w-3.5" /> Ver XML
           </a>
         )}
+        {factura.comprobante_ruta && (
+          <a
+            href={buildFileUrl(factura.comprobante_ruta) ?? ''}
+            target="_blank"
+            rel="noreferrer"
+            title="Comprobante de pago/entrega registrado por Servicio al Cliente"
+            className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-sm font-medium text-sky-800 hover:bg-sky-100"
+          >
+            <FileDown className="h-3.5 w-3.5" /> Ver comprobante de entrega
+            {factura.monto_comprobante != null
+              ? ` (${fmtMoneda(factura.monto_comprobante)})`
+              : ''}
+          </a>
+        )}
       </div>
 
       {/* ============ DOCUMENTO: FACTURA FÍSICA ============ */}
