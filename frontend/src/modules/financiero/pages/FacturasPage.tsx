@@ -120,7 +120,9 @@ function estadoFacturaEnSegmento(estado: string, segmento: string): boolean {
 
 export default function FacturasPage() {
   const [busqueda, setBusqueda] = useState('');
-  const [tipoModal, setTipoModal] = useState<'xml' | 'manual' | null>(null);
+  const [tipoModal, setTipoModal] = useState<
+    'xml' | 'manual' | 'elegir' | null
+  >(null);
   // Filtros de la lista: estado (Por cobrar/Cobradas/Anuladas) + rango de
   // fechas. Por defecto no ocultan nada.
   const [filtros, setFiltros] = useState<FiltrosFinanciero>(FILTROS_INICIALES);
@@ -179,21 +181,28 @@ export default function FacturasPage() {
     return equipos.length > 0 && equipos.every((e) => e.estado === 'FINALIZADO');
   }, [ordenContextoData]);
 
-  // Al llegar desde "Facturar" en los listados, abrir el modal según el modo
-  // elegido (tipo=xml → importar XML; tipo=manual o ausente → alta manual)
-  // con el contexto de la orden precargado. Solo si la orden habilita la
-  // factura.
+  // Al llegar con el contexto de una orden (p. ej. desde la notificación
+  // "lista para facturar", o el botón "Facturar" de la bandeja):
+  // - tipo=xml|manual → abre directo ese modal (elección ya hecha).
+  // - sin tipo → muestra el modal de elección "manual o extraer XML".
+  // Solo si la orden habilita la factura (todos sus equipos FINALIZADO).
   const tipoContexto = searchParams.get('tipo');
-  const contextoAutoAbierto = useRef(false);
+  const contextoAutoAbierto = useRef<number | null>(null);
   useEffect(() => {
     if (
       ordenContext !== null &&
       ordenContextoData &&
       contextoOrdenFacturable &&
-      !contextoAutoAbierto.current
+      contextoAutoAbierto.current !== ordenContext
     ) {
-      contextoAutoAbierto.current = true;
-      setTipoModal(tipoContexto === 'xml' ? 'xml' : 'manual');
+      contextoAutoAbierto.current = ordenContext;
+      setTipoModal(
+        tipoContexto === 'xml'
+          ? 'xml'
+          : tipoContexto === 'manual'
+            ? 'manual'
+            : 'elegir',
+      );
     }
   }, [ordenContext, ordenContextoData, contextoOrdenFacturable, tipoContexto]);
 
@@ -524,6 +533,20 @@ export default function FacturasPage() {
         </p>
       )}
 
+      {tipoModal === 'elegir' && (
+        <ModalElegirModoFactura
+          ordenFisica={ordenContextoData?.orden_trabajo_fisica}
+          clienteNombre={ordenContextoData?.cliente?.nombre}
+          montoComprobante={
+            ordenContextoData?.monto_comprobante != null
+              ? Number(ordenContextoData.monto_comprobante)
+              : null
+          }
+          comprobanteRuta={ordenContextoData?.comprobante_ruta}
+          onElegir={(modo) => setTipoModal(modo)}
+          onClose={() => setTipoModal(null)}
+        />
+      )}
       {tipoModal === 'xml' && (
         <ModalImportarXml
           clientes={clientes}
@@ -561,6 +584,111 @@ export default function FacturasPage() {
         />
       )}
     </div>
+  );
+}
+
+// ===========================================================================
+// Elección de modo al llegar con el contexto de una orden
+// (p. ej. desde la notificación "lista para facturar"): registrar manual o
+// extraer los datos del XML de la factura electrónica.
+// ===========================================================================
+
+function ModalElegirModoFactura({
+  ordenFisica,
+  clienteNombre,
+  montoComprobante,
+  comprobanteRuta,
+  onElegir,
+  onClose,
+}: {
+  ordenFisica?: string;
+  clienteNombre?: string;
+  montoComprobante?: number | null;
+  comprobanteRuta?: string | null;
+  onElegir: (modo: 'manual' | 'xml') => void;
+  onClose: () => void;
+}) {
+  const monto =
+    montoComprobante != null && Number(montoComprobante) > 0
+      ? Number(montoComprobante)
+      : null;
+
+  return (
+    <ModalShell titulo="Facturar la orden" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          La Orden #{ordenFisica ?? '—'}
+          {clienteNombre ? ` de ${clienteNombre}` : ''} está lista para
+          facturar. ¿Cómo desea registrar la factura?
+        </p>
+
+        {monto != null && (
+          <p className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            Comprobante de entrega registrado — monto{' '}
+            <span className="font-semibold">{fmtMoneda(monto)}</span>
+            {comprobanteRuta && (
+              <>
+                {' · '}
+                <a
+                  href={comprobanteRuta}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-sky-700"
+                >
+                  Ver comprobante
+                </a>
+              </>
+            )}
+          </p>
+        )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onElegir('manual')}
+            className="flex flex-col items-start gap-2 rounded-xl border-2 border-slate-200 bg-white p-4 text-left transition-colors hover:border-primary hover:bg-primary/5"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Plus className="h-5 w-5" />
+            </span>
+            <span className="font-semibold text-foreground">
+              Registrar manual
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Registre la factura a mano. El detalle se precarga con los equipos
+              de la orden y el monto del comprobante.
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onElegir('xml')}
+            className="flex flex-col items-start gap-2 rounded-xl border-2 border-slate-200 bg-white p-4 text-left transition-colors hover:border-sky-500 hover:bg-sky-50"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+              <UploadCloud className="h-5 w-5" />
+            </span>
+            <span className="font-semibold text-foreground">
+              Extraer desde XML
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Suba el XML de la factura electrónica y el sistema absorbe número,
+              cliente, subtotal, IVA, total y retención.
+            </span>
+          </button>
+        </div>
+
+        <div className="flex justify-end pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-muted-foreground hover:bg-slate-50"
+          >
+            Ahora no
+          </button>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 
