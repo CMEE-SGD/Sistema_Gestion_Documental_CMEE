@@ -289,17 +289,17 @@ export default function DetalleFacturaPage() {
             <FileDown className="h-3.5 w-3.5" /> Ver XML
           </a>
         )}
-        {factura.comprobante_ruta && (
+        {false && (factura as any)?.comprobante_ruta && (
           <a
-            href={buildFileUrl(factura.comprobante_ruta) ?? ''}
+            href={buildFileUrl((factura as any).comprobante_ruta) ?? ''}
             target="_blank"
             rel="noreferrer"
             title="Registro de pago registrado"
             className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-sm font-medium text-sky-800 hover:bg-sky-100"
           >
             <FileDown className="h-3.5 w-3.5" /> Ver comprobante de pago
-            {factura.monto_comprobante != null
-              ? ` (${fmtMoneda(factura.monto_comprobante)})`
+            {(factura as any)?.monto_comprobante != null
+              ? ` (${fmtMoneda((factura as any).monto_comprobante)})`
               : ''}
           </a>
         )}
@@ -533,9 +533,33 @@ export default function DetalleFacturaPage() {
                     )}
                   </li>
                 ))}
-                {factura.pagos.length === 0 && (
+                {factura.pagos.length === 0 && !(factura as any).comprobante_ruta && !(factura as any).monto_comprobante && (
                   <li className="rounded-md border border-dashed border-slate-300 px-3 py-3 text-center text-xs text-muted-foreground">
                     Sin pagos registrados todavía.
+                  </li>
+                )}
+                {((factura as any)?.comprobante_ruta || (factura as any)?.monto_comprobante != null) && (
+                  <li className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">
+                        {(factura as any)?.monto_comprobante != null
+                          ? fmtMoneda((factura as any).monto_comprobante)
+                          : 'Pago registrado'}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Comprobante de pago
+                      </span>
+                    </div>
+                    {(factura as any)?.comprobante_ruta && (
+                      <a
+                        href={buildFileUrl((factura as any).comprobante_ruta) ?? ''}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 underline"
+                      >
+                        <FileDown className="h-3 w-3" /> Ver comprobante de pago
+                      </a>
+                    )}
                   </li>
                 )}
               </ul>
