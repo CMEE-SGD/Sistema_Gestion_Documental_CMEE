@@ -294,10 +294,10 @@ export default function DetalleFacturaPage() {
             href={buildFileUrl(factura.comprobante_ruta) ?? ''}
             target="_blank"
             rel="noreferrer"
-            title="Comprobante de pago/entrega registrado por Servicio al Cliente"
+            title="Registro de pago registrado"
             className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1.5 text-sm font-medium text-sky-800 hover:bg-sky-100"
           >
-            <FileDown className="h-3.5 w-3.5" /> Ver comprobante de entrega
+            <FileDown className="h-3.5 w-3.5" /> Ver comprobante de pago
             {factura.monto_comprobante != null
               ? ` (${fmtMoneda(factura.monto_comprobante)})`
               : ''}

@@ -176,8 +176,8 @@ export default function EntregaComprobanteModal({
           <div className="p-6 space-y-4">
             <p className="text-sm text-muted-foreground">
               El receptor de la orden debe registrar el comprobante de pago
-              (foto o PDF) y el monto antes de entregar. Esto habilita la
-              facturación.
+              (foto o PDF) con el monto recibido antes de entregar. Esto
+              habilita la facturación.
             </p>
 
             {/* Decisión */}

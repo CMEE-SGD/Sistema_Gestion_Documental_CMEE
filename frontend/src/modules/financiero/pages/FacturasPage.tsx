@@ -624,7 +624,7 @@ function ModalElegirModoFactura({
 
         {monto != null && (
           <p className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-            Comprobante de entrega registrado — monto{' '}
+            Registro de pago registrado — monto{' '}
             <span className="font-semibold">{fmtMoneda(monto)}</span>
             {comprobanteRuta && (
               <>
@@ -635,7 +635,7 @@ function ModalElegirModoFactura({
                   rel="noreferrer"
                   className="underline hover:text-sky-700"
                 >
-                  Ver comprobante
+                  Ver comprobante de pago
                 </a>
               </>
             )}
@@ -992,7 +992,7 @@ function ModalFacturaManual({
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 underline hover:text-sky-700"
                       >
-                        Ver comprobante
+                        Ver comprobante de pago
                         {comprobanteNombre ? ` (${comprobanteNombre})` : ''}
                       </a>
                     </>
