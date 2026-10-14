@@ -15,6 +15,7 @@ import {
   Clock4,
   FileDown,
   Loader2,
+  Pencil,
   Plus,
   ShieldCheck,
   ShieldQuestion,
@@ -27,6 +28,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import {
   esUsuarioAdministrador,
   getPuesto,
+  tienePermiso,
 } from '../../../shared/utils/auth';
 import { useConfiguracionGeneral } from '../../../shared/hooks/useConfiguracionGeneral';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
@@ -86,6 +88,8 @@ interface NotaEntregaDetalle {
   recibido_por: string | null;
   fecha_entrega: string | null;
   observaciones: string | null;
+  archivo_ruta: string | null;
+  archivo_nombre: string | null;
   entregado_por: PersonaResumen | null;
 }
 
@@ -131,7 +135,12 @@ export default function DetalleFacturaPage() {
   const esAdmin = esUsuarioAdministrador();
   const esDirector = esAdmin || getPuesto().toLowerCase().includes('director');
   const { nombreInstitucion } = useConfiguracionGeneral();
+  // Los cobros siguen el esquema del módulo: 4 = crear/editar, 5 = eliminar.
+  const puedeEditarCobros = esAdmin || tienePermiso('Gestion Financiera', 4);
+  const puedeEliminarCobros = esAdmin || tienePermiso('Gestion Financiera', 5);
   const [formCobro, setFormCobro] = useState<'pago' | null>(null);
+  const [pagoEditandoId, setPagoEditandoId] = useState<number | null>(null);
+  const [editandoComprobante, setEditandoComprobante] = useState(false);
   const [modalAutorizacion, setModalAutorizacion] = useState(false);
 
   const { data: factura, isLoading } = useQuery<FacturaDetalle>({
@@ -222,6 +231,37 @@ export default function DetalleFacturaPage() {
       });
     },
   });
+
+  const eliminarPago = useMutation({
+    mutationFn: async (pago: PagoDetalle) => {
+      const res = await api.delete(
+        `/facturacion/facturas/${facturaId}/pagos/${pago.id}`,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      toast({ message: 'Pago eliminado correctamente.' });
+      setPagoEditandoId(null);
+      refrescar();
+    },
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      void alert({
+        message:
+          apiErr?.response?.data?.message || 'No se pudo eliminar el pago.',
+      });
+    },
+  });
+
+  const confirmarEliminarPago = async (pago: PagoDetalle) => {
+    const ok = await confirm({
+      title: 'Eliminar pago',
+      message: pago.compensacion
+        ? `¿Eliminar el pago de ${fmtMoneda(pago.monto)}? Proviene de una compensación (entrega de equipos) y se eliminará también esa compensación.`
+        : `¿Eliminar el pago de ${fmtMoneda(pago.monto)} del ${fmtFecha(pago.fecha)}?`,
+    });
+    if (ok) eliminarPago.mutate(pago);
+  };
 
   if (!(facturaId > 0)) {
     return (
@@ -496,43 +536,89 @@ export default function DetalleFacturaPage() {
                 Pagos registrados
               </h4>
               <ul className="space-y-2">
-                {factura.pagos.map((p) => (
-                  <li
-                    key={p.id}
-                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">{fmtMoneda(p.monto)}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {fmtFecha(p.fecha)} ·{' '}
-                        {METODO_PAGO_LABEL[p.metodo] || p.metodo}
-                      </span>
-                    </div>
-                    {(p.referencia || p.observaciones) && (
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {p.referencia}
-                        {p.referencia && p.observaciones ? ' — ' : ''}
-                        {p.observaciones}
-                      </p>
-                    )}
-                    {p.registrado_por && (
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Registrado por: {p.registrado_por.nombre}{' '}
-                        {p.registrado_por.apellidos}
-                      </p>
-                    )}
-                    {p.ruta_comprobante && (
-                      <a
-                        href={buildFileUrl(p.ruta_comprobante) ?? ''}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 underline"
-                      >
-                        <FileDown className="h-3 w-3" /> Comprobante
-                      </a>
-                    )}
-                  </li>
-                ))}
+                {factura.pagos.map((p) => {
+                  const esCompensacion = !!p.compensacion;
+                  const enEdicion = pagoEditandoId === p.id;
+                  return (
+                    <li
+                      key={p.id}
+                      className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold">
+                              {fmtMoneda(p.monto)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {fmtFecha(p.fecha)} ·{' '}
+                              {METODO_PAGO_LABEL[p.metodo] || p.metodo}
+                            </span>
+                          </div>
+                          {(p.referencia || p.observaciones) && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {p.referencia}
+                              {p.referencia && p.observaciones ? ' — ' : ''}
+                              {p.observaciones}
+                            </p>
+                          )}
+                          {p.registrado_por && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Registrado por: {p.registrado_por.nombre}{' '}
+                              {p.registrado_por.apellidos}
+                            </p>
+                          )}
+                          {p.ruta_comprobante && (
+                            <a
+                              href={buildFileUrl(p.ruta_comprobante) ?? ''}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 underline"
+                            >
+                              <FileDown className="h-3 w-3" /> Comprobante
+                            </a>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {puedeEditarCobros && !esCompensacion && (
+                            <button
+                              type="button"
+                              title={
+                                enEdicion ? 'Cancelar edición' : 'Editar pago'
+                              }
+                              onClick={() =>
+                                setPagoEditandoId(enEdicion ? null : p.id)
+                              }
+                              className="rounded p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-800"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {puedeEliminarCobros && (
+                            <button
+                              type="button"
+                              title="Eliminar pago"
+                              onClick={() => confirmarEliminarPago(p)}
+                              disabled={eliminarPago.isPending}
+                              className="rounded p-1 text-red-500 hover:bg-red-100 hover:text-red-700 disabled:opacity-50"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {enEdicion && (
+                        <FormPago
+                          facturaId={factura.id}
+                          saldo={factura.saldo + Number(p.monto)}
+                          pago={p}
+                          onCreado={() => setPagoEditandoId(null)}
+                          onCancelar={() => setPagoEditandoId(null)}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
                 {factura.pagos.length === 0 && !(factura as any).comprobante_ruta && !(factura as any).monto_comprobante && (
                   <li className="rounded-md border border-dashed border-slate-300 px-3 py-3 text-center text-xs text-muted-foreground">
                     Sin pagos registrados todavía.
@@ -540,25 +626,61 @@ export default function DetalleFacturaPage() {
                 )}
                 {((factura as any)?.comprobante_ruta || (factura as any)?.monto_comprobante != null) && (
                   <li className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">
-                        {(factura as any)?.monto_comprobante != null
-                          ? fmtMoneda((factura as any).monto_comprobante)
-                          : 'Pago registrado'}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Comprobante de pago
-                      </span>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">
+                            {(factura as any)?.monto_comprobante != null
+                              ? fmtMoneda((factura as any).monto_comprobante)
+                              : 'Pago registrado'}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Comprobante de pago
+                          </span>
+                        </div>
+                        {(factura as any)?.comprobante_ruta && (
+                          <a
+                            href={buildFileUrl((factura as any).comprobante_ruta) ?? ''}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 underline"
+                          >
+                            <FileDown className="h-3 w-3" /> Ver comprobante de pago
+                          </a>
+                        )}
+                      </div>
+                      {puedeEditarCobros && factura.estado !== 'ANULADA' && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            title={
+                              editandoComprobante
+                                ? 'Cancelar edición'
+                                : 'Editar comprobante'
+                            }
+                            onClick={() => setEditandoComprobante((v) => !v)}
+                            className="rounded p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-800"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    {(factura as any)?.comprobante_ruta && (
-                      <a
-                        href={buildFileUrl((factura as any).comprobante_ruta) ?? ''}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 underline"
-                      >
-                        <FileDown className="h-3 w-3" /> Ver comprobante de pago
-                      </a>
+                    {editandoComprobante && (
+                      <FormComprobantePago
+                        facturaId={factura.id}
+                        montoActual={
+                          (factura as any)?.monto_comprobante != null
+                            ? Number((factura as any).monto_comprobante)
+                            : null
+                        }
+                        rutaActual={(factura as any)?.comprobante_ruta ?? null}
+                        onGuardado={() => {
+                          setEditandoComprobante(false);
+                          refrescar();
+                        }}
+                        onCancelar={() => setEditandoComprobante(false)}
+                      />
                     )}
                   </li>
                 )}
@@ -789,6 +911,16 @@ export default function DetalleFacturaPage() {
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {n.observaciones}
                   </p>
+                )}
+                {n.archivo_ruta && (
+                  <a
+                    href={buildFileUrl(n.archivo_ruta) ?? ''}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-700 underline"
+                  >
+                    <FileDown className="h-3 w-3" /> Ver adjunto de la nota
+                  </a>
                 )}
               </li>
             ))}
@@ -1116,22 +1248,29 @@ function FormPago({
   facturaId,
   saldo,
   onCreado,
+  pago,
+  onCancelar,
 }: {
   facturaId: number;
   saldo: number;
   onCreado: () => void;
+  pago?: PagoDetalle;
+  onCancelar?: () => void;
 }) {
-  const [monto, setMonto] = useState(''); // '0' no: vacío
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
-  const [metodo, setMetodo] = useState('EFECTIVO');
-  const [referencia, setReferencia] = useState('');
-  const [observaciones, setObservaciones] = useState('');
+  const esEdicion = !!pago;
+  const [monto, setMonto] = useState(pago ? String(Number(pago.monto)) : ''); // '0' no: vacío
+  const [fecha, setFecha] = useState(
+    (pago?.fecha ?? new Date().toISOString()).slice(0, 10),
+  );
+  const [metodo, setMetodo] = useState(pago?.metodo ?? 'EFECTIVO');
+  const [referencia, setReferencia] = useState(pago?.referencia ?? '');
+  const [observaciones, setObservaciones] = useState(pago?.observaciones ?? '');
   const [comprobante, setComprobante] = useState<File | null>(null);
   const { toast } = useToast();
   const { alert } = useAlert();
   const queryClient = useQueryClient();
 
-  const registrar = useMutation({
+  const guardar = useMutation({
     mutationFn: async () => {
       const fd = new FormData();
       fd.append('monto', String(Number(monto)));
@@ -1140,15 +1279,26 @@ function FormPago({
       fd.append('referencia', referencia.trim());
       fd.append('observaciones', observaciones.trim());
       if (comprobante) fd.append('comprobante', comprobante);
-      const res = await api.post(`/facturacion/facturas/${facturaId}/pagos`, fd);
+      const res = esEdicion
+        ? await api.patch(
+            `/facturacion/facturas/${facturaId}/pagos/${pago!.id}`,
+            fd,
+          )
+        : await api.post(`/facturacion/facturas/${facturaId}/pagos`, fd);
       return res.data;
     },
     onSuccess: () => {
-      toast({ message: 'Pago registrado correctamente.' });
-      setMonto('');
-      setReferencia('');
-      setObservaciones('');
-      setComprobante(null);
+      toast({
+        message: esEdicion
+          ? 'Pago actualizado correctamente.'
+          : 'Pago registrado correctamente.',
+      });
+      if (!esEdicion) {
+        setMonto('');
+        setReferencia('');
+        setObservaciones('');
+        setComprobante(null);
+      }
       queryClient.invalidateQueries({ queryKey: ['factura', facturaId] });
       queryClient.invalidateQueries({ queryKey: ['facturas'] });
       queryClient.invalidateQueries({ queryKey: ['cartera'] });
@@ -1157,7 +1307,11 @@ function FormPago({
     onError: (err: unknown) => {
       const apiErr = err as { response?: { data?: { message?: string } } };
       void alert({
-        message: apiErr?.response?.data?.message || 'No se pudo registrar el pago.',
+        message:
+          apiErr?.response?.data?.message ||
+          (esEdicion
+            ? 'No se pudo actualizar el pago.'
+            : 'No se pudo registrar el pago.'),
       });
     },
   });
@@ -1170,12 +1324,24 @@ function FormPago({
       className="mt-3 rounded-md border border-dashed border-slate-300 p-3"
       onSubmit={(e) => {
         e.preventDefault();
-        registrar.mutate();
+        guardar.mutate();
       }}
     >
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Registrar pago (saldo: {fmtMoneda(saldo)})
-      </p>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {esEdicion ? 'Editar pago' : 'Registrar pago'} (disponible:{' '}
+          {fmtMoneda(saldo)})
+        </p>
+        {esEdicion && onCancelar && (
+          <button
+            type="button"
+            onClick={onCancelar}
+            className="text-xs font-medium text-muted-foreground underline hover:text-slate-700"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <div>
           <label className={labelCls}>Monto *</label>
@@ -1226,6 +1392,20 @@ function FormPago({
             onChange={(e) => setComprobante(e.target.files?.[0] ?? null)}
             className={`${inputCls} file:mr-2 file:cursor-pointer file:rounded-md file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs`}
           />
+          {esEdicion && pago?.ruta_comprobante && !comprobante && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Comprobante actual:{' '}
+              <a
+                href={buildFileUrl(pago.ruta_comprobante) ?? ''}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-sky-700 underline"
+              >
+                ver
+              </a>
+              . Se conserva si no subes otro.
+            </p>
+          )}
         </div>
         <div className="col-span-2">
           <label className={labelCls}>Observaciones</label>
@@ -1238,17 +1418,139 @@ function FormPago({
       </div>
       <button
         type="submit"
-        disabled={invalido || registrar.isPending}
+        disabled={invalido || guardar.isPending}
         className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {registrar.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-        Registrar pago
+        {guardar.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+        {esEdicion ? 'Guardar cambios' : 'Registrar pago'}
       </button>
       {!Number.isNaN(montoN) && montoN > saldo + 0.005 && (
         <p className="mt-1 text-xs text-red-600">
-          El monto excede el saldo pendiente ({fmtMoneda(saldo)}).
+          El monto excede el saldo disponible ({fmtMoneda(saldo)}).
         </p>
       )}
+    </form>
+  );
+}
+
+function FormComprobantePago({
+  facturaId,
+  montoActual,
+  rutaActual,
+  onGuardado,
+  onCancelar,
+}: {
+  facturaId: number;
+  montoActual: number | null;
+  rutaActual: string | null;
+  onGuardado: () => void;
+  onCancelar: () => void;
+}) {
+  const [monto, setMonto] = useState(
+    montoActual != null && montoActual > 0 ? String(montoActual) : '',
+  );
+  const [comprobante, setComprobante] = useState<File | null>(null);
+  const { toast } = useToast();
+  const { alert } = useAlert();
+  const queryClient = useQueryClient();
+
+  const guardar = useMutation({
+    mutationFn: async () => {
+      const fd = new FormData();
+      fd.append('monto', String(Number(monto)));
+      if (comprobante) fd.append('comprobante', comprobante);
+      const res = await api.patch(
+        `/facturacion/facturas/${facturaId}/comprobante`,
+        fd,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      toast({ message: 'Comprobante de pago actualizado correctamente.' });
+      queryClient.invalidateQueries({ queryKey: ['factura', facturaId] });
+      queryClient.invalidateQueries({ queryKey: ['facturas'] });
+      queryClient.invalidateQueries({ queryKey: ['cartera'] });
+      onGuardado();
+    },
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      void alert({
+        message:
+          apiErr?.response?.data?.message ||
+          'No se pudo actualizar el comprobante de pago.',
+      });
+    },
+  });
+
+  const montoN = monto === '' ? NaN : Number(monto);
+  const invalido = Number.isNaN(montoN) || montoN < 0;
+
+  return (
+    <form
+      className="mt-3 rounded-md border border-dashed border-sky-300 bg-white/60 p-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        guardar.mutate();
+      }}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Editar comprobante de pago
+        </p>
+        <button
+          type="button"
+          onClick={onCancelar}
+          className="text-xs font-medium text-muted-foreground underline hover:text-slate-700"
+        >
+          Cancelar
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={labelCls}>Monto *</label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            className={inputCls}
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>
+            Reemplazar comprobante (PDF o imagen)
+          </label>
+          <input
+            type="file"
+            accept=".pdf,image/*"
+            onChange={(e) => setComprobante(e.target.files?.[0] ?? null)}
+            className={`${inputCls} file:mr-2 file:cursor-pointer file:rounded-md file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs`}
+          />
+        </div>
+      </div>
+      {rutaActual && !comprobante && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Archivo actual:{' '}
+          <a
+            href={buildFileUrl(rutaActual) ?? ''}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-sky-700 underline"
+          >
+            ver
+          </a>
+          . Se conserva si no subes otro.
+        </p>
+      )}
+      <button
+        type="submit"
+        disabled={invalido || guardar.isPending}
+        className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {guardar.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+        Guardar cambios
+      </button>
     </form>
   );
 }
@@ -1404,23 +1706,29 @@ function FormNotaEntrega({
     new Date().toISOString().slice(0, 10),
   );
   const [observaciones, setObservaciones] = useState('');
+  const [archivo, setArchivo] = useState<File | null>(null);
   const { toast } = useToast();
   const { alert } = useAlert();
   const queryClient = useQueryClient();
 
   const registrar = useMutation({
     mutationFn: async () => {
-      const res = await api.post(`/facturacion/facturas/${facturaId}/nota-entrega`, {
-        recibido_por: recibidoPor.trim() || undefined,
-        fecha_entrega: fechaEntrega,
-        observaciones: observaciones.trim() || undefined,
-      });
+      const fd = new FormData();
+      if (recibidoPor.trim()) fd.append('recibido_por', recibidoPor.trim());
+      fd.append('fecha_entrega', fechaEntrega);
+      if (observaciones.trim()) fd.append('observaciones', observaciones.trim());
+      if (archivo) fd.append('archivo', archivo);
+      const res = await api.post(
+        `/facturacion/facturas/${facturaId}/nota-entrega`,
+        fd,
+      );
       return res.data;
     },
     onSuccess: () => {
       toast({ message: 'Nota de entrega registrada.' });
       setRecibidoPor('');
       setObservaciones('');
+      setArchivo(null);
       queryClient.invalidateQueries({ queryKey: ['factura', facturaId] });
       onCreada();
     },
@@ -1465,6 +1773,15 @@ function FormNotaEntrega({
           className={inputCls}
           value={observaciones}
           onChange={(e) => setObservaciones(e.target.value)}
+        />
+      </div>
+      <div className="sm:col-span-3">
+        <label className={labelCls}>Adjunto (imagen o PDF)</label>
+        <input
+          type="file"
+          accept=".pdf,image/*"
+          onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+          className={`${inputCls} file:mr-2 file:cursor-pointer file:rounded-md file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs`}
         />
       </div>
       <div className="sm:col-span-3">

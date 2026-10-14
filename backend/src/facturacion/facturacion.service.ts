@@ -16,6 +16,8 @@ import { UpdateDistribucionDto } from './dto/update-distribucion.dto';
 import { CreateFacturaDto } from './dto/create-factura.dto';
 import { UpdateFacturaDto } from './dto/update-factura.dto';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto';
+import { UpdatePagoDto } from './dto/update-pago.dto';
+import { UpdateComprobantePagoDto } from './dto/update-comprobante-pago.dto';
 import { RegistrarCompensacionDto } from './dto/registrar-compensacion.dto';
 import { ResolverAutorizacionCompensacionDto } from './dto/resolver-autorizacion-compensacion.dto';
 import { CreateNotaEntregaDto } from './dto/create-nota-entrega.dto';
@@ -154,13 +156,18 @@ export class FacturacionService {
 
   /** Subtotal/IVA/total vienen como DECIMAL de Prisma → number para JSON. */
   private enriquecer(f: any) {
-    const pagado = (f.pagos ?? []).reduce(
-      (s: number, p: any) => s + this.n(p.monto),
-      0,
-    );
+    // Además de los pagos registrados, el comprobante de pago que adjuntó
+    // Servicio al Cliente (monto_comprobante) cuenta como cobro: es el pago que
+    // hizo el cliente al recibir el equipo.
+    const comprobante = this.n(f.monto_comprobante);
+    const pagado =
+      (f.pagos ?? []).reduce(
+        (s: number, p: any) => s + this.n(p.monto),
+        0,
+      ) + comprobante;
     const total = this.n(f.total);
     // La retención de IVA la aplica el cliente (agente de retención) al pagar;
-    // por eso el saldo por cobrar es total − retención_iva − pagos.
+    // por eso el saldo por cobrar es total − retención_iva − cobros.
     const retencion = this.n(f.retencion_iva);
     const saldo = total - retencion - pagado;
 
@@ -193,6 +200,7 @@ export class FacturacionService {
       retencion_iva: retencion,
       porcentaje_retencion_iva: this.n(f.porcentaje_retencion_iva),
       retenciones: f.retenciones ?? null,
+      monto_comprobante: comprobante > 0 ? comprobante : null,
       pagado,
       saldo,
       estado,
@@ -294,6 +302,21 @@ export class FacturacionService {
       ruta: `/uploads/financiero/${subcarpeta}/${nombre}`,
       original: file.originalname,
     };
+  }
+
+  /**
+   * Elimina un archivo de uploads (best-effort) a partir de su ruta pública
+   * (las que empiezan por "/uploads/..."). Un fallo al borrar nunca debe
+   * romper la operación de negocio que ya quedó confirmada en BD.
+   */
+  private borrarArchivo(ruta?: string | null) {
+    if (!ruta) return;
+    try {
+      const abs = path.join(this.uploadsRoot, ruta.replace(/^\/uploads\//, ''));
+      fs.rmSync(abs, { force: true });
+    } catch {
+      // borrar el archivo es best-effort
+    }
   }
 
   /** Valida y guarda el PDF/imagen adjunto de una proforma. */
@@ -716,11 +739,16 @@ export class FacturacionService {
     facturaId: number,
     dto: CreateNotaEntregaDto,
     personaId: number | null,
+    file?: Express.Multer.File,
   ) {
     const factura = await this.prisma.factura.findUnique({
       where: { id: facturaId },
     });
     if (!factura) throw new NotFoundException(`Factura ${facturaId} no encontrada`);
+
+    const archivo = file
+      ? this.guardarArchivo(file, 'notas-entrega', `N${facturaId}`)
+      : null;
 
     const nota = await this.crearConNumeroUnico(
       async () => this.generarNumeroSecuencia('nota_entrega'),
@@ -733,6 +761,8 @@ export class FacturacionService {
             recibido_por: dto.recibido_por,
             fecha_entrega: this.toDate(dto.fecha_entrega),
             observaciones: dto.observaciones,
+            archivo_ruta: archivo?.ruta,
+            archivo_nombre: archivo?.original,
           },
         }),
     );
@@ -752,10 +782,13 @@ export class FacturacionService {
     if (factura.estado === 'ANULADA') {
       throw new BadRequestException('No se puede registrar cobros en una factura anulada');
     }
-    const pagado = (factura.pagos ?? []).reduce(
-      (s, p) => s + this.n(p.monto),
-      0,
-    );
+    // El comprobante de pago (monto_comprobante) cuenta como cobro, igual que
+    // en el detalle de la factura: reduce el saldo disponible para nuevos pagos.
+    const pagado =
+      (factura.pagos ?? []).reduce(
+        (s, p) => s + this.n(p.monto),
+        0,
+      ) + this.n(factura.monto_comprobante);
     const total = this.n(factura.total);
     const retencion = this.n(factura.retencion_iva);
     return { factura, pagado, saldo: total - retencion - pagado };
@@ -763,7 +796,10 @@ export class FacturacionService {
 
   private async actualizarEstadoPorSaldo(facturaId: number) {
     const { pagado, saldo } = await this.obtenerSaldo(facturaId);
-    const estado: EstadoFactura = saldo <= 0.005 ? 'PAGADA' : 'PARCIAL';
+    // Sin cobros vuelve a EMITIDA (p. ej. al eliminar el único pago); con
+    // cobros parciales queda PARCIAL y al cubrir el saldo, PAGADA.
+    const estado: EstadoFactura =
+      saldo <= 0.005 ? 'PAGADA' : pagado <= 0.005 ? 'EMITIDA' : 'PARCIAL';
     await this.prisma.factura.update({
       where: { id: facturaId },
       data: { estado },
@@ -805,6 +841,177 @@ export class FacturacionService {
 
     const { estado } = await this.actualizarEstadoPorSaldo(facturaId);
     void estado;
+    return this.findOneFactura(facturaId);
+  }
+
+  /**
+   * Corrige el monto del comprobante de pago de la factura y, opcionalmente,
+   * reemplaza su archivo adjunto. Como el comprobante cuenta como cobro (ver
+   * `enriquecer`/`obtenerSaldo`), al guardarlo se recalcula el estado.
+   */
+  async actualizarComprobantePago(
+    facturaId: number,
+    dto: UpdateComprobantePagoDto,
+    file: Express.Multer.File | undefined,
+  ) {
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      select: {
+        id: true,
+        numero: true,
+        estado: true,
+        comprobante_ruta: true,
+      },
+    });
+    if (!factura) {
+      throw new NotFoundException(`Factura ${facturaId} no encontrada`);
+    }
+    if (factura.estado === 'ANULADA') {
+      throw new BadRequestException(
+        'No se pueden modificar los cobros de una factura anulada',
+      );
+    }
+
+    const archivo = file
+      ? this.guardarArchivo(file, 'facturas', `FC${factura.numero}`)
+      : null;
+    const archivoAnterior =
+      archivo && factura.comprobante_ruta ? factura.comprobante_ruta : null;
+
+    await this.prisma.factura.update({
+      where: { id: facturaId },
+      data: {
+        monto_comprobante: dto.monto,
+        ...(archivo && {
+          comprobante_ruta: archivo.ruta,
+          comprobante_nombre: archivo.original,
+        }),
+      },
+    });
+
+    if (archivoAnterior) this.borrarArchivo(archivoAnterior);
+
+    await this.actualizarEstadoPorSaldo(facturaId);
+    return this.findOneFactura(facturaId);
+  }
+
+  /**
+   * Edición de un pago manual (efectivo/transferencia/cheque). No se permite
+   * editar los pagos generados automáticamente por una compensación: su monto
+   * debe seguir coincidiendo con la compensación vinculada, así que se
+   * gestionan desde ese flujo.
+   */
+  async actualizarPago(
+    facturaId: number,
+    pagoId: number,
+    dto: UpdatePagoDto,
+    file: Express.Multer.File | undefined,
+  ) {
+    const pago = await this.prisma.pago.findUnique({ where: { id: pagoId } });
+    if (!pago || pago.factura_id !== facturaId) {
+      throw new NotFoundException(
+        `Pago ${pagoId} no encontrado en la factura ${facturaId}`,
+      );
+    }
+    if (pago.compensacion_id) {
+      throw new BadRequestException(
+        'Este pago proviene de una compensación; gestiónalo desde la compensación.',
+      );
+    }
+
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      select: { estado: true },
+    });
+    if (factura?.estado === 'ANULADA') {
+      throw new BadRequestException(
+        'No se pueden modificar los cobros de una factura anulada',
+      );
+    }
+
+    // El monto actual del pago ya forma parte de lo cubierto, así que el saldo
+    // disponible para reasignarlo es el saldo pendiente + su propio monto.
+    const { saldo } = await this.obtenerSaldo(facturaId);
+    const disponible = saldo + this.n(pago.monto);
+    if (dto.monto > disponible + 0.005) {
+      throw new BadRequestException(
+        `El monto (${dto.monto}) excede el saldo disponible (${disponible.toFixed(2)}).`,
+      );
+    }
+
+    const archivo = file
+      ? this.guardarArchivo(file, 'pagos', `F${facturaId}`)
+      : null;
+    const comprobanteAnterior =
+      archivo && pago.ruta_comprobante ? pago.ruta_comprobante : null;
+
+    await this.prisma.pago.update({
+      where: { id: pagoId },
+      data: {
+        monto: dto.monto,
+        fecha: this.toDate(dto.fecha) ?? pago.fecha,
+        metodo: dto.metodo,
+        referencia: dto.referencia?.trim() ? dto.referencia : null,
+        observaciones: dto.observaciones?.trim() ? dto.observaciones : null,
+        ...(archivo && {
+          ruta_comprobante: archivo.ruta,
+          nombre_original_comprobante: archivo.original,
+        }),
+      },
+    });
+
+    if (comprobanteAnterior) this.borrarArchivo(comprobanteAnterior);
+
+    await this.actualizarEstadoPorSaldo(facturaId);
+    return this.findOneFactura(facturaId);
+  }
+
+  /**
+   * Elimina un pago y recalcula el estado de la factura. Si el pago proviene de
+   * una compensación, elimina también la compensación vinculada (con sus
+   * archivos) para no dejar el saldo inconsistente.
+   */
+  async eliminarPago(facturaId: number, pagoId: number) {
+    const pago = await this.prisma.pago.findUnique({ where: { id: pagoId } });
+    if (!pago || pago.factura_id !== facturaId) {
+      throw new NotFoundException(
+        `Pago ${pagoId} no encontrado en la factura ${facturaId}`,
+      );
+    }
+
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      select: { estado: true },
+    });
+    if (factura?.estado === 'ANULADA') {
+      throw new BadRequestException(
+        'No se pueden modificar los cobros de una factura anulada',
+      );
+    }
+
+    const archivos: (string | null)[] = [pago.ruta_comprobante];
+    let compensacionId: number | null = null;
+
+    if (pago.compensacion_id) {
+      const comp = await this.prisma.compensacion.findUnique({
+        where: { id: pago.compensacion_id },
+      });
+      if (comp) {
+        compensacionId = comp.id;
+        archivos.push(comp.ruta_acta, comp.ruta_factura_compra);
+      }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.pago.delete({ where: { id: pagoId } });
+      if (compensacionId) {
+        await tx.compensacion.delete({ where: { id: compensacionId } });
+      }
+    });
+
+    for (const ruta of archivos) this.borrarArchivo(ruta);
+
+    await this.actualizarEstadoPorSaldo(facturaId);
     return this.findOneFactura(facturaId);
   }
 
@@ -1138,6 +1345,7 @@ export class FacturacionService {
         select: {
           fecha_emision: true,
           total: true,
+          monto_comprobante: true,
           pagos: { select: { monto: true, fecha: true } },
         },
       }),
@@ -1161,6 +1369,10 @@ export class FacturacionService {
         const m = this.n(p.monto);
         if (m) sumar(cobrado, mesDe(p.fecha), m);
       }
+      // El comprobante de pago también es un cobro; se imputa al mes de emisión
+      // de la factura (es la fecha disponible más cercana al pago).
+      const comp = this.n(f.monto_comprobante);
+      if (comp) sumar(cobrado, mesDe(f.fecha_emision), comp);
     }
     for (const e of egresos) {
       const t = this.n(e.total);

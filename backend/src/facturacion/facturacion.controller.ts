@@ -33,6 +33,8 @@ import { UpdateFacturaDto } from './dto/update-factura.dto';
 import { UpdateDistribucionDto } from './dto/update-distribucion.dto';
 import { ImportarXmlFacturaDto } from './dto/importar-xml-factura.dto';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto';
+import { UpdatePagoDto } from './dto/update-pago.dto';
+import { UpdateComprobantePagoDto } from './dto/update-comprobante-pago.dto';
 import { RegistrarCompensacionDto } from './dto/registrar-compensacion.dto';
 import { ResolverAutorizacionCompensacionDto } from './dto/resolver-autorizacion-compensacion.dto';
 import { CreateNotaEntregaDto } from './dto/create-nota-entrega.dto';
@@ -234,13 +236,20 @@ export class FacturacionController {
 
   @Post('facturas/:id/nota-entrega')
   @RequireAccess('Gestion Financiera', 4)
+  @UseInterceptors(
+    FileInterceptor('archivo', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
   crearNotaEntrega(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreateNotaEntregaDto,
+    @UploadedFile() file: Express.Multer.File | undefined,
     @Req() req: any,
   ) {
     const personaId = req.user?.persona_id ?? null;
-    return this.facturacionService.crearNotaEntrega(id, dto, personaId);
+    return this.facturacionService.crearNotaEntrega(id, dto, personaId, file);
   }
 
   // ---------------------- COBROS ----------------------
@@ -261,6 +270,50 @@ export class FacturacionController {
   ) {
     const personaId = req.user?.persona_id ?? null;
     return this.facturacionService.registrarPago(id, dto, file, personaId);
+  }
+
+  @Patch('facturas/:id/pagos/:pagoId')
+  @RequireAccess('Gestion Financiera', 4)
+  @UseInterceptors(
+    FileInterceptor('comprobante', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  actualizarPago(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('pagoId', ParseIntPipe) pagoId: number,
+    @Body() dto: UpdatePagoDto,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    return this.facturacionService.actualizarPago(id, pagoId, dto, file);
+  }
+
+  @Delete('facturas/:id/pagos/:pagoId')
+  @RequireAccess('Gestion Financiera', 5)
+  eliminarPago(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('pagoId', ParseIntPipe) pagoId: number,
+  ) {
+    return this.facturacionService.eliminarPago(id, pagoId);
+  }
+
+  // ---------------------- COMPROBANTE DE PAGO ----------------------
+
+  @Patch('facturas/:id/comprobante')
+  @RequireAccess('Gestion Financiera', 4)
+  @UseInterceptors(
+    FileInterceptor('comprobante', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  actualizarComprobantePago(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateComprobantePagoDto,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    return this.facturacionService.actualizarComprobantePago(id, dto, file);
   }
 
   @Post('facturas/:id/compensacion')

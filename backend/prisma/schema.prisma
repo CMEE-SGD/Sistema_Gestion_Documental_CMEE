@@ -1642,6 +1642,10 @@ model NotaEntrega {
   fecha_entrega    DateTime? @db.Date
   observaciones    String?  @db.Text
 
+  // Adjunto (imagen o PDF) de la nota de entrega.
+  archivo_ruta     String?  @db.VarChar(500)
+  archivo_nombre   String?  @db.VarChar(255)
+
   @@index([factura_id])
   @@map("notas_entrega")
 }
