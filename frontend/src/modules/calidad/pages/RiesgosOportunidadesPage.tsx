@@ -17,7 +17,7 @@ const condicionStyles: Record<string, string> = {
 
 export const RiesgosOportunidadesPage = () => {
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -53,9 +53,10 @@ export const RiesgosOportunidadesPage = () => {
     });
 
     const handleEliminar = async (id: number) => {
-        if (!await confirm({ title: 'Eliminar registro', message: '¿Está seguro de eliminar este riesgo/oportunidad?' })) return;
+        const motivo = await pedirMotivo({ title: 'Eliminar registro', message: '¿Está seguro de eliminar este riesgo/oportunidad?', confirmLabel: 'Eliminar' });
+        if (!motivo) return;
         try {
-            await api.delete(`/calidad/riesgos/${id}`);
+            await api.delete(`/calidad/riesgos/${id}`, { motivo });
             toast({ message: 'Registro eliminado correctamente.' });
             fetchItems();
         } catch (error) {

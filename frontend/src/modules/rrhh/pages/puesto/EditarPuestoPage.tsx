@@ -9,7 +9,7 @@ import { encodeId, decodeId } from '../../../../shared/utils/ids';
 export const EditarPuestoPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
@@ -39,8 +39,8 @@ export const EditarPuestoPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const ok = await confirm({ title: 'Actualizar puesto', message: '¿Está seguro de guardar los cambios en este puesto?' });
-        if (!ok) return;
+        const motivo = await pedirMotivo({ title: 'Actualizar puesto', message: '¿Está seguro de guardar los cambios en este puesto?', confirmLabel: 'Guardar' });
+        if (!motivo) return;
         try {
             // Extraemos SOLO los campos permitidos por el DTO de NestJS para evitar el Error 400
             const payload = {
@@ -65,7 +65,7 @@ export const EditarPuestoPage = () => {
                 activo: formData.activo
             };
 
-            await api.patch(`/puestos/${id}`, payload);
+            await api.patch(`/puestos/${id}`, payload, { motivo });
             toast({ message: 'Puesto actualizado correctamente.' });
             navigate(`/rrhh/puestos/${encodeId(id)}`);
         } catch (error: any) {

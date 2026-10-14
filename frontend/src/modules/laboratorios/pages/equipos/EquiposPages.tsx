@@ -10,7 +10,7 @@ import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const EquiposPage = () => {
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [searchParams] = useSearchParams();
     const labIdFiltro = searchParams.get('laboratorio_id');
@@ -64,9 +64,10 @@ export const EquiposPage = () => {
     };
 
     const handleEliminar = async (id: number) => {
-        if (!await confirm({ title: 'Confirmar', message: '¿Está seguro de desactivar este equipo?' })) return;
+        const motivo = await pedirMotivo({ title: 'Confirmar', message: '¿Está seguro de desactivar este equipo?', confirmLabel: 'Desactivar' });
+        if (!motivo) return;
         try {
-            await api.delete(`/equipos/${id}`);
+            await api.delete(`/equipos/${id}`, { motivo });
             fetchEquipos();
             toast({ message: 'Equipo desactivado exitosamente.' });
         } catch (error) {
@@ -75,9 +76,10 @@ export const EquiposPage = () => {
     };
 
     const handleReactivar = async (id: number) => {
-        if (!await confirm({ title: 'Confirmar', message: '¿Desea volver a activar este equipo?' })) return;
+        const motivo = await pedirMotivo({ title: 'Confirmar', message: '¿Desea volver a activar este equipo?', confirmLabel: 'Reactivar' });
+        if (!motivo) return;
         try {
-            await api.patch(`/equipos/${id}/reactivar`);
+            await api.patch(`/equipos/${id}/reactivar`, undefined, { motivo });
             fetchEquipos();
             toast({ message: 'Equipo reactivado exitosamente.' });
         } catch (error) {

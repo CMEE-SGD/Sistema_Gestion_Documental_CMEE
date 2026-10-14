@@ -18,7 +18,7 @@ const estadoStyles: Record<string, string> = {
 
 export const QuejasPage = () => {
   const navigate = useNavigate();
-  const { alert, confirm } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,9 +45,10 @@ export const QuejasPage = () => {
   );
 
   const eliminar = async (id: number) => {
-    if (!await confirm({ title: 'Eliminar queja', message: '¿Está seguro de eliminar esta queja?' })) return;
+    const motivo = await pedirMotivo({ title: 'Eliminar queja', message: '¿Está seguro de eliminar esta queja?', confirmLabel: 'Eliminar' });
+    if (!motivo) return;
     try {
-      await api.delete(`/calidad/quejas/${id}`);
+      await api.delete(`/calidad/quejas/${id}`, { motivo });
       setItems((prev) => prev.filter((i) => i.id !== id));
       toast({ message: 'Queja eliminada.' });
     } catch {

@@ -10,7 +10,7 @@ import { encodeId } from '../../../shared/utils/ids';
 
 export const AuditoriasPage = () => {
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [auditorias, setAuditorias] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -44,9 +44,10 @@ export const AuditoriasPage = () => {
     });
 
     const handleEliminar = async (id: number) => {
-        if (!await confirm({ title: 'Eliminar auditoría', message: '¿Está seguro de eliminar esta auditoría?' })) return;
+        const motivo = await pedirMotivo({ title: 'Eliminar auditoría', message: '¿Está seguro de eliminar esta auditoría?', confirmLabel: 'Eliminar' });
+        if (!motivo) return;
         try {
-            await api.delete(`/calidad/auditorias/${id}`);
+            await api.delete(`/calidad/auditorias/${id}`, { motivo });
             toast({ message: 'Auditoría eliminada correctamente.' });
             fetchAuditorias();
         } catch (error) {

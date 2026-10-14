@@ -9,7 +9,7 @@ import { tienePermiso } from '../../../shared/utils/auth';
 
 export const NoConformidadesPage = () => {
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [ncs, setNcs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -43,9 +43,10 @@ export const NoConformidadesPage = () => {
     });
 
     const handleEliminar = async (id: number) => {
-        if (!await confirm({ title: 'Eliminar NC', message: '¿Está seguro de eliminar esta no conformidad?' })) return;
+        const motivo = await pedirMotivo({ title: 'Eliminar NC', message: '¿Está seguro de eliminar esta no conformidad?', confirmLabel: 'Eliminar' });
+        if (!motivo) return;
         try {
-            await api.delete(`/calidad/no-conformidades/${id}`);
+            await api.delete(`/calidad/no-conformidades/${id}`, { motivo });
             toast({ message: 'No conformidad eliminada correctamente.' });
             fetchNcs();
         } catch (error) {

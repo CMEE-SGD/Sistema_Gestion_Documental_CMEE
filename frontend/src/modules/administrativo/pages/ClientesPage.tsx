@@ -109,17 +109,24 @@ export default function ClientesPage() {
   const { data: clientes, isLoading, isError, error } =
     useClientesInstitucionales();
   const queryClient = useQueryClient();
-  const { confirm, alert } = useAlert();
+  const { pedirMotivo, alert } = useAlert();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [clienteEditando, setClienteEditando] =
     useState<ClienteInstitucional | null>(null);
 
   const toggleActivoMutation = useMutation({
-    mutationFn: async (cliente: ClienteInstitucional) => {
+    mutationFn: async ({
+      cliente,
+      motivo,
+    }: {
+      cliente: ClienteInstitucional;
+      motivo: string;
+    }) => {
       const res = await api.patch<ClienteInstitucional>(
         `/clientes-institucionales/${cliente.id}`,
         { activo: !cliente.activo },
+        { motivo },
       );
       return res.data;
     },
@@ -142,14 +149,23 @@ export default function ClientesPage() {
   };
 
   const handleToggleActivo = async (cliente: ClienteInstitucional) => {
-    if (cliente.activo) {
-      const ok = await confirm({
-        title: 'Desactivar cliente',
-        message: `¿Desactivar a "${cliente.nombre}"? Ya no aparecerá disponible para generar nuevas órdenes de trabajo.`,
-      });
-      if (!ok) return;
-    }
-    toggleActivoMutation.mutate(cliente);
+    // Activar o desactivar modifica al cliente: en ambos sentidos se pide el
+    // motivo (antes solo se confirmaba al desactivar).
+    const motivo = await pedirMotivo(
+      cliente.activo
+        ? {
+            title: 'Desactivar cliente',
+            message: `¿Desactivar a "${cliente.nombre}"? Ya no aparecerá disponible para generar nuevas órdenes de trabajo.`,
+            confirmLabel: 'Desactivar',
+          }
+        : {
+            title: 'Activar cliente',
+            message: `¿Activar a "${cliente.nombre}"?`,
+            confirmLabel: 'Activar',
+          },
+    );
+    if (!motivo) return;
+    toggleActivoMutation.mutate({ cliente, motivo });
   };
 
   return (

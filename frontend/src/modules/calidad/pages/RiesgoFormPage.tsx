@@ -109,7 +109,7 @@ export const RiesgoFormPage = () => {
     const { id: rawId } = useParams<{id: string}>();
     const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const esEdicion = !!id;
     const [loading, setLoading] = useState(esEdicion);
@@ -258,7 +258,9 @@ export const RiesgoFormPage = () => {
                 responsables: allResponsables,
             };
             if (esEdicion) {
-                await api.patch(`/calidad/riesgos/${id}`, payload);
+                const motivo = await pedirMotivo({ title: 'Guardar cambios', message: 'Va a modificar este registro de riesgo/oportunidad.', confirmLabel: 'Guardar' });
+                if (!motivo) return;
+                await api.patch(`/calidad/riesgos/${id}`, payload, { motivo });
                 toast({ message: 'Registro actualizado correctamente.' });
             } else {
                 await api.post('/calidad/riesgos', payload);

@@ -12,7 +12,7 @@ import { encodeId, decodeId } from '../../../../shared/utils/ids';
 export const DetalleGrupoPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [departamento, setDepartamento] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -32,10 +32,10 @@ export const DetalleGrupoPage = () => {
     }, [id]);
 
     const handleEliminar = async () => {
-        const ok = await confirm({ message: '¿Está seguro de que desea eliminar (desactivar) este recurso?' });
-        if (!ok) return;
+        const motivo = await pedirMotivo({ message: '¿Está seguro de que desea eliminar (desactivar) este recurso?', confirmLabel: 'Desactivar' });
+        if (!motivo) return;
         try {
-            await api.delete(`/departamentos/${id}`);
+            await api.delete(`/departamentos/${id}`, { motivo });
             toast({ message: 'Inactivado correctamente.' });
             navigate('/rrhh/grupos'); 
         } catch (error) {
