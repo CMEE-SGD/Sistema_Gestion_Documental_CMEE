@@ -570,6 +570,12 @@ model Auditoria {
   // Snapshot del payload enviado en la mutación (POST/PATCH/PUT), con campos
   // sensibles redactados — ver sanitizarBody() en auditoria.interceptor.ts.
   detalle     String? @db.Text
+  // Motivo que la persona escribió al EDITAR o ELIMINAR un recurso (cuadro
+  // "motivo" del frontend). Llega en la cabecera X-Motivo — no en el cuerpo,
+  // porque los DTOs rechazan campos desconocidos — ver leerMotivo() en
+  // auditoria.interceptor.ts. Nulo en lo anterior a esta columna y en las
+  // acciones que no lo piden.
+  motivo      String? @db.Text
 
   documento_id Int?
   documento    Documento? @relation(fields: [documento_id], references: [id], onDelete: Cascade)

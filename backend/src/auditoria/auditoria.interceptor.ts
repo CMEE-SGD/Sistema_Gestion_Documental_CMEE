@@ -29,6 +29,35 @@ const CAMPOS_DESTACADOS = [
   'codigo',
 ];
 const LARGO_MAXIMO_DETALLE = 4000;
+const LARGO_MAXIMO_MOTIVO = 500;
+
+/**
+ * Motivo que la persona escribió al editar o eliminar un recurso. Viaja en la
+ * cabecera `X-Motivo` y NO en el cuerpo: los DTOs usan `forbidNonWhitelisted`,
+ * así que un campo extra en el cuerpo haría rechazar cada petición. El cliente
+ * lo envía con encodeURIComponent porque las cabeceras HTTP no admiten tildes
+ * ni ñ. Solo se toma en PATCH/PUT/DELETE; en cualquier otro método se ignora.
+ */
+function leerMotivo(req: any, method: string): string | null {
+  if (!['PATCH', 'PUT', 'DELETE'].includes(method)) return null;
+
+  const crudo = req?.headers?.['x-motivo'];
+  const valor = Array.isArray(crudo) ? crudo[0] : crudo;
+  if (typeof valor !== 'string' || valor === '') return null;
+
+  let texto = valor;
+  try {
+    texto = decodeURIComponent(valor);
+  } catch {
+    /* no venía codificado: se usa tal cual */
+  }
+
+  texto = texto.replace(/\s+/g, ' ').trim();
+  if (!texto) return null;
+  return texto.length > LARGO_MAXIMO_MOTIVO
+    ? `${texto.slice(0, LARGO_MAXIMO_MOTIVO)}…`
+    : texto;
+}
 
 /** Oculta valores de campos sensibles (contraseñas, tokens) antes de guardarlos en la bitácora. */
 function sanitizarBody(body: unknown): Record<string, unknown> | null {
@@ -223,6 +252,7 @@ export class AuditoriaInterceptor implements NestInterceptor {
                   body,
                 }),
                 detalle: esMutacion ? serializarDetalle(body) : null,
+                motivo: leerMotivo(req, method),
                 persona_afectada_id,
                 documento_id,
                 rol_afectado_id,

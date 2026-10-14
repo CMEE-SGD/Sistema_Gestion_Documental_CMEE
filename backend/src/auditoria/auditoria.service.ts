@@ -22,6 +22,7 @@ export class AuditoriaService {
     accion: string;
     descripcion?: string;
     detalle?: string | null;
+    motivo?: string | null;
     documento_id?: number;
     persona_afectada_id?: number;
     rol_afectado_id?: number;
