@@ -11,7 +11,7 @@ import { encodeId, decodeId } from '../../../../shared/utils/ids';
 export const EditarPersonaPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
 
@@ -94,8 +94,12 @@ export const EditarPersonaPage = () => {
             return;
         }
 
-        const ok = await confirm({ title: 'Actualizar recurso', message: '¿Está seguro de que desea guardar los cambios realizados en este recurso?' });
-        if (!ok) return;
+        const motivo = await pedirMotivo({
+            title: 'Actualizar recurso',
+            message: '¿Está seguro de que desea guardar los cambios realizados en este recurso?',
+            confirmLabel: 'Guardar',
+        });
+        if (!motivo) return;
 
         try {
             const payload = new FormData();
@@ -123,7 +127,8 @@ export const EditarPersonaPage = () => {
             documentosFiles.forEach(file => payload.append('documentos', file));
 
             await api.patch(`/personas/${id}`, payload, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 'Content-Type': 'multipart/form-data' },
+                motivo,
             });
 
             toast({ message: 'Recurso actualizado exitosamente.' });

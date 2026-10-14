@@ -140,7 +140,7 @@ const COLS = 6;
 export default function RecepcionesPage() {
   const { data: ordenes, isLoading, isError, error } = useOrdenesTrabajo();
   const queryClient = useQueryClient();
-  const { alert, confirm } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
 
   const [busqueda, setBusqueda] = useState('');
@@ -155,8 +155,8 @@ export default function RecepcionesPage() {
   const esAdministrador = esUsuarioAdministrador();
 
   const eliminarMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await api.delete(`/recepcion-equipos/${id}`);
+    mutationFn: async ({ id, motivo }: { id: number; motivo: string }) => {
+      const res = await api.delete(`/recepcion-equipos/${id}`, { motivo });
       return res.data;
     },
     onSuccess: () => {
@@ -174,15 +174,13 @@ export default function RecepcionesPage() {
   });
 
   const handleEliminar = async (orden: OrdenTrabajoDetalle) => {
-    if (
-      !(await confirm({
-        title: 'Eliminar orden',
-        message: `¿Eliminar definitivamente la Orden de Trabajo #${orden.orden_trabajo_fisica}? Se borrarán también sus equipos, historial y certificados.`,
-      }))
-    ) {
-      return;
-    }
-    eliminarMutation.mutate(orden.id);
+    const motivo = await pedirMotivo({
+      title: 'Eliminar orden',
+      message: `¿Eliminar definitivamente la Orden de Trabajo #${orden.orden_trabajo_fisica}? Se borrarán también sus equipos, historial y certificados.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!motivo) return;
+    eliminarMutation.mutate({ id: orden.id, motivo });
   };
 
   // ------------------------------------------------------------------

@@ -24,7 +24,7 @@ export const UsuarioFormPage = () => {
     const { id: rawId } = useParams();
     const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState<'general' | 'clave' | 'config'>('general');
     const [loading, setLoading] = useState(false);
@@ -179,7 +179,15 @@ export const UsuarioFormPage = () => {
             }
 
             if (id) {
-                await api.patch(`/usuarios/${id}`, payload);
+                // Solo al EDITAR un usuario existente se pide el motivo; al
+                // cancelar, el `finally` de abajo vuelve a habilitar el botón.
+                const motivo = await pedirMotivo({
+                    title: 'Guardar cambios',
+                    message: `Va a modificar al usuario "${formData.nombre_usuario.trim()}".`,
+                    confirmLabel: 'Guardar',
+                });
+                if (!motivo) return;
+                await api.patch(`/usuarios/${id}`, payload, { motivo });
                 toast({ message: "Usuario actualizado correctamente" });
             } else {
                 await api.post('/usuarios', payload);

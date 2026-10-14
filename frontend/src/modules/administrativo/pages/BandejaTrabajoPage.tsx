@@ -603,7 +603,7 @@ export default function BandejaTrabajoPage() {
   const puesto = user?.persona?.puesto ?? '';
 
   const queryClient = useQueryClient();
-  const { alert, confirm } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
 
   // --- RBAC / ABAC flags derived from the permission helpers ---
@@ -656,8 +656,8 @@ export default function BandejaTrabajoPage() {
   } | null>(null);
 
   const eliminarOrden = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await api.delete(`/recepcion-equipos/${id}`);
+    mutationFn: async ({ id, motivo }: { id: number; motivo: string }) => {
+      const res = await api.delete(`/recepcion-equipos/${id}`, { motivo });
       return res.data;
     },
     onSuccess: () => {
@@ -675,15 +675,13 @@ export default function BandejaTrabajoPage() {
   });
 
   const handleEliminarOrden = async (req: BandejaRecepcion) => {
-    if (
-      !(await confirm({
-        title: 'Eliminar orden',
-        message: `¿Eliminar definitivamente la Orden de Trabajo #${req.orden_trabajo_fisica}? Se borrarán también sus equipos, historial y certificados.`,
-      }))
-    ) {
-      return;
-    }
-    eliminarOrden.mutate(req.orden.id);
+    const motivo = await pedirMotivo({
+      title: 'Eliminar orden',
+      message: `¿Eliminar definitivamente la Orden de Trabajo #${req.orden_trabajo_fisica}? Se borrarán también sus equipos, historial y certificados.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!motivo) return;
+    eliminarOrden.mutate({ id: req.orden.id, motivo });
   };
 
   // Elimina el/los documento(s) cargado(s) del equipo mientras está en
@@ -692,16 +690,16 @@ export default function BandejaTrabajoPage() {
   const handleEliminarDocumento = async (req: BandejaRecepcion) => {
     const ids = (req.certificados ?? []).map((c) => c.id);
     if (ids.length === 0) return;
-    if (
-      !(await confirm({
-        title: 'Eliminar documento',
-        message: `¿Eliminar el documento cargado del equipo "${req.equipo_descripcion}"? Esta acción no se puede deshacer.`,
-      }))
-    ) {
-      return;
-    }
+    const motivo = await pedirMotivo({
+      title: 'Eliminar documento',
+      message: `¿Eliminar el documento cargado del equipo "${req.equipo_descripcion}"? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!motivo) return;
     try {
-      await Promise.all(ids.map((id) => api.delete(`/certificados/${id}`)));
+      await Promise.all(
+        ids.map((id) => api.delete(`/certificados/${id}`, { motivo })),
+      );
       queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
       toast({ message: 'Documento eliminado correctamente.' });
     } catch (err: unknown) {

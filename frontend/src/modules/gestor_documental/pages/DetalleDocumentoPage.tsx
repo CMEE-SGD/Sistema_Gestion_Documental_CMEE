@@ -13,7 +13,7 @@ export const DetalleDocumentoPage = () => {
     const { id: rawId } = useParams();
     const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, confirm, pedirMotivo } = useAlert();
     const { toast } = useToast();
 
     const [documento, setDocumento] = useState<any>(null);
@@ -257,11 +257,15 @@ export const DetalleDocumentoPage = () => {
     const handleEliminar = async () => {
         if (!documento) return;
 
-        const confirmacion = await confirm({ title: 'Eliminar documento', message: `¿Está seguro de eliminar el documento "${documento.nombre}"? Esta acción no se puede deshacer.` });
-        if (!confirmacion) return;
+        const motivo = await pedirMotivo({
+            title: 'Eliminar documento',
+            message: `¿Está seguro de eliminar el documento "${documento.nombre}"? Esta acción no se puede deshacer.`,
+            confirmLabel: 'Eliminar',
+        });
+        if (!motivo) return;
 
         try {
-            await api.delete(`/documentos/${documento.id}`);
+            await api.delete(`/documentos/${documento.id}`, { motivo });
 
             toast({ message: 'Documento eliminado correctamente' });
             window.dispatchEvent(new Event('refreshDocumentos'));
@@ -298,6 +302,13 @@ export const DetalleDocumentoPage = () => {
 
     const handleGuardarEdicion = async () => {
         if (!documento) return;
+        const motivo = await pedirMotivo({
+            title: 'Guardar cambios',
+            message: `Va a modificar el documento "${documento.nombre}".`,
+            confirmLabel: 'Guardar',
+        });
+        if (!motivo) return;
+
         setGuardandoEdicion(true);
         try {
             await api.patch(`/documentos/${documento.id}`, {
@@ -308,7 +319,7 @@ export const DetalleDocumentoPage = () => {
                 circuito_id: editFormData.circuito_id || null,
                 activo: editFormData.activo,
                 created_at: editFormData.created_at || null,
-            });
+            }, { motivo });
             const resDoc = await api.get(`/documentos/${id}`);
             setDocumento(resDoc.data);
             setShowEditForm(false);
@@ -723,7 +734,15 @@ export const DetalleDocumentoPage = () => {
                                                     )}
                                                 </td>
                                                 <td className="p-2">{log.accion}</td>
-                                                <td className="p-2 text-gray-500">{log.descripcion || '-'}</td>
+                                                <td className="p-2 text-gray-500">
+                                                    {log.descripcion || '-'}
+                                                    {log.motivo && (
+                                                        <div className="mt-1 text-gray-800">
+                                                            <span className="font-bold text-amber-700">Motivo: </span>
+                                                            {log.motivo}
+                                                        </div>
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

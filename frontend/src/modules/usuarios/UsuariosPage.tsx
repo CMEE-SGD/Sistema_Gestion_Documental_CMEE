@@ -9,7 +9,7 @@ import { useToast } from '../../shared/components/molecules/Toast';
 
 export const UsuariosPage = () => {
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [usuarios, setUsuarios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -55,9 +55,14 @@ export const UsuariosPage = () => {
     });
 
     const handleDelete = async (id: number) => {
-        if (!await confirm({ message: "¿Deseas desactivar/eliminar este usuario?" })) return;
+        const motivo = await pedirMotivo({
+            title: 'Desactivar usuario',
+            message: '¿Deseas desactivar/eliminar este usuario?',
+            confirmLabel: 'Desactivar',
+        });
+        if (!motivo) return;
         try {
-            await api.delete(`/usuarios/${id}`);
+            await api.delete(`/usuarios/${id}`, { motivo });
             // 👇 3. En lugar de borrarlo, lo actualizamos localmente como inactivo
             setUsuarios(usuarios.map(u => 
                 u.id === id ? { ...u, estado_cuenta: false, activo: false } : u

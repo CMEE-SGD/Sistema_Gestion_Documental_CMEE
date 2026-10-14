@@ -7,6 +7,8 @@ interface LogAuditoria {
     accion: string;
     descripcion: string;
     detalle?: string | null;
+    /** Motivo que la persona escribió al editar o eliminar (solo esas acciones). */
+    motivo?: string | null;
     fecha_hora: string;
     usuario?: { nombre_usuario: string };
     /** Nombre y apellido de la persona (resuelto por el backend) — más
@@ -148,7 +150,11 @@ export const TablaHistorial = ({ logs, loading, esGlobal = false, paginacionServ
         }
     };
 
-    const colSpan = esGlobal ? 7 : 3;
+    // En el historial de una persona/rol/puesto (no global) solo se agrega la
+    // columna "Motivo" si algún registro tiene uno, para no alterar esas
+    // tablas cuando todavía no hay ninguno.
+    const mostrarMotivo = !esGlobal && logs.some((l) => !!l.motivo);
+    const colSpan = esGlobal ? 7 : mostrarMotivo ? 4 : 3;
 
     return (
         <div className="flex flex-col gap-3">
@@ -193,6 +199,7 @@ export const TablaHistorial = ({ logs, loading, esGlobal = false, paginacionServ
                             <th className="px-4 py-2.5 border-r border-[#004d00]">Acción</th>
                             {esGlobal && <th className="px-4 py-2.5 border-r border-[#004d00]">Entidad</th>}
                             {esGlobal && <th className="px-4 py-2.5 border-r border-[#004d00]">Detalle</th>}
+                            {mostrarMotivo && <th className="px-4 py-2.5 border-r border-[#004d00]">Motivo</th>}
                             {esGlobal && <th className="px-4 py-2.5 w-8"></th>}
                         </tr>
                     </thead>
@@ -249,8 +256,21 @@ export const TablaHistorial = ({ logs, loading, esGlobal = false, paginacionServ
                                                 </td>
                                             )}
                                             {esGlobal && (
-                                                <td className="px-4 py-2.5 text-gray-600 text-[10px] truncate max-w-md" title={log.descripcion}>
-                                                    {log.descripcion}
+                                                <td className="px-4 py-2.5 text-gray-600 text-[10px] max-w-md">
+                                                    <div className="truncate" title={log.descripcion}>
+                                                        {log.descripcion}
+                                                    </div>
+                                                    {log.motivo && (
+                                                        <div className="mt-1 whitespace-normal break-words text-gray-800">
+                                                            <span className="font-bold text-amber-700">Motivo: </span>
+                                                            {log.motivo}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            )}
+                                            {mostrarMotivo && (
+                                                <td className="px-4 py-2.5 border-r border-gray-200 text-gray-800 text-[10px] whitespace-normal break-words max-w-xs">
+                                                    {log.motivo || <span className="text-gray-400">—</span>}
                                                 </td>
                                             )}
                                             {esGlobal && (
