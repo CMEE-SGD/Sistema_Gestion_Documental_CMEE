@@ -4,6 +4,7 @@ import { UpdateConfiguracionGeneralDto } from './dto/update-configuracion-genera
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
+import { SinMotivo } from '../auditoria/sin-motivo.decorator';
 
 @Controller('configuracion-general')
 export class ConfiguracionGeneralController {
@@ -21,6 +22,7 @@ export class ConfiguracionGeneralController {
   }
 
   @Patch()
+  @SinMotivo()
   @UseGuards(JwtAuthGuard, AccessGuard)
   @RequireAccess('Gestion de Usuarios', 5)
   actualizar(@Body() dto: UpdateConfiguracionGeneralDto) {

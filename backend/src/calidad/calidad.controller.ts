@@ -18,6 +18,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
+import { SinMotivo } from '../auditoria/sin-motivo.decorator';
 
 @Controller('calidad')
 @UseGuards(JwtAuthGuard, AccessGuard)
@@ -248,6 +249,7 @@ export class CalidadController {
   }
 
   @Patch('no-conformidades/:id/estado')
+  @SinMotivo()
   @RequireAccess('Gestion de Calidad', 4)
   async cambiarEstadoNc(
     @Param('id', ParseIntPipe) id: number,

@@ -1086,6 +1086,13 @@ model ConfiguracionGeneral {
   // sesión se cierre automáticamente (0 desactiva el cierre por inactividad).
   tiempo_inactividad_minutos Int @default(5) @db.SmallInt
 
+  // Si es true, el servidor RECHAZA (400) toda edición o eliminación que no
+  // traiga el motivo en la cabecera X-Motivo — ver AuditoriaInterceptor. Es un
+  // interruptor de seguridad: si algún flujo quedara sin cuadro de motivo, un
+  // administrador puede apagarlo desde Configuración General sin esperar un
+  // despliegue. Activo por defecto.
+  exigir_motivo_cambios Boolean @default(true)
+
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("configuracion_general")

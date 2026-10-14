@@ -35,6 +35,25 @@ export class AuditoriaService {
   }
 
   /**
+   * ¿El servidor debe rechazar ediciones/eliminaciones sin motivo? Lo decide
+   * el interruptor `exigir_motivo_cambios` de Configuración General (activo
+   * por defecto). Si la fila de configuración aún no existe o la consulta
+   * falla se devuelve true: ante la duda se exige, que es el comportamiento
+   * seguro para la trazabilidad.
+   */
+  async motivoObligatorio(): Promise<boolean> {
+    try {
+      const config = await this.prisma.configuracionGeneral.findUnique({
+        where: { id: 1 },
+        select: { exigir_motivo_cambios: true },
+      });
+      return config?.exigir_motivo_cambios ?? true;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
    * Lista la bitácora global con filtros y paginación reales — la tabla
    * crece sin límite, así que traerla completa en cada consulta no escala.
    */
