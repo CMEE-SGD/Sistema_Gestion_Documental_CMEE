@@ -11,7 +11,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { EstadoRecepcion } from '@prisma/client';
-import { RecepcionEquiposService } from './recepcion-equipos.service';
+import { RecepcionEquiposService, parseVista } from './recepcion-equipos.service';
 import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
@@ -20,6 +20,7 @@ import { CambiarFaseAdminDto } from './dto/cambiar-fase-admin.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
+import { SinMotivo } from '../auditoria/sin-motivo.decorator';
 
 @UseGuards(JwtAuthGuard, AccessGuard)
 @Controller('recepcion-equipos')
@@ -32,10 +33,22 @@ export class RecepcionEquiposController {
     return this.recepcionService.create(createDto);
   }
 
+  /**
+   * Lista de órdenes con sus equipos. `?vista=` acota cuáles equipos:
+   * `activas` (no FINALIZADO, la bandeja), `archivadas` (FINALIZADO) o
+   * `todas` (por defecto, sin filtro: el comportamiento de siempre).
+   */
   @Get()
   @RequireAccess('Recepcion Equipos', 1)
-  findAll(@Req() req: any) {
-    return this.recepcionService.findAll(req.user);
+  findAll(@Req() req: any, @Query('vista') vista?: string) {
+    return this.recepcionService.findAll(req.user, parseVista(vista));
+  }
+
+  // Debe ir ANTES de ':id': si no, Nest tomaría "resumen" como un id.
+  @Get('resumen')
+  @RequireAccess('Recepcion Equipos', 1)
+  resumen(@Req() req: any) {
+    return this.recepcionService.resumen(req.user);
   }
 
   @Get(':id')
@@ -51,6 +64,7 @@ export class RecepcionEquiposController {
   }
 
   @Patch(':id/asignar-tecnico')
+  @SinMotivo()
   @RequireAccess('Recepcion Equipos', 4)
   asignarTecnico(
     @Param('id') id: string,
@@ -61,6 +75,7 @@ export class RecepcionEquiposController {
   }
 
   @Patch(':id/transicion-estado')
+  @SinMotivo()
   @RequireAccess('Recepcion Equipos', 4)
   transicionEstado(
     @Param('id') id: string,
@@ -76,6 +91,7 @@ export class RecepcionEquiposController {
   // directamente (adelante o atrás), queda trazado en historial_estado y se
   // notifica a quien deba actuar en la nueva fase.
   @Patch(':id/cambiar-fase')
+  @SinMotivo()
   @RequireAccess('Recepcion Equipos', 5)
   cambiarFaseAdmin(
     @Param('id') id: string,

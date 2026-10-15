@@ -11,7 +11,7 @@ interface ServicioFormProps {
 }
 
 export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormProps) => {
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -55,6 +55,18 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Solo al EDITAR un servicio existente se pide el motivo.
+        let motivo: string | null = null;
+        if (servicioId) {
+            motivo = await pedirMotivo({
+                title: 'Guardar cambios',
+                message: 'Va a modificar este servicio.',
+                confirmLabel: 'Guardar',
+            });
+            if (!motivo) return;
+        }
+
         try {
             const payload: any = {
                 magnitud: formData.procedimiento,
@@ -62,7 +74,7 @@ export const ServicioForm = ({ servicioId, onClose, onSuccess }: ServicioFormPro
                 laboratorio_id: parseInt(formData.laboratorio_id)
             };
             if (servicioId) {
-                await api.patch(`/servicios/${servicioId}`, payload);
+                await api.patch(`/servicios/${servicioId}`, payload, { motivo: motivo ?? undefined });
             } else {
                 await api.post('/servicios', payload);
             }

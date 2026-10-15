@@ -96,6 +96,7 @@ import { QuejaSeguimientoPage } from '../../modules/calidad/pages/QuejaSeguimien
 import { AdministrativoLayout } from '../../modules/administrativo/components/AdministrativoLayout';
 import BandejaTrabajoPage from '../../modules/administrativo/pages/BandejaTrabajoPage';
 import RecepcionesPage from '../../modules/administrativo/pages/RecepcionesPage';
+import ArchivadasPage from '../../modules/administrativo/pages/ArchivadasPage';
 import ClientesPage from '../../modules/administrativo/pages/ClientesPage';
 import CertificadosPage from '../../modules/administrativo/pages/CertificadosPage';
 import ReportesPage from '../../modules/administrativo/pages/ReportesPage';
@@ -220,6 +221,7 @@ const AppContenido = () => {
         {/* --- NUEVO MÓDULO ADMINISTRATIVO --- */}
         <Route path="/administrativo" element={<AdministrativoLayout />}>
           <Route path="recepciones" element={<BandejaTrabajoPage />} />
+          <Route path="archivadas" element={<ArchivadasPage />} />
           <Route path="ordenes" element={<RecepcionesPage />} />
           <Route path="clientes" element={<ClientesPage />} />
           <Route path="certificados" element={<CertificadosPage />} />

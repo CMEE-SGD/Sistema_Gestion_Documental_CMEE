@@ -89,7 +89,7 @@ export const QuejaFormPage = () => {
   const { id: rawId } = useParams<{id: string}>();
   const id = rawId ? decodeId(rawId) : undefined;
   const navigate = useNavigate();
-  const { alert } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const esEdicion = !!id;
   const [loading, setLoading] = useState(esEdicion);
@@ -231,7 +231,9 @@ export const QuejaFormPage = () => {
           observaciones: form.observaciones || null,
           responsables: allResponsables,
         });
-        await api.patch(`/calidad/quejas/${id}`, payload);
+        const motivo = await pedirMotivo({ title: 'Guardar cambios', message: 'Va a modificar esta queja.', confirmLabel: 'Guardar' });
+        if (!motivo) return;
+        await api.patch(`/calidad/quejas/${id}`, payload, { motivo });
         toast({ message: 'Queja actualizada correctamente.' });
       } else {
         await api.post('/calidad/quejas', payload);

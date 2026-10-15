@@ -31,7 +31,7 @@ const resultadoBadge = (r: string) => {
 };
 
 export const VerificarEficaciaModal = ({ nc, isOpen, onClose, onSuccess }: VerificarEficaciaModalProps) => {
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [personas, setPersonas] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -84,7 +84,9 @@ export const VerificarEficaciaModal = ({ nc, isOpen, onClose, onSuccess }: Verif
             };
             const fd = new FormData();
             fd.append('verificacion_eficacia', JSON.stringify(verif));
-            await api.patch(`/calidad/no-conformidades/${nc.id}`, fd);
+            const motivo = await pedirMotivo({ title: 'Registrar verificación', message: 'Va a registrar la verificación de eficacia de esta no conformidad.', confirmLabel: 'Registrar' });
+            if (!motivo) return;
+            await api.patch(`/calidad/no-conformidades/${nc.id}`, fd, { motivo });
             const estadoActual = nc.estado || '';
             if (resultadoVerif === 'EFICAZ') {
                 if (estadoActual !== 'EN_CURSO' && estadoActual !== 'VERIFICADA') {

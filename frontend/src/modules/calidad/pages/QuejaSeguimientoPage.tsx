@@ -31,7 +31,7 @@ export const QuejaSeguimientoPage = () => {
   const [searchParams] = useSearchParams();
   const seccion = searchParams.get('seccion') || 'analisis';
   const navigate = useNavigate();
-  const { alert } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -154,7 +154,9 @@ export const QuejaSeguimientoPage = () => {
           })),
         };
       }
-      await api.patch(`/calidad/quejas/${id}`, payload);
+      const motivo = await pedirMotivo({ title: 'Guardar cambios', message: 'Va a guardar el seguimiento de esta queja.', confirmLabel: 'Guardar' });
+      if (!motivo) return;
+      await api.patch(`/calidad/quejas/${id}`, payload, { motivo });
       toast({ message: 'Seguimiento actualizado correctamente.' });
       navigate(`/calidad/quejas/${encodeId(id)}`);
     } catch (error: any) {

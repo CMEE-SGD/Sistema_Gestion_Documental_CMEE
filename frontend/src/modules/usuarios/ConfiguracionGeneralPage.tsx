@@ -2,15 +2,18 @@ import { useEffect, useState } from 'react';
 import { Settings, Save } from 'lucide-react';
 import api from '../../core/api/axios';
 import { useToast } from '../../shared/components/molecules/Toast';
+import { useAlert } from '../../shared/components/molecules/AlertModal';
 
 export const ConfiguracionGeneralPage = () => {
     const { toast } = useToast();
+    const { pedirMotivo } = useAlert();
     const [loading, setLoading] = useState(true);
     const [guardando, setGuardando] = useState(false);
     const [nombreInstitucion, setNombreInstitucion] = useState('');
     const [maxIntentosFallidosLogin, setMaxIntentosFallidosLogin] = useState(5);
     const [ipRangosPermitidos, setIpRangosPermitidos] = useState('');
     const [tiempoInactividadMinutos, setTiempoInactividadMinutos] = useState(20);
+    const [exigirMotivoCambios, setExigirMotivoCambios] = useState(true);
 
     useEffect(() => {
         const fetchConfig = async () => {
@@ -20,6 +23,7 @@ export const ConfiguracionGeneralPage = () => {
                 setMaxIntentosFallidosLogin(res.data.max_intentos_fallidos_login);
                 setIpRangosPermitidos(res.data.ip_rangos_permitidos ?? '');
                 setTiempoInactividadMinutos(res.data.tiempo_inactividad_minutos ?? 20);
+                setExigirMotivoCambios(res.data.exigir_motivo_cambios ?? true);
             } catch (error) {
                 console.error('Error al cargar la configuración general', error);
             } finally {
@@ -31,6 +35,16 @@ export const ConfiguracionGeneralPage = () => {
 
     const handleGuardar = async (e: React.FormEvent) => {
         e.preventDefault();
+        // El servidor no exige motivo en esta pantalla (así un administrador
+        // siempre puede apagar la exigencia si algo fallara), pero se pide y
+        // se registra igual para que el cambio quede explicado en la bitácora.
+        const motivo = await pedirMotivo({
+            title: 'Guardar configuración',
+            message: 'Va a modificar la configuración general del sistema.',
+            confirmLabel: 'Guardar',
+        });
+        if (!motivo) return;
+
         setGuardando(true);
         try {
             await api.patch('/configuracion-general', {
@@ -38,7 +52,8 @@ export const ConfiguracionGeneralPage = () => {
                 max_intentos_fallidos_login: maxIntentosFallidosLogin,
                 ip_rangos_permitidos: ipRangosPermitidos.trim(),
                 tiempo_inactividad_minutos: tiempoInactividadMinutos,
-            });
+                exigir_motivo_cambios: exigirMotivoCambios,
+            }, { motivo });
             toast({ message: 'Configuración general actualizada correctamente.' });
         } catch (error) {
             console.error('Error al guardar la configuración general', error);
@@ -136,6 +151,25 @@ export const ConfiguracionGeneralPage = () => {
                         required
                         className="w-32 px-3 py-2 bg-background border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
+                </div>
+
+                <div>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={exigirMotivoCambios}
+                            onChange={(e) => setExigirMotivoCambios(e.target.checked)}
+                            className="mt-1 w-4 h-4 rounded border-border text-primary focus:ring-primary/20"
+                        />
+                        <span>
+                            <span className="block text-sm font-semibold text-foreground">
+                                Exigir el motivo al editar o eliminar
+                            </span>
+                            <span className="block text-xs text-muted-foreground mt-1">
+                                Al editar o eliminar un registro, el sistema pide escribir el motivo (mínimo 5 caracteres) y lo guarda en la bitácora de auditoría. Con esta opción activa el servidor <strong>rechaza</strong> cualquier cambio que no lo traiga. Apáguela solo si algún flujo quedara bloqueado.
+                            </span>
+                        </span>
+                    </label>
                 </div>
 
                 <div className="flex justify-end pt-2 border-t border-border">

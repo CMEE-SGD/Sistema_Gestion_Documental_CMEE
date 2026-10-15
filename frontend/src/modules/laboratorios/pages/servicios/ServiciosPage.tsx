@@ -10,7 +10,7 @@ import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const ServiciosPage = () => {
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [servicios, setServicios] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -58,9 +58,10 @@ export const ServiciosPage = () => {
     }).sort((a, b) => (a.magnitud || '').localeCompare(b.magnitud || ''));
 
     const handleEliminar = async (id: number) => {
-        if (!await confirm({ title: 'Confirmar', message: '¿Está seguro de desactivar este servicio?' })) return;
+        const motivo = await pedirMotivo({ title: 'Confirmar', message: '¿Está seguro de desactivar este servicio?', confirmLabel: 'Desactivar' });
+        if (!motivo) return;
         try {
-            await api.delete(`/servicios/${id}`);
+            await api.delete(`/servicios/${id}`, { motivo });
             fetchServicios();
             toast({ message: 'Servicio desactivado exitosamente.' });
         } catch (error) {
@@ -69,9 +70,10 @@ export const ServiciosPage = () => {
     };
 
     const handleReactivar = async (id: number) => {
-        if (!await confirm({ title: 'Confirmar', message: '¿Desea volver a activar este servicio?' })) return;
+        const motivo = await pedirMotivo({ title: 'Confirmar', message: '¿Desea volver a activar este servicio?', confirmLabel: 'Reactivar' });
+        if (!motivo) return;
         try {
-            await api.patch(`/servicios/${id}/reactivar`);
+            await api.patch(`/servicios/${id}/reactivar`, undefined, { motivo });
             fetchServicios();
             toast({ message: 'Servicio reactivado exitosamente.' });
         } catch (error) {

@@ -4,6 +4,7 @@ import { Button } from '../../../../shared/components/atoms/button';
 import { GraduationCap, ArrowLeft, FileText } from 'lucide-react';
 import api from '../../../../core/api/axios';
 import { useToast } from '../../../../shared/components/molecules/Toast';
+import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { decodeId, encodeId } from '../../../../shared/utils/ids';
 import { buildFileUrl } from '../../../../shared/utils/backendUrl';
 
@@ -24,6 +25,7 @@ export const CapacitacionFormPage = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { pedirMotivo } = useAlert();
   const esEdicion = Boolean(id);
   const decodedId = id ? decodeId(id) : null;
 
@@ -119,6 +121,20 @@ export const CapacitacionFormPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nombre.trim()) return;
+
+    // Solo al EDITAR una capacitación existente se pide el motivo (crear una
+    // nueva no es un cambio sobre un recurso). Se pide antes de bloquear el
+    // formulario para que cancelar no deje el botón deshabilitado.
+    let motivo: string | null = null;
+    if (esEdicion && decodedId) {
+      motivo = await pedirMotivo({
+        title: 'Guardar cambios',
+        message: 'Va a modificar esta capacitación.',
+        confirmLabel: 'Guardar',
+      });
+      if (!motivo) return;
+    }
+
     setLoading(true);
     try {
       let capId: number;
@@ -134,7 +150,7 @@ export const CapacitacionFormPage = () => {
           persona_ids: personaIds,
         };
         if (form.proveedor) payload.proveedor = form.proveedor;
-        await api.patch(`/capacitaciones/${capId}`, payload);
+        await api.patch(`/capacitaciones/${capId}`, payload, { motivo: motivo ?? undefined });
         toast({ message: 'Capacitación actualizada correctamente' });
       } else {
         const res = await api.post('/capacitaciones', {

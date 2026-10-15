@@ -152,7 +152,7 @@ export const AuditoriaFormPage = () => {
     const { id: rawId } = useParams<{id: string}>();
     const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [personas, setPersonas] = useState<any[]>([]);
@@ -408,7 +408,11 @@ const motivoAdicionalActual = MOTIVOS_AUDITORIA_ADICIONAL.find(m => m.value === 
 
             const config = { headers: { 'Content-Type': 'multipart/form-data' } };
             if (id) {
-                await api.patch(`/calidad/auditorias/${id}`, fd, config);
+                // Solo al EDITAR una auditoría existente; si cancela, el
+                // `finally` vuelve a habilitar el formulario.
+                const motivo = await pedirMotivo({ title: 'Guardar cambios', message: 'Va a modificar esta auditoría.', confirmLabel: 'Guardar' });
+                if (!motivo) return;
+                await api.patch(`/calidad/auditorias/${id}`, fd, { ...config, motivo });
                 toast({ message: 'Auditoría actualizada correctamente.' });
             } else {
                 await api.post('/calidad/auditorias', fd, config);
