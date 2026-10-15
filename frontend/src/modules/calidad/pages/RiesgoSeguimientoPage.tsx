@@ -114,7 +114,6 @@ export const RiesgoSeguimientoPage = () => {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [guardando, setGuardando] = useState(false);
-    const [codigo, setCodigo] = useState('');
     const [form, setForm] = useState<any>({});
 
     const [responsables, setResponsables] = useState<ResponsableRow[]>([]);
@@ -126,7 +125,6 @@ export const RiesgoSeguimientoPage = () => {
             try {
                 const res = await api.get(`/calidad/riesgos/${encodeId(id)}`);
                 const r = res.data;
-                setCodigo(r.codigo);
                 setForm({
                     tipo: r.tipo || 'RIESGO',
                     proceso: r.proceso || '',
@@ -347,7 +345,7 @@ export const RiesgoSeguimientoPage = () => {
     return (
         <div className="p-6">
             <button onClick={() => navigate(`/calidad/riesgos/${encodeId(id)}`)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-4">
-                <ArrowLeft className="w-4 h-4" /> Volver a {codigo}
+                <ArrowLeft className="w-4 h-4" /> Volver
             </button>
 
             <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
