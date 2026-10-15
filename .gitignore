@@ -38,6 +38,9 @@ database/
 *.sql
 !backend/prisma/migrations/**/*.sql
 
+# Utilidad local de respaldos (scripts de backup/restore y sus .dump)
+database/
+
 AGENTS.md
 CLAUDE.md
 AUDITORIA_CMEE.md

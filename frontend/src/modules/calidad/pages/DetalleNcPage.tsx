@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Lock, History, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Lock, History, CheckCircle2, RotateCcw } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
@@ -24,6 +24,16 @@ export const DetalleNcPage = () => {
     const { toast } = useToast();
     const [nc, setNc] = useState<any>(null);
     const [verifOpen, setVerifOpen] = useState(false);
+    // Reapertura: desde VERIFICADA se vuelve a EN_CURSO y desde CERRADA también
+    // (MC21 Anexo I). En ambos casos el motivo es obligatorio y queda registrado.
+    const [reapertura, setReapertura] = useState(false);
+    const [motivo, setMotivo] = useState('');
+    const [guardando, setGuardando] = useState(false);
+
+    const abrirReapertura = () => {
+        setMotivo('');
+        setReapertura(true);
+    };
 
     const volverA = auditoriaId ? `/calidad/auditorias/${encodeId(auditoriaId)}` : '/calidad/no-conformidades';
 
@@ -54,7 +64,7 @@ export const DetalleNcPage = () => {
             : `/calidad/no-conformidades/${encodeId(ncId!)}/plan-accion${editar ? '?editar=1' : ''}`;
 
     const handleCerrar = async () => {
-        if (!await confirm({ title: 'Cerrar NC', message: '¿Confirma el cierre formal de esta no conformidad? El cierre es definitivo.' })) return;
+        if (!await confirm({ title: 'Cerrar NC', message: '¿Confirma el cierre formal de esta no conformidad? La eficacia de las acciones consta como EFICAZ en el plan de acción.' })) return;
         try {
             await api.patch(`/calidad/no-conformidades/${ncId}/estado`, { estado: 'CERRADA', observaciones: 'Cierre formal de la no conformidad' });
             toast({ message: 'No conformidad cerrada correctamente.' });
@@ -65,15 +75,26 @@ export const DetalleNcPage = () => {
         }
     };
 
-    const handleReabrir = async () => {
-        if (!await confirm({ title: 'Reabrir NC', message: '¿Confirma reabrir esta no conformidad para continuar las acciones?' })) return;
+    const confirmarReapertura = async () => {
+        if (!reapertura || !motivo.trim()) {
+            await alert({ message: 'Debe indicar el motivo de la reapertura.' });
+            return;
+        }
+        setGuardando(true);
         try {
-            await api.patch(`/calidad/no-conformidades/${ncId}/estado`, { estado: 'EN_CURSO', observaciones: 'Reapertura de la no conformidad' });
-            toast({ message: 'No conformidad reabierta.' });
+            await api.patch(`/calidad/no-conformidades/${ncId}/estado`, {
+                estado: 'EN_CURSO',
+                observaciones: motivo.trim(),
+            });
+            toast({ message: 'No conformidad reabierta. El motivo quedó en la trazabilidad.' });
+            setReapertura(false);
+            setMotivo('');
             const res = await api.get(`/calidad/no-conformidades/${ncId}`);
             setNc(res.data);
         } catch (error: any) {
             await alert({ message: error.response?.data?.message || 'Error al reabrir la no conformidad.' });
+        } finally {
+            setGuardando(false);
         }
     };
 
@@ -154,14 +175,16 @@ export const DetalleNcPage = () => {
                 <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-bold text-gray-800">Plan de Acción</h2>
-                        <div className="flex items-center gap-2">
-                            <button onClick={() => setVerifOpen(true)} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors">
-                                <CheckCircle2 className="w-3 h-3" /> Verificar Eficacia
-                            </button>
-                            <button onClick={() => navigate(rutaPlan(true))} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors">
-                                <Pencil className="w-3 h-3" /> Editar Plan de Acción
-                            </button>
-                        </div>
+                        {nc.estado !== 'CERRADA' && (
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => setVerifOpen(true)} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors">
+                                    <CheckCircle2 className="w-3 h-3" /> Verificar Eficacia
+                                </button>
+                                <button onClick={() => navigate(rutaPlan(true))} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors">
+                                    <Pencil className="w-3 h-3" /> Editar Plan de Acción
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {nc.verificacion_eficacia && (
@@ -279,17 +302,24 @@ export const DetalleNcPage = () => {
                     <button onClick={() => navigate(volverA)} className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors">
                         <ArrowLeft className="w-4 h-4" /> Regresar
                     </button>
-                    <button onClick={handleCerrar} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors">
-                        <Lock className="w-4 h-4" /> Cerrar NC
-                    </button>
+                    {nc.estado === 'VERIFICADA' && (
+                        <button onClick={handleCerrar} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md shadow-sm transition-colors">
+                            <Lock className="w-4 h-4" /> Cerrar NC
+                        </button>
+                    )}
                 </div>
             )}
-            {nc.estado === 'VERIFICADA' && (
+            {(nc.estado === 'VERIFICADA' || nc.estado === 'CERRADA') && (
                 <div className="mt-2 flex justify-end">
-                    <button onClick={handleReabrir} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-md transition-colors">
+                    <button onClick={abrirReapertura} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-md transition-colors">
                         Reabrir NC
                     </button>
                 </div>
+            )}
+            {nc.estado === 'EN_CURSO' && (
+                <p className="mt-2 text-xs text-gray-500 text-right">
+                    El cierre solo es posible cuando la eficacia de las acciones consta como EFICAZ (estado VERIFICADA).
+                </p>
             )}
 
             {nc.historial && nc.historial.length > 0 && (
@@ -309,7 +339,11 @@ export const DetalleNcPage = () => {
                                     <span className="text-xs text-gray-500">{new Date(h.createdAt).toLocaleString()}</span>
                                 </div>
                                 <div className="text-xs text-gray-500 mt-0.5">
-                                    {h.accion === 'CREACION' ? 'Registro de la no conformidad' : 'Cambio de estado'}
+                                    {h.accion === 'CREACION'
+                                        ? 'Registro de la no conformidad'
+                                        : h.accion === 'REAPERTURA'
+                                            ? 'Reapertura de la no conformidad'
+                                            : 'Cambio de estado'}
                                     {h.realizado_por ? ` — ${h.realizado_por.nombre} ${h.realizado_por.apellidos}` : ''}
                                 </div>
                                 {h.observaciones && <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{h.observaciones}</div>}
@@ -333,6 +367,51 @@ export const DetalleNcPage = () => {
                 onClose={() => setVerifOpen(false)}
                 onSuccess={fetchNc}
             />
+
+            {reapertura && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+                        <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-200">
+                            <RotateCcw className="w-5 h-5 text-amber-600" />
+                            <h3 className="text-base font-semibold text-gray-800">
+                                Reabrir no conformidad {nc.codigo}
+                            </h3>
+                        </div>
+                        <div className="p-5">
+                            <p className="text-sm text-gray-600 mb-3">
+                                {nc.estado === 'CERRADA'
+                                    ? 'La no conformidad volverá al estado EN_CURSO y se liberará la fecha de cierre. El motivo es obligatorio y queda registrado en la trazabilidad (MC21, Anexo I).'
+                                    : 'La no conformidad volverá al estado EN_CURSO para ajustar las acciones. El motivo es obligatorio y queda registrado en la trazabilidad.'}
+                            </p>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">MOTIVO DE LA REAPERTURA *</label>
+                            <textarea
+                                value={motivo}
+                                onChange={(e) => setMotivo(e.target.value)}
+                                rows={4}
+                                autoFocus
+                                placeholder="Explique por qué se reabre la no conformidad"
+                                className="w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-200">
+                            <button
+                                onClick={() => setReapertura(false)}
+                                disabled={guardando}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmarReapertura}
+                                disabled={guardando || !motivo.trim()}
+                                className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-md disabled:opacity-50 transition-colors"
+                            >
+                                {guardando ? 'Reabriendo...' : 'Reabrir NC'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
