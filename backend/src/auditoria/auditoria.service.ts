@@ -538,11 +538,29 @@ export class AuditoriaService {
         }
         break;
       case 'CERTIFICADOS':
-        for (const { id, numero_certificado } of await this.prisma.certificado.findMany({
+        // El número correlativo (ej. 23) parece un id y no dice nada por sí
+        // solo. Se prefiere el nombre original del PDF con el que se subió
+        // el certificado; si por algún motivo no quedó guardado, se cae al
+        // del reporte (es el mismo archivo) y, en último caso, al número.
+        for (const {
+          id,
+          numero_certificado,
+          nombre_original_certificado,
+          nombre_original_reporte,
+        } of await this.prisma.certificado.findMany({
           where: { id: { in: ids } },
-          select: { id: true, numero_certificado: true },
+          select: {
+            id: true,
+            numero_certificado: true,
+            nombre_original_certificado: true,
+            nombre_original_reporte: true,
+          },
         })) {
-          mapa.set(id, `Certificado Nº ${numero_certificado}`);
+          const nombre =
+            nombre_original_certificado?.trim() ||
+            nombre_original_reporte?.trim() ||
+            `Certificado Nº ${numero_certificado}`;
+          mapa.set(id, nombre);
         }
         break;
       case 'NOTIFICACIONES':
@@ -551,6 +569,46 @@ export class AuditoriaService {
           select: { id: true, mensaje: true },
         })) {
           mapa.set(id, mensaje);
+        }
+        break;
+      case 'CAPACITACIONES':
+        for (const { id, nombre } of await this.prisma.capacitacion.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, nombre: true },
+        })) {
+          mapa.set(id, nombre);
+        }
+        break;
+      case 'PERSONA-PUESTO':
+        // La asignación no tiene nombre propio: se arma "persona — puesto"
+        // para que la bitácora diga a quién y dónde se asignó, en vez del
+        // id crudo de la fila de asignación.
+        for (const { id, persona, puesto } of await this.prisma.personaPuesto.findMany({
+          where: { id: { in: ids } },
+          select: {
+            id: true,
+            persona: { select: { nombre: true, apellidos: true } },
+            puesto: { select: { nombre: true } },
+          },
+        })) {
+          const personaNombre = persona
+            ? `${persona.nombre} ${persona.apellidos ?? ''}`.trim()
+            : '';
+          mapa.set(
+            id,
+            [personaNombre, puesto?.nombre].filter(Boolean).join(' — ') ||
+              'Asignación de puesto',
+          );
+        }
+        break;
+      case 'CONFIGURACION-GENERAL':
+        // Fila única (id=1): el nombre institucional es el dato que la
+        // identifica de forma legible.
+        for (const { id, nombre_institucion } of await this.prisma.configuracionGeneral.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, nombre_institucion: true },
+        })) {
+          mapa.set(id, nombre_institucion || 'Configuración General');
         }
         break;
       default:
@@ -751,7 +809,7 @@ export class AuditoriaService {
           ? (mapaLaboratorio.get(fila.laboratorio_actor_id) ?? null)
           : null;
 
-      if (!fila.descripcion || !fila.entidad_id || !fila.entidad_nombre) continue;
+      if (!fila.descripcion || !fila.entidad_id) continue;
 
       // Regex con límite de palabra: "#3" con .replace() de texto plano
       // también hace match adentro de "#38" (substring), lo que corta mal
@@ -759,6 +817,21 @@ export class AuditoriaService {
       // prefijo. El "(?!\d)" exige que no siga otro dígito.
       const marcaIdRegex = new RegExp(`#${fila.entidad_id}(?!\\d)`);
       if (!marcaIdRegex.test(fila.descripcion)) continue;
+
+      const marcaIdConEspacioRegex = new RegExp(` #${fila.entidad_id}(?!\\d)`);
+
+      // No se pudo resolver el nombre (módulo sin resolución — ej. los que
+      // vienen de otras ramas como FACTURACION/GESTORDOCUMENTAL — o el
+      // registro ya no existe). Aun así no se debe mostrar el id crudo: se
+      // quita el "#id" y se conserva el resto de la descripción.
+      if (!fila.entidad_nombre) {
+        fila.descripcion = fila.descripcion
+          .replace(marcaIdConEspacioRegex, '')
+          .replace(marcaIdRegex, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+        continue;
+      }
 
       // En Carpetas/Documentos el destacado del payload (si lo hay) es
       // siempre el nombre suelto de la carpeta/documento — el cliente pidió
@@ -768,7 +841,6 @@ export class AuditoriaService {
         fila.modulo === 'CARPETAS' || fila.modulo === 'DOCUMENTOS';
 
       if (fila.descripcion.includes(' — ')) {
-        const marcaIdConEspacioRegex = new RegExp(` #${fila.entidad_id}(?!\\d)`);
         fila.descripcion = prefiereRutaCompleta
           ? fila.descripcion
               .replace(/ — .*/, ` — ${fila.entidad_nombre}`)
