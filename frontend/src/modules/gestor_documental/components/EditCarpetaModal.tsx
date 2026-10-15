@@ -20,7 +20,7 @@ interface EditCarpetaModalProps {
 }
 
 export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaModalProps) => {
-  const { alert, confirm } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const [form, setForm] = useState({ nombre: '', descripcion: '', codigo: '', orden: 0, activo: true });
   const [permisos, setPermisos] = useState<Record<string, PermisoRow>>({});
@@ -81,6 +81,13 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
   };
 
   const guardar = async () => {
+    const motivo = await pedirMotivo({
+      title: 'Guardar cambios',
+      message: `Va a modificar la carpeta "${carpetaNombre}".`,
+      confirmLabel: 'Guardar',
+    });
+    if (!motivo) return;
+
     setGuardando(true);
     try {
       const permisosPayload = Object.values(permisos).map(val => ({
@@ -97,7 +104,7 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
         orden: form.orden,
         activo: form.activo,
         permisos: permisosPayload,
-      });
+      }, { motivo });
 
       toast({ message: 'Guardado correctamente.' });
       onSaved();
@@ -109,10 +116,14 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
   };
 
   const eliminar = async () => {
-    const confirmado = await confirm({ message: `¿Eliminar "${carpetaNombre}"? Se eliminarán todas sus subcarpetas y documentos.` });
-    if (!confirmado) return;
+    const motivo = await pedirMotivo({
+      title: 'Eliminar carpeta',
+      message: `¿Eliminar "${carpetaNombre}"? Se eliminarán todas sus subcarpetas y documentos.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!motivo) return;
     try {
-      await api.delete(`/carpetas/${carpetaId}`);
+      await api.delete(`/carpetas/${carpetaId}`, { motivo });
       toast({ message: 'Eliminada correctamente.' });
       onSaved();
     } catch (error: any) {

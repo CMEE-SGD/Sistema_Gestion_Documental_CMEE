@@ -7,7 +7,7 @@ import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const ConfiguracionGestorPage = () => {
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState('Librerías');
 
@@ -53,6 +53,13 @@ export const ConfiguracionGestorPage = () => {
 
     const handleGuardarEdicion = async () => {
         if (!editItem) return;
+        const motivo = await pedirMotivo({
+            title: 'Guardar cambios',
+            message: `Va a modificar "${editItem.nombre}".`,
+            confirmLabel: 'Guardar',
+        });
+        if (!motivo) return;
+
         setGuardandoEdicion(true);
         try {
             await api.patch(`/carpetas/${editItem.id}`, {
@@ -60,7 +67,7 @@ export const ConfiguracionGestorPage = () => {
                 descripcion: editForm.descripcion,
                 codigo: editForm.codigo,
                 activo: editForm.activo,
-            });
+            }, { motivo });
             toast({ message: 'Elemento actualizado correctamente' });
             setEditItem(null);
             window.dispatchEvent(new Event('refreshCarpetas'));
@@ -74,14 +81,15 @@ export const ConfiguracionGestorPage = () => {
     };
 
     const handleEliminar = async (item: any) => {
-        const confirmacion = await confirm({
+        const motivo = await pedirMotivo({
             title: 'Eliminar',
             message: `¿Está seguro de eliminar "${item.nombre}"? Esto también eliminará todas sus subcarpetas y documentos contenidos. Esta acción no se puede deshacer.`,
+            confirmLabel: 'Eliminar',
         });
-        if (!confirmacion) return;
+        if (!motivo) return;
 
         try {
-            await api.delete(`/carpetas/${item.id}`);
+            await api.delete(`/carpetas/${item.id}`, { motivo });
             toast({ message: 'Elemento eliminado correctamente' });
             window.dispatchEvent(new Event('refreshCarpetas'));
             fetchDatos();

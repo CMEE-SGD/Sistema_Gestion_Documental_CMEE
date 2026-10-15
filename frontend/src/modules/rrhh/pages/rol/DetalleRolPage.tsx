@@ -12,7 +12,7 @@ import { encodeId, decodeId } from '../../../../shared/utils/ids';
 export const DetalleRolPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [rol, setRol] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -51,10 +51,10 @@ export const DetalleRolPage = () => {
     };
 
     const handleEliminar = async () => {
-        const ok = await confirm({ message: '¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?' });
-        if (!ok) return;
+        const motivo = await pedirMotivo({ message: '¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?', confirmLabel: 'Desactivar' });
+        if (!motivo) return;
         try {
-            await api.delete(`/roles/${id}`);
+            await api.delete(`/roles/${id}`, { motivo });
             toast({ message: 'El recurso ha sido inactivado correctamente.' });
             navigate('/rrhh/roles');
         } catch (error) {

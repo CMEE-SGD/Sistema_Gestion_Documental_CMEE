@@ -20,6 +20,7 @@ import { CambiarFaseAdminDto } from './dto/cambiar-fase-admin.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
+import { SinMotivo } from '../auditoria/sin-motivo.decorator';
 
 @UseGuards(JwtAuthGuard, AccessGuard)
 @Controller('recepcion-equipos')
@@ -63,6 +64,7 @@ export class RecepcionEquiposController {
   }
 
   @Patch(':id/asignar-tecnico')
+  @SinMotivo()
   @RequireAccess('Recepcion Equipos', 4)
   asignarTecnico(
     @Param('id') id: string,
@@ -73,6 +75,7 @@ export class RecepcionEquiposController {
   }
 
   @Patch(':id/transicion-estado')
+  @SinMotivo()
   @RequireAccess('Recepcion Equipos', 4)
   transicionEstado(
     @Param('id') id: string,
@@ -88,6 +91,7 @@ export class RecepcionEquiposController {
   // directamente (adelante o atrás), queda trazado en historial_estado y se
   // notifica a quien deba actuar en la nueva fase.
   @Patch(':id/cambiar-fase')
+  @SinMotivo()
   @RequireAccess('Recepcion Equipos', 5)
   cambiarFaseAdmin(
     @Param('id') id: string,

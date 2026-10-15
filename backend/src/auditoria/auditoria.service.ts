@@ -22,6 +22,7 @@ export class AuditoriaService {
     accion: string;
     descripcion?: string;
     detalle?: string | null;
+    motivo?: string | null;
     documento_id?: number;
     persona_afectada_id?: number;
     rol_afectado_id?: number;
@@ -31,6 +32,25 @@ export class AuditoriaService {
     return this.prisma.auditoria.create({
       data,
     });
+  }
+
+  /**
+   * ¿El servidor debe rechazar ediciones/eliminaciones sin motivo? Lo decide
+   * el interruptor `exigir_motivo_cambios` de Configuración General (activo
+   * por defecto). Si la fila de configuración aún no existe o la consulta
+   * falla se devuelve true: ante la duda se exige, que es el comportamiento
+   * seguro para la trazabilidad.
+   */
+  async motivoObligatorio(): Promise<boolean> {
+    try {
+      const config = await this.prisma.configuracionGeneral.findUnique({
+        where: { id: 1 },
+        select: { exigir_motivo_cambios: true },
+      });
+      return config?.exigir_motivo_cambios ?? true;
+    } catch {
+      return true;
+    }
   }
 
   /**

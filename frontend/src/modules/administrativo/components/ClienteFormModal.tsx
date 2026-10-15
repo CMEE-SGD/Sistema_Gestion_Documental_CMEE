@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, X } from 'lucide-react';
 import api from '../../../core/api/axios';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,6 +52,7 @@ const EMPTY_FORM: ClienteFormState = {
 
 export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: Props) {
   const queryClient = useQueryClient();
+  const { pedirMotivo } = useAlert();
   const esEdicion = !!cliente;
 
   const [form, setForm] = useState<ClienteFormState>(EMPTY_FORM);
@@ -74,7 +76,13 @@ export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: 
   }, [open, cliente]);
 
   const mutation = useMutation({
-    mutationFn: async (data: ClienteFormState) => {
+    mutationFn: async ({
+      data,
+      motivo,
+    }: {
+      data: ClienteFormState;
+      motivo?: string;
+    }) => {
       const payload = {
         nombre: data.nombre.trim(),
         ruc: data.ruc.trim() || undefined,
@@ -87,6 +95,7 @@ export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: 
         ? await api.patch<ClienteInstitucionalCreado>(
             `/clientes-institucionales/${cliente!.id}`,
             payload,
+            { motivo },
           )
         : await api.post<ClienteInstitucionalCreado>(
             '/clientes-institucionales',
@@ -126,10 +135,23 @@ export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: 
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    mutation.mutate(form);
+
+    // Solo al EDITAR un cliente existente se pide el motivo (después de
+    // validar); crear uno nuevo no es un cambio sobre un recurso.
+    if (esEdicion) {
+      const motivo = await pedirMotivo({
+        title: 'Guardar cambios',
+        message: `Va a modificar al cliente "${cliente!.nombre}".`,
+        confirmLabel: 'Guardar',
+      });
+      if (!motivo) return;
+      mutation.mutate({ data: form, motivo });
+      return;
+    }
+    mutation.mutate({ data: form });
   };
 
   const handleClose = () => {

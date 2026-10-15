@@ -9,7 +9,7 @@ import { encodeId, decodeId } from '../../../../shared/utils/ids';
 export const EditarGrupoPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
-    const { confirm } = useAlert();
+    const { pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     // PATCH: Nuevo estado para laboratorios
@@ -40,8 +40,8 @@ export const EditarGrupoPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const ok = await confirm({ title: 'Actualizar grupo', message: '¿Está seguro de guardar los cambios en este grupo?' });
-        if (!ok) return;
+        const motivo = await pedirMotivo({ title: 'Actualizar grupo', message: '¿Está seguro de guardar los cambios en este grupo?', confirmLabel: 'Guardar' });
+        if (!motivo) return;
         const payload = {
             nombre: formData.nombre,
             descripcion: formData.descripcion,
@@ -54,7 +54,7 @@ export const EditarGrupoPage = () => {
             // PATCH: Incluir laboratorio_id en el payload
             laboratorio_id: formData.laboratorio_id ? Number(formData.laboratorio_id) : null,
         };
-        await api.patch(`/departamentos/${id}`, payload);
+        await api.patch(`/departamentos/${id}`, payload, { motivo });
         toast({ message: 'Grupo actualizado correctamente.' });
         navigate(`/rrhh/grupos/${encodeId(id)}`);
     };

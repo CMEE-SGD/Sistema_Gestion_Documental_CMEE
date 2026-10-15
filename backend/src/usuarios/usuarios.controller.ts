@@ -20,6 +20,7 @@ import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
+import { SinMotivo } from '../auditoria/sin-motivo.decorator';
 
 /** Módulo controlador o servicio para gestionar la entidad Usuarios. */
 @ApiTags('Usuarios')
@@ -115,6 +116,7 @@ export class UsuariosController {
    * contraseña — nunca otro campo ni otro usuario (opera sobre req.user.id).
    */
   @Patch('perfil/actual')
+  @SinMotivo()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Actualizar idioma y/o contraseña propios' })
   actualizarPerfilPropio(@Req() req: any, @Body() dto: UpdatePerfilDto) {

@@ -19,7 +19,7 @@ export const CapacitacionDetallePage = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const decodedId = id ? decodeId(id) : null;
-  const { alert, confirm } = useAlert();
+  const { alert, confirm, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const [cap, setCap] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -57,10 +57,15 @@ export const CapacitacionDetallePage = () => {
   };
 
   const handleEliminar = async () => {
-    const ok = await confirm({ message: '¿Eliminar esta capacitación?' });
-    if (!ok || !decodedId) return;
+    if (!decodedId) return;
+    const motivo = await pedirMotivo({
+      title: 'Eliminar capacitación',
+      message: '¿Eliminar esta capacitación?',
+      confirmLabel: 'Eliminar',
+    });
+    if (!motivo) return;
     try {
-      await api.delete(`/capacitaciones/${decodedId}`);
+      await api.delete(`/capacitaciones/${decodedId}`, { motivo });
       toast({ message: 'Eliminada correctamente' });
       navigate('/rrhh/capacitaciones');
     } catch {

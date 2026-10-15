@@ -40,7 +40,7 @@ function extraerMensajeError(error: unknown, fallback: string): string {
 }
 
 export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: LaboratorioFormProps) => {
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [personas, setPersonas] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -126,8 +126,8 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
 
     // Vincula un departamento que ya existe en el organigrama (RRHH > Grupos)
     // — la vía preferida, para no crear duplicados de algo que ya está ahí.
-    const vincularExistente = async (idLaboratorio: number, departamentoId: number) => {
-        const res = await api.patch(`/laboratorios/${idLaboratorio}/departamentos/${departamentoId}`);
+    const vincularExistente = async (idLaboratorio: number, departamentoId: number, motivo: string) => {
+        const res = await api.patch(`/laboratorios/${idLaboratorio}/departamentos/${departamentoId}`, undefined, { motivo });
         setDepartamentos(prev => [...prev, res.data]);
         setDepartamentosDisponibles(prev => prev.filter(d => d.id !== departamentoId));
         setDepartamentoSeleccionadoId('');
@@ -158,12 +158,25 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
             await alert({ title: 'Datos incompletos', message: 'Selecciona un departamento de la lista.' });
             return;
         }
+        // Vincular un departamento ya existente MODIFICA ese departamento
+        // (cambia su laboratorio), así que pide motivo. Crear uno nuevo ya
+        // enlazado es una creación y no lo necesita.
+        let motivoVinculo: string | null = null;
+        if (!modoCrearNuevoDepartamento) {
+            motivoVinculo = await pedirMotivo({
+                title: 'Vincular departamento',
+                message: 'Va a vincular este departamento al laboratorio.',
+                confirmLabel: 'Vincular',
+            });
+            if (!motivoVinculo) return;
+        }
+
         setGuardandoDepartamento(true);
         try {
             if (modoCrearNuevoDepartamento) {
                 await crearYVincularDepartamento(laboratorioId);
             } else {
-                await vincularExistente(laboratorioId, Number(departamentoSeleccionadoId));
+                await vincularExistente(laboratorioId, Number(departamentoSeleccionadoId), motivoVinculo!);
             }
             toast({ message: 'Departamento vinculado. Ya puedes asignarle puestos desde RRHH.' });
         } catch (error) {
@@ -199,6 +212,18 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Solo al EDITAR un laboratorio existente se pide el motivo.
+        let motivo: string | null = null;
+        if (laboratorioId) {
+            motivo = await pedirMotivo({
+                title: 'Guardar cambios',
+                message: 'Va a modificar este laboratorio.',
+                confirmLabel: 'Guardar',
+            });
+            if (!motivo) return;
+        }
+
         try {
             const payload = {
                 codigo: formData.codigo,
@@ -209,7 +234,7 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
 
             let idLaboratorio = laboratorioId;
             if (laboratorioId) {
-                await api.patch(`/laboratorios/${laboratorioId}`, payload);
+                await api.patch(`/laboratorios/${laboratorioId}`, payload, { motivo: motivo ?? undefined });
             } else {
                 const resNuevo = await api.post('/laboratorios', payload);
                 idLaboratorio = resNuevo.data.id;
@@ -227,7 +252,13 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
                         if (modoCrearNuevoDepartamento) {
                             await crearYVincularDepartamento(idLaboratorio);
                         } else {
-                            await vincularExistente(idLaboratorio, Number(departamentoSeleccionadoId));
+                            // Parte de la propia creación del laboratorio: el
+                            // motivo es automático y queda explícito en la bitácora.
+                            await vincularExistente(
+                                idLaboratorio,
+                                Number(departamentoSeleccionadoId),
+                                'Vinculación del departamento al crear el laboratorio',
+                            );
                         }
                     } catch (errorDepartamento) {
                         const mensaje = extraerMensajeError(

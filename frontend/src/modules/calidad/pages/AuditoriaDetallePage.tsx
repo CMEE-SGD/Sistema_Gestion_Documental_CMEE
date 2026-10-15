@@ -36,7 +36,7 @@ export const AuditoriaDetallePage = () => {
     const { id: rawId } = useParams<{id: string}>();
     const id = decodeId(rawId!);
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [auditoria, setAuditoria] = useState<any>(null);
     const [ncs, setNcs] = useState<any[]>([]);
@@ -61,9 +61,10 @@ export const AuditoriaDetallePage = () => {
     useEffect(() => { fetchData(); }, [id]);
 
     const handleEliminarNc = async (ncId: number) => {
-        if (!await confirm({ title: 'Eliminar NC', message: '¿Está seguro de eliminar esta no conformidad?' })) return;
+        const motivo = await pedirMotivo({ title: 'Eliminar NC', message: '¿Está seguro de eliminar esta no conformidad?', confirmLabel: 'Eliminar' });
+        if (!motivo) return;
         try {
-            await api.delete(`/calidad/no-conformidades/${ncId}`);
+            await api.delete(`/calidad/no-conformidades/${ncId}`, { motivo });
             toast({ message: 'No conformidad eliminada correctamente.' });
             fetchData();
         } catch (error) {

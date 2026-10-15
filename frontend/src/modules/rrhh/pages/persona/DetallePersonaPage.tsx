@@ -26,7 +26,7 @@ interface CapacitacionItem {
 export const DetallePersonaPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [persona, setPersona] = useState<Persona | null>(null);
     const [loading, setLoading] = useState(true);
@@ -77,10 +77,14 @@ export const DetallePersonaPage = () => {
     };
 
     const handleEliminar = async () => {
-        const ok = await confirm({ message: '¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?' });
-        if (!ok) return;
+        const motivo = await pedirMotivo({
+            title: 'Eliminar recurso',
+            message: '¿Está seguro de que desea eliminar (desactivar) este recurso del sistema?',
+            confirmLabel: 'Eliminar',
+        });
+        if (!motivo) return;
         try {
-            await api.delete(`/personas/${id}`);
+            await api.delete(`/personas/${id}`, { motivo });
             toast({ message: 'El recurso ha sido inactivado correctamente.' });
             navigate('/rrhh/personas');
         } catch (error) {

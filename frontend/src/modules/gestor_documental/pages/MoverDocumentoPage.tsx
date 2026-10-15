@@ -8,7 +8,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 export const MoverDocumentosPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { confirm } = useAlert();
+    const { pedirMotivo } = useAlert();
     const { toast } = useToast();
     
     // Recibimos los documentos que el usuario seleccionó en la tabla
@@ -85,8 +85,12 @@ export const MoverDocumentosPage = () => {
             return;
         }
 
-        const ok = await confirm({ message: `¿Mover ${documentosAMover.length} documento(s) a la carpeta seleccionada?` });
-        if (!ok) return;
+        const motivo = await pedirMotivo({
+            title: 'Mover documentos',
+            message: `¿Mover ${documentosAMover.length} documento(s) a la carpeta seleccionada?`,
+            confirmLabel: 'Mover',
+        });
+        if (!motivo) return;
 
         setLoading(true);
         setError('');
@@ -94,9 +98,9 @@ export const MoverDocumentosPage = () => {
         try {
             await Promise.all(
                 documentosAMover.map((doc: any) => 
-                    api.patch(`/documentos/${doc.id}`, { 
-                        carpeta_id: carpetaDestinoFinalId 
-                    })
+                    api.patch(`/documentos/${doc.id}`, {
+                        carpeta_id: carpetaDestinoFinalId
+                    }, { motivo })
                 )
             );
 

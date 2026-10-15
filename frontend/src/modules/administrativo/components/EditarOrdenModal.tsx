@@ -84,7 +84,7 @@ type EquipoDetalleConSubArea = OrdenTrabajoDetalle['equipos'][number] & {
 
 export default function EditarOrdenModal({ orden, onClose }: Props) {
   const queryClient = useQueryClient();
-  const { alert } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
 
   const [clientes, setClientes] = useState<ClienteOption[]>([]);
@@ -194,7 +194,7 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
   }, [orden, cargarSubAreas]);
 
   const mutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (motivo: string) => {
       const res = await api.patch(`/recepcion-equipos/${orden!.id}`, {
         orden_trabajo_fisica: header.orden_trabajo_fisica.trim(),
         n_proforma: header.n_proforma.trim() || undefined,
@@ -216,7 +216,7 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
           fecha_ingreso_laboratorio:
             eq.fecha_ingreso_laboratorio || undefined,
         })),
-      });
+      }, { motivo });
       return res.data;
     },
     onSuccess: () => {
@@ -281,10 +281,18 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    mutation.mutate();
+    // El motivo se pide DESPUÉS de validar, para no hacer escribir un motivo
+    // y luego rechazar el formulario por un campo vacío.
+    const motivo = await pedirMotivo({
+      title: 'Guardar cambios',
+      message: `Va a modificar la orden ${header.orden_trabajo_fisica.trim()}.`,
+      confirmLabel: 'Guardar',
+    });
+    if (!motivo) return;
+    mutation.mutate(motivo);
   };
 
   const inputClass = (field: string) =>
