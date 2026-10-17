@@ -7,6 +7,7 @@ import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
+import { esExtensionAdicional } from './formatos-permitidos';
 
 // Asegurarnos de que la carpeta temp exista al arrancar el módulo
 const tempFolder = './uploads/Gestor_Documental/temp';
@@ -30,10 +31,12 @@ if (!fs.existsSync(tempFolder)) {
           cb(null, nombreLimpio);
         },
       }),
-      // Solo PDF — antes esto solo se sugería en el frontend (accept=), lo
-      // cual es fácil de evadir llamando al API directo.
+      // PDF, o uno de los formatos adicionales (Word, Excel, PowerPoint, CSV,
+      // TXT). Aquí aún no se sabe a qué carpeta va (multer procesa el archivo
+      // antes que los demás campos), así que la decisión final —solo PDF o
+      // cualquier formato— la toma el servicio con validarArchivoParaCarpeta.
       fileFilter: (req, file, cb) => {
-        cb(null, file.mimetype === 'application/pdf');
+        cb(null, file.mimetype === 'application/pdf' || esExtensionAdicional(file.originalname));
       },
     }),
   ],

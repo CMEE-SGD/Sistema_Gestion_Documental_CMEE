@@ -23,6 +23,7 @@ import { UpdateDocumentoDto } from './dto/update-documento.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
+import { mimePorNombre } from './formatos-permitidos';
 
 /** Módulo controlador o servicio para gestionar la entidad Documentos. */
 @Controller('documentos')
@@ -171,7 +172,8 @@ export class DocumentosController {
     if (!existsSync(filePath)) {
       throw new NotFoundException('El archivo ya no está disponible en el servidor');
     }
-    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Type', mimePorNombre(nombreOriginal));
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     const nombreAscii = nombreOriginal.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
     res.setHeader(
       'Content-Disposition',

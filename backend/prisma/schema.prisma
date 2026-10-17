@@ -507,6 +507,8 @@ model Carpeta {
   tipo       TipoNivelCarpeta @default(SUBCARPETA)
   orden      Int              @default(0)
   activo     Boolean          @default(true)
+  // Admite Word/Excel/PowerPoint/CSV además de PDF; las subcarpetas lo heredan.
+  admite_cualquier_formato Boolean @default(false)
   created_at DateTime         @default(now())
   updated_at DateTime         @updatedAt
 
