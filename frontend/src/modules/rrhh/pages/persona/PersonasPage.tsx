@@ -11,7 +11,7 @@ import { useToast } from '../../../../shared/components/molecules/Toast';
 
 export const PersonasPage = () => {
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
 
     const [personas, setPersonas] = useState<any[]>([]);
@@ -65,11 +65,17 @@ export const PersonasPage = () => {
             await alert({ message: "Seleccione al menos un recurso." });
             return;
         }
-        const ok = await confirm({ message: `¿Está seguro de que desea enviar a INACTIVO ${seleccionados.length} recurso(s)?` });
-        if (!ok) return;
+        // Un solo motivo para todos los recursos seleccionados: cada uno queda
+        // con su propio registro de auditoría y el mismo motivo.
+        const motivo = await pedirMotivo({
+            title: 'Inhabilitar recursos',
+            message: `¿Está seguro de que desea enviar a INACTIVO ${seleccionados.length} recurso(s)?`,
+            confirmLabel: 'Inhabilitar',
+        });
+        if (!motivo) return;
 
         try {
-            await Promise.all(seleccionados.map(id => api.delete(`/personas/${id}`)));
+            await Promise.all(seleccionados.map(id => api.delete(`/personas/${id}`, { motivo })));
             toast({ message: 'Recursos inhabilitados exitosamente.' });
             window.location.reload();
         } catch (error) {

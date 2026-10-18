@@ -20,9 +20,9 @@ interface EditCarpetaModalProps {
 }
 
 export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaModalProps) => {
-  const { alert, confirm } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
-  const [form, setForm] = useState({ nombre: '', descripcion: '', codigo: '', orden: 0, activo: true });
+  const [form, setForm] = useState({ nombre: '', descripcion: '', codigo: '', orden: 0, activo: true, admite_cualquier_formato: false });
   const [permisos, setPermisos] = useState<Record<string, PermisoRow>>({});
   const [expandidos, setExpandidos] = useState<Record<number, boolean>>({});
   const [departamentos, setDepartamentos] = useState<any[]>([]);
@@ -48,6 +48,7 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
           codigo: completa.codigo || '',
           orden: completa.orden || 0,
           activo: completa.activo ?? true,
+          admite_cualquier_formato: completa.admite_cualquier_formato ?? false,
         });
 
         const permisosMap: Record<string, PermisoRow> = {};
@@ -81,6 +82,13 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
   };
 
   const guardar = async () => {
+    const motivo = await pedirMotivo({
+      title: 'Guardar cambios',
+      message: `Va a modificar la carpeta "${carpetaNombre}".`,
+      confirmLabel: 'Guardar',
+    });
+    if (!motivo) return;
+
     setGuardando(true);
     try {
       const permisosPayload = Object.values(permisos).map(val => ({
@@ -96,8 +104,9 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
         codigo: form.codigo || null,
         orden: form.orden,
         activo: form.activo,
+        admite_cualquier_formato: form.admite_cualquier_formato,
         permisos: permisosPayload,
-      });
+      }, { motivo });
 
       toast({ message: 'Guardado correctamente.' });
       onSaved();
@@ -109,10 +118,14 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
   };
 
   const eliminar = async () => {
-    const confirmado = await confirm({ message: `¿Eliminar "${carpetaNombre}"? Se eliminarán todas sus subcarpetas y documentos.` });
-    if (!confirmado) return;
+    const motivo = await pedirMotivo({
+      title: 'Eliminar carpeta',
+      message: `¿Eliminar "${carpetaNombre}"? Se eliminarán todas sus subcarpetas y documentos.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!motivo) return;
     try {
-      await api.delete(`/carpetas/${carpetaId}`);
+      await api.delete(`/carpetas/${carpetaId}`, { motivo });
       toast({ message: 'Eliminada correctamente.' });
       onSaved();
     } catch (error: any) {
@@ -149,6 +162,12 @@ export const EditCarpetaModal = ({ carpetaId, onClose, onSaved }: EditCarpetaMod
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" name="activo" checked={form.activo} onChange={handleChange} className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
                 <span className="text-sm text-gray-700">Activa</span>
+              </label>
+
+              <label className="text-sm font-medium text-gray-700">Formatos:</label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="admite_cualquier_formato" checked={form.admite_cualquier_formato} onChange={handleChange} className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                <span className="text-sm text-gray-700">Admite Word, Excel y otros formatos además de PDF (también en sus subcarpetas)</span>
               </label>
             </div>
 

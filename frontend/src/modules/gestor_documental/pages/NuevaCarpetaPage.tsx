@@ -37,7 +37,8 @@ export const NuevaCarpetaPage = () => {
         codigo: '',
         orden: 10,
         versionInicial: '1',
-        activo: true
+        activo: true,
+        admiteCualquierFormato: false
     });
 
     useEffect(() => {
@@ -137,6 +138,7 @@ export const NuevaCarpetaPage = () => {
                 orden: Number(formData.orden),
                 version_inicial: formData.versionInicial,
                 activo: formData.activo,
+                admite_cualquier_formato: formData.admiteCualquierFormato,
                 tipo: tipo_final,
                 carpeta_padre_id: padre_final_id || undefined,
                 permisos: permisosPayload,
@@ -271,6 +273,15 @@ export const NuevaCarpetaPage = () => {
                             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
                         Activa
+                    </label>
+
+                    <label className="text-gray-700">Formatos:</label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox" name="admiteCualquierFormato" checked={formData.admiteCualquierFormato} onChange={handleChange}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        Admite Word, Excel y otros formatos además de PDF (también en sus subcarpetas)
                     </label>
                 </div>
 

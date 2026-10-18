@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import {
+  Archive,
   Award,
   BarChart3,
   CalendarClock,
@@ -25,6 +26,13 @@ export default function AdministrativoTabs() {
       label: 'Recepción de equipos',
       path: '/administrativo/recepciones',
       icon: Inbox,
+      visible: puedeVerModulo,
+    },
+    {
+      // Equipos que ya terminaron su flujo (FINALIZADO): salen de la bandeja.
+      label: 'Archivadas',
+      path: '/administrativo/archivadas',
+      icon: Archive,
       visible: puedeVerModulo,
     },
     {

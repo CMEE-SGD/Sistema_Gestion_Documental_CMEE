@@ -10,7 +10,7 @@ export const FasesConfigPage = () => {
     const circuitoId = rawCircuitoId ? decodeId(rawCircuitoId) : undefined;
     const location = useLocation();
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     
     const nombreCircuito = location.state?.nombreCircuito || 'Desconocido';
     const [fases, setFases] = useState<any[]>([]);
@@ -32,13 +32,14 @@ export const FasesConfigPage = () => {
     }, [circuitoId]);
 
     const handleEliminar = async (fase: any) => {
-        const confirmacion = await confirm({
+        const motivo = await pedirMotivo({
             title: 'Eliminar fase',
             message: `¿Está seguro de eliminar la fase "${fase.nombre}"? Esta acción no se puede deshacer.`,
+            confirmLabel: 'Eliminar',
         });
-        if (!confirmacion) return;
+        if (!motivo) return;
         try {
-            await api.delete(`/circuitos/${circuitoId}/fases/${fase.id}`);
+            await api.delete(`/circuitos/${circuitoId}/fases/${fase.id}`, { motivo });
             setFases(prev => prev.filter(f => f.id !== fase.id));
         } catch (error: any) {
             console.error("Error al eliminar fase:", error);

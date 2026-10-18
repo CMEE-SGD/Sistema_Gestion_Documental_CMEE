@@ -7,7 +7,7 @@ import { useToast } from '../../../../shared/components/molecules/Toast';
 export const NuevoCircuitoPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
 
     const circuitoId = location.state?.circuitoId;
@@ -25,13 +25,25 @@ export const NuevoCircuitoPage = () => {
             return;
         }
 
+        // Solo al EDITAR un circuito existente se pide el motivo (crear uno
+        // nuevo no es un cambio sobre un recurso).
+        let motivo: string | null = null;
+        if (esEdicion) {
+            motivo = await pedirMotivo({
+                title: 'Guardar cambios',
+                message: 'Va a modificar este circuito.',
+                confirmLabel: 'Guardar',
+            });
+            if (!motivo) return;
+        }
+
         try {
             setLoading(true);
             if (esEdicion) {
                 await api.patch(`/circuitos/${circuitoId}`, {
                     nombre: nombre.toUpperCase(),
                     activo
-                });
+                }, { motivo: motivo ?? undefined });
                 toast({ message: 'Circuito actualizado correctamente' });
             } else {
                 await api.post('/circuitos', {

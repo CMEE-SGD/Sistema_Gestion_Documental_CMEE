@@ -34,6 +34,7 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 
 # Dumps de base de datos / datos reales
+database/
 *.sql
 !backend/prisma/migrations/**/*.sql
 

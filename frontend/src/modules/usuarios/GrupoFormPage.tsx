@@ -23,7 +23,7 @@ export const GrupoFormPage = () => {
     const { id: rawId } = useParams();
     const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState<'datos' | 'usuarios' | 'aplicaciones'>('datos');
     const [loading, setLoading] = useState(false);
@@ -122,7 +122,15 @@ export const GrupoFormPage = () => {
             };
 
             if (id) {
-                await api.patch(`/grupos/${id}`, payload);
+                // Solo al EDITAR un grupo existente se pide el motivo; al
+                // cancelar, el `finally` vuelve a habilitar el botón.
+                const motivo = await pedirMotivo({
+                    title: 'Guardar cambios',
+                    message: 'Va a modificar este grupo de usuarios.',
+                    confirmLabel: 'Guardar',
+                });
+                if (!motivo) return;
+                await api.patch(`/grupos/${id}`, payload, { motivo });
                 toast({ message: 'Grupo actualizado correctamente.' });
             } else {
                 await api.post('/grupos', payload);
@@ -138,10 +146,11 @@ export const GrupoFormPage = () => {
     };
 
     const handleDelete = async () => {
-        if (!await confirm({ message: "¿Estás seguro de que deseas eliminar este grupo permanentemente?" })) return;
+        const motivo = await pedirMotivo({ message: "¿Estás seguro de que deseas eliminar este grupo permanentemente?", confirmLabel: 'Eliminar' });
+        if (!motivo) return;
         try {
             setLoading(true);
-            await api.delete(`/grupos/${id}`);
+            await api.delete(`/grupos/${id}`, { motivo });
             toast({ message: 'Grupo eliminado correctamente.' });
             navigate('/usuarios/grupos');
         } catch (error) {

@@ -11,7 +11,7 @@ export const GestorDocumentalPage = () => {
     const navigate = useNavigate();
     const { id: rawId } = useParams();
     const id = rawId ? decodeId(rawId) : undefined;
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
 
     const [carpetas, setCarpetas] = useState<any[]>([]);
@@ -99,15 +99,21 @@ export const GestorDocumentalPage = () => {
             return;
         }
 
-        const confirmacion = await confirm({ message: `¿Está seguro de eliminar ${documentosSeleccionados.length} documento(s)? Esta acción no se puede deshacer.` });
-        if (!confirmacion) return;
+        // Un solo motivo para todos los documentos seleccionados: cada uno
+        // queda con su propio registro de auditoría y el mismo motivo.
+        const motivo = await pedirMotivo({
+            title: 'Eliminar documentos',
+            message: `¿Está seguro de eliminar ${documentosSeleccionados.length} documento(s)? Esta acción no se puede deshacer.`,
+            confirmLabel: 'Eliminar',
+        });
+        if (!motivo) return;
 
         try {
             setLoadingDocs(true);
 
             // Usamos Promise.all para enviar todas las peticiones DELETE a tu backend de NestJS al mismo tiempo
             await Promise.all(
-                documentosSeleccionados.map(docId => api.delete(`/documentos/${docId}`))
+                documentosSeleccionados.map(docId => api.delete(`/documentos/${docId}`, { motivo }))
             );
 
             toast({ message: 'Documentos eliminados correctamente' });

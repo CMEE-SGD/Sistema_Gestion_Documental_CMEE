@@ -12,7 +12,7 @@ export const NuevaNcPage = () => {
     const auditoriaId = rawAid ? decodeId(rawAid) : undefined;
     const ncId = rawNcId ? decodeId(rawNcId) : undefined;
     const navigate = useNavigate();
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [loadingData, setLoadingData] = useState(!!ncId);
@@ -91,7 +91,11 @@ export const NuevaNcPage = () => {
             if (auditoriaId) fd.append('auditoria_id', String(auditoriaId));
             if (archivo) fd.append('archivo', archivo);
             if (ncId) {
-                await api.patch(`/calidad/no-conformidades/${ncId}`, fd);
+                // Solo al EDITAR una no conformidad existente; si cancela, el
+                // `finally` vuelve a habilitar el formulario.
+                const motivo = await pedirMotivo({ title: 'Guardar cambios', message: 'Va a modificar esta no conformidad.', confirmLabel: 'Guardar' });
+                if (!motivo) return;
+                await api.patch(`/calidad/no-conformidades/${ncId}`, fd, { motivo });
                 toast({ message: 'No conformidad actualizada correctamente.' });
             } else {
                 await api.post('/calidad/no-conformidades', fd);

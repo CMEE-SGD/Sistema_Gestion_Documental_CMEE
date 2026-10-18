@@ -113,6 +113,31 @@ export class CarpetasService {
     };
   }
 
+  /**
+   * ¿La carpeta admite archivos que no son PDF? Se hereda: basta con que la
+   * propia carpeta o cualquiera de sus ancestros lo tenga activado.
+   */
+  async admiteCualquierFormato(carpetaId: number): Promise<boolean> {
+    let actualId: number | null = carpetaId;
+    const visitados = new Set<number>();
+    while (actualId && !visitados.has(actualId)) {
+      visitados.add(actualId);
+      const c = await this.prisma.carpeta.findUnique({
+        where: { id: actualId },
+        select: { admite_cualquier_formato: true, carpeta_padre_id: true },
+      });
+      if (!c) return false;
+      if (c.admite_cualquier_formato) return true;
+      actualId = c.carpeta_padre_id;
+    }
+    return false;
+  }
+
+  /** Solo se acepta un booleano; cualquier otro valor se descarta. */
+  private normalizarFormato(data: any) {
+    if (typeof data.admite_cualquier_formato !== 'boolean') delete data.admite_cualquier_formato;
+  }
+
   async obtenerRutaFisica(carpetaId: number): Promise<string> {
     const partes = [];
     let actualId: number | null = carpetaId;
@@ -136,6 +161,7 @@ export class CarpetasService {
 
   async create(data: any, usuarioId?: number) { 
     const { permisos, carpeta_padre_id, ...carpetaData } = data;
+    this.normalizarFormato(carpetaData);
 
     if (carpeta_padre_id && usuarioId) {
       const tienePermiso = await this.verificarPermiso(usuarioId, carpeta_padre_id, 'permiso_carpetas');
@@ -176,15 +202,22 @@ export class CarpetasService {
     return this.prisma.carpeta.findMany();
   }
 
-  findOne(id: number) {
-    return this.prisma.carpeta.findUnique({
+  async findOne(id: number) {
+    const carpeta = await this.prisma.carpeta.findUnique({
       where: { id },
       include: { permisos: true },
     });
+    if (!carpeta) return carpeta;
+    // `admite_cualquier_formato_efectivo` incluye lo heredado de las carpetas superiores.
+    return {
+      ...carpeta,
+      admite_cualquier_formato_efectivo: await this.admiteCualquierFormato(id),
+    };
   }
 
   async update(id: number, data: any) {
     const { permisos, carpeta_padre_id, ...carpetaData } = data;
+    this.normalizarFormato(carpetaData);
 
     if (carpeta_padre_id !== undefined) {
       const nuevoPadre = carpeta_padre_id ? Number(carpeta_padre_id) : null;

@@ -18,6 +18,9 @@ export const NuevoFicheroPage = () => {
     const [nombrePropietario, setNombrePropietario] = useState('Cargando...');
     const [listaCircuitos, setListaCircuitos] = useState<{id: number, nombre: string}[]>([]);
 
+    // La carpeta destino (o una superior) admite Word/Excel/etc. además de PDF
+    const [admiteTodo, setAdmiteTodo] = useState(false);
+
     // Estado para el archivo físico
     const [archivoPdf, setArchivoPdf] = useState<File | null>(null);
 
@@ -65,6 +68,12 @@ export const NuevoFicheroPage = () => {
             }
         };
         fetchCircuitos();
+
+        if (carpetaPadreId) {
+            api.get(`/carpetas/${carpetaPadreId}`)
+                .then(res => setAdmiteTodo(!!res.data?.admite_cualquier_formato_efectivo))
+                .catch(() => {});
+        }
     }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -82,18 +91,29 @@ export const NuevoFicheroPage = () => {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
             
-            if (file.type !== 'application/pdf') {
-                setError('Por favor, seleccione únicamente un archivo PDF.');
+            const esPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+            const esOtroAdmitido = /\.(docx?|xlsx?|pptx?|csv|txt)$/i.test(file.name);
+            if (!esPdf && !(admiteTodo && esOtroAdmitido)) {
+                setError(admiteTodo
+                    ? 'Formato no admitido. Use PDF, Word, Excel, PowerPoint, CSV o TXT (sin macros).'
+                    : 'Por favor, seleccione únicamente un archivo PDF.');
                 setArchivoPdf(null);
                 e.target.value = ''; 
                 return;
             }
             
+            if (!esPdf && file.size > 25 * 1024 * 1024) {
+                setError('El archivo supera el máximo de 25 MB.');
+                setArchivoPdf(null);
+                e.target.value = '';
+                return;
+            }
+
             setError('');
             setArchivoPdf(file);
 
-            // Extraemos el nombre del archivo eliminando la extensión .pdf (sin importar si está en mayúsculas o minúsculas)
-            const nombreSinExtension = file.name.replace(/\.pdf$/i, '');
+            // Nombre del archivo sin su extensión (mayúsculas o minúsculas)
+            const nombreSinExtension = file.name.replace(/\.[^.]+$/, '');
             
             // Actualizamos el estado del formulario para que el título se llene solo
             setFormData(prev => ({
@@ -230,7 +250,7 @@ export const NuevoFicheroPage = () => {
                         <div className="flex-1 w-full">
                             <input 
                                 type="file" 
-                                accept="application/pdf"
+                                accept={admiteTodo ? '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt' : 'application/pdf'}
                                 onChange={handleFileChange}
                                 className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                             />

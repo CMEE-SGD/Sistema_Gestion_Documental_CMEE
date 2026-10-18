@@ -11,7 +11,7 @@ import { buildFileUrl } from '../../../../shared/utils/backendUrl';
 export const DocumentosPersonaPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [persona, setPersona] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -33,11 +33,15 @@ export const DocumentosPersonaPage = () => {
         fetchDatos();
     }, [id]);
     const handleEliminar = async (docId: number, nombreArchivo: string) => {
-        const ok = await confirm({ message: `¿Está seguro de que desea eliminar el documento "${nombreArchivo}"?` });
-        if (!ok) return;
+        const motivo = await pedirMotivo({
+            title: 'Eliminar documento',
+            message: `¿Está seguro de que desea eliminar el documento "${nombreArchivo}"?`,
+            confirmLabel: 'Eliminar',
+        });
+        if (!motivo) return;
 
         try {
-            await api.delete(`/personas/documento/${docId}`);
+            await api.delete(`/personas/documento/${docId}`, { motivo });
 
             setPersona((prev: any) => ({
                 ...prev,
@@ -56,6 +60,18 @@ export const DocumentosPersonaPage = () => {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
 
+        // Agregar documentos modifica el recurso (PATCH): también lleva motivo.
+        const motivo = await pedirMotivo({
+            title: 'Agregar documentos',
+            message: `Va a agregar ${files.length} documento(s) a este recurso.`,
+            confirmLabel: 'Agregar',
+        });
+        if (!motivo) {
+            // Canceló: se limpia la selección para poder elegir de nuevo.
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
         setSubiendo(true);
         try {
             const formData = new FormData();
@@ -69,7 +85,8 @@ export const DocumentosPersonaPage = () => {
 
             // Reutilizamos tu endpoint PATCH que ya está configurado para recibir documentos
             await api.patch(`/personas/${id}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 'Content-Type': 'multipart/form-data' },
+                motivo,
             });
 
             toast({ message: 'Documentos agregados exitosamente.' });

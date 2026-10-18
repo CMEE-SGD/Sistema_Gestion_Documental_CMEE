@@ -56,7 +56,14 @@ export default function ValidacionCertificadoModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
-      toast({ message: 'Certificado validado correctamente.' });
+      // Al aprobar la entrega final el equipo sale de la bandeja y pasa a la
+      // pestaña "Archivadas": se avisa para que no parezca que se perdió.
+      toast({
+        message:
+          estadoActual === 'LISTO_PARA_ENTREGA' && accion === 'APROBAR'
+            ? 'Equipo entregado: pasó a la pestaña Archivadas.'
+            : 'Certificado validado correctamente.',
+      });
       onSuccess();
       onClose();
     },

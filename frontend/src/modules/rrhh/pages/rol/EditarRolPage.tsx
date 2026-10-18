@@ -9,7 +9,7 @@ import { encodeId, decodeId } from '../../../../shared/utils/ids';
 export const EditarRolPage = () => {
     const { id: rawId } = useParams<{ id: string }>(); const id = decodeId(rawId!);
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
@@ -39,8 +39,8 @@ export const EditarRolPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const ok = await confirm({ title: 'Actualizar rol', message: '¿Está seguro de guardar los cambios en este rol?' });
-        if (!ok) return;
+        const motivo = await pedirMotivo({ title: 'Actualizar rol', message: '¿Está seguro de guardar los cambios en este rol?', confirmLabel: 'Guardar' });
+        if (!motivo) return;
         try {
             const payload = {
                 codigo: formData.codigo, nombre: formData.nombre, funciones: formData.funciones,
@@ -50,7 +50,7 @@ export const EditarRolPage = () => {
                 experiencia_indispensable: formData.experiencia_indispensable, experiencia_deseable: formData.experiencia_deseable,
                 orden: Number(formData.orden), activo: Boolean(formData.activo)
             };
-            await api.patch(`/roles/${id}`, payload);
+            await api.patch(`/roles/${id}`, payload, { motivo });
             toast({ message: 'Rol actualizado correctamente.' });
             navigate(`/rrhh/roles/${encodeId(id)}`);
         } catch (error: any) {

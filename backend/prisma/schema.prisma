@@ -515,6 +515,8 @@ model Carpeta {
   tipo       TipoNivelCarpeta @default(SUBCARPETA)
   orden      Int              @default(0)
   activo     Boolean          @default(true)
+  // Admite Word/Excel/PowerPoint/CSV además de PDF; las subcarpetas lo heredan.
+  admite_cualquier_formato Boolean @default(false)
   created_at DateTime         @default(now())
   updated_at DateTime         @updatedAt
 
@@ -578,6 +580,12 @@ model Auditoria {
   // Snapshot del payload enviado en la mutación (POST/PATCH/PUT), con campos
   // sensibles redactados — ver sanitizarBody() en auditoria.interceptor.ts.
   detalle     String? @db.Text
+  // Motivo que la persona escribió al EDITAR o ELIMINAR un recurso (cuadro
+  // "motivo" del frontend). Llega en la cabecera X-Motivo — no en el cuerpo,
+  // porque los DTOs rechazan campos desconocidos — ver leerMotivo() en
+  // auditoria.interceptor.ts. Nulo en lo anterior a esta columna y en las
+  // acciones que no lo piden.
+  motivo      String? @db.Text
 
   documento_id Int?
   documento    Documento? @relation(fields: [documento_id], references: [id], onDelete: Cascade)
@@ -1121,6 +1129,13 @@ model ConfiguracionGeneral {
   // Minutos de inactividad del usuario dentro de la plataforma antes de que la
   // sesión se cierre automáticamente (0 desactiva el cierre por inactividad).
   tiempo_inactividad_minutos Int @default(5) @db.SmallInt
+
+  // Si es true, el servidor RECHAZA (400) toda edición o eliminación que no
+  // traiga el motivo en la cabecera X-Motivo — ver AuditoriaInterceptor. Es un
+  // interruptor de seguridad: si algún flujo quedara sin cuadro de motivo, un
+  // administrador puede apagarlo desde Configuración General sin esperar un
+  // despliegue. Activo por defecto.
+  exigir_motivo_cambios Boolean @default(true)
 
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 

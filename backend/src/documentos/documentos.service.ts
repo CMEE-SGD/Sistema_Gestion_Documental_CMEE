@@ -7,6 +7,7 @@ import { verificarFirmaPdf } from '../common/helpers/pdf-signature';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { validarArchivoParaCarpeta, archivoAdmitidoEnCarpeta, esPdf } from './formatos-permitidos';
 
 @Injectable()
 export class DocumentosService {
@@ -37,6 +38,11 @@ export class DocumentosService {
 
   async create(file: Express.Multer.File, data: any, usuarioId?: number) {
     const carpetaId = parseInt(data.carpeta_id, 10);
+
+    // Antes de mover nada: el tipo de archivo debe corresponder a la carpeta.
+    validarArchivoParaCarpeta(file, await this.carpetasService.admiteCualquierFormato(carpetaId));
+    // Solo los PDF entran a un circuito de aprobación y firma.
+    if (!esPdf(file.originalname || file.filename)) data.circuito_id = null;
 
     if (usuarioId) {
       const usuario = await this.prisma.usuario.findUnique({
@@ -154,6 +160,7 @@ export class DocumentosService {
     const documentoId = parseInt(data.documento_id, 10);
     const doc = await this.prisma.documento.findUnique({ where: { id: documentoId } });
     if (!doc) throw new NotFoundException(`Documento con ID ${documentoId} no existe.`);
+    validarArchivoParaCarpeta(file, await this.carpetasService.admiteCualquierFormato(doc.carpeta_id));
 
     const rutaDestinoRelativa = await this.obtenerRutaFisica(doc.carpeta_id);
     const rutaDestinoAbsoluta = path.resolve(process.cwd(), rutaDestinoRelativa);
@@ -548,36 +555,61 @@ export class DocumentosService {
       if (!(await this.carpetasService.verificarNivelPermiso(usuarioId, antiguo.carpeta_id, 3))) throw new ForbiddenException('Sin permiso de edición');
     }
 
-    if (data.carpeta_id && antiguo.carpeta_id !== data.carpeta_id) {
+    // Ruta nueva del archivo si se movió; la calcula el servidor (nunca el cliente).
+    let archivoNuevo: string | undefined;
+    if (data.carpeta_id && antiguo.carpeta_id !== Number(data.carpeta_id)) {
       if (usuarioId && !(await this.carpetasService.verificarNivelPermiso(usuarioId, antiguo.carpeta_id, 4))) throw new ForbiddenException('Sin permiso para mover');
-      
+      if (!archivoAdmitidoEnCarpeta(antiguo.archivo_url, await this.carpetasService.admiteCualquierFormato(Number(data.carpeta_id)))) {
+        throw new BadRequestException('La carpeta destino solo admite PDF y este documento no lo es.');
+      }
+
       const rutaAntiguaAbsoluta = path.resolve(process.cwd(), antiguo.archivo_url);
-      const nuevaRutaRelativa = await this.obtenerRutaFisica(data.carpeta_id);
+      const nuevaRutaRelativa = await this.obtenerRutaFisica(Number(data.carpeta_id));
       const nuevaRutaAbsoluta = path.resolve(process.cwd(), nuevaRutaRelativa);
       if (!fs.existsSync(nuevaRutaAbsoluta)) fs.mkdirSync(nuevaRutaAbsoluta, { recursive: true });
       const nombre = path.basename(antiguo.archivo_url);
       const destino = path.join(nuevaRutaAbsoluta, nombre);
       if (fs.existsSync(rutaAntiguaAbsoluta)) {
         fs.renameSync(rutaAntiguaAbsoluta, destino);
-        data.archivo_url = path.join(nuevaRutaRelativa, nombre).replace(/\\/g, '/');
+        archivoNuevo = path.join(nuevaRutaRelativa, nombre).replace(/\\/g, '/');
       }
     }
+    // Un campo que no viene en el cuerpo (p. ej. al MOVER, que solo envía la
+    // carpeta) se deja como está; antes se ponía en null y, peor, se borraba
+    // el circuito/flujo del documento.
+    const enviado = (campo: string) => data[campo] !== undefined;
+    const nuevoCircuitoId = enviado('circuito_id')
+      ? (data.circuito_id ? parseInt(data.circuito_id, 10) : null)
+      : (antiguo.circuito_id ?? null);
+    const carpetaDestino = data.carpeta_id ? Number(data.carpeta_id) : undefined;
     const updateData: any = {
       nombre: data.nombre,
-      codigo: data.codigo ?? null,
-      propietario: data.propietario ?? null,
-      empresa: data.empresa ?? null,
-      fecha_documento: data.fecha_documento ? new Date(data.fecha_documento) : null,
-      circuito_id: data.circuito_id ? parseInt(data.circuito_id, 10) : null,
+      codigo: enviado('codigo') ? (data.codigo ?? null) : undefined,
+      propietario: enviado('propietario') ? (data.propietario ?? null) : undefined,
+      empresa: enviado('empresa') ? (data.empresa ?? null) : undefined,
+      fecha_documento: enviado('fecha_documento') ? (data.fecha_documento ? new Date(data.fecha_documento) : null) : undefined,
+      circuito_id: nuevoCircuitoId,
       activo: data.activo,
+      // Al mover, el registro debe seguir al archivo (carpeta y ruta nuevas).
+      carpeta_id: carpetaDestino,
+      archivo_url: archivoNuevo,
       ...(data.created_at ? { created_at: new Date(`${data.created_at}T${new Date().toTimeString().slice(0, 8)}`) } : {}),
     };
 
-    const nuevoCircuitoId = data.circuito_id ? parseInt(data.circuito_id, 10) : null;
     const cambioCircuito = (antiguo.circuito_id ?? null) !== nuevoCircuitoId;
 
     return this.prisma.$transaction(async (tx) => {
       const doc = await tx.documento.update({ where: { id }, data: updateData });
+
+      // El archivo cambió de ruta: las versiones y fases que apuntaban a la
+      // ruta anterior deben seguirlo, o quedarían con un enlace roto.
+      if (archivoNuevo && archivoNuevo !== antiguo.archivo_url) {
+        await tx.documentoVersion.updateMany({ where: { documento_id: id, archivo_url: antiguo.archivo_url }, data: { archivo_url: archivoNuevo } });
+        const wf = await tx.documentoWorkflow.findUnique({ where: { documento_id: id }, select: { id: true } });
+        if (wf) {
+          await tx.documentoWorkflowFase.updateMany({ where: { workflow_id: wf.id, archivo_url: antiguo.archivo_url }, data: { archivo_url: archivoNuevo } });
+        }
+      }
 
       if (data.created_at) {
         const fechaNueva = new Date(`${data.created_at}T${new Date().toTimeString().slice(0, 8)}`);

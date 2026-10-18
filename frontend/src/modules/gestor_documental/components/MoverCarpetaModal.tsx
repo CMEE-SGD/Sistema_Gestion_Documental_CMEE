@@ -29,7 +29,7 @@ const aplanarArbol = (carpetas: any[], padreId: number | null, depth: number, ou
 };
 
 export const MoverCarpetaModal = ({ item, carpetas, onClose, onMoved }: MoverCarpetaModalProps) => {
-  const { alert } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const [destino, setDestino] = useState(item.carpeta_padre_id ? String(item.carpeta_padre_id) : '');
   const [guardando, setGuardando] = useState(false);
@@ -48,9 +48,16 @@ export const MoverCarpetaModal = ({ item, carpetas, onClose, onMoved }: MoverCar
       await alert({ message: 'Seleccione la carpeta destino.' });
       return;
     }
+    const motivo = await pedirMotivo({
+      title: 'Mover carpeta',
+      message: `Va a mover la carpeta "${item.nombre}".`,
+      confirmLabel: 'Mover',
+    });
+    if (!motivo) return;
+
     setGuardando(true);
     try {
-      await api.patch(`/carpetas/${item.id}`, { carpeta_padre_id: Number(destino) });
+      await api.patch(`/carpetas/${item.id}`, { carpeta_padre_id: Number(destino) }, { motivo });
       toast({ message: 'Carpeta movida correctamente' });
       window.dispatchEvent(new Event('refreshCarpetas'));
       onMoved();

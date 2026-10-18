@@ -77,7 +77,7 @@ export default function VistaDetalleEquipo({
   equipoId,
   onClose,
 }: Props) {
-  const { alert, confirm } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const esAdministrador = esUsuarioAdministrador();
@@ -137,14 +137,15 @@ export default function VistaDetalleEquipo({
   // Solo admin y únicamente mientras el equipo está EN_CALIBRACION (la fase
   // previa a las firmas): se borra el documento en BD y el archivo físico.
   const handleEliminarDocumento = async (certificadoId: number) => {
-    const ok = await confirm({
+    const motivo = await pedirMotivo({
       title: 'Eliminar documento',
       message:
         '¿Eliminar este documento del equipo? Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar',
     });
-    if (!ok) return;
+    if (!motivo) return;
     try {
-      await api.delete(`/certificados/${certificadoId}`);
+      await api.delete(`/certificados/${certificadoId}`, { motivo });
       toast({ message: 'Documento eliminado correctamente.' });
       setCertificados((prev) => prev.filter((c) => c.id !== certificadoId));
       queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });

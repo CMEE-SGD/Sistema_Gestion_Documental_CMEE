@@ -11,7 +11,7 @@ interface EquipoFormProps {
 }
 
 export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) => {
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [laboratorios, setLaboratorios] = useState<any[]>([]);
     const [estados, setEstados] = useState<{ value: string, label: string }[]>([]);
@@ -68,6 +68,19 @@ export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) =>
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Solo al EDITAR un equipo existente se pide el motivo; registrar uno
+        // nuevo no es un cambio sobre un recurso.
+        let motivo: string | null = null;
+        if (equipoId) {
+            motivo = await pedirMotivo({
+                title: 'Guardar cambios',
+                message: 'Va a modificar este equipo.',
+                confirmLabel: 'Guardar',
+            });
+            if (!motivo) return;
+        }
+
         try {
             const payload = {
                 codigo: formData.codigo,
@@ -80,7 +93,7 @@ export const EquipoForm = ({ equipoId, onClose, onSuccess }: EquipoFormProps) =>
             };
 
             if (equipoId) {
-                await api.patch(`/equipos/${equipoId}`, payload);
+                await api.patch(`/equipos/${equipoId}`, payload, { motivo: motivo ?? undefined });
             } else {
                 await api.post('/equipos', payload);
             }

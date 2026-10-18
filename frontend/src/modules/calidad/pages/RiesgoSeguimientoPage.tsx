@@ -110,7 +110,7 @@ export const RiesgoSeguimientoPage = () => {
     const [searchParams] = useSearchParams();
     const seccion = searchParams.get('seccion') || 'valoracion';
     const navigate = useNavigate();
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [guardando, setGuardando] = useState(false);
@@ -237,7 +237,9 @@ export const RiesgoSeguimientoPage = () => {
                     responsables: buildResp(),
                 };
             }
-            await api.patch(`/calidad/riesgos/${encodeId(id)}`, payload);
+            const motivo = await pedirMotivo({ title: 'Guardar cambios', message: 'Va a guardar el seguimiento de este riesgo/oportunidad.', confirmLabel: 'Guardar' });
+            if (!motivo) return;
+            await api.patch(`/calidad/riesgos/${encodeId(id)}`, payload, { motivo });
             toast({ message: 'Seguimiento actualizado correctamente.' });
             navigate(`/calidad/riesgos/${encodeId(id)}`);
         } catch (error: any) {

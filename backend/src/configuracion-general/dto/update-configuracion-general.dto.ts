@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -44,4 +45,13 @@ export class UpdateConfiguracionGeneralDto {
   @Min(0)
   @Max(180)
   tiempo_inactividad_minutos?: number;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'Si está activo, el servidor rechaza toda edición o eliminación que no indique el motivo (cabecera X-Motivo). Apagarlo es el interruptor de emergencia.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  exigir_motivo_cambios?: boolean;
 }

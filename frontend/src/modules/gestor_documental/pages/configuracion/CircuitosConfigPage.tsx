@@ -7,7 +7,7 @@ import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 
 export const CircuitosConfigPage = () => {
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const [circuitos, setCircuitos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -27,13 +27,14 @@ export const CircuitosConfigPage = () => {
     }, []);
 
     const handleEliminar = async (circuito: any) => {
-        const confirmacion = await confirm({
+        const motivo = await pedirMotivo({
             title: 'Eliminar circuito',
             message: `¿Está seguro de eliminar el circuito "${circuito.nombre}"? Se eliminarán también todas sus fases. Esta acción no se puede deshacer.`,
+            confirmLabel: 'Eliminar',
         });
-        if (!confirmacion) return;
+        if (!motivo) return;
         try {
-            await api.delete(`/circuitos/${circuito.id}`);
+            await api.delete(`/circuitos/${circuito.id}`, { motivo });
             setCircuitos(prev => prev.filter(c => c.id !== circuito.id));
         } catch (error: any) {
             console.error("Error al eliminar circuito:", error);

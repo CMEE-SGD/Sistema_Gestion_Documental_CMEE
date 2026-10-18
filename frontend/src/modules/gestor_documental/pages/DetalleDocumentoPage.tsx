@@ -13,7 +13,7 @@ export const DetalleDocumentoPage = () => {
     const { id: rawId } = useParams();
     const id = rawId ? decodeId(rawId) : undefined;
     const navigate = useNavigate();
-    const { alert, confirm } = useAlert();
+    const { alert, confirm, pedirMotivo } = useAlert();
     const { toast } = useToast();
 
     const [documento, setDocumento] = useState<any>(null);
@@ -40,6 +40,8 @@ export const DetalleDocumentoPage = () => {
     const [showLogModal, setShowLogModal] = useState(false);
     const [showVersionesModal, setShowVersionesModal] = useState(false);
     const [logs, setLogs] = useState<any[]>([]);
+    // La carpeta (o una superior) admite Word/Excel/etc. además de PDF.
+    const [carpetaAdmiteTodo, setCarpetaAdmiteTodo] = useState(false);
     const [loadingLogs, setLoadingLogs] = useState(false);
 
     useEffect(() => {
@@ -58,6 +60,9 @@ export const DetalleDocumentoPage = () => {
 
                 const doc = resDoc.data;
                 if (doc?.carpeta_id) {
+                    api.get(`/carpetas/${doc.carpeta_id}`).then(r => {
+                        setCarpetaAdmiteTodo(!!r.data?.admite_cualquier_formato_efectivo);
+                    }).catch(() => {});
                     api.get(`/carpetas/${doc.carpeta_id}/mis-permisos`).then(r => {
                         if (r.data?.nivel_permiso !== undefined) setNivelPermiso(r.data.nivel_permiso);
                     }).catch(() => {});
@@ -257,11 +262,15 @@ export const DetalleDocumentoPage = () => {
     const handleEliminar = async () => {
         if (!documento) return;
 
-        const confirmacion = await confirm({ title: 'Eliminar documento', message: `¿Está seguro de eliminar el documento "${documento.nombre}"? Esta acción no se puede deshacer.` });
-        if (!confirmacion) return;
+        const motivo = await pedirMotivo({
+            title: 'Eliminar documento',
+            message: `¿Está seguro de eliminar el documento "${documento.nombre}"? Esta acción no se puede deshacer.`,
+            confirmLabel: 'Eliminar',
+        });
+        if (!motivo) return;
 
         try {
-            await api.delete(`/documentos/${documento.id}`);
+            await api.delete(`/documentos/${documento.id}`, { motivo });
 
             toast({ message: 'Documento eliminado correctamente' });
             window.dispatchEvent(new Event('refreshDocumentos'));
@@ -298,6 +307,13 @@ export const DetalleDocumentoPage = () => {
 
     const handleGuardarEdicion = async () => {
         if (!documento) return;
+        const motivo = await pedirMotivo({
+            title: 'Guardar cambios',
+            message: `Va a modificar el documento "${documento.nombre}".`,
+            confirmLabel: 'Guardar',
+        });
+        if (!motivo) return;
+
         setGuardandoEdicion(true);
         try {
             await api.patch(`/documentos/${documento.id}`, {
@@ -308,7 +324,7 @@ export const DetalleDocumentoPage = () => {
                 circuito_id: editFormData.circuito_id || null,
                 activo: editFormData.activo,
                 created_at: editFormData.created_at || null,
-            });
+            }, { motivo });
             const resDoc = await api.get(`/documentos/${id}`);
             setDocumento(resDoc.data);
             setShowEditForm(false);
@@ -342,6 +358,8 @@ export const DetalleDocumentoPage = () => {
     if (!documento) return <div className="p-10">Documento no encontrado.</div>;
 
     const nombreFichero = documento.archivo_url ? documento.archivo_url.split('/').pop() : 'Sin archivo físico';
+    // Solo los PDF se pueden imprimir desde el navegador.
+    const esArchivoPdf = !documento.archivo_url || /\.pdf$/i.test(documento.archivo_url);
     const fechaCreacion = documento.created_at ? new Date(documento.created_at).toLocaleDateString('es-ES') : '';
 
     // La fase de elaboración es la primera del circuito (menor orden de fase).
@@ -410,13 +428,13 @@ export const DetalleDocumentoPage = () => {
                 >
                     Descargar
                 </button>
-                <button 
+                {esArchivoPdf && <button 
                     onClick={handleImprimir}
                     disabled={nivelPermiso < 2}
                     className={`px-3 py-1 border rounded transition-colors shadow-sm ${nivelPermiso >= 2 ? 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700' : 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'}`}
                 >
                     Imprimir
-                </button>
+                </button>}
                 <button onClick={() => navigate(-1)} className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors shadow-sm">Cancelar</button>
             </div>
 
@@ -505,7 +523,7 @@ export const DetalleDocumentoPage = () => {
                     <div className="flex flex-col gap-3">
                         <input
                             type="file"
-                            accept="application/pdf"
+                            accept={carpetaAdmiteTodo ? '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt' : 'application/pdf'}
                             onChange={(e) => setVersionFile(e.target.files?.[0] || null)}
                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
                         />
@@ -723,7 +741,15 @@ export const DetalleDocumentoPage = () => {
                                                     )}
                                                 </td>
                                                 <td className="p-2">{log.accion}</td>
-                                                <td className="p-2 text-gray-500">{log.descripcion || '-'}</td>
+                                                <td className="p-2 text-gray-500">
+                                                    {log.descripcion || '-'}
+                                                    {log.motivo && (
+                                                        <div className="mt-1 text-gray-800">
+                                                            <span className="font-bold text-amber-700">Motivo: </span>
+                                                            {log.motivo}
+                                                        </div>
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

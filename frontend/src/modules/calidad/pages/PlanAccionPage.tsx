@@ -42,7 +42,7 @@ export const PlanAccionPage = () => {
     const ncId = rawNcId ? decodeId(rawNcId) : undefined;
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { alert } = useAlert();
+    const { alert, pedirMotivo } = useAlert();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
@@ -131,7 +131,9 @@ export const PlanAccionPage = () => {
             const fd = new FormData();
             fd.append('plan_accion', JSON.stringify({ analisisExtension, obExtension, analisisCausa, obCausa, causaRaiz, correcciones, accionesCorrectivas }));
             if (correccionFile) fd.append('plan_accion_archivo', correccionFile);
-            await api.patch(`/calidad/no-conformidades/${ncId}`, fd);
+            const motivo = await pedirMotivo({ title: 'Guardar plan de acción', message: 'Va a guardar el plan de acción de esta no conformidad.', confirmLabel: 'Guardar' });
+            if (!motivo) return;
+            await api.patch(`/calidad/no-conformidades/${ncId}`, fd, { motivo });
             if (!planAccionExists) {
                 await api.patch(`/calidad/no-conformidades/${ncId}/estado`, { estado: 'EN_CURSO', observaciones: 'Plan de acción registrado' });
                 setEstadoNc('EN_CURSO');
@@ -167,7 +169,9 @@ export const PlanAccionPage = () => {
             };
             const fd = new FormData();
             fd.append('verificacion_eficacia', JSON.stringify(verif));
-            await api.patch(`/calidad/no-conformidades/${ncId}`, fd);
+            const motivo = await pedirMotivo({ title: 'Registrar verificación', message: 'Va a registrar la verificación de eficacia de esta no conformidad.', confirmLabel: 'Registrar' });
+            if (!motivo) return;
+            await api.patch(`/calidad/no-conformidades/${ncId}`, fd, { motivo });
             if (resultadoVerif === 'EFICAZ') {
                 if (estadoNc !== 'EN_CURSO' && estadoNc !== 'VERIFICADA') {
                     await api.patch(`/calidad/no-conformidades/${ncId}/estado`, { estado: 'EN_CURSO', observaciones: 'Inicio de acciones' });
