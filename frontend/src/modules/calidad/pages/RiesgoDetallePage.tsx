@@ -60,7 +60,7 @@ export const RiesgoDetallePage = () => {
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
                     <div className="flex items-center gap-3">
-                        <h2 className="font-bold text-gray-800">{item.codigo}</h2>
+                        <h2 className="font-bold text-gray-800 truncate max-w-[420px]" title={item.evento}>{item.evento}</h2>
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${item.tipo === 'OPORTUNIDAD' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                             {item.tipo === 'OPORTUNIDAD' ? <Target className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
                             {item.tipo === 'OPORTUNIDAD' ? 'OPORTUNIDAD' : 'RIESGO'}
