@@ -1144,17 +1144,6 @@ function PanelRetencion({
   const montoN = Number(monto);
   const montoValido = Number.isFinite(montoN) && montoN >= 0 ? montoN : 0;
   const pctN = Number(pct) || 0;
-  const ivaN = Number(factura.iva) || 0;
-  const autoPct = Math.round(ivaN * (pctN / 100) * 100) / 100;
-
-  const aplicarPct = (v: number) => {
-    setPct(String(v));
-    if (v > 0) {
-      setMonto(String(Math.round(ivaN * (v / 100) * 100) / 100));
-    } else {
-      setMonto('0');
-    }
-  };
 
   // Guarda la retención (endpoint dedicado, exento de motivo: es la captura
   // del comprobante que emite el cliente). Multipart: los valores + el XML del
@@ -1320,58 +1309,39 @@ function PanelRetencion({
         </div>
       )}
 
-      <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-4">
-        <div>
-          <label className={labelCls}>% Retención</label>
-          <select
-            className={inputCls}
-            value={pct}
-            onChange={(e) => aplicarPct(Number(e.target.value))}
-          >
-            <option value="0">Sin retención</option>
-            <option value="10">10% (bienes, C.E.)</option>
-            <option value="20">20% (servicios, C.E.)</option>
-            <option value="30">30% (bienes/servicios)</option>
-            <option value="70">70% (servicios/consultoría)</option>
-            <option value="100">100% (persona natural)</option>
-            {/* Porcentaje extraído del XML que no está en la lista. */}
-            {!['0', '10', '20', '30', '70', '100'].includes(pct) && (
-              <option value={pct}>{pct}%</option>
-            )}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>Monto retenido ($)</label>
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            className={inputCls}
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Auto ({pctN}% × IVA)</label>
-          <div className="mt-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-right text-sm font-semibold text-slate-700">
-            {fmtMoneda(autoPct)}
+      {/*
+        La retención se toma únicamente del comprobante del SRI: no hay campos
+        para digitar el % ni el monto a mano. Se muestran en solo lectura para
+        revisarlos antes de confirmar.
+      */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="grid grid-cols-2 gap-3 sm:w-80">
+          <div>
+            <p className={labelCls}>% Retención</p>
+            <div className="mt-1 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-700">
+              {pctN}%
+            </div>
+          </div>
+          <div>
+            <p className={labelCls}>Retención de IVA ($)</p>
+            <div className="mt-1 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-right text-sm font-semibold text-slate-700">
+              {fmtMoneda(montoValido)}
+            </div>
           </div>
         </div>
-        <div>
-          <button
-            type="button"
-            disabled={guardar.isPending}
-            onClick={() => guardar.mutate()}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {guardar.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Calculator className="h-4 w-4" />
-            )}
-            Guardar retención
-          </button>
-        </div>
+        <button
+          type="button"
+          disabled={guardar.isPending}
+          onClick={() => guardar.mutate()}
+          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {guardar.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Calculator className="h-4 w-4" />
+          )}
+          Guardar retención
+        </button>
       </div>
     </div>
   );
