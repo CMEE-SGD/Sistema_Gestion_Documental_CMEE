@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as fs from 'fs';
+import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
@@ -18,6 +19,7 @@ import {
   notificarResponsablesEquipo,
   resolverDestinatarios,
 } from '../common/helpers/notificar-responsables-equipo';
+import { RegistrarFechasCalibracionDto } from './dto/registrar-fechas-calibracion.dto';
 
 // El filtro de `equipos` va DENTRO del include (no solo en el `where` de la
 // orden) porque una orden puede agrupar equipos de varios laboratorios —
@@ -217,10 +219,196 @@ function conVista(
 
 @Injectable()
 export class RecepcionEquiposService {
+  private readonly uploadsRoot = path.resolve(
+    __dirname,
+    '..',
+    '..',
+    'uploads',
+  );
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificacionesService: NotificacionesService,
   ) {}
+
+  /** Guarda el comprobante de entrega en uploads/entrega/comprobantes/. */
+  private guardarComprobante(file: Express.Multer.File, ordenFisica: string) {
+    const permitidos = new Set([
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+    ]);
+    if (!permitidos.has(file.mimetype)) {
+      throw new BadRequestException(
+        'El comprobante debe ser un PDF o una imagen (PNG/JPEG/WebP).',
+      );
+    }
+    const dir = path.join(this.uploadsRoot, 'entrega', 'comprobantes');
+    fs.mkdirSync(dir, { recursive: true });
+    const ext = path.extname(file.originalname || '.bin');
+    const seguro = ordenFisica.replace(/[^a-zA-Z0-9-_]/g, '');
+    const nombre = `COMP-${seguro}-${Date.now()}${ext}`;
+    fs.writeFileSync(path.join(dir, nombre), file.buffer);
+    return {
+      ruta: `/uploads/entrega/comprobantes/${nombre}`,
+      original: file.originalname,
+    };
+  }
+
+  /**
+   * El receptor de la orden registra el comprobante (foto o PDF) y el monto de
+   * la orden en la fase "Listo para entrega". Es requisito para pasar a
+   * FINALIZADO. Si se reemplaza el comprobante, se borra el archivo anterior
+   * (mejor esfuerzo).
+   */
+  async subirComprobanteOrden(
+    ordenId: number,
+    file: Express.Multer.File | undefined,
+    montoRaw: unknown,
+    user: any,
+  ) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id: ordenId },
+      select: {
+        id: true,
+        orden_trabajo_fisica: true,
+        comprobante_ruta: true,
+      },
+    });
+    if (!orden) {
+      throw new NotFoundException(`Orden de trabajo ${ordenId} no encontrada`);
+    }
+
+    if (!file && !orden.comprobante_ruta) {
+      throw new BadRequestException(
+        'Adjunte la foto o PDF del comprobante de pago.',
+      );
+    }
+
+    const monto = Number(montoRaw);
+    if (!Number.isFinite(monto) || monto <= 0) {
+      throw new BadRequestException('Ingrese un monto válido (mayor a 0).');
+    }
+
+    let ruta = orden.comprobante_ruta;
+    let nombreOriginal: string | null | undefined;
+    if (file) {
+      const guardado = this.guardarComprobante(file, orden.orden_trabajo_fisica);
+      ruta = guardado.ruta;
+      nombreOriginal = guardado.original;
+    }
+
+    const actualizada = await this.prisma.ordenTrabajo.update({
+      where: { id: ordenId },
+      data: {
+        comprobante_ruta: ruta,
+        ...(file ? { comprobante_nombre: nombreOriginal } : {}),
+        monto_comprobante: monto,
+        comprobante_subido_por_id: user?.persona_id ?? null,
+        comprobante_subido_at: new Date(),
+      },
+      select: {
+        id: true,
+        comprobante_ruta: true,
+        comprobante_nombre: true,
+        monto_comprobante: true,
+        comprobante_subido_at: true,
+      },
+    });
+
+    if (file && orden.comprobante_ruta && orden.comprobante_ruta !== ruta) {
+      try {
+        const abs = path.join(
+          this.uploadsRoot,
+          orden.comprobante_ruta.replace(/^\/uploads\//, ''),
+        );
+        fs.rmSync(abs, { force: true });
+      } catch {
+        /* mejor esfuerzo */
+      }
+    }
+
+    return actualizada;
+  }
+
+  /** Personas con acceso a la aplicación 'Gestion Financiera' (nivel ≥ 1). */
+  private async personasFinanciero(): Promise<number[]> {
+    const usuarios = await this.prisma.usuario.findMany({
+      where: {
+        estado_cuenta: true,
+        bloqueado: false,
+        grupos: {
+          some: {
+            aplicaciones: {
+              some: {
+                nivel: { gte: 1 },
+                aplicacion: { nombre: 'Gestion Financiera' },
+              },
+            },
+          },
+        },
+      },
+      select: { persona_id: true },
+    });
+    return [...new Set(usuarios.map((u) => u.persona_id))];
+  }
+
+  /**
+   * Notifica una sola vez a Financiero que la orden quedó completa (todos sus
+   * equipos FINALIZADO) y lista para facturar. Nunca lanza: un fallo al
+   * notificar no debe revertir la transición de estado.
+   */
+  private async notificarOrdenListaFacturar(ordenId: number) {
+    try {
+      const orden = await this.prisma.ordenTrabajo.findUnique({
+        where: { id: ordenId },
+        select: {
+          id: true,
+          orden_trabajo_fisica: true,
+          notificado_facturacion: true,
+          monto_comprobante: true,
+          cliente: { select: { nombre: true } },
+          equipos: { select: { estado: true } },
+        },
+      });
+      if (!orden || orden.notificado_facturacion) return;
+
+      const completa =
+        orden.equipos.length > 0 &&
+        orden.equipos.every(
+          (e) => e.estado === EstadoRecepcion.FINALIZADO,
+        );
+      if (!completa) return;
+
+      await this.prisma.ordenTrabajo.update({
+        where: { id: ordenId },
+        data: { notificado_facturacion: true },
+      });
+
+      const monto = Number(orden.monto_comprobante ?? 0);
+      const mensaje = `La orden #${orden.orden_trabajo_fisica} de ${
+        orden.cliente?.nombre ?? 'su cliente'
+      } está lista para facturar: todos sus equipos fueron entregados. Comprobante y monto${
+        monto > 0 ? ` (USD ${monto.toFixed(2)})` : ''
+      } registrados.`;
+
+      for (const personaId of await this.personasFinanciero()) {
+        await this.notificacionesService.crear(
+          'orden_lista_facturar',
+          mensaje,
+          personaId,
+          orden.id,
+        );
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(
+        '[notificaciones] No se pudo notificar a financiero:',
+        error,
+      );
+    }
+  }
 
   async create(dto: CreateOrdenTrabajoDto) {
     const existe = await this.prisma.ordenTrabajo.findUnique({
@@ -233,7 +421,8 @@ export class RecepcionEquiposService {
       );
     }
 
-    const { equipos, ...header } = dto;
+    const { equipos, proforma_id, ...header } = dto;
+    const proformaSync = await this.resolverProformaSync(proforma_id);
 
     await this.validarSubAreasDeEquipos(equipos);
 
@@ -241,6 +430,7 @@ export class RecepcionEquiposService {
       const orden = await this.prisma.ordenTrabajo.create({
         data: {
           ...header,
+          ...proformaSync,
           fecha_ingreso: toDate(dto.fecha_ingreso),
           equipos: {
             create: equipos.map((equipo) => ({
@@ -264,6 +454,36 @@ export class RecepcionEquiposService {
           (error.message || 'Error de base de datos'),
       );
     }
+  }
+
+  /**
+   * Si el usuario vincula una proforma, se guarda la FK y se sincroniza el
+   * texto visible n_proforma con su número; además la proforma pasa a
+   * ACEPTADA (quedó EMITIDA al crearse). null → desvincula (limpia ambos);
+   * undefined → no toca nada.
+   */
+  private async resolverProformaSync(
+    proformaId: number | null | undefined,
+  ): Promise<
+    | { proforma_id: number; n_proforma: string }
+    | { proforma_id: null; n_proforma: null }
+    | undefined
+  > {
+    if (proformaId === undefined) return undefined;
+    if (proformaId === null) return { proforma_id: null, n_proforma: null };
+    const proforma = await this.prisma.proforma.findUnique({
+      where: { id: proformaId },
+      select: { id: true, numero: true },
+    });
+    if (!proforma) {
+      throw new BadRequestException('La proforma seleccionada no existe');
+    }
+    // La proforma vinculada a una orden se considera ACEPTADA por el cliente.
+    await this.prisma.proforma.update({
+      where: { id: proforma.id },
+      data: { estado: 'ACEPTADA' },
+    });
+    return { proforma_id: proforma.id, n_proforma: proforma.numero };
   }
 
   // Evita que un equipo quede etiquetado con una sub-área que en realidad
@@ -419,7 +639,8 @@ export class RecepcionEquiposService {
   async update(id: number, dto: UpdateOrdenTrabajoDto) {
     await this.findOne(id);
 
-    const { equipos, ...header } = dto;
+    const { equipos, proforma_id, ...header } = dto;
+    const proformaSync = await this.resolverProformaSync(proforma_id);
 
     if (equipos && equipos.length > 0) {
       await this.validarSubAreasDeEquipos(equipos);
@@ -432,6 +653,7 @@ export class RecepcionEquiposService {
           where: { id },
           data: {
             ...header,
+            ...proformaSync,
             fecha_ingreso: toDate(header.fecha_ingreso),
           },
         });
@@ -491,6 +713,47 @@ export class RecepcionEquiposService {
       }
       throw new BadRequestException(
         'Error al actualizar la orden de trabajo: ' +
+          (error.message || 'Error de base de datos'),
+      );
+    }
+  }
+
+  /**
+   * Fase A del flujograma: registro de fecha de calibración y próxima
+   * calibración de un equipo (base de las alertas de la Fase D). String vacío
+   * limpia la fecha; undefined la deja como está.
+   */
+  async registrarFechasCalibracion(
+    id: number,
+    dto: RegistrarFechasCalibracionDto,
+  ) {
+    const equipo = await this.prisma.equipoRecepcion.findUnique({
+      where: { id },
+    });
+    if (!equipo) {
+      throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+    }
+
+    try {
+      const actualizado = await this.prisma.equipoRecepcion.update({
+        where: { id },
+        data: {
+          fecha_calibracion:
+            dto.fecha_calibracion === ''
+              ? null
+              : toDate(dto.fecha_calibracion),
+          fecha_proxima_calibracion:
+            dto.fecha_proxima_calibracion === ''
+              ? null
+              : toDate(dto.fecha_proxima_calibracion),
+        },
+        include: EQUIPO_INCLUDE,
+      });
+      this.notificacionesService.notificarRecepcionActualizada();
+      return actualizado;
+    } catch (error: any) {
+      throw new BadRequestException(
+        'Error al registrar las fechas de calibración: ' +
           (error.message || 'Error de base de datos'),
       );
     }
@@ -819,18 +1082,32 @@ export class RecepcionEquiposService {
         estadoNuevo = EstadoRecepcion.REVISION_JEFE;
         break;
 
-      case EstadoRecepcion.LISTO_PARA_ENTREGA:
-        if (!esRSEC) {
+      case EstadoRecepcion.LISTO_PARA_ENTREGA: {
+        // La entrega (paso a FINALIZADO) se realiza sobre la ORDEN COMPLETA,
+        // no por equipo individual — ver entregarOrden() / endpoint
+        // `orden/:id/entregar`. Aquí solo se conserva el rechazo por equipo
+        // (vuelve a revisión del Director), que sí es una acción sobre un
+        // solo equipo.
+        const ordenEntrega = await this.prisma.ordenTrabajo.findUnique({
+          where: { id: equipo.orden_trabajo_id },
+          select: { recibe_responsable_id: true },
+        });
+        const esReceptor =
+          ordenEntrega?.recibe_responsable_id != null &&
+          ordenEntrega.recibe_responsable_id === personaId;
+        if (!esRSEC && !esReceptor) {
           throw new ForbiddenException(
-            'Solo Responsable Servicio al Cliente puede finalizar la entrega',
+            'Solo el receptor de la orden puede gestionar la entrega',
           );
         }
         if (accion === 'APROBAR') {
-          estadoNuevo = EstadoRecepcion.FINALIZADO;
-        } else {
-          estadoNuevo = EstadoRecepcion.REVISION_DIRECTOR;
+          throw new BadRequestException(
+            'La entrega se realiza sobre la orden completa. Use "Entregar orden" para finalizar todos sus equipos.',
+          );
         }
+        estadoNuevo = EstadoRecepcion.REVISION_DIRECTOR;
         break;
+      }
 
       default:
         throw new BadRequestException(
@@ -911,8 +1188,181 @@ export class RecepcionEquiposService {
         },
       );
     }
+
     this.notificacionesService.notificarRecepcionActualizada();
 
     return equipoActualizado;
+  }
+
+  /**
+   * Entrega (o rechaza) la orden COMPLETA de una sola vez. A diferencia de
+   * transicionEstado(), que actúa sobre un único equipo, esta acción trabaja a
+   * nivel de orden: la entrega es un hecho único de la orden (el comprobante y
+   * el cobro ya son por orden), así que todos sus equipos deben quedar en
+   * FINALIZADO juntos.
+   *
+   * Regla de negocio: solo se puede entregar cuando TODOS los equipos de la
+   * orden llegaron a LISTO_PARA_ENTREGA (o ya están FINALIZADO). Si falta
+   * aunque sea uno por llegar a esa fase, se rechaza — así no se entregan
+   * órdenes a medio camino.
+   */
+  async entregarOrden(ordenId: number, dto: TransicionEstadoDto, user: any) {
+    const personaId = user.persona_id;
+    const n = normalizePuesto(user.puesto ?? '');
+    const esRSEC = n.includes('responsable servicio al cliente');
+
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id: ordenId },
+      select: {
+        id: true,
+        orden_trabajo_fisica: true,
+        comprobante_ruta: true,
+        monto_comprobante: true,
+        recibe_responsable_id: true,
+        equipos: {
+          select: {
+            id: true,
+            estado: true,
+            equipo_descripcion: true,
+            laboratorio_id: true,
+            tecnico_id: true,
+          },
+        },
+      },
+    });
+    if (!orden) {
+      throw new NotFoundException(`Orden con ID ${ordenId} no encontrada`);
+    }
+
+    // La entrega la registra el RECEPTOR de la orden o, si existe, el
+    // Responsable Servicio al Cliente (RSEC) — mismo criterio que el flujo
+    // por equipo.
+    const esReceptor =
+      orden.recibe_responsable_id != null &&
+      orden.recibe_responsable_id === personaId;
+    if (!esRSEC && !esReceptor) {
+      throw new ForbiddenException(
+        'Solo el receptor de la orden puede gestionar la entrega',
+      );
+    }
+
+    const equipos = orden.equipos ?? [];
+    if (equipos.length === 0) {
+      throw new BadRequestException('La orden no tiene equipos para entregar');
+    }
+
+    // Pendientes de entrega = los que aún están en LISTO_PARA_ENTREGA. Los
+    // FINALIZADO ya se entregaron antes (se permiten para poder cerrar la
+    // orden de una en una si algo quedó a medias).
+    const pendientes = equipos.filter(
+      (e) => e.estado === EstadoRecepcion.LISTO_PARA_ENTREGA,
+    );
+
+    if (dto.accion === 'APROBAR') {
+      // Regla principal: nadie atrasado. Todos deben estar LISTO_PARA_ENTREGA
+      // o ya FINALIZADO.
+      const atrasados = equipos.filter(
+        (e) =>
+          e.estado !== EstadoRecepcion.LISTO_PARA_ENTREGA &&
+          e.estado !== EstadoRecepcion.FINALIZADO,
+      );
+      if (atrasados.length > 0) {
+        throw new BadRequestException(
+          `No se puede entregar: ${atrasados.length} equipo(s) de la orden aún no están en "Listo para entrega".`,
+        );
+      }
+      // Antes de entregar, el receptor debe haber subido el comprobante y el
+      // monto de la orden (requisito del flujo y de la facturación).
+      if (!orden.comprobante_ruta || orden.monto_comprobante == null) {
+        throw new BadRequestException(
+          'Antes de entregar debe subir el comprobante (foto o PDF) y el monto de la orden.',
+        );
+      }
+      if (pendientes.length === 0) {
+        throw new BadRequestException('La orden ya fue entregada por completo.');
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        for (const eq of pendientes) {
+          await tx.equipoRecepcion.update({
+            where: { id: eq.id },
+            data: { estado: EstadoRecepcion.FINALIZADO },
+          });
+          await tx.historialEstado.create({
+            data: {
+              equipo_recepcion_id: eq.id,
+              estado_anterior: eq.estado,
+              estado_nuevo: EstadoRecepcion.FINALIZADO,
+              accion: 'APROBAR',
+              observaciones: dto.observaciones ?? null,
+              realizado_por_id: personaId ?? 1,
+            },
+          });
+        }
+      });
+
+      // Tras el commit: se avisa a Financiero (una sola vez por orden) y se
+      // refresca la bandeja. Ninguna notificación revierte la entrega.
+      await this.notificarOrdenListaFacturar(ordenId);
+      this.notificacionesService.notificarRecepcionActualizada();
+
+      return { entregados: pendientes.length, total: equipos.length };
+    }
+
+    if (dto.accion === 'RECHAZAR') {
+      if (!dto.observaciones?.trim()) {
+        throw new BadRequestException(
+          'Las observaciones son obligatorias cuando se rechaza',
+        );
+      }
+      if (pendientes.length === 0) {
+        throw new BadRequestException(
+          'No hay equipos pendientes de entrega para rechazar.',
+        );
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        for (const eq of pendientes) {
+          await tx.equipoRecepcion.update({
+            where: { id: eq.id },
+            data: { estado: EstadoRecepcion.REVISION_DIRECTOR },
+          });
+          await tx.historialEstado.create({
+            data: {
+              equipo_recepcion_id: eq.id,
+              estado_anterior: eq.estado,
+              estado_nuevo: EstadoRecepcion.REVISION_DIRECTOR,
+              accion: 'RECHAZAR',
+              observaciones: dto.observaciones ?? null,
+              realizado_por_id: personaId ?? 1,
+            },
+          });
+        }
+      });
+
+      // Se notifica al Director que debe volver a revisar (por cada equipo).
+      // A diferencia del rechazo por equipo, aquí NO se borran certificados:
+      // el rechazo a nivel entrega cuestiona la entrega, no invalida el trabajo
+      // de calibración ya firmado.
+      for (const eq of pendientes) {
+        await notificarResponsablesEquipo(
+          this.prisma,
+          this.notificacionesService,
+          {
+            id: eq.id,
+            equipo_descripcion: eq.equipo_descripcion,
+            laboratorio_id: eq.laboratorio_id,
+            tecnico_id: eq.tecnico_id,
+          },
+          EstadoRecepcion.REVISION_DIRECTOR,
+          { rechazado: true, motivo: dto.observaciones },
+        );
+      }
+      this.notificacionesService.notificarRecepcionActualizada();
+
+      return { rechazados: pendientes.length, total: equipos.length };
+    }
+
+    throw new BadRequestException('Acción no válida (debe ser APROBAR o RECHAZAR)');
   }
 }

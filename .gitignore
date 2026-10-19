@@ -38,6 +38,10 @@ database/
 *.sql
 !backend/prisma/migrations/**/*.sql
 
+# Respaldo de BD y seeds de datos demo (se mantienen solo en local)
+database/
+backend/prisma/seed-*.cjs
+
 # Utilidad local de respaldos (scripts de backup/restore y sus .dump)
 database/
 
