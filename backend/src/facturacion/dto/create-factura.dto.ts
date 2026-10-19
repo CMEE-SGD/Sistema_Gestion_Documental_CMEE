@@ -70,8 +70,9 @@ export class CreateFacturaDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   iva?: number;
 
-  // Retención de IVA (Ecuador): monto que el cliente retiene al pagar por ser
-  // agente de retención. Se descuenta del saldo por cobrar de la factura.
+  // Retenciones (Ecuador): montos que el cliente retiene al pagar por ser
+  // agente de retención (IVA sobre el IVA; RENTA sobre el subtotal). Se
+  // descuentan del saldo por cobrar de la factura.
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   retencion_iva?: number;
@@ -79,6 +80,14 @@ export class CreateFacturaDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   porcentaje_retencion_iva?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  retencion_renta?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  porcentaje_retencion_renta?: number;
 
   /** Detalle de retenciones del XML (codigo 2 = IVA, 1 = RENTA), tal cual. */
   @IsOptional()

@@ -498,6 +498,16 @@ export default function DetalleFacturaPage() {
                   valor={`- ${fmtMoneda(factura.retencion_iva)}`}
                 />
               )}
+              {factura.retencion_renta > 0.005 && (
+                <RowTotal
+                  label={`Retención RENTA${
+                    factura.porcentaje_retencion_renta > 0
+                      ? ` (${factura.porcentaje_retencion_renta}%)`
+                      : ''
+                  }`}
+                  valor={`- ${fmtMoneda(factura.retencion_renta)}`}
+                />
+              )}
               <div className="flex items-baseline justify-between border-t-2 border-slate-800 pt-1.5 text-base font-extrabold text-slate-900">
                 <span>TOTAL</span>
                 <span>{fmtMoneda(factura.total)}</span>
@@ -1122,6 +1132,10 @@ function PanelRetencion({
     String(factura.porcentaje_retencion_iva || 0),
   );
   const [monto, setMonto] = useState(String(factura.retencion_iva || 0));
+  const [pctR, setPctR] = useState(
+    String(factura.porcentaje_retencion_renta || 0),
+  );
+  const [montoR, setMontoR] = useState(String(factura.retencion_renta || 0));
   const [retenciones, setRetenciones] = useState<RetencionDetalle[]>(
     factura.retenciones ?? [],
   );
@@ -1134,16 +1148,24 @@ function PanelRetencion({
   useEffect(() => {
     setPct(String(factura.porcentaje_retencion_iva || 0));
     setMonto(String(factura.retencion_iva || 0));
+    setPctR(String(factura.porcentaje_retencion_renta || 0));
+    setMontoR(String(factura.retencion_renta || 0));
     setRetenciones(factura.retenciones ?? []);
   }, [
     factura.porcentaje_retencion_iva,
     factura.retencion_iva,
+    factura.porcentaje_retencion_renta,
+    factura.retencion_renta,
     factura.retenciones,
   ]);
 
   const montoN = Number(monto);
   const montoValido = Number.isFinite(montoN) && montoN >= 0 ? montoN : 0;
   const pctN = Number(pct) || 0;
+  const montoRN = Number(montoR);
+  const montoRValido = Number.isFinite(montoRN) && montoRN >= 0 ? montoRN : 0;
+  const pctRN = Number(pctR) || 0;
+  const totalRetenido = montoValido + montoRValido;
 
   // Guarda la retención (endpoint dedicado, exento de motivo: es la captura
   // del comprobante que emite el cliente). Multipart: los valores + el XML del
@@ -1153,6 +1175,8 @@ function PanelRetencion({
       const fd = new FormData();
       fd.append('retencion_iva', String(montoValido));
       fd.append('porcentaje_retencion_iva', String(pctN));
+      fd.append('retencion_renta', String(montoRValido));
+      fd.append('porcentaje_retencion_renta', String(pctRN));
       fd.append('retenciones', JSON.stringify(retenciones));
       if (archivoRet) fd.append('file', archivoRet);
       const res = await api.patch(
@@ -1188,6 +1212,8 @@ function PanelRetencion({
       return res.data as {
         retencion_iva: number;
         porcentaje_retencion_iva: number;
+        retencion_renta: number;
+        porcentaje_retencion_renta: number;
         retenciones: RetencionDetalle[];
         num_doc_sustento: string | null;
         razon_social_sujeto_retenido: string | null;
@@ -1196,6 +1222,8 @@ function PanelRetencion({
     onSuccess: (datos) => {
       setPct(String(datos.porcentaje_retencion_iva || 0));
       setMonto(String(datos.retencion_iva || 0));
+      setPctR(String(datos.porcentaje_retencion_renta || 0));
+      setMontoR(String(datos.retencion_renta || 0));
       setRetenciones(datos.retenciones ?? []);
       toast({
         message: `Retención extraída del comprobante${
@@ -1216,11 +1244,14 @@ function PanelRetencion({
   return (
     <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4">
       <p className="mb-3 text-sm text-rose-800">
-        La retención del IVA la aplica el cliente (agente de retención) al
-        pagar. La cartera por cobrar se calcula como{' '}
-        <span className="font-semibold">total − retención − pagos</span>. Suba el
-        comprobante de retención del SRI y se prellenan el % y el monto; luego
-        confirme con <span className="font-semibold">Guardar retención</span>.
+        Las retenciones (IVA y RENTA) las aplica el cliente (agente de
+        retención) al pagar. La cartera por cobrar se calcula como{' '}
+        <span className="font-semibold">
+          total − retención IVA − retención RENTA − pagos
+        </span>
+        . Suba el comprobante de retención del SRI y se toman de allí
+        automáticamente; luego confirme con{' '}
+        <span className="font-semibold">Guardar retención</span>.
       </p>
 
       <div className="mb-3 flex flex-col gap-2 rounded-md border border-rose-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1314,21 +1345,39 @@ function PanelRetencion({
         para digitar el % ni el monto a mano. Se muestran en solo lectura para
         revisarlos antes de confirmar.
       */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="grid grid-cols-2 gap-3 sm:w-80">
-          <div>
-            <p className={labelCls}>% Retención</p>
-            <div className="mt-1 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-700">
-              {pctN}%
-            </div>
-          </div>
-          <div>
-            <p className={labelCls}>Retención de IVA ($)</p>
-            <div className="mt-1 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-right text-sm font-semibold text-slate-700">
-              {fmtMoneda(montoValido)}
-            </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div>
+          <p className={labelCls}>% Retención IVA</p>
+          <div className="mt-1 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-700">
+            {pctN}%
           </div>
         </div>
+        <div>
+          <p className={labelCls}>Retención IVA ($)</p>
+          <div className="mt-1 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-right text-sm font-semibold text-slate-700">
+            {fmtMoneda(montoValido)}
+          </div>
+        </div>
+        <div>
+          <p className={labelCls}>% Retención RENTA</p>
+          <div className="mt-1 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-700">
+            {pctRN}%
+          </div>
+        </div>
+        <div>
+          <p className={labelCls}>Retención RENTA ($)</p>
+          <div className="mt-1 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-right text-sm font-semibold text-slate-700">
+            {fmtMoneda(montoRValido)}
+          </div>
+        </div>
+        <div>
+          <p className={labelCls}>Total retenido ($)</p>
+          <div className="mt-1 rounded-md border border-rose-300 bg-rose-100 px-2.5 py-1.5 text-right text-sm font-bold text-rose-800">
+            {fmtMoneda(totalRetenido)}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 flex justify-end">
         <button
           type="button"
           disabled={guardar.isPending}

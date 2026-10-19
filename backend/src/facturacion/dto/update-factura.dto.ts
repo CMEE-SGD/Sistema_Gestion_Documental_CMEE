@@ -12,8 +12,9 @@ export class UpdateFacturaDto {
   @IsInt()
   plazo_dias?: number;
 
-  // Retención de IVA editable (la extrae el XML o se digita/adjusta la cuenta).
-  // Se descuenta del saldo por cobrar (total − retención_iva − pagos).
+  // Retenciones editables (las extrae el XML o se digita/adjusta la cuenta).
+  // Se descuentan del saldo por cobrar:
+  // total − retención_iva − retención_renta − pagos.
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   retencion_iva?: number;
@@ -21,6 +22,14 @@ export class UpdateFacturaDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   porcentaje_retencion_iva?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  retencion_renta?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  porcentaje_retencion_renta?: number;
 
   @IsOptional()
   @IsString()

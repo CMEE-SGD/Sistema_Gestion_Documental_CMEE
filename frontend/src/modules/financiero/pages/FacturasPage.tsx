@@ -75,10 +75,13 @@ export interface FacturaResumen {
   subtotal: number;
   iva: number;
   total: number;
-  // Retención de IVA (Ecuador): el cliente retiene al pagar; el saldo por
-  // cobrar es total − retención_iva − pagos. `retenciones` = detalle del XML.
+  // Retenciones (Ecuador): el cliente retiene IVA (sobre el IVA) y RENTA
+  // (sobre el subtotal) al pagar; el saldo por cobrar es
+  // total − retención_iva − retención_renta − pagos. `retenciones` = XML.
   retencion_iva: number;
   porcentaje_retencion_iva: number;
+  retencion_renta: number;
+  porcentaje_retencion_renta: number;
   retenciones?: Array<{
     codigo: string;
     codigoPorcentaje: string;
@@ -406,7 +409,9 @@ export default function FacturasPage() {
               <th className="px-3 py-2 text-left font-semibold">Vencimiento</th>
               <th className="px-3 py-2 text-right font-semibold">Total</th>
               <th className="px-3 py-2 text-right font-semibold">Saldo</th>
-              <th className="px-3 py-2 text-right font-semibold">Ret. IVA</th>
+              <th className="px-3 py-2 text-right font-semibold">
+                Retenciones
+              </th>
               <th className="px-3 py-2 text-left font-semibold">Estado</th>
               <th className="px-3 py-2 text-left font-semibold">Origen</th>
               <th className="px-3 py-2 text-left font-semibold">Acciones</th>
@@ -439,18 +444,22 @@ export default function FacturasPage() {
                 >
                   {fmtMoneda(f.saldo)}
                 </td>
-                <td className="px-3 py-2 text-right">
-                  {f.retencion_iva > 0.005 ? (
-                    <>
-                      <span className="font-semibold text-rose-700">
-                        {fmtMoneda(f.retencion_iva)}
-                      </span>
-                      {f.porcentaje_retencion_iva > 0 && (
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          ({f.porcentaje_retencion_iva}%)
-                        </span>
-                      )}
-                    </>
+                <td
+                  className="px-3 py-2 text-right"
+                  title={`IVA ${fmtMoneda(f.retencion_iva)}${
+                    f.porcentaje_retencion_iva > 0
+                      ? ` (${f.porcentaje_retencion_iva}%)`
+                      : ''
+                  } · Renta ${fmtMoneda(f.retencion_renta)}${
+                    f.porcentaje_retencion_renta > 0
+                      ? ` (${f.porcentaje_retencion_renta}%)`
+                      : ''
+                  }`}
+                >
+                  {f.retencion_iva + f.retencion_renta > 0.005 ? (
+                    <span className="font-semibold text-rose-700">
+                      {fmtMoneda(f.retencion_iva + f.retencion_renta)}
+                    </span>
                   ) : (
                     <span className="text-slate-400">—</span>
                   )}
@@ -763,8 +772,8 @@ function ModalImportarXml({
           encargada financiera. El sistema extrae número, clave de acceso,
           cliente, fechas, subtotal, IVA, total, el detalle de ítems y, si el
           XML trae la sección{' '}
-          <span className="font-mono">&lt;retenciones&gt;</span>, la
-          retención de IVA (se descuenta del saldo por cobrar).
+          <span className="font-mono">&lt;retenciones&gt;</span>, las
+          retenciones de IVA y RENTA (se descuentan del saldo por cobrar).
         </p>
         {ordenId !== undefined && (
           <p className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

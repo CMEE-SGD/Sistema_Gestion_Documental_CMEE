@@ -167,10 +167,12 @@ export class FacturacionService {
         0,
       ) + comprobante;
     const total = this.n(f.total);
-    // La retención de IVA la aplica el cliente (agente de retención) al pagar;
-    // por eso el saldo por cobrar es total − retención_iva − cobros.
-    const retencion = this.n(f.retencion_iva);
-    const saldo = total - retencion - pagado;
+    // Las retenciones (IVA y RENTA) las aplica el cliente (agente de retención)
+    // al pagar; por eso el saldo por cobrar es
+    // total − retención_iva − retención_renta − cobros.
+    const retencionIva = this.n(f.retencion_iva);
+    const retencionRenta = this.n(f.retencion_renta);
+    const saldo = total - retencionIva - retencionRenta - pagado;
 
     // Última solicitud de autorización de compensación (si existe).
     const { solicitudes_compensacion, ...resto } = f;
@@ -198,8 +200,10 @@ export class FacturacionService {
       subtotal: this.n(f.subtotal),
       iva: this.n(f.iva),
       total,
-      retencion_iva: retencion,
+      retencion_iva: retencionIva,
       porcentaje_retencion_iva: this.n(f.porcentaje_retencion_iva),
+      retencion_renta: retencionRenta,
+      porcentaje_retencion_renta: this.n(f.porcentaje_retencion_renta),
       retenciones: f.retenciones ?? null,
       monto_comprobante: comprobante > 0 ? comprobante : null,
       pagado,
@@ -561,6 +565,8 @@ export class FacturacionService {
             total,
             retencion_iva: dto.retencion_iva ?? 0,
             porcentaje_retencion_iva: dto.porcentaje_retencion_iva ?? 0,
+            retencion_renta: dto.retencion_renta ?? 0,
+            porcentaje_retencion_renta: dto.porcentaje_retencion_renta ?? 0,
             retenciones:
               dto.retenciones && dto.retenciones.length > 0
                 ? (dto.retenciones as unknown as Prisma.InputJsonValue)
@@ -657,6 +663,8 @@ export class FacturacionService {
         total: datos.total,
         retencion_iva: datos.retencion_iva,
         porcentaje_retencion_iva: datos.porcentaje_retencion_iva,
+        retencion_renta: datos.retencion_renta,
+        porcentaje_retencion_renta: datos.porcentaje_retencion_renta,
         retenciones:
           datos.retenciones.length > 0
             ? (datos.retenciones as unknown as Prisma.InputJsonValue)
@@ -704,6 +712,12 @@ export class FacturacionService {
     if (dto.porcentaje_retencion_iva !== undefined) {
       data.porcentaje_retencion_iva = dto.porcentaje_retencion_iva;
     }
+    if (dto.retencion_renta !== undefined) {
+      data.retencion_renta = dto.retencion_renta;
+    }
+    if (dto.porcentaje_retencion_renta !== undefined) {
+      data.porcentaje_retencion_renta = dto.porcentaje_retencion_renta;
+    }
     if (dto.plazo_dias !== undefined) {
       const actual = await this.prisma.factura.findUnique({
         where: { id },
@@ -742,6 +756,12 @@ export class FacturacionService {
     }
     if (dto.porcentaje_retencion_iva !== undefined) {
       data.porcentaje_retencion_iva = dto.porcentaje_retencion_iva;
+    }
+    if (dto.retencion_renta !== undefined) {
+      data.retencion_renta = dto.retencion_renta;
+    }
+    if (dto.porcentaje_retencion_renta !== undefined) {
+      data.porcentaje_retencion_renta = dto.porcentaje_retencion_renta;
     }
     if (dto.retenciones !== undefined) {
       data.retenciones = dto.retenciones as unknown as Prisma.InputJsonValue;
@@ -859,8 +879,14 @@ export class FacturacionService {
         0,
       ) + this.n(factura.monto_comprobante);
     const total = this.n(factura.total);
-    const retencion = this.n(factura.retencion_iva);
-    return { factura, pagado, saldo: total - retencion - pagado };
+    // Las dos retenciones (IVA y RENTA) reducen el cobro real.
+    const retencionIva = this.n(factura.retencion_iva);
+    const retencionRenta = this.n(factura.retencion_renta);
+    return {
+      factura,
+      pagado,
+      saldo: total - retencionIva - retencionRenta - pagado,
+    };
   }
 
   private async actualizarEstadoPorSaldo(facturaId: number) {
@@ -1615,6 +1641,46 @@ export class FacturacionService {
     return tabla[codigoPorcentaje] ?? 0;
   }
 
+  /**
+   * Resume las retenciones de un comprobante: la de IVA (código 2, se aplica
+   * sobre el IVA de la factura) y la de RENTA (código 1, sobre el subtotal),
+   * con sus montos y porcentajes. Ambas reducen el saldo por cobrar.
+   */
+  private resumirRetenciones(
+    retenciones: {
+      codigo: string;
+      codigoPorcentaje: string;
+      porcentajeRetener: number;
+      valorRetenido: number;
+    }[],
+  ) {
+    const redondear2 = (n: number) => Math.round(n * 100) / 100;
+    const resumir = (codigo: string) => {
+      const lista = retenciones.filter((r) => r.codigo === codigo);
+      const total = redondear2(
+        lista.reduce((s, r) => s + r.valorRetenido, 0),
+      );
+      const primera = lista[0];
+      // El porcentaje suele venir explícito en el XML; si falta, el catálogo de
+      // respaldo solo aplica al IVA (la RENTA usa otro catálogo de códigos).
+      const porcentaje =
+        primera && primera.porcentajeRetener > 0
+          ? redondear2(primera.porcentajeRetener)
+          : primera && codigo === '2'
+            ? this.porcentajePorCodigoRetencion(primera.codigoPorcentaje)
+            : 0;
+      return { total, porcentaje };
+    };
+    const iva = resumir('2');
+    const renta = resumir('1');
+    return {
+      retencionIvaTotal: iva.total,
+      porcentajeRetencionIva: iva.porcentaje,
+      retencionRentaTotal: renta.total,
+      porcentajeRetencionRenta: renta.porcentaje,
+    };
+  }
+
   private parsearXmlSRI(xmlText: string) {
     const parser = new XMLParser({ ignoreAttributes: true, parseTagValue: false });
     let raiz: any;
@@ -1736,18 +1802,12 @@ export class FacturacionService {
         valorRetenido: this.nDesdeString(r?.valorRetenido, 0),
       }))
       .filter((r) => r.codigo !== '');
-    const redondear2 = (n: number) => Math.round(n * 100) / 100;
-    const retencionesIva = retenciones.filter((r) => r.codigo === '2');
-    const retencionIvaTotal = redondear2(
-      retencionesIva.reduce((s, r) => s + r.valorRetenido, 0),
-    );
-    const primeraIva = retencionesIva[0];
-    const porcentajeRetencionIva =
-      primeraIva && primeraIva.porcentajeRetener > 0
-        ? redondear2(primeraIva.porcentajeRetener)
-        : primeraIva
-          ? this.porcentajePorCodigoRetencion(primeraIva.codigoPorcentaje)
-          : 0;
+    const {
+      retencionIvaTotal,
+      porcentajeRetencionIva,
+      retencionRentaTotal,
+      porcentajeRetencionRenta,
+    } = this.resumirRetenciones(retenciones);
 
     // infoAdicional → { [nombre]: valor } (p. ej. "RUC Proveedor").
     const infoAdicional: Record<string, string> = {};
@@ -1791,6 +1851,8 @@ export class FacturacionService {
       total: this.nDesdeString(inf?.importeTotal, 0),
       retencion_iva: retencionIvaTotal,
       porcentaje_retencion_iva: porcentajeRetencionIva,
+      retencion_renta: retencionRentaTotal,
+      porcentaje_retencion_renta: porcentajeRetencionRenta,
       retenciones,
       detalle,
       numero_autorizacion: informacionAutorizacion.numero,
@@ -1911,20 +1973,13 @@ export class FacturacionService {
       }))
       .filter((r) => r.codigo !== '');
 
-    const redondear2 = (n: number) => Math.round(n * 100) / 100;
-    // Retención de IVA = codigo 2 (catálogo SRI). La RENTA (codigo 1) no
-    // descuenta el saldo por cobrar del IVA, así que no se suma aquí.
-    const retencionesIva = retenciones.filter((r) => r.codigo === '2');
-    const retencionIvaTotal = redondear2(
-      retencionesIva.reduce((s, r) => s + r.valorRetenido, 0),
-    );
-    const primeraIva = retencionesIva[0];
-    const porcentajeRetencionIva =
-      primeraIva && primeraIva.porcentajeRetener > 0
-        ? redondear2(primeraIva.porcentajeRetener)
-        : primeraIva
-          ? this.porcentajePorCodigoRetencion(primeraIva.codigoPorcentaje)
-          : 0;
+    // Se resumen IVA (código 2) y RENTA (código 1): ambas reducen el saldo.
+    const {
+      retencionIvaTotal,
+      porcentajeRetencionIva,
+      retencionRentaTotal,
+      porcentajeRetencionRenta,
+    } = this.resumirRetenciones(retenciones);
 
     return {
       numero_autorizacion: informacionAutorizacion.numero,
@@ -1941,6 +1996,8 @@ export class FacturacionService {
       fecha_doc_sustento: fechaDocSustento,
       retencion_iva: retencionIvaTotal,
       porcentaje_retencion_iva: porcentajeRetencionIva,
+      retencion_renta: retencionRentaTotal,
+      porcentaje_retencion_renta: porcentajeRetencionRenta,
       retenciones,
     };
   }

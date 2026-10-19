@@ -20,6 +20,16 @@ export class UpdateRetencionDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   porcentaje_retencion_iva?: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  retencion_renta?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  porcentaje_retencion_renta?: number;
+
   /** Detalle de retenciones del comprobante (codigo 2 = IVA, 1 = RENTA). */
   @IsOptional()
   @Transform(({ value }) => {
