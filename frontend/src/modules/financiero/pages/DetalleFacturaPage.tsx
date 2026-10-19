@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   ShieldQuestion,
   Trash2,
+  UploadCloud,
   X,
 } from 'lucide-react';
 import api from '../../../core/api/axios';
@@ -120,6 +121,9 @@ interface FacturaDetalle extends FacturaResumen {
   compensaciones: CompensacionDetalle[];
   solicitud_compensacion: SolicitudCompensacionDetalle | null;
 }
+
+// Detalle de una retención del comprobante (codigo 2 = IVA, 1 = RENTA).
+type RetencionDetalle = NonNullable<FacturaResumen['retenciones']>[number];
 
 // ---------------------------------------------------------------------------
 // Página
@@ -1118,14 +1122,24 @@ function PanelRetencion({
     String(factura.porcentaje_retencion_iva || 0),
   );
   const [monto, setMonto] = useState(String(factura.retencion_iva || 0));
+  const [retenciones, setRetenciones] = useState<RetencionDetalle[]>(
+    factura.retenciones ?? [],
+  );
+  // XML del comprobante subido (se adjunta al guardar para almacenarlo).
+  const [archivoRet, setArchivoRet] = useState<File | null>(null);
   const { toast } = useToast();
-  const { alert, pedirMotivo } = useAlert();
+  const { alert } = useAlert();
 
   // Sincroniza si el detalle se recarga (otro panel guarda/cambia datos).
   useEffect(() => {
     setPct(String(factura.porcentaje_retencion_iva || 0));
     setMonto(String(factura.retencion_iva || 0));
-  }, [factura.porcentaje_retencion_iva, factura.retencion_iva]);
+    setRetenciones(factura.retenciones ?? []);
+  }, [
+    factura.porcentaje_retencion_iva,
+    factura.retencion_iva,
+    factura.retenciones,
+  ]);
 
   const montoN = Number(monto);
   const montoValido = Number.isFinite(montoN) && montoN >= 0 ? montoN : 0;
@@ -1142,17 +1156,25 @@ function PanelRetencion({
     }
   };
 
+  // Guarda la retención (endpoint dedicado, exento de motivo: es la captura
+  // del comprobante que emite el cliente). Multipart: los valores + el XML del
+  // comprobante (si se subió) para almacenarlo y poder descargarlo después.
   const guardar = useMutation({
-    mutationFn: async (motivo: string) => {
+    mutationFn: async () => {
+      const fd = new FormData();
+      fd.append('retencion_iva', String(montoValido));
+      fd.append('porcentaje_retencion_iva', String(pctN));
+      fd.append('retenciones', JSON.stringify(retenciones));
+      if (archivoRet) fd.append('file', archivoRet);
       const res = await api.patch(
-        `/facturacion/facturas/${facturaId}`,
-        { retencion_iva: montoValido, porcentaje_retencion_iva: pctN },
-        { motivo },
+        `/facturacion/facturas/${facturaId}/retencion`,
+        fd,
       );
       return res.data;
     },
     onSuccess: () => {
       toast({ message: 'Retención de IVA actualizada.' });
+      setArchivoRet(null);
       onGuardado();
     },
     onError: (err: unknown) => {
@@ -1164,18 +1186,98 @@ function PanelRetencion({
     },
   });
 
-  const retenciones = factura.retenciones ?? [];
+  // Extrae la retención del comprobante del SRI (codDoc 07) y prellena los
+  // campos. No guarda: el usuario confirma con "Guardar retención".
+  const extraer = useMutation({
+    mutationFn: async (archivo: File) => {
+      const fd = new FormData();
+      fd.append('file', archivo);
+      const res = await api.post(
+        '/facturacion/facturas/parse-retencion-xml',
+        fd,
+      );
+      return res.data as {
+        retencion_iva: number;
+        porcentaje_retencion_iva: number;
+        retenciones: RetencionDetalle[];
+        num_doc_sustento: string | null;
+        razon_social_sujeto_retenido: string | null;
+      };
+    },
+    onSuccess: (datos) => {
+      setPct(String(datos.porcentaje_retencion_iva || 0));
+      setMonto(String(datos.retencion_iva || 0));
+      setRetenciones(datos.retenciones ?? []);
+      toast({
+        message: `Retención extraída del comprobante${
+          datos.num_doc_sustento ? ` (doc. ${datos.num_doc_sustento})` : ''
+        }. Revise y pulse "Guardar retención".`,
+      });
+    },
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      void alert({
+        message:
+          apiErr?.response?.data?.message ||
+          'No se pudo leer el XML del comprobante de retención.',
+      });
+    },
+  });
 
   return (
     <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4">
       <p className="mb-3 text-sm text-rose-800">
         La retención del IVA la aplica el cliente (agente de retención) al
         pagar. La cartera por cobrar se calcula como{' '}
-        <span className="font-semibold">total − retención − pagos</span>. Si el
-        XML trae la sección{' '}
-        <span className="font-mono">&lt;retenciones&gt;</span>, se extrae
-        automáticamente; aquí se puede ajustar.
+        <span className="font-semibold">total − retención − pagos</span>. Suba el
+        comprobante de retención del SRI y se prellenan el % y el monto; luego
+        confirme con <span className="font-semibold">Guardar retención</span>.
       </p>
+
+      <div className="mb-3 flex flex-col gap-2 rounded-md border border-rose-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-xs text-rose-800">
+          <span className="font-semibold">Extraer desde XML.</span> Comprobante
+          de retención del SRI (codDoc 07, .xml).
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {factura.retencion_ruta && (
+            <a
+              href={buildFileUrl(factura.retencion_ruta) ?? ''}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-rose-300 bg-white px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+            >
+              <FileDown className="h-4 w-4" /> Ver comprobante
+            </a>
+          )}
+          <label
+            className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-rose-300 bg-white px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 ${
+              extraer.isPending ? 'cursor-not-allowed opacity-60' : ''
+            }`}
+          >
+            {extraer.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <UploadCloud className="h-4 w-4" />
+            )}
+            Subir XML de retención
+            <input
+              type="file"
+              accept=".xml,text/xml"
+              className="hidden"
+              disabled={extraer.isPending}
+              onChange={(e) => {
+                const archivo = e.target.files?.[0];
+                if (archivo) {
+                  setArchivoRet(archivo);
+                  extraer.mutate(archivo);
+                }
+                e.target.value = '';
+              }}
+            />
+          </label>
+        </div>
+      </div>
 
       {retenciones.length > 0 && (
         <div className="mb-3 overflow-x-auto rounded-md border border-rose-200 bg-white">
@@ -1194,9 +1296,9 @@ function PanelRetencion({
               {retenciones.map((r, i) => (
                 <tr key={i} className="border-t border-rose-100">
                   <td className="px-2 py-1">
-                    {r.codigo === '1'
+                    {r.codigo === '2'
                       ? 'IVA'
-                      : r.codigo === '2'
+                      : r.codigo === '1'
                         ? 'RENTA'
                         : `Código ${r.codigo}`}
                   </td>
@@ -1232,6 +1334,10 @@ function PanelRetencion({
             <option value="30">30% (bienes/servicios)</option>
             <option value="70">70% (servicios/consultoría)</option>
             <option value="100">100% (persona natural)</option>
+            {/* Porcentaje extraído del XML que no está en la lista. */}
+            {!['0', '10', '20', '30', '70', '100'].includes(pct) && (
+              <option value={pct}>{pct}%</option>
+            )}
           </select>
         </div>
         <div>
@@ -1255,15 +1361,7 @@ function PanelRetencion({
           <button
             type="button"
             disabled={guardar.isPending}
-            onClick={async () => {
-              const motivo = await pedirMotivo({
-                title: 'Guardar retención',
-                message: 'Va a modificar la retención de IVA de esta factura.',
-                confirmLabel: 'Guardar',
-              });
-              if (!motivo) return;
-              guardar.mutate(motivo);
-            }}
+            onClick={() => guardar.mutate()}
             className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {guardar.isPending ? (

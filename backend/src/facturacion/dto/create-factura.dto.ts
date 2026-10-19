@@ -80,7 +80,7 @@ export class CreateFacturaDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   porcentaje_retencion_iva?: number;
 
-  /** Detalle de retenciones del XML (codigo 1 = IVA, 2 = RENTA), tal cual. */
+  /** Detalle de retenciones del XML (codigo 2 = IVA, 1 = RENTA), tal cual. */
   @IsOptional()
   @IsArray()
   retenciones?: Record<string, unknown>[];

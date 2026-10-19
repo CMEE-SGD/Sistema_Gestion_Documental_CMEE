@@ -1604,6 +1604,13 @@ model Factura {
   porcentaje_retencion_iva Decimal  @db.Decimal(5, 2) @default(0)
   retenciones              Json?
 
+  // Comprobante de retención (codDoc 07) emitido por el cliente (agente de
+  // retención): se guarda el archivo tal como llegó, para poder verlo/descargarlo
+  // desde la factura. `retencion_ruta` es la ruta pública; `retencion_nombre`, el
+  // nombre original del XML.
+  retencion_ruta   String? @db.VarChar(500)
+  retencion_nombre String? @db.VarChar(255)
+
   // Plazos de crédito: 30 por defecto; 60/90/120 elegibles por el usuario de
   // facturación (decisión tomada: sin autorización especial).
   plazo_dias       Int      @default(30)

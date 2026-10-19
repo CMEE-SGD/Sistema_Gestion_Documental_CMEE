@@ -15,6 +15,7 @@ import { UpdateProformaDto } from './dto/update-proforma.dto';
 import { UpdateDistribucionDto } from './dto/update-distribucion.dto';
 import { CreateFacturaDto } from './dto/create-factura.dto';
 import { UpdateFacturaDto } from './dto/update-factura.dto';
+import { UpdateRetencionDto } from './dto/update-retencion.dto';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto';
 import { UpdatePagoDto } from './dto/update-pago.dto';
 import { UpdateComprobantePagoDto } from './dto/update-comprobante-pago.dto';
@@ -676,6 +677,21 @@ export class FacturacionService {
     return this.enriquecer(factura);
   }
 
+  /**
+   * Extrae la retención de un COMPROBANTE DE RETENCIÓN (codDoc 07) del SRI,
+   * para prellenar el panel de retención del detalle de la factura. Es solo
+   * lectura: NO persiste nada; el guardado lo hace `actualizarRetencion`
+   * (PATCH facturas/:id/retencion, exento de motivo).
+   */
+  parseRetencionXml(file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException(
+        'Debe adjuntar el XML del comprobante de retención',
+      );
+    }
+    return this.parsearXmlRetencion(file.buffer.toString('utf-8'));
+  }
+
   async updateFactura(id: number, dto: UpdateFacturaDto) {
     await this.findOneFactura(id);
     const data: any = {
@@ -702,10 +718,62 @@ export class FacturacionService {
     return this.findOneFactura(id);
   }
 
+  /**
+   * Guarda la retención del comprobante (IVA, % y detalle) y, si llega, el
+   * archivo XML del comprobante para poder verlo/descargarlo desde la factura.
+   * Exento de motivo: es la captura del dato que emite el cliente (agente de
+   * retención), no una edición de negocio. El resto de cambios de la factura sí
+   * exigen motivo.
+   */
+  async actualizarRetencion(
+    id: number,
+    dto: UpdateRetencionDto,
+    file?: Express.Multer.File,
+  ) {
+    const actual = await this.prisma.factura.findUnique({
+      where: { id },
+      select: { id: true, retencion_ruta: true },
+    });
+    if (!actual) throw new NotFoundException(`Factura ${id} no encontrada`);
+
+    const data: any = {};
+    if (dto.retencion_iva !== undefined) {
+      data.retencion_iva = dto.retencion_iva;
+    }
+    if (dto.porcentaje_retencion_iva !== undefined) {
+      data.porcentaje_retencion_iva = dto.porcentaje_retencion_iva;
+    }
+    if (dto.retenciones !== undefined) {
+      data.retenciones = dto.retenciones as unknown as Prisma.InputJsonValue;
+    }
+
+    if (file) {
+      const esXml =
+        /\.xml$/i.test(file.originalname ?? '') ||
+        /xml/i.test(file.mimetype ?? '');
+      if (!esXml) {
+        throw new BadRequestException(
+          'El comprobante de retención debe ser un archivo XML.',
+        );
+      }
+      const guardado = this.guardarArchivo(file, 'retenciones', `F${id}`);
+      data.retencion_ruta = guardado.ruta;
+      data.retencion_nombre = guardado.original;
+    }
+
+    await this.prisma.factura.update({ where: { id }, data });
+
+    // Si se reemplazó el comprobante, se borra el anterior (best-effort).
+    if (file && actual.retencion_ruta) {
+      this.borrarArchivo(actual.retencion_ruta);
+    }
+    return this.findOneFactura(id);
+  }
+
   async removeFactura(id: number) {
     const factura = await this.prisma.factura.findUnique({
       where: { id },
-      select: { id: true, ruta_xml: true },
+      select: { id: true, ruta_xml: true, retencion_ruta: true },
     });
     if (!factura) throw new NotFoundException(`Factura ${id} no encontrada`);
 
@@ -728,6 +796,7 @@ export class FacturacionService {
         // eliminar el archivo es best-effort
       }
     }
+    this.borrarArchivo(factura.retencion_ruta);
     return { id };
   }
 
@@ -1649,7 +1718,7 @@ export class FacturacionService {
     }));
 
     // Retenciones del comprobante (<retenciones><retencion>): se aplican al
-    // pagar y van dirigidas al emisor. codigo: 1 = IVA, 2 = RENTA (IR).
+    // pagar y van dirigidas al emisor. Código del SRI: 2 = IVA, 1 = RENTA (IR).
     // Se conserva el detalle completo y se resume la parte de IVA.
     const rawRetenciones = factura?.retenciones?.retencion;
     const retencionesArr = Array.isArray(rawRetenciones)
@@ -1668,7 +1737,7 @@ export class FacturacionService {
       }))
       .filter((r) => r.codigo !== '');
     const redondear2 = (n: number) => Math.round(n * 100) / 100;
-    const retencionesIva = retenciones.filter((r) => r.codigo === '1');
+    const retencionesIva = retenciones.filter((r) => r.codigo === '2');
     const retencionIvaTotal = redondear2(
       retencionesIva.reduce((s, r) => s + r.valorRetenido, 0),
     );
@@ -1729,6 +1798,150 @@ export class FacturacionService {
       ambiente: informacionAutorizacion.ambiente,
       info_adicional: infoAdicional,
       plazo_sugerido: plazoSugerido,
+    };
+  }
+
+  /**
+   * Parser del COMPROBANTE DE RETENCIÓN del SRI (codDoc 07). A diferencia de
+   * una factura, este documento trae la retención que el cliente (agente de
+   * retención) aplica al pagar. Estructura:
+   *   <autorizacion>
+   *     <comprobante><![CDATA[
+   *       <comprobanteRetencion>
+   *         <infoCompRetencion>…</infoCompRetencion>
+   *         <docsSustento><docSustento>
+   *           <retenciones><retencion>…</retencion></retenciones>
+   *           <pagos>…</pagos>
+   *         </docSustento></docsSustento>
+   *       </comprobanteRetencion>
+   *     ]]></comprobante>
+   *   </autorizacion>
+   *
+   * Catálogo del SRI para el <codigo> de la retención: 1 = RENTA, 2 = IVA. El
+   * IVA se retiene sobre el propio IVA de la factura; la RENTA, sobre el
+   * subtotal. Aquí solo se resume la parte de IVA (lo que descuenta el saldo
+   * por cobrar); el resto queda en el detalle.
+   */
+  private parsearXmlRetencion(xmlText: string) {
+    const parser = new XMLParser({ ignoreAttributes: true, parseTagValue: false });
+    let raiz: any;
+    try {
+      raiz = parser.parse(xmlText);
+    } catch {
+      throw new BadRequestException('El archivo no es un XML válido.');
+    }
+
+    const autorizacion = raiz?.autorizacion ?? null;
+    let comprobante: any = null;
+    let informacionAutorizacion: {
+      numero: string | null;
+      fecha: Date | null;
+      ambiente: string | null;
+    } = { numero: null, fecha: null, ambiente: null };
+
+    if (autorizacion) {
+      informacionAutorizacion = {
+        numero: autorizacion.numeroAutorizacion ?? null,
+        fecha: autorizacion.fechaAutorizacion
+          ? new Date(String(autorizacion.fechaAutorizacion).replace(' ', 'T'))
+          : null,
+        ambiente: autorizacion.ambiente ?? null,
+      };
+
+      const comprobanteStr: unknown = autorizacion.comprobante;
+      if (typeof comprobanteStr !== 'string' || !comprobanteStr.trim()) {
+        throw new BadRequestException(
+          'El XML de autorización no contiene el comprobante (CDATA).',
+        );
+      }
+      try {
+        const nodo = new XMLParser({
+          ignoreAttributes: true,
+          parseTagValue: false,
+        }).parse(comprobanteStr);
+        comprobante = nodo?.comprobanteRetencion ?? null;
+      } catch {
+        throw new BadRequestException(
+          'El comprobante dentro del XML no es un XML válido.',
+        );
+      }
+    } else {
+      // Compatibilidad: comprobante de retención directo (sin envoltorio).
+      comprobante = raiz?.comprobanteRetencion ?? null;
+    }
+
+    if (!comprobante?.infoCompRetencion) {
+      throw new BadRequestException(
+        'El XML no parece ser un comprobante de retención válido (falta infoCompRetencion).',
+      );
+    }
+
+    const info: any = comprobante.infoCompRetencion;
+
+    // docsSustento/docSustento (puede haber más de uno). Se aplanan sus
+    // retenciones y se toma el primer documento de sustento como referencia.
+    const rawDoc = comprobante?.docsSustento?.docSustento;
+    const docsArr = Array.isArray(rawDoc) ? rawDoc : rawDoc ? [rawDoc] : [];
+
+    let numDocSustento: string | null = null;
+    let fechaDocSustento: string | null = null;
+    const retencionesRaw: any[] = [];
+    for (const doc of docsArr) {
+      if (!numDocSustento && doc?.numDocSustento) {
+        numDocSustento = String(doc.numDocSustento);
+      }
+      if (!fechaDocSustento && doc?.fechaEmisionDocSustento) {
+        fechaDocSustento = String(doc.fechaEmisionDocSustento);
+      }
+      const rawRet = doc?.retenciones?.retencion;
+      const arr = Array.isArray(rawRet) ? rawRet : rawRet ? [rawRet] : [];
+      retencionesRaw.push(...arr);
+    }
+
+    const retenciones = retencionesRaw
+      .filter((r) => r && typeof r === 'object')
+      .map((r) => ({
+        codigo: String(r?.codigo ?? ''),
+        // En el comprobante de retención el código de porcentaje se llama
+        // `codigoRetencion`; se normaliza al mismo nombre que usa la factura.
+        codigoPorcentaje: String(r?.codigoRetencion ?? ''),
+        baseImponible: this.nDesdeString(r?.baseImponible, 0),
+        porcentajeRetener: this.nDesdeString(r?.porcentajeRetener, 0),
+        valorRetenido: this.nDesdeString(r?.valorRetenido, 0),
+      }))
+      .filter((r) => r.codigo !== '');
+
+    const redondear2 = (n: number) => Math.round(n * 100) / 100;
+    // Retención de IVA = codigo 2 (catálogo SRI). La RENTA (codigo 1) no
+    // descuenta el saldo por cobrar del IVA, así que no se suma aquí.
+    const retencionesIva = retenciones.filter((r) => r.codigo === '2');
+    const retencionIvaTotal = redondear2(
+      retencionesIva.reduce((s, r) => s + r.valorRetenido, 0),
+    );
+    const primeraIva = retencionesIva[0];
+    const porcentajeRetencionIva =
+      primeraIva && primeraIva.porcentajeRetener > 0
+        ? redondear2(primeraIva.porcentajeRetener)
+        : primeraIva
+          ? this.porcentajePorCodigoRetencion(primeraIva.codigoPorcentaje)
+          : 0;
+
+    return {
+      numero_autorizacion: informacionAutorizacion.numero,
+      fecha_autorizacion: informacionAutorizacion.fecha,
+      ambiente: informacionAutorizacion.ambiente,
+      razon_social_sujeto_retenido: info?.razonSocialSujetoRetenido ?? null,
+      identificacion_sujeto_retenido:
+        info?.identificacionSujetoRetenido ?? null,
+      periodo_fiscal: info?.periodoFiscal ?? null,
+      fecha_emision: info?.fechaEmision
+        ? this.parseFechaSRI(info.fechaEmision)
+        : null,
+      num_doc_sustento: numDocSustento,
+      fecha_doc_sustento: fechaDocSustento,
+      retencion_iva: retencionIvaTotal,
+      porcentaje_retencion_iva: porcentajeRetencionIva,
+      retenciones,
     };
   }
 }

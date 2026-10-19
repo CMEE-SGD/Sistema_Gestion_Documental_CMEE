@@ -86,6 +86,10 @@ export interface FacturaResumen {
     porcentajeRetener: number;
     valorRetenido: number;
   }> | null;
+  // Comprobante de retención (codDoc 07) almacenado: ruta para descargarlo y
+  // nombre original del XML (el archivo se guarda al guardar la retención).
+  retencion_ruta: string | null;
+  retencion_nombre: string | null;
   pagado: number;
   saldo: number;
   estado: string;

@@ -31,6 +31,7 @@ import { CreateProformaDto } from './dto/create-proforma.dto';
 import { UpdateProformaDto } from './dto/update-proforma.dto';
 import { CreateFacturaDto } from './dto/create-factura.dto';
 import { UpdateFacturaDto } from './dto/update-factura.dto';
+import { UpdateRetencionDto } from './dto/update-retencion.dto';
 import { UpdateDistribucionDto } from './dto/update-distribucion.dto';
 import { ImportarXmlFacturaDto } from './dto/importar-xml-factura.dto';
 import { RegistrarPagoDto } from './dto/registrar-pago.dto';
@@ -223,10 +224,45 @@ export class FacturacionController {
     return this.facturacionService.importarXml(dto, file);
   }
 
+  // Comprobante de retención del SRI (codDoc 07): se extrae la retención de IVA
+  // para prellenar el panel del detalle de factura. No persiste nada; el
+  // guardado lo hace PATCH facturas/:id/retencion (exento de motivo).
+  @Post('facturas/parse-retencion-xml')
+  @RequireAccess('Gestion Financiera', 4)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  parseRetencionXml(@UploadedFile() file: Express.Multer.File) {
+    return this.facturacionService.parseRetencionXml(file);
+  }
+
   @Patch('facturas/:id')
   @RequireAccess('Gestion Financiera', 4)
   updateFactura(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateFacturaDto) {
     return this.facturacionService.updateFactura(id, dto);
+  }
+
+  // Guardado de la retención del comprobante (IVA, % y detalle). Exento de
+  // motivo: es la captura del dato que emite el cliente, no una edición de
+  // negocio. El resto de cambios de la factura sí exigen motivo.
+  @Patch('facturas/:id/retencion')
+  @SinMotivo()
+  @RequireAccess('Gestion Financiera', 4)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  actualizarRetencion(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateRetencionDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.facturacionService.actualizarRetencion(id, dto, file);
   }
 
   @Delete('facturas/:id')
