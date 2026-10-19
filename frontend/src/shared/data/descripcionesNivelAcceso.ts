@@ -54,6 +54,13 @@ export const DESCRIPCION_NIVELES: Record<string, Partial<Record<number, string>>
     4: 'Editar y firmar',
     5: 'Eliminar',
   },
+  'Gestion Financiera': {
+    1: 'Ver',
+    2: 'Ver',
+    3: 'Ver',
+    4: 'Editar, facturar y registrar cobros',
+    5: 'Eliminar',
+  },
   'Gestion de Calidad': {
     1: 'Sin acceso',
     2: 'Ver',

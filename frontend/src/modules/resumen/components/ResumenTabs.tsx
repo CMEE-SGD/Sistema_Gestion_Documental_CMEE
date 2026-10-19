@@ -1,11 +1,17 @@
 import { NavLink } from 'react-router-dom';
-import { Users, FlaskConical } from 'lucide-react';
+import { BarChart3, FlaskConical, Users } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 
 // Módulo Resumen: agrupa todos los dashboards del sistema, separados por
-// cliente y por laboratorio. Visible para cualquier usuario autenticado.
+// cliente, por laboratorio y por la gestión financiera. Visible para cualquier
+// usuario autenticado.
 export default function ResumenTabs() {
   const tabs = [
+    {
+      label: 'Financiero',
+      path: '/resumen/financiero',
+      icon: BarChart3,
+    },
     {
       label: 'Clientes',
       path: '/resumen/clientes',

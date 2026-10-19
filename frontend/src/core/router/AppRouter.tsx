@@ -101,10 +101,21 @@ import ClientesPage from '../../modules/administrativo/pages/ClientesPage';
 import CertificadosPage from '../../modules/administrativo/pages/CertificadosPage';
 import ReportesPage from '../../modules/administrativo/pages/ReportesPage';
 
+// --- IMPORTACIONES MÓDULO FINANCIERO (independiente) ---
+import { FinancieroLayout } from '../../modules/financiero/FinancieroLayout';
+import ProformasPage from '../../modules/financiero/pages/ProformasPage';
+import FacturasPage from '../../modules/financiero/pages/FacturasPage';
+import DetalleFacturaPage from '../../modules/financiero/pages/DetalleFacturaPage';
+import CarteraPage from '../../modules/financiero/pages/CarteraPage';
+import ProximasCalibracionesPage from '../../modules/financiero/pages/ProximasCalibracionesPage';
+import OrdenesTrabajoPage from '../../modules/financiero/pages/OrdenesTrabajoPage';
+import EgresosPage from '../../modules/financiero/pages/EgresosPage';
+
 // --- MÓDULO RESUMEN (dashboards) ---
 import { ResumenLayout } from '../../modules/resumen/ResumenLayout';
 import DashboardClientes from '../../modules/resumen/pages/DashboardClientes';
 import DashboardLaboratorios from '../../modules/resumen/pages/DashboardLaboratorios';
+import DashboardFinanciero from '../../modules/resumen/pages/DashboardFinanciero';
 
 // --- PÚBLICO (sin sesión) ---
 import VerificarCertificadoPage from '../../modules/publico/pages/VerificarCertificadoPage';
@@ -223,14 +234,29 @@ const AppContenido = () => {
           <Route path="recepciones" element={<BandejaTrabajoPage />} />
           <Route path="archivadas" element={<ArchivadasPage />} />
           <Route path="ordenes" element={<RecepcionesPage />} />
+          <Route path="proformas" element={<ProformasPage />} />
           <Route path="clientes" element={<ClientesPage />} />
           <Route path="certificados" element={<CertificadosPage />} />
+          <Route path="proximas-calibraciones" element={<ProximasCalibracionesPage />} />
           <Route path="reportes" element={<ReportesPage />} />
+        </Route>
+
+        {/* --- MÓDULO FINANCIERO (independiente, ligado a recepción por sus datos) --- */}
+        <Route path="/financiero" element={<FinancieroLayout />}>
+          <Route index element={<Navigate to="facturas" replace />} />
+          <Route path="proformas" element={<ProformasPage />} />
+          <Route path="facturas" element={<FacturasPage />} />
+          <Route path="facturas/:id" element={<DetalleFacturaPage />} />
+          <Route path="ordenes" element={<OrdenesTrabajoPage />} />
+          <Route path="cartera" element={<CarteraPage />} />
+          <Route path="egresos" element={<EgresosPage />} />
+          <Route path="proximas-calibraciones" element={<ProximasCalibracionesPage />} />
         </Route>
 
         {/* --- MÓDULO RESUMEN (dashboards) --- */}
         <Route path="/resumen" element={<ResumenLayout />}>
-          <Route index element={<Navigate to="clientes" replace />} />
+          <Route index element={<Navigate to="financiero" replace />} />
+          <Route path="financiero" element={<DashboardFinanciero />} />
           <Route path="clientes" element={<DashboardClientes />} />
           <Route path="laboratorios" element={<DashboardLaboratorios />} />
         </Route>
