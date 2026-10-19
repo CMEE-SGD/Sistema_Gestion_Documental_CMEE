@@ -159,6 +159,7 @@ export class CalidadController {
    * `fecha_fin` se acepta en el cierre, que lo exige como guarda.
    */
   @Patch('auditorias/:id/estado')
+  @SinMotivo() // transición de flujo: ya lleva sus propias observaciones e historial
   @RequireAccess('Gestion de Calidad', 4)
   async cambiarEstadoAuditoria(
     @Param('id', ParseIntPipe) id: number,
