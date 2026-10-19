@@ -80,7 +80,7 @@ export default function EgresosPage() {
   const [modalImportar, setModalImportar] = useState(false);
   const [modalNuevo, setModalNuevo] = useState(false);
   const [detalleId, setDetalleId] = useState<number | null>(null);
-  const { alert, confirm } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const esAdmin = esUsuarioAdministrador();
@@ -131,8 +131,8 @@ export default function EgresosPage() {
   }, [egresos]);
 
   const eliminarMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/egresos/${id}`);
+    mutationFn: async ({ id, motivo }: { id: number; motivo: string }) => {
+      await api.delete(`/egresos/${id}`, { motivo });
       return id;
     },
     onSuccess: () => {
@@ -149,8 +149,8 @@ export default function EgresosPage() {
   });
 
   const vaciarMutation = useMutation({
-    mutationFn: async () => {
-      const res = await api.delete('/egresos');
+    mutationFn: async (motivo: string) => {
+      const res = await api.delete('/egresos', { motivo });
       return res.data;
     },
     onSuccess: (res: { eliminados: number }) => {
@@ -172,11 +172,13 @@ export default function EgresosPage() {
     mutationFn: async ({
       id,
       cumple,
+      motivo,
     }: {
       id: number;
       cumple: boolean;
+      motivo: string;
     }) => {
-      await api.patch(`/egresos/${id}`, { cumple_viatico: cumple });
+      await api.patch(`/egresos/${id}`, { cumple_viatico: cumple }, { motivo });
       return { id, cumple };
     },
     onSuccess: () => {
@@ -192,20 +194,24 @@ export default function EgresosPage() {
   });
 
   const handleEliminar = async (e: Egreso) => {
-    const ok = await confirm({
+    const motivo = await pedirMotivo({
       title: 'Eliminar egreso',
       message: `¿Eliminar el egreso ${e.numero_documento} de ${e.proveedor}?`,
+      confirmLabel: 'Eliminar',
     });
-    if (ok) eliminarMutation.mutate(e.id);
+    if (!motivo) return;
+    eliminarMutation.mutate({ id: e.id, motivo });
   };
 
   const handleVaciar = async () => {
     if (egresos.length === 0) return;
-    const ok = await confirm({
+    const motivo = await pedirMotivo({
       title: 'Vaciar egresos',
       message: `¿Eliminar los ${egresos.length} egresos registrados? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
     });
-    if (ok) vaciarMutation.mutate();
+    if (!motivo) return;
+    vaciarMutation.mutate(motivo);
   };
 
   const egresoDetalle =
@@ -377,12 +383,19 @@ export default function EgresosPage() {
                         type="checkbox"
                         checked={!!e.cumple_viatico}
                         disabled={!puedeEscribir || cumpleMutation.isPending}
-                        onChange={(ev) =>
+                        onChange={async (ev) => {
+                          const motivo = await pedirMotivo({
+                            title: 'Actualizar viático',
+                            message: `¿Actualizar el cumplimiento del viático ${e.numero_documento}?`,
+                            confirmLabel: 'Guardar',
+                          });
+                          if (!motivo) return;
                           cumpleMutation.mutate({
                             id: e.id,
                             cumple: ev.target.checked,
-                          })
-                        }
+                            motivo,
+                          });
+                        }}
                         className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary disabled:opacity-50"
                       />
                       <span className="text-xs font-medium text-slate-600">

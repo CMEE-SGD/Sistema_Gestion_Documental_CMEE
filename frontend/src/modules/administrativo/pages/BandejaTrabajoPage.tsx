@@ -99,6 +99,23 @@ function esOrdenFacturable(orden: OrdenTrabajoDetalle): boolean {
 }
 
 /**
+ * Una orden está lista para entregar cuando TODOS sus equipos llegaron a
+ * LISTO_PARA_ENTREGA (o ya están FINALIZADO). Mientras falte uno por llegar a
+ * esa fase, el botón de entregar queda deshabilitado. El backend vuelve a
+ * validar esta regla antes de finalizar (recepcion-equipos.service.ts).
+ */
+function esOrdenListaParaEntregar(orden: OrdenTrabajoDetalle): boolean {
+  const equipos = orden.equipos ?? [];
+  return (
+    equipos.length > 0 &&
+    equipos.every(
+      (e) =>
+        e.estado === 'LISTO_PARA_ENTREGA' || e.estado === 'FINALIZADO',
+    )
+  );
+}
+
+/**
  * El RECEPTOR de la orden (quien la registró, `recibe_responsable_id`) es
  * quien registra la entrega: sube el comprobante (foto/PDF) + monto y marca
  * la orden como entregada. Se mantiene "Responsable Servicio al Cliente"
@@ -1437,14 +1454,24 @@ export default function BandejaTrabajoPage() {
                             </Button>
                           )}
 
-                          {/* LISTO_PARA_ENTREGA: Entregar (receptor de la orden o RSEC) */}
+                          {/* Entrega de la ORDEN COMPLETA (receptor o RSEC).
+                              Se muestra una sola vez por orden (sobre el primer
+                              equipo en LISTO_PARA_ENTREGA) y solo se habilita
+                              cuando TODOS los equipos llegaron a LISTO_PARA_ENTREGA
+                              (o ya están FINALIZADO). Un solo clic entrega todos
+                              los equipos; el backend vuelve a validar la regla. */}
                           {req.estado === 'LISTO_PARA_ENTREGA' &&
                             (esRSEC ||
-                              esReceptorDeOrden(req.orden, user?.persona_id)) && (
+                              esReceptorDeOrden(req.orden, user?.persona_id)) &&
+                            (req.orden.equipos ?? []).find(
+                              (e) => e.estado === 'LISTO_PARA_ENTREGA',
+                            )?.id === req.id && (
                             <Button
                               variant="default"
                               size="sm"
+                              disabled={!esOrdenListaParaEntregar(req.orden)}
                               onClick={() => {
+                                if (!esOrdenListaParaEntregar(req.orden)) return;
                                 setSelectedEntrega({
                                   recepcionId: req.id,
                                   ordenId: req.orden.id,
@@ -1457,11 +1484,15 @@ export default function BandejaTrabajoPage() {
                                 });
                                 setIsEntregaModalOpen(true);
                               }}
-                              title="Registrar comprobante y marcar como entregado"
+                              title={
+                                esOrdenListaParaEntregar(req.orden)
+                                  ? 'Registrar comprobante y entregar la orden completa'
+                                  : 'Faltan equipos de la orden por tener listos para entrega'
+                              }
                               className="bg-teal-600 hover:bg-teal-700 text-white"
                             >
                               <Handshake className="h-4 w-4" />
-                              Marcar Entregado
+                              Entregar Orden
                             </Button>
                           )}
 

@@ -72,10 +72,11 @@ export default function EntregaComprobanteModal({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!recepcionId || !accion) return;
+      if (!ordenId || !accion) return;
       const token = localStorage.getItem('token');
 
-      // 1) Si se entrega, primero se sube/actualiza el comprobante + monto.
+      // 1) Si se entrega, primero se sube/actualiza el comprobante + monto
+      //    (la entrega es por orden, así que el comprobante también).
       if (accion === 'APROBAR') {
         if (!file && !tieneComprobante) {
           throw { message: 'Adjunte la foto o PDF del comprobante de pago.' };
@@ -100,9 +101,11 @@ export default function EntregaComprobanteModal({
         }
       }
 
-      // 2) Transición de estado del equipo.
+      // 2) Entrega (o rechazo) de la ORDEN COMPLETA: finaliza o devuelve todos
+      //    los equipos de una vez en el endpoint a nivel orden. El backend
+      //    exige que todos estén en "Listo para entrega" antes de entregar.
       const res = await fetch(
-        `${API_BASE}/recepcion-equipos/${recepcionId}/transicion-estado`,
+        `${API_BASE}/recepcion-equipos/orden/${ordenId}/entregar`,
         {
           method: 'PATCH',
           headers: {
@@ -126,8 +129,8 @@ export default function EntregaComprobanteModal({
       toast({
         message:
           accion === 'APROBAR'
-            ? 'Entrega registrada. Se notificó a Financiero para facturar.'
-            : 'Equipo devuelto a revisión.',
+            ? 'Orden entregada. Se notificó a Financiero para facturar.'
+            : 'Orden devuelta a revisión del Director.',
       });
       onSuccess();
       onClose();
@@ -150,7 +153,7 @@ export default function EntregaComprobanteModal({
     mutation.mutate();
   };
 
-  if (!isOpen || !recepcionId) return null;
+  if (!isOpen || !ordenId) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40">

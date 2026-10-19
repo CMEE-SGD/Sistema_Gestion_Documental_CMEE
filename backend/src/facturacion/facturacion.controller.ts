@@ -25,6 +25,7 @@ import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
+import { SinMotivo } from '../auditoria/sin-motivo.decorator';
 import { FacturacionService } from './facturacion.service';
 import { CreateProformaDto } from './dto/create-proforma.dto';
 import { UpdateProformaDto } from './dto/update-proforma.dto';
@@ -158,6 +159,8 @@ export class FacturacionController {
   }
 
   @Patch('proformas/:id')
+  // Cambio de estado/datos de la proforma (flujo del módulo financiero).
+  @SinMotivo()
   @RequireAccess([
     { app: 'Gestion Financiera', level: 4 },
     { app: 'Recepcion Equipos', level: 4 },
@@ -301,6 +304,8 @@ export class FacturacionController {
   // ---------------------- COMPROBANTE DE PAGO ----------------------
 
   @Patch('facturas/:id/comprobante')
+  // Adjuntar comprobante de pago (análogo al de la orden); no exige motivo.
+  @SinMotivo()
   @RequireAccess('Gestion Financiera', 4)
   @UseInterceptors(
     FileInterceptor('comprobante', {

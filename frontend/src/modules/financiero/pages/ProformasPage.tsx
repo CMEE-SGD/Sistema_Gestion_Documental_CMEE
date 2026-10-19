@@ -96,7 +96,7 @@ export default function ProformasPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const proformaParam = searchParams.get('proforma');
   const [detalleId, setDetalleId] = useState<number | null>(null);
-  const { alert, confirm } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   // Las proformas se gestionan desde dos módulos: 'Gestion Financiera'
@@ -241,8 +241,8 @@ export default function ProformasPage() {
   });
 
   const eliminar = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/facturacion/proformas/${id}`);
+    mutationFn: async ({ id, motivo }: { id: number; motivo: string }) => {
+      await api.delete(`/facturacion/proformas/${id}`, { motivo });
       return id;
     },
     onSuccess: () => {
@@ -259,11 +259,13 @@ export default function ProformasPage() {
   });
 
   const handleEliminar = async (p: Proforma) => {
-    const ok = await confirm({
+    const motivo = await pedirMotivo({
       title: 'Eliminar proforma',
       message: `¿Eliminar la proforma ${p.numero}? Las órdenes que la referencian quedarán desvinculadas.`,
+      confirmLabel: 'Eliminar',
     });
-    if (ok) eliminar.mutate(p.id);
+    if (!motivo) return;
+    eliminar.mutate({ id: p.id, motivo });
   };
 
   if (isLoading) {

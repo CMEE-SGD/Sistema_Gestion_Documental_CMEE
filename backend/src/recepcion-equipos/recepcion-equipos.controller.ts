@@ -112,8 +112,11 @@ export class RecepcionEquiposController {
 
   // El receptor de la orden sube el comprobante (foto o PDF) y el monto de la
   // orden en la fase "Listo para entrega". Es requisito para finalizar la
-  // entrega; la factura hereda estos datos al facturar la orden.
+  // entrega; la factura hereda estos datos al facturar la orden. Es parte del
+  // flujo de entrega (igual que entregar/transicion-estado), así que va exenta
+  // de exigencia de motivo.
   @Patch('orden/:id/comprobante')
+  @SinMotivo()
   @RequireAccess('Recepcion Equipos', 4)
   @UseInterceptors(
     FileInterceptor('comprobante', {
@@ -128,6 +131,22 @@ export class RecepcionEquiposController {
     @Req() req: any,
   ) {
     return this.recepcionService.subirComprobanteOrden(id, file, monto, req.user);
+  }
+
+  // Entrega (o rechazo) de la ORDEN COMPLETA de una sola vez. A diferencia de
+  // `:id/transicion-estado`, que actúa sobre un único equipo, esta acción es a
+  // nivel de orden: la entrega es un hecho único (el comprobante y el cobro ya
+  // son por orden), así que todos los equipos deben quedar FINALIZADO juntos.
+  // El backend exige que TODOS estén en LISTO_PARA_ENTREGA antes de entregar.
+  @Patch('orden/:id/entregar')
+  @SinMotivo()
+  @RequireAccess('Recepcion Equipos', 4)
+  entregarOrden(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: TransicionEstadoDto,
+    @Req() req: any,
+  ) {
+    return this.recepcionService.entregarOrden(id, dto, req.user);
   }
 
   // Cambio manual de fase reservado a administración (nivel 5, el más alto —

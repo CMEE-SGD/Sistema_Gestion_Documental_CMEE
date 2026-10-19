@@ -130,7 +130,7 @@ export default function FacturasPage() {
     filtros.estado !== 'todos' ||
     filtros.periodo !== 'todos' ||
     busqueda.trim() !== '';
-  const { alert, confirm } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const esAdmin = esUsuarioAdministrador();
@@ -223,8 +223,8 @@ export default function FacturasPage() {
   });
 
   const eliminar = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/facturacion/facturas/${id}`);
+    mutationFn: async ({ id, motivo }: { id: number; motivo: string }) => {
+      await api.delete(`/facturacion/facturas/${id}`, { motivo });
       return id;
     },
     onSuccess: () => {
@@ -498,11 +498,13 @@ export default function FacturasPage() {
                         type="button"
                         onClick={async (e) => {
                           e.stopPropagation();
-                          const ok = await confirm({
+                          const motivo = await pedirMotivo({
                             title: 'Eliminar factura',
                             message: `¿Eliminar la factura ${f.numero}? Se eliminarán sus pagos, notas de entrega y compensaciones.`,
+                            confirmLabel: 'Eliminar',
                           });
-                          if (ok) eliminar.mutate(f.id);
+                          if (!motivo) return;
+                          eliminar.mutate({ id: f.id, motivo });
                         }}
                         title="Eliminar factura"
                         className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"

@@ -130,7 +130,7 @@ export default function DetalleFacturaPage() {
   const facturaId = Number(id);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { alert, confirm } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const queryClient = useQueryClient();
   const esAdmin = esUsuarioAdministrador();
   const esDirector = esAdmin || getPuesto().toLowerCase().includes('director');
@@ -212,10 +212,18 @@ export default function DetalleFacturaPage() {
   });
 
   const cambiarEstado = useMutation({
-    mutationFn: async (estado: string) => {
-      const res = await api.patch(`/facturacion/facturas/${facturaId}`, {
-        estado,
-      });
+    mutationFn: async ({
+      estado,
+      motivo,
+    }: {
+      estado: string;
+      motivo: string;
+    }) => {
+      const res = await api.patch(
+        `/facturacion/facturas/${facturaId}`,
+        { estado },
+        { motivo },
+      );
       return res.data;
     },
     onSuccess: () => {
@@ -232,10 +240,28 @@ export default function DetalleFacturaPage() {
     },
   });
 
+  // Cambiar el estado a mano (p. ej. Anulada) exige motivo: queda en la bitácora.
+  const handleCambiarEstado = async (estado: string) => {
+    const motivo = await pedirMotivo({
+      title: 'Cambiar estado de la factura',
+      message: `Va a cambiar el estado de la factura a "${estado}".`,
+      confirmLabel: 'Cambiar',
+    });
+    if (!motivo) return;
+    cambiarEstado.mutate({ estado, motivo });
+  };
+
   const eliminarPago = useMutation({
-    mutationFn: async (pago: PagoDetalle) => {
+    mutationFn: async ({
+      pago,
+      motivo,
+    }: {
+      pago: PagoDetalle;
+      motivo: string;
+    }) => {
       const res = await api.delete(
         `/facturacion/facturas/${facturaId}/pagos/${pago.id}`,
+        { motivo },
       );
       return res.data;
     },
@@ -254,13 +280,15 @@ export default function DetalleFacturaPage() {
   });
 
   const confirmarEliminarPago = async (pago: PagoDetalle) => {
-    const ok = await confirm({
+    const motivo = await pedirMotivo({
       title: 'Eliminar pago',
       message: pago.compensacion
         ? `¿Eliminar el pago de ${fmtMoneda(pago.monto)}? Proviene de una compensación (entrega de equipos) y se eliminará también esa compensación.`
         : `¿Eliminar el pago de ${fmtMoneda(pago.monto)} del ${fmtFecha(pago.fecha)}?`,
+      confirmLabel: 'Eliminar',
     });
-    if (ok) eliminarPago.mutate(pago);
+    if (!motivo) return;
+    eliminarPago.mutate({ pago, motivo });
   };
 
   if (!(facturaId > 0)) {
@@ -939,7 +967,7 @@ export default function DetalleFacturaPage() {
             <span className={labelCls}>Cambiar estado</span>
             <select
               value={factura.estado}
-              onChange={(e) => cambiarEstado.mutate(e.target.value)}
+              onChange={(e) => handleCambiarEstado(e.target.value)}
               className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:outline-none"
             >
               <option value="EMITIDA">Emitida</option>
@@ -955,16 +983,18 @@ export default function DetalleFacturaPage() {
             <button
               type="button"
               onClick={async () => {
-                const ok = await confirm({
+                const motivo = await pedirMotivo({
                   title: 'Eliminar factura',
                   message: `¿Eliminar la factura ${factura.numero}? Se eliminarán sus pagos, notas de entrega y compensaciones.`,
+                  confirmLabel: 'Eliminar',
                 });
-                if (ok) {
-                  await api.delete(`/facturacion/facturas/${factura.id}`);
-                  toast({ message: 'Factura eliminada.' });
-                  refrescar();
-                  navigate('/financiero/facturas');
-                }
+                if (!motivo) return;
+                await api.delete(`/facturacion/facturas/${factura.id}`, {
+                  motivo,
+                });
+                toast({ message: 'Factura eliminada.' });
+                refrescar();
+                navigate('/financiero/facturas');
               }}
               className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
             >
@@ -1089,7 +1119,7 @@ function PanelRetencion({
   );
   const [monto, setMonto] = useState(String(factura.retencion_iva || 0));
   const { toast } = useToast();
-  const { alert } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
 
   // Sincroniza si el detalle se recarga (otro panel guarda/cambia datos).
   useEffect(() => {
@@ -1113,11 +1143,12 @@ function PanelRetencion({
   };
 
   const guardar = useMutation({
-    mutationFn: async () => {
-      const res = await api.patch(`/facturacion/facturas/${facturaId}`, {
-        retencion_iva: montoValido,
-        porcentaje_retencion_iva: pctN,
-      });
+    mutationFn: async (motivo: string) => {
+      const res = await api.patch(
+        `/facturacion/facturas/${facturaId}`,
+        { retencion_iva: montoValido, porcentaje_retencion_iva: pctN },
+        { motivo },
+      );
       return res.data;
     },
     onSuccess: () => {
@@ -1224,7 +1255,15 @@ function PanelRetencion({
           <button
             type="button"
             disabled={guardar.isPending}
-            onClick={() => guardar.mutate()}
+            onClick={async () => {
+              const motivo = await pedirMotivo({
+                title: 'Guardar retención',
+                message: 'Va a modificar la retención de IVA de esta factura.',
+                confirmLabel: 'Guardar',
+              });
+              if (!motivo) return;
+              guardar.mutate(motivo);
+            }}
             className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {guardar.isPending ? (
@@ -1267,11 +1306,11 @@ function FormPago({
   const [observaciones, setObservaciones] = useState(pago?.observaciones ?? '');
   const [comprobante, setComprobante] = useState<File | null>(null);
   const { toast } = useToast();
-  const { alert } = useAlert();
+  const { alert, pedirMotivo } = useAlert();
   const queryClient = useQueryClient();
 
   const guardar = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (motivo?: string) => {
       const fd = new FormData();
       fd.append('monto', String(Number(monto)));
       fd.append('fecha', fecha);
@@ -1283,6 +1322,7 @@ function FormPago({
         ? await api.patch(
             `/facturacion/facturas/${facturaId}/pagos/${pago!.id}`,
             fd,
+            motivo ? { motivo } : undefined,
           )
         : await api.post(`/facturacion/facturas/${facturaId}/pagos`, fd);
       return res.data;
@@ -1322,9 +1362,19 @@ function FormPago({
   return (
     <form
       className="mt-3 rounded-md border border-dashed border-slate-300 p-3"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        guardar.mutate();
+        let motivo: string | undefined;
+        if (esEdicion) {
+          motivo =
+            (await pedirMotivo({
+              title: 'Editar pago',
+              message: 'Va a modificar este pago de la factura.',
+              confirmLabel: 'Guardar',
+            })) ?? undefined;
+          if (!motivo) return;
+        }
+        guardar.mutate(motivo);
       }}
     >
       <div className="mb-2 flex items-center justify-between gap-2">

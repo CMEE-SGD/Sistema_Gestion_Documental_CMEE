@@ -20,6 +20,7 @@ import {
   YAxis,
 } from 'recharts';
 import api from '../../../core/api/axios';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { ESTADO_FACTURA_LABEL, fmtFecha, fmtMoneda } from '../../financiero/pages/financieroUtils';
 
@@ -198,22 +199,27 @@ function ModalDistribucion({
   const [base, setBase] = useState<BaseDistribucion>(config.base);
   const [nota, setNota] = useState(config.nota ?? '');
   const { toast } = useToast();
+  const { pedirMotivo } = useAlert();
 
   const pctAN = Number(pctA) || 0;
   const pctBN = Number(pctB) || 0;
   const suma = Math.round((pctAN + pctBN) * 100) / 100;
 
   const guardar = useMutation({
-    mutationFn: async () => {
-      const res = await api.put('/facturacion/distribucion', {
-        habilitada,
-        empresa_a_nombre: nombreA.trim(),
-        empresa_a_porcentaje: pctAN,
-        empresa_b_nombre: nombreB.trim(),
-        empresa_b_porcentaje: pctBN,
-        base,
-        nota: nota.trim() || undefined,
-      });
+    mutationFn: async (motivo: string) => {
+      const res = await api.put(
+        '/facturacion/distribucion',
+        {
+          habilitada,
+          empresa_a_nombre: nombreA.trim(),
+          empresa_a_porcentaje: pctAN,
+          empresa_b_nombre: nombreB.trim(),
+          empresa_b_porcentaje: pctBN,
+          base,
+          nota: nota.trim() || undefined,
+        },
+        { motivo },
+      );
       return res.data;
     },
     onSuccess: () => {
@@ -353,7 +359,16 @@ function ModalDistribucion({
             Cancelar
           </button>
           <button
-            onClick={() => guardar.mutate()}
+            onClick={async () => {
+              const motivo = await pedirMotivo({
+                title: 'Guardar distribución',
+                message:
+                  '¿Guardar la configuración de distribución de resultados?',
+                confirmLabel: 'Guardar',
+              });
+              if (!motivo) return;
+              guardar.mutate(motivo);
+            }}
             disabled={guardar.isPending}
             className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
