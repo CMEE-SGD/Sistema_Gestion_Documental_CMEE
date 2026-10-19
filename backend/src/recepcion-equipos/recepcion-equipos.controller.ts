@@ -89,8 +89,11 @@ export class RecepcionEquiposController {
     return this.recepcionService.asignarTecnico(+id, dto, req.user);
   }
 
-  // Fase A: registro de fecha de calibración y próxima calibración
+  // Fase A: registro de fecha de calibración y próxima calibración. Es un
+  // registro de datos del propio flujo (corrección de fechas), no una
+  // edición de negocio, así que no exige motivo.
   @Patch(':id/fechas-calibracion')
+  @SinMotivo()
   @RequireAccess('Recepcion Equipos', 4)
   registrarFechasCalibracion(
     @Param('id') id: string,

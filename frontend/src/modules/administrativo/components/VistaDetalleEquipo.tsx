@@ -102,22 +102,12 @@ export default function VistaDetalleEquipo({
   const [guardandoFechas, setGuardandoFechas] = useState(false);
 
   const guardarFechasCalibracion = async () => {
-    const motivo = await pedirMotivo({
-      title: 'Guardar fechas de calibración',
-      message: '¿Guardar las fechas de calibración de este equipo?',
-      confirmLabel: 'Guardar',
-    });
-    if (!motivo) return;
     setGuardandoFechas(true);
     try {
-      await api.patch(
-        `/recepcion-equipos/${equipo.id}/fechas-calibracion`,
-        {
-          fecha_calibracion: fechaCalibracion || '',
-          fecha_proxima_calibracion: fechaProxima || '',
-        },
-        { motivo },
-      );
+      await api.patch(`/recepcion-equipos/${equipo.id}/fechas-calibracion`, {
+        fecha_calibracion: fechaCalibracion || '',
+        fecha_proxima_calibracion: fechaProxima || '',
+      });
       toast({ message: 'Fechas de calibración actualizadas.' });
       queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
     } catch (err: unknown) {
