@@ -1,11 +1,21 @@
 import { NavLink } from 'react-router-dom';
-import { Archive, Award, BarChart3, ClipboardList, Inbox, Users } from 'lucide-react';
+import {
+  Archive,
+  Award,
+  BarChart3,
+  CalendarClock,
+  ClipboardList,
+  FileText,
+  Inbox,
+  Users,
+} from 'lucide-react';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { cn } from '../../../shared/utils/utils';
 
-// Todas las pestañas gestionadas por recepcion-equipos.controller.ts /
-// certificados.controller.ts / reportes.controller.ts comparten el mismo
-// permiso de lectura ('Recepcion Equipos', nivel 1). Clientes no tiene
+// Pestañas del módulo administrativo (recepción de equipos, certificados y
+// reportes) que comparten el permiso de lectura ('Recepcion Equipos',
+// nivel 1). El tema financiero es un módulo independiente ('Gestion
+// Financiera') con sus propias rutas en /financiero/*. Clientes no tiene
 // AccessGuard en el backend (solo JwtAuthGuard), por eso siempre es visible
 // para cualquier usuario autenticado.
 export default function AdministrativoTabs() {
@@ -32,6 +42,12 @@ export default function AdministrativoTabs() {
       visible: puedeVerModulo,
     },
     {
+      label: 'Proformas',
+      path: '/administrativo/proformas',
+      icon: FileText,
+      visible: puedeVerModulo,
+    },
+    {
       label: 'Clientes',
       path: '/administrativo/clientes',
       icon: Users,
@@ -41,6 +57,12 @@ export default function AdministrativoTabs() {
       label: 'Certificados',
       path: '/administrativo/certificados',
       icon: Award,
+      visible: puedeVerModulo,
+    },
+    {
+      label: 'Próx. calibraciones',
+      path: '/administrativo/proximas-calibraciones',
+      icon: CalendarClock,
       visible: puedeVerModulo,
     },
     {

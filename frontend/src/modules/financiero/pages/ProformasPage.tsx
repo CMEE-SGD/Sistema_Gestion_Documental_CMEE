@@ -1,0 +1,766 @@
+// Proformas — entidad formal vinculable a las órdenes de trabajo
+// (flujograma: "se vincula el código de la proforma"). Página compartida
+// por el módulo financiero (/financiero/proformas) y la recepción de
+// equipos (/administrativo/proformas): ambas pueden crear, editar el estado
+// y eliminar según el nivel de permiso (4 creación/actualización, 5
+// eliminación).
+
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  FileText,
+  Loader2,
+  Paperclip,
+  Plus,
+  Search,
+  Trash2,
+  UserPlus,
+  X,
+} from 'lucide-react';
+import api from '../../../core/api/axios';
+import ClienteFormModal, {
+  type ClienteInstitucionalCreado,
+} from '../../../modules/administrativo/components/ClienteFormModal';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { useToast } from '../../../shared/components/molecules/Toast';
+import { esUsuarioAdministrador, tienePermiso } from '../../../shared/utils/auth';
+import { buildFileUrl } from '../../../shared/utils/backendUrl';
+import {
+  ESTADO_PROFORMA_LABEL,
+  fmtFecha,
+  fmtMoneda,
+  inputCls,
+  labelCls,
+  rangoParaPeriodo,
+} from './financieroUtils';
+import {
+  BarraFiltrosFinanciero,
+  FILTROS_INICIALES,
+  type FiltrosFinanciero,
+} from '../components/BarraFiltrosFinanciero';
+
+interface ClienteOption {
+  id: number;
+  nombre: string;
+}
+
+interface Proforma {
+  id: number;
+  numero: string;
+  cliente_id: number;
+  cliente: ClienteOption;
+  fecha_emision: string;
+  monto: number;
+  estado: string;
+  observaciones: string | null;
+  archivo: string | null;
+  archivo_nombre: string | null;
+  ordenes_trabajo: { id: number; orden_trabajo_fisica: string }[];
+}
+
+// Segmentos de estado de la proforma para la barra de filtros.
+const OPCIONES_ESTADO_PROFORMA: { id: string; label: string }[] = [
+  { id: 'todos', label: 'Todas' },
+  { id: 'vigentes', label: 'Vigentes' },
+  { id: 'vencidas', label: 'Vencidas' },
+  { id: 'canceladas', label: 'Canceladas' },
+];
+
+/** Estado de proforma incluido en cada segmento (EMITIDA/ACEPTADA = vigente). */
+function estadoProformaEnSegmento(estado: string, segmento: string): boolean {
+  switch (segmento) {
+    case 'vigentes':
+      return estado === 'EMITIDA' || estado === 'ACEPTADA';
+    case 'vencidas':
+      return estado === 'VENCIDA';
+    case 'canceladas':
+      return estado === 'CANCELADA';
+    default:
+      return true;
+  }
+}
+
+export default function ProformasPage() {
+  const [busqueda, setBusqueda] = useState('');
+  const [modalAbierto, setModalAbierto] = useState(false);
+  // Filtros de la lista: estado (Todas/Vigentes/Vencidas/Canceladas) + rango
+  // de fechas. Por defecto no ocultan nada.
+  const [filtros, setFiltros] = useState<FiltrosFinanciero>(FILTROS_INICIALES);
+  const hayFiltros =
+    filtros.estado !== 'todos' ||
+    filtros.periodo !== 'todos' ||
+    busqueda.trim() !== '';
+  // Deep link: el N° proforma del detalle de una orden (VistaDetalleOrden)
+  // navega a esta pestaña con ?proforma=<id>; el detalle se abre al cargar.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const proformaParam = searchParams.get('proforma');
+  const [detalleId, setDetalleId] = useState<number | null>(null);
+  const { alert, pedirMotivo } = useAlert();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  // Las proformas se gestionan desde dos módulos: 'Gestion Financiera'
+  // (módulo financiero) y 'Recepcion Equipos' (recepción de equipos). La
+  // visibilidad de las acciones sigue el esquema de niveles del backend:
+  // 4 creación/actualización, 5 eliminación (además del grupo Administrador).
+  const esAdmin = esUsuarioAdministrador();
+  const puedeCrear =
+    esAdmin ||
+    tienePermiso('Gestion Financiera', 4) ||
+    tienePermiso('Recepcion Equipos', 4);
+  const puedeEliminar =
+    esAdmin ||
+    tienePermiso('Gestion Financiera', 5) ||
+    tienePermiso('Recepcion Equipos', 5);
+
+  const { data: proformas = [], isLoading } = useQuery<Proforma[]>({
+    queryKey: ['proformas'],
+    queryFn: async () => {
+      const res = await api.get('/facturacion/proformas');
+      return res.data;
+    },
+  });
+
+  const { data: clientes = [] } = useQuery<ClienteOption[]>({
+    queryKey: ['clientes-opciones'],
+    queryFn: async () => {
+      const res = await api.get('/clientes-institucionales');
+      return res.data;
+    },
+  });
+
+  const filtradas = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    const rango =
+      filtros.periodo === 'todos'
+        ? {}
+        : rangoParaPeriodo(filtros.periodo, filtros.fechaInicio, filtros.fechaFin);
+
+    return proformas.filter((p) => {
+      // 1) Estado (Todas / Vigentes / Vencidas / Canceladas)
+      if (!estadoProformaEnSegmento(p.estado, filtros.estado)) return false;
+
+      // 2) Rango de fechas sobre fecha_emision ('YYYY-MM-DD').
+      if (rango.desde || rango.hasta) {
+        const fecha = p.fecha_emision?.slice(0, 10);
+        if (!fecha) return false;
+        if (rango.desde && fecha < rango.desde) return false;
+        if (rango.hasta && fecha > rango.hasta) return false;
+      }
+
+      // 3) Búsqueda de texto
+      if (q) {
+        return (
+          p.numero.toLowerCase().includes(q) ||
+          (p.cliente?.nombre ?? '').toLowerCase().includes(q) ||
+          p.estado.toLowerCase().includes(q)
+        );
+      }
+
+      return true;
+    });
+  }, [proformas, busqueda, filtros]);
+
+  // Abre el detalle de la proforma indicada en la URL (?proforma=<id>), usado
+  // como enlace desde el detalle de las órdenes de trabajo.
+  useEffect(() => {
+    if (!proformaParam) return;
+    const pid = Number(proformaParam);
+    if (
+      Number.isInteger(pid) &&
+      pid > 0 &&
+      proformas.some((p) => p.id === pid)
+    ) {
+      setDetalleId(pid);
+    }
+  }, [proformaParam, proformas]);
+
+  const cerrarDetalle = () => {
+    setDetalleId(null);
+    if (proformaParam) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('proforma');
+      setSearchParams(next, { replace: true });
+    }
+  };
+
+  const proformaDetalle =
+    detalleId !== null
+      ? proformas.find((p) => p.id === detalleId) ?? null
+      : null;
+
+  const crearMutation = useMutation({
+    mutationFn: async (payload: {
+      cliente_id: number;
+      fecha_emision: string;
+      monto: number;
+      numero?: string;
+      observaciones?: string;
+      archivo?: File;
+    }) => {
+      const fd = new FormData();
+      fd.append('cliente_id', String(payload.cliente_id));
+      fd.append('fecha_emision', payload.fecha_emision);
+      fd.append('monto', String(payload.monto));
+      if (payload.numero) fd.append('numero', payload.numero);
+      if (payload.observaciones) fd.append('observaciones', payload.observaciones);
+      if (payload.archivo) fd.append('archivo', payload.archivo);
+      const res = await api.post('/facturacion/proformas', fd);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast({ message: 'Proforma creada correctamente.' });
+      setModalAbierto(false);
+      queryClient.invalidateQueries({ queryKey: ['proformas'] });
+    },
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      void alert({
+        message: apiErr?.response?.data?.message || 'No se pudo crear la proforma.',
+      });
+    },
+  });
+
+  const cambiarEstado = useMutation({
+    mutationFn: async ({ id, estado }: { id: number; estado: string }) => {
+      const res = await api.patch(`/facturacion/proformas/${id}`, { estado });
+      return res.data;
+    },
+    onSuccess: () => {
+      toast({ message: 'Estado de la proforma actualizado.' });
+      queryClient.invalidateQueries({ queryKey: ['proformas'] });
+    },
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      void alert({
+        message:
+          apiErr?.response?.data?.message ||
+          'No se pudo actualizar el estado de la proforma.',
+      });
+    },
+  });
+
+  const eliminar = useMutation({
+    mutationFn: async ({ id, motivo }: { id: number; motivo: string }) => {
+      await api.delete(`/facturacion/proformas/${id}`, { motivo });
+      return id;
+    },
+    onSuccess: () => {
+      toast({ message: 'Proforma eliminada.' });
+      queryClient.invalidateQueries({ queryKey: ['proformas'] });
+    },
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      void alert({
+        message:
+          apiErr?.response?.data?.message || 'No se pudo eliminar la proforma.',
+      });
+    },
+  });
+
+  const handleEliminar = async (p: Proforma) => {
+    const motivo = await pedirMotivo({
+      title: 'Eliminar proforma',
+      message: `¿Eliminar la proforma ${p.numero}? Las órdenes que la referencian quedarán desvinculadas.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!motivo) return;
+    eliminar.mutate({ id: p.id, motivo });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Cargando proformas…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold">Proformas</h1>
+          <p className="text-sm text-muted-foreground">
+            Cotizaciones previas del servicio, vinculables a las órdenes de
+            trabajo.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              placeholder="Buscar proforma…"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className={`${inputCls} pl-8`}
+            />
+          </div>
+          {puedeCrear && (
+            <button
+              type="button"
+              onClick={() => setModalAbierto(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" /> Nueva proforma
+            </button>
+          )}
+        </div>
+      </div>
+
+      <BarraFiltrosFinanciero
+        labelEstado="Estado"
+        opcionesEstado={OPCIONES_ESTADO_PROFORMA}
+        valores={filtros}
+        onChange={setFiltros}
+        busquedaActiva={busqueda.trim() !== ''}
+        onLimpiarAdicional={() => setBusqueda('')}
+      />
+
+      <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-700 text-white">
+              <th className="px-3 py-2 text-left font-semibold">Número</th>
+              <th className="px-3 py-2 text-left font-semibold">Cliente</th>
+              <th className="px-3 py-2 text-left font-semibold">Fecha</th>
+              <th className="px-3 py-2 text-right font-semibold">Monto</th>
+              <th className="px-3 py-2 text-left font-semibold">Estado</th>
+              <th className="px-3 py-2 text-left font-semibold">Órdenes vinculadas</th>
+              <th className="px-3 py-2 text-left font-semibold">Archivo</th>
+              <th className="px-3 py-2 text-left font-semibold">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtradas.map((p) => (
+              <tr
+                key={p.id}
+                onClick={() => setDetalleId(p.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setDetalleId(p.id);
+                  }
+                }}
+                tabIndex={0}
+                title="Ver detalle de la proforma"
+                className="cursor-pointer border-b border-slate-200 even:bg-slate-50 hover:bg-slate-100 focus:outline-none focus-visible:bg-slate-100"
+              >
+                <td className="px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setDetalleId(p.id)}
+                    title="Ver detalle de la proforma"
+                    className="font-mono text-xs font-semibold text-foreground transition-colors hover:text-primary hover:underline"
+                  >
+                    {p.numero}
+                  </button>
+                </td>
+                <td className="px-3 py-2">{p.cliente?.nombre || '—'}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {fmtFecha(p.fecha_emision)}
+                </td>
+                <td className="px-3 py-2 text-right font-semibold">
+                  {fmtMoneda(p.monto)}
+                </td>
+                <td className="px-3 py-2">
+                  {puedeCrear ? (
+                    <select
+                      value={p.estado}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) =>
+                        cambiarEstado.mutate({ id: p.id, estado: e.target.value })
+                      }
+                      className="rounded border border-slate-300 bg-white px-1.5 py-1 text-xs font-medium focus:outline-none"
+                    >
+                      {Object.entries(ESTADO_PROFORMA_LABEL).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="inline-block rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">
+                      {ESTADO_PROFORMA_LABEL[p.estado] ?? p.estado}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  {p.ordenes_trabajo.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {p.ordenes_trabajo.map((o) => (
+                        <span
+                          key={o.id}
+                          className="inline-block rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
+                        >
+                          OT #{o.orden_trabajo_fisica}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  {p.archivo ? (
+                    <a
+                      href={buildFileUrl(p.archivo) ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      title={p.archivo_nombre || 'Ver archivo adjunto'}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  {puedeEliminar && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEliminar(p);
+                      }}
+                      title="Eliminar proforma"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {filtradas.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
+                  {hayFiltros
+                    ? 'No hay proformas que coincidan con los filtros.'
+                    : 'Sin proformas registradas.'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {proformas.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {filtradas.length} de {proformas.length} proformas
+        </p>
+      )}
+
+      {modalAbierto && (
+        <ModalNuevaProforma
+          clientes={clientes}
+          onClose={() => setModalAbierto(false)}
+          onSubmit={(payload) => crearMutation.mutate(payload)}
+          guardando={crearMutation.isPending}
+        />
+      )}
+
+      {proformaDetalle && (
+        <ModalDetalleProforma
+          proforma={proformaDetalle}
+          onClose={cerrarDetalle}
+        />
+      )}
+    </div>
+  );
+}
+
+const EmptyIcon = FileText;
+
+function ModalNuevaProforma({
+  clientes,
+  onClose,
+  onSubmit,
+  guardando,
+}: {
+  clientes: ClienteOption[];
+  onClose: () => void;
+  onSubmit: (payload: {
+    cliente_id: number;
+    fecha_emision: string;
+    monto: number;
+    numero?: string;
+    observaciones?: string;
+    archivo?: File;
+  }) => void;
+  guardando: boolean;
+}) {
+  const [numero, setNumero] = useState('');
+  const [clienteId, setClienteId] = useState<number | ''>('');
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [monto, setMonto] = useState('');
+  const [observaciones, setObservaciones] = useState('');
+  const [archivo, setArchivo] = useState<File | null>(null);
+
+  const queryClient = useQueryClient();
+  // Alta rápida de cliente (mismo patrón que la orden de trabajo): el botón
+  // "Nuevo Cliente" abre ClienteFormModal y, al crearse, se refresca el
+  // catálogo y se selecciona el cliente recién creado.
+  const [clientesDisponibles, setClientesDisponibles] =
+    useState<ClienteOption[]>(clientes);
+  const [clienteModalOpen, setClienteModalOpen] = useState(false);
+
+  useEffect(() => {
+    setClientesDisponibles(clientes);
+  }, [clientes]);
+
+  const handleClienteCreado = async (cliente: ClienteInstitucionalCreado) => {
+    const res = await api.get('/clientes-institucionales');
+    const actualizados = res.data as ClienteOption[];
+    setClientesDisponibles(actualizados);
+    queryClient.setQueryData(['clientes-opciones'], actualizados);
+    setClienteId(cliente.id);
+  };
+
+  const invalido =
+    clienteId === '' || monto === '' || Number.isNaN(Number(monto));
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 py-10">
+        <div className="w-[95vw] max-w-lg rounded-xl border border-border bg-white shadow-lg">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h3 className="flex items-center gap-2 text-base font-semibold">
+            <EmptyIcon className="h-4 w-4" /> Nueva proforma
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 p-5">
+          <div>
+            <label className={labelCls}>Número (opcional)</label>
+            <input
+              className={inputCls}
+              placeholder="Ej: PF-2026-0001 (si se deja vacío se genera automáticamente)"
+              value={numero}
+              onChange={(e) => setNumero(e.target.value)}
+            />
+          </div>
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className={labelCls}>Cliente *</label>
+              <button
+                type="button"
+                onClick={() => setClienteModalOpen(true)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Nuevo Cliente
+              </button>
+            </div>
+            <select
+              className={inputCls}
+              value={clienteId}
+              onChange={(e) =>
+                setClienteId(e.target.value ? Number(e.target.value) : '')
+              }
+            >
+              <option value="">Seleccione un cliente…</option>
+              {clientesDisponibles.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Fecha de emisión</label>
+              <input
+                type="date"
+                className={inputCls}
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Monto (USD) *</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                className={inputCls}
+                placeholder="0,00"
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+              />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Observaciones</label>
+            <textarea
+              className={`${inputCls} min-h-[70px]`}
+              value={observaciones}
+              onChange={(e) => setObservaciones(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Archivo (PDF o imagen, opcional)</label>
+            <input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+              className={`${inputCls} file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-slate-600 hover:file:bg-slate-200`}
+              onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+            />
+            {archivo && (
+              <p className="mt-1 text-xs text-muted-foreground">{archivo.name}</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-muted-foreground hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={invalido || guardando}
+              onClick={() =>
+                onSubmit({
+                  numero: numero.trim() || undefined,
+                  cliente_id: Number(clienteId),
+                  fecha_emision: fecha,
+                  monto: Number(monto),
+                  observaciones: observaciones.trim() || undefined,
+                  archivo: archivo ?? undefined,
+                })
+              }
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {guardando && <Loader2 className="h-4 w-4 animate-spin" />}
+              Guardar proforma
+            </button>
+          </div>
+        </div>
+      </div>
+      </div>
+      <ClienteFormModal
+        open={clienteModalOpen}
+        onClose={() => setClienteModalOpen(false)}
+        onSuccess={handleClienteCreado}
+      />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Modal de detalle (solo lectura) de una proforma
+// ---------------------------------------------------------------------------
+function ModalDetalleProforma({
+  proforma,
+  onClose,
+}: {
+  proforma: Proforma;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 py-10">
+      <div className="w-[95vw] max-w-2xl rounded-xl border border-border bg-white shadow-lg">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h3 className="flex items-center gap-2 text-base font-semibold">
+            <FileText className="h-4 w-4" /> Detalle de proforma
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-mono text-lg font-bold text-primary">
+              {proforma.numero}
+            </span>
+            <span className="inline-block rounded border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+              {ESTADO_PROFORMA_LABEL[proforma.estado] ?? proforma.estado}
+            </span>
+          </div>
+          <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className={labelCls}>Cliente</dt>
+              <dd className="font-semibold">
+                {proforma.cliente?.nombre || '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Fecha de emisión</dt>
+              <dd className="font-semibold">{fmtFecha(proforma.fecha_emision)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Monto</dt>
+              <dd className="font-semibold">{fmtMoneda(proforma.monto)}</dd>
+            </div>
+            <div>
+              <dt className={labelCls}>Órdenes vinculadas</dt>
+              <dd>
+                {proforma.ordenes_trabajo.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {proforma.ordenes_trabajo.map((o) => (
+                      <span
+                        key={o.id}
+                        className="inline-block rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
+                      >
+                        OT #{o.orden_trabajo_fisica}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className={labelCls}>Observaciones</dt>
+              <dd className="whitespace-pre-wrap">
+                {proforma.observaciones || '—'}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className={labelCls}>Archivo adjunto</dt>
+              <dd>
+                {proforma.archivo ? (
+                  <a
+                    href={buildFileUrl(proforma.archivo) ?? '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                    {proforma.archivo_nombre || 'Ver archivo'}
+                  </a>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </dd>
+            </div>
+          </dl>
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-muted-foreground hover:bg-slate-50"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,43 +1,47 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CheckCircle,
+  ClipboardCheck,
   ClipboardList,
   Clock,
   Eye,
+  FileSignature,
+  FileX,
   FlaskConical,
   GitBranch,
+  Handshake,
+  Inbox,
   Loader2,
   Pencil,
   Plus,
+  Receipt,
   Search,
-  Trash2,
-  FileX,
-  UserPlus,
-  UploadCloud,
-  Inbox,
-  X,
-  CheckCircle,
-  FileSignature,
   ShieldCheck,
+  Trash2,
+  UploadCloud,
   UserCheck,
-  Handshake,
-  ArrowUp,
-  ArrowDown,
-  ClipboardCheck,
   UserCog,
+  UserPlus,
+  X,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
 import api from '../../../core/api/axios';
 import { getUsuarioActual } from '../../../shared/hooks/useAuth';
-import { esUsuarioAdministrador } from '../../../shared/utils/auth';
+import { esUsuarioAdministrador, tienePermiso } from '../../../shared/utils/auth';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { Button } from '../../../shared/components/atoms/button';
 import SubirCertificadoModal from '../components/SubirCertificadoModal';
 import ValidacionCertificadoModal from '../components/ValidacionCertificadoModal';
+import EntregaComprobanteModal from '../components/EntregaComprobanteModal';
 import FirmarDigitalModal from '../components/FirmarDigitalModal';
 import CambiarFaseModal from '../components/CambiarFaseModal';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
@@ -82,6 +86,50 @@ function formatDate(dateStr: string | null | undefined): string {
     day: '2-digit',
     timeZone: 'UTC',
   });
+}
+
+/**
+ * Una orden habilita su factura cuando TODOS sus equipos llegaron a
+ * FINALIZADO (la bandeja aplana una fila por equipo; la condición se evalúa
+ * sobre la orden completa). El backend la valida de nuevo al crear/importar.
+ */
+function esOrdenFacturable(orden: OrdenTrabajoDetalle): boolean {
+  const equipos = orden.equipos ?? [];
+  return equipos.length > 0 && equipos.every((e) => e.estado === 'FINALIZADO');
+}
+
+/**
+ * Una orden está lista para entregar cuando TODOS sus equipos llegaron a
+ * LISTO_PARA_ENTREGA (o ya están FINALIZADO). Mientras falte uno por llegar a
+ * esa fase, el botón de entregar queda deshabilitado. El backend vuelve a
+ * validar esta regla antes de finalizar (recepcion-equipos.service.ts).
+ */
+function esOrdenListaParaEntregar(orden: OrdenTrabajoDetalle): boolean {
+  const equipos = orden.equipos ?? [];
+  return (
+    equipos.length > 0 &&
+    equipos.every(
+      (e) =>
+        e.estado === 'LISTO_PARA_ENTREGA' || e.estado === 'FINALIZADO',
+    )
+  );
+}
+
+/**
+ * El RECEPTOR de la orden (quien la registró, `recibe_responsable_id`) es
+ * quien registra la entrega: sube el comprobante (foto/PDF) + monto y marca
+ * la orden como entregada. Se mantiene "Responsable Servicio al Cliente"
+ * (esRSEC) como alternativa si ese rol existe en la instalación.
+ */
+function esReceptorDeOrden(
+  orden: OrdenTrabajoDetalle,
+  personaId?: number | null,
+): boolean {
+  return (
+    personaId != null &&
+    orden.recibe_responsable_id != null &&
+    orden.recibe_responsable_id === personaId
+  );
 }
 
 interface PersonaOption {
@@ -152,21 +200,22 @@ const ESTADO_STYLES: Record<EstadoKey, string> = {
     'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
 };
 
+// Orden del flujo de estados — se usa para el filtro de estado y para
+// ordenar las filas de la bandeja por etapa del proceso.
+const FLUJO_ESTADOS: EstadoKey[] = [
+  'EN_ESPERA',
+  'EN_CALIBRACION',
+  'REVISION_OBT',
+  'PENDIENTE_FIRMA_TECNICO',
+  'REVISION_JEFE',
+  'REVISION_DIRECTOR',
+  'LISTO_PARA_ENTREGA',
+  'FINALIZADO',
+];
+
 function viewTitle(): string {
   return 'Gestión y seguimiento de equipos de laboratorio';
 }
-
-// ---------------------------------------------------------------------------
-const ESTADO_ORDEN: Record<EstadoKey, number> = {
-  EN_ESPERA: 1,
-  EN_CALIBRACION: 2,
-  REVISION_OBT: 3,
-  PENDIENTE_FIRMA_TECNICO: 4,
-  REVISION_JEFE: 5,
-  REVISION_DIRECTOR: 6,
-  LISTO_PARA_ENTREGA: 7,
-  FINALIZADO: 8,
-};
 
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -601,6 +650,7 @@ function useBandejaResumen() {
 export default function BandejaTrabajoPage() {
   const user = getUsuarioActual();
   const puesto = user?.persona?.puesto ?? '';
+  const navigate = useNavigate();
 
   const queryClient = useQueryClient();
   const { alert, pedirMotivo } = useAlert();
@@ -632,19 +682,14 @@ export default function BandejaTrabajoPage() {
 
   const [busqueda, setBusqueda] = useState('');
   const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
-  const [ordenPor, setOrdenPor] = useState<'fecha' | 'estado'>('fecha');
-  const [direccion, setDireccion] = useState<'asc' | 'desc'>('desc');
-
-  const handleSort = (campo: 'fecha' | 'estado') => {
-    if (ordenPor === campo) {
-      setDireccion((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setOrdenPor(campo);
-      setDireccion('desc');
-    }
-  };
+  const [estadoFiltro, setEstadoFiltro] = useState('');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [ordenarPor, setOrdenarPor] = useState<'fecha' | 'estado'>('fecha');
+  const [ordenDir, setOrdenDir] = useState<'asc' | 'desc'>('desc');
 
   const esAdministrador = esUsuarioAdministrador();
+  const puedeFacturar = tienePermiso('Gestion Financiera', 1);
   const [editarOrden, setEditarOrden] = useState<OrdenTrabajoDetalle | null>(
     null,
   );
@@ -725,9 +770,22 @@ export default function BandejaTrabajoPage() {
     const lista = recepciones ?? [];
     const termino = normalize(busqueda.trim());
 
-    const filtradas = lista.filter((r) => {
+    let resultado = lista.filter((r) => {
       if (laboratorioFiltro && String(r.laboratorio?.id) !== laboratorioFiltro) {
         return false;
+      }
+      if (estadoFiltro && r.estado !== estadoFiltro) {
+        return false;
+      }
+      if (fechaDesde) {
+        const ingreso = new Date(r.fecha_ingreso);
+        const desde = new Date(`${fechaDesde}T00:00:00`);
+        if (Number.isNaN(ingreso.getTime()) || ingreso < desde) return false;
+      }
+      if (fechaHasta) {
+        const ingreso = new Date(r.fecha_ingreso);
+        const hasta = new Date(`${fechaHasta}T23:59:59`);
+        if (Number.isNaN(ingreso.getTime()) || ingreso > hasta) return false;
       }
       if (!termino) return true;
 
@@ -743,22 +801,31 @@ export default function BandejaTrabajoPage() {
       return haystack.includes(termino);
     });
 
-    const factor = direccion === 'asc' ? 1 : -1;
-    return [...filtradas].sort((a, b) => {
-      if (ordenPor === 'estado') {
-        const dif = ESTADO_ORDEN[a.estado] - ESTADO_ORDEN[b.estado];
-        if (dif !== 0) return dif * factor;
-        // Desempate: el más reciente primero.
-        return (
-          new Date(b.fecha_ingreso).getTime() - new Date(a.fecha_ingreso).getTime()
-        );
+    resultado = [...resultado].sort((a, b) => {
+      let cmp = 0;
+      if (ordenarPor === 'fecha') {
+        cmp =
+          new Date(a.fecha_ingreso).getTime() -
+          new Date(b.fecha_ingreso).getTime();
+      } else {
+        cmp =
+          FLUJO_ESTADOS.indexOf(a.estado) - FLUJO_ESTADOS.indexOf(b.estado);
       }
-      return (
-        (new Date(a.fecha_ingreso).getTime() - new Date(b.fecha_ingreso).getTime()) *
-        factor
-      );
+      if (Number.isNaN(cmp)) cmp = 0;
+      return ordenDir === 'asc' ? cmp : -cmp;
     });
-  }, [recepciones, busqueda, laboratorioFiltro, ordenPor, direccion]);
+
+    return resultado;
+  }, [
+    recepciones,
+    busqueda,
+    laboratorioFiltro,
+    estadoFiltro,
+    fechaDesde,
+    fechaHasta,
+    ordenarPor,
+    ordenDir,
+  ]);
 
   // Modal state
   const [isRegistroModalOpen, setIsRegistroModalOpen] = useState(false);
@@ -772,6 +839,17 @@ export default function BandejaTrabajoPage() {
   const [isValidacionModalOpen, setIsValidacionModalOpen] = useState(false);
   const [selectedValidacionRecepcion, setSelectedValidacionRecepcion] =
     useState<{ id: number; estado: string; titulo: string } | null>(null);
+  const [isEntregaModalOpen, setIsEntregaModalOpen] = useState(false);
+  const [selectedEntrega, setSelectedEntrega] = useState<{
+    recepcionId: number;
+    ordenId: number;
+    ordenFisica?: string;
+    comprobanteActual?: {
+      ruta?: string | null;
+      nombre?: string | null;
+      monto?: number | string | null;
+    } | null;
+  } | null>(null);
   const [isFirmaModalOpen, setIsFirmaModalOpen] = useState(false);
   const [selectedFirma, setSelectedFirma] = useState<{
     recepcionId: number;
@@ -841,6 +919,26 @@ export default function BandejaTrabajoPage() {
       </div>
     );
   }
+
+  const cambiarOrden = (columna: 'fecha' | 'estado') => {
+    if (ordenarPor === columna) {
+      setOrdenDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setOrdenarPor(columna);
+      setOrdenDir(columna === 'fecha' ? 'desc' : 'asc');
+    }
+  };
+
+  const SortIndicator = ({ columna }: { columna: 'fecha' | 'estado' }) =>
+    ordenarPor === columna ? (
+      ordenDir === 'asc' ? (
+        <ArrowUp className="ml-1 inline h-3.5 w-3.5" />
+      ) : (
+        <ArrowDown className="ml-1 inline h-3.5 w-3.5" />
+      )
+    ) : (
+      <ArrowUpDown className="ml-1 inline h-3.5 w-3.5 opacity-40" />
+    );
 
   return (
     <div className="space-y-6 p-6">
@@ -934,6 +1032,36 @@ export default function BandejaTrabajoPage() {
             ))}
           </select>
 
+          <select
+            value={estadoFiltro}
+            onChange={(e) => setEstadoFiltro(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">Todos los estados</option>
+            {FLUJO_ESTADOS.map((s) => (
+              <option key={s} value={s}>
+                {s.replace(/_/g, ' ')}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="date"
+            value={fechaDesde}
+            onChange={(e) => setFechaDesde(e.target.value)}
+            title="Desde fecha de ingreso"
+            aria-label="Filtrar desde fecha de ingreso"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <input
+            type="date"
+            value={fechaHasta}
+            onChange={(e) => setFechaHasta(e.target.value)}
+            title="Hasta fecha de ingreso"
+            aria-label="Filtrar hasta fecha de ingreso"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -967,11 +1095,31 @@ export default function BandejaTrabajoPage() {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <TH>Orden Física</TH>
-                <SortableTH campo="fecha" ordenPor={ordenPor} direccion={direccion} onSort={handleSort}>Fecha</SortableTH>
+<TH>
+                  <button
+                    type="button"
+                    onClick={() => cambiarOrden('fecha')}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    title="Ordenar por fecha de ingreso"
+                  >
+                    Fecha
+                    <SortIndicator columna="fecha" />
+                  </button>
+                </TH>
                 <TH>Cliente</TH>
                 <TH>Equipo</TH>
                 <TH>Laboratorio</TH>
-                <SortableTH campo="estado" ordenPor={ordenPor} direccion={direccion} onSort={handleSort} className="text-center">Estado</SortableTH>
+                <TH className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => cambiarOrden('estado')}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    title="Ordenar por estado"
+                  >
+                    Estado
+                    <SortIndicator columna="estado" />
+                  </button>
+                </TH>
                 <TH>Técnico</TH>
                 <TH>Observaciones</TH>
                 {(canAssign || canExecute) && (
@@ -1079,7 +1227,7 @@ export default function BandejaTrabajoPage() {
                         </span>
                       )}
                     </td>
-                    {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC || esAdministrador) && (
+                    {(canAssign || canExecute || esObservador || esJefe || esDirector || esRSEC || esAdministrador || esReceptorDeOrden(req.orden, user?.persona_id)) && (
                       <td className="whitespace-nowrap px-6 py-4 text-center">
                         <div
                           className="flex items-center justify-center gap-2"
@@ -1306,24 +1454,45 @@ export default function BandejaTrabajoPage() {
                             </Button>
                           )}
 
-                          {/* LISTO_PARA_ENTREGA: Entregar (RSEC) */}
-                          {req.estado === 'LISTO_PARA_ENTREGA' && esRSEC && (
+                          {/* Entrega de la ORDEN COMPLETA (receptor o RSEC).
+                              Se muestra una sola vez por orden (sobre el primer
+                              equipo en LISTO_PARA_ENTREGA) y solo se habilita
+                              cuando TODOS los equipos llegaron a LISTO_PARA_ENTREGA
+                              (o ya están FINALIZADO). Un solo clic entrega todos
+                              los equipos; el backend vuelve a validar la regla. */}
+                          {req.estado === 'LISTO_PARA_ENTREGA' &&
+                            (esRSEC ||
+                              esReceptorDeOrden(req.orden, user?.persona_id)) &&
+                            (req.orden.equipos ?? []).find(
+                              (e) => e.estado === 'LISTO_PARA_ENTREGA',
+                            )?.id === req.id && (
                             <Button
                               variant="default"
                               size="sm"
+                              disabled={!esOrdenListaParaEntregar(req.orden)}
                               onClick={() => {
-                                setSelectedValidacionRecepcion({
-                                  id: req.id,
-                                  estado: req.estado,
-                                  titulo: 'Marcar como Entregado',
+                                if (!esOrdenListaParaEntregar(req.orden)) return;
+                                setSelectedEntrega({
+                                  recepcionId: req.id,
+                                  ordenId: req.orden.id,
+                                  ordenFisica: req.orden.orden_trabajo_fisica,
+                                  comprobanteActual: {
+                                    ruta: req.orden.comprobante_ruta ?? null,
+                                    nombre: req.orden.comprobante_nombre ?? null,
+                                    monto: req.orden.monto_comprobante ?? null,
+                                  },
                                 });
-                                setIsValidacionModalOpen(true);
+                                setIsEntregaModalOpen(true);
                               }}
-                              title="Marcar como entregado"
+                              title={
+                                esOrdenListaParaEntregar(req.orden)
+                                  ? 'Registrar comprobante y entregar la orden completa'
+                                  : 'Faltan equipos de la orden por tener listos para entrega'
+                              }
                               className="bg-teal-600 hover:bg-teal-700 text-white"
                             >
                               <Handshake className="h-4 w-4" />
-                              Marcar Entregado
+                              Entregar Orden
                             </Button>
                           )}
 
@@ -1344,6 +1513,23 @@ export default function BandejaTrabajoPage() {
                               Ver Documento
                             </Button>
                           )}
+
+                          {/* Orden completa en FINALIZADO: se habilita la factura */}
+                          {puedeFacturar && esOrdenFacturable(req.orden) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                navigate(
+                                  `/financiero/facturas?orden_id=${req.orden.id}&cliente_id=${req.orden.cliente?.id ?? ''}`,
+                                )
+                              }
+                              title="Registrar la factura de esta orden en el módulo financiero"
+                            >
+                              <Receipt className="h-4 w-4" />
+                              Facturar
+                            </Button>
+                          )}
                         </div>
                       </td>
                     )}
@@ -1351,7 +1537,13 @@ export default function BandejaTrabajoPage() {
                 ))
               ) : (
                 <EmptyState
-                  hasFilter={busqueda.trim().length > 0 || !!laboratorioFiltro}
+                  hasFilter={
+                  busqueda.trim().length > 0 ||
+                  !!laboratorioFiltro ||
+                  !!estadoFiltro ||
+                  !!fechaDesde ||
+                  !!fechaHasta
+                }
                 />
               )}
             </tbody>
@@ -1414,6 +1606,21 @@ export default function BandejaTrabajoPage() {
         }}
       />
 
+      <EntregaComprobanteModal
+        isOpen={isEntregaModalOpen}
+        onClose={() => {
+          setIsEntregaModalOpen(false);
+          setSelectedEntrega(null);
+        }}
+        recepcionId={selectedEntrega?.recepcionId ?? null}
+        ordenId={selectedEntrega?.ordenId ?? null}
+        ordenFisica={selectedEntrega?.ordenFisica}
+        comprobanteActual={selectedEntrega?.comprobanteActual}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
+        }}
+      />
+
       <FirmarDigitalModal
         isOpen={isFirmaModalOpen}
         onClose={() => {
@@ -1462,48 +1669,6 @@ function TH({
       )}
     >
       {children}
-    </th>
-  );
-}
-
-// Cabecera ordenable: clic sobre el label alterna la dirección, y la flecha
-// muestra el orden vigente (↕ fija en gris cuando la columna no está activa).
-function SortableTH({
-  campo,
-  ordenPor,
-  direccion,
-  onSort,
-  className,
-  children,
-}: {
-  campo: 'fecha' | 'estado';
-  ordenPor: 'fecha' | 'estado';
-  direccion: 'asc' | 'desc';
-  onSort: (campo: 'fecha' | 'estado') => void;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  const activo = ordenPor === campo;
-  const Icono = activo && direccion === 'asc' ? ArrowUp : ArrowDown;
-  return (
-    <th
-      className={cn(
-        'px-6 py-3 text-left text-xs font-medium uppercase tracking-wider',
-        activo ? 'text-foreground' : 'text-muted-foreground',
-        className,
-      )}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(campo)}
-        className={cn(
-          'inline-flex items-center gap-1 uppercase tracking-wider transition-colors hover:text-foreground focus-visible:outline-none',
-          className?.includes('text-center') ? 'justify-center' : '',
-        )}
-      >
-        {children}
-        <Icono className={cn('h-3.5 w-3.5', activo ? '' : 'opacity-30')} />
-      </button>
     </th>
   );
 }

@@ -8,8 +8,13 @@ import {
   Query,
   Delete,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  ParseIntPipe,
   Req,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { EstadoRecepcion } from '@prisma/client';
 import { RecepcionEquiposService, parseVista } from './recepcion-equipos.service';
 import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
@@ -17,6 +22,7 @@ import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
 import { CambiarFaseAdminDto } from './dto/cambiar-fase-admin.dto';
+import { RegistrarFechasCalibracionDto } from './dto/registrar-fechas-calibracion.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
@@ -39,20 +45,29 @@ export class RecepcionEquiposController {
    * `todas` (por defecto, sin filtro: el comportamiento de siempre).
    */
   @Get()
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess([
+    { app: 'Recepcion Equipos', level: 1 },
+    { app: 'Gestion Financiera', level: 1 },
+  ])
   findAll(@Req() req: any, @Query('vista') vista?: string) {
     return this.recepcionService.findAll(req.user, parseVista(vista));
   }
 
   // Debe ir ANTES de ':id': si no, Nest tomaría "resumen" como un id.
   @Get('resumen')
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess([
+    { app: 'Recepcion Equipos', level: 1 },
+    { app: 'Gestion Financiera', level: 1 },
+  ])
   resumen(@Req() req: any) {
     return this.recepcionService.resumen(req.user);
   }
 
   @Get(':id')
-  @RequireAccess('Recepcion Equipos', 1)
+  @RequireAccess([
+    { app: 'Recepcion Equipos', level: 1 },
+    { app: 'Gestion Financiera', level: 1 },
+  ])
   findOne(@Param('id') id: string, @Req() req: any) {
     return this.recepcionService.findOne(+id, req.user);
   }
@@ -74,6 +89,19 @@ export class RecepcionEquiposController {
     return this.recepcionService.asignarTecnico(+id, dto, req.user);
   }
 
+  // Fase A: registro de fecha de calibración y próxima calibración. Es un
+  // registro de datos del propio flujo (corrección de fechas), no una
+  // edición de negocio, así que no exige motivo.
+  @Patch(':id/fechas-calibracion')
+  @SinMotivo()
+  @RequireAccess('Recepcion Equipos', 4)
+  registrarFechasCalibracion(
+    @Param('id') id: string,
+    @Body() dto: RegistrarFechasCalibracionDto,
+  ) {
+    return this.recepcionService.registrarFechasCalibracion(+id, dto);
+  }
+
   @Patch(':id/transicion-estado')
   @SinMotivo()
   @RequireAccess('Recepcion Equipos', 4)
@@ -83,6 +111,45 @@ export class RecepcionEquiposController {
     @Req() req: any,
   ) {
     return this.recepcionService.transicionEstado(+id, dto, req.user);
+  }
+
+  // El receptor de la orden sube el comprobante (foto o PDF) y el monto de la
+  // orden en la fase "Listo para entrega". Es requisito para finalizar la
+  // entrega; la factura hereda estos datos al facturar la orden. Es parte del
+  // flujo de entrega (igual que entregar/transicion-estado), así que va exenta
+  // de exigencia de motivo.
+  @Patch('orden/:id/comprobante')
+  @SinMotivo()
+  @RequireAccess('Recepcion Equipos', 4)
+  @UseInterceptors(
+    FileInterceptor('comprobante', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  subirComprobante(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('monto') monto: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: any,
+  ) {
+    return this.recepcionService.subirComprobanteOrden(id, file, monto, req.user);
+  }
+
+  // Entrega (o rechazo) de la ORDEN COMPLETA de una sola vez. A diferencia de
+  // `:id/transicion-estado`, que actúa sobre un único equipo, esta acción es a
+  // nivel de orden: la entrega es un hecho único (el comprobante y el cobro ya
+  // son por orden), así que todos los equipos deben quedar FINALIZADO juntos.
+  // El backend exige que TODOS estén en LISTO_PARA_ENTREGA antes de entregar.
+  @Patch('orden/:id/entregar')
+  @SinMotivo()
+  @RequireAccess('Recepcion Equipos', 4)
+  entregarOrden(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: TransicionEstadoDto,
+    @Req() req: any,
+  ) {
+    return this.recepcionService.entregarOrden(id, dto, req.user);
   }
 
   // Cambio manual de fase reservado a administración (nivel 5, el más alto —

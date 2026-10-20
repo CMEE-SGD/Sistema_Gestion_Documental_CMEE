@@ -1,0 +1,2004 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
+import { XMLParser } from 'fast-xml-parser';
+import { EstadoFactura, EstadoProforma, Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { CreateProformaDto } from './dto/create-proforma.dto';
+import { UpdateProformaDto } from './dto/update-proforma.dto';
+import { UpdateDistribucionDto } from './dto/update-distribucion.dto';
+import { CreateFacturaDto } from './dto/create-factura.dto';
+import { UpdateFacturaDto } from './dto/update-factura.dto';
+import { UpdateRetencionDto } from './dto/update-retencion.dto';
+import { RegistrarPagoDto } from './dto/registrar-pago.dto';
+import { UpdatePagoDto } from './dto/update-pago.dto';
+import { UpdateComprobantePagoDto } from './dto/update-comprobante-pago.dto';
+import { RegistrarCompensacionDto } from './dto/registrar-compensacion.dto';
+import { ResolverAutorizacionCompensacionDto } from './dto/resolver-autorizacion-compensacion.dto';
+import { CreateNotaEntregaDto } from './dto/create-nota-entrega.dto';
+
+const CLIENTE_SELECT = {
+  select: {
+    id: true,
+    nombre: true,
+    ruc: true,
+    representante: true,
+    telefono: true,
+    email: true,
+  },
+};
+
+const FACTURA_INCLUDE = {
+  cliente: CLIENTE_SELECT,
+  orden_trabajo: {
+    select: {
+      id: true,
+      orden_trabajo_fisica: true,
+      fecha_ingreso: true,
+      proforma_id: true,
+      n_proforma: true,
+    },
+  },
+  detalle: {
+    include: {
+      equipo_recepcion: {
+        select: { id: true, equipo_descripcion: true, codigo_serie: true },
+      },
+    },
+  },
+  pagos: {
+    include: {
+      registrado_por: { select: { id: true, nombre: true, apellidos: true } },
+      compensacion: true,
+    },
+    orderBy: { fecha: 'desc' as const },
+  },
+  notas_entrega: {
+    include: {
+      entregado_por: { select: { id: true, nombre: true, apellidos: true } },
+    },
+    orderBy: { id: 'desc' as const },
+  },
+  compensaciones: true,
+  solicitudes_compensacion: {
+    include: {
+      solicitado_por: { select: { id: true, nombre: true, apellidos: true } },
+      resuelto_por: { select: { id: true, nombre: true, apellidos: true } },
+    },
+    orderBy: { id: 'desc' as const },
+  },
+};
+
+const PROFORMA_INCLUDE = {
+  cliente: CLIENTE_SELECT,
+  ordenes_trabajo: {
+    select: { id: true, orden_trabajo_fisica: true, fecha_ingreso: true },
+  },
+};
+
+@Injectable()
+export class FacturacionService {
+  /**
+   * Raíz absoluta de la carpeta uploads (backend/uploads). Se ancla a
+   * __dirname (igual que el servido estático de main.ts) y NO a process.cwd():
+   * el backend puede arrancarse con cualquier directorio de trabajo y las
+   * escrituras/lecturas de archivos deben apuntar siempre al mismo lugar.
+   */
+  private readonly uploadsRoot = path.resolve(__dirname, '..', '..', 'uploads');
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificaciones: NotificacionesService,
+  ) {}
+
+  // ------------------------------------------------------------------
+  // Utilidades
+  // ------------------------------------------------------------------
+
+  private toDate(value?: string): Date | undefined {
+    return value ? new Date(value) : undefined;
+  }
+
+  /**
+   * Valida que una orden de trabajo pueda facturarse: debe existir y TODOS sus
+   * equipos deben estar en FINALIZADO. Devuelve la orden con sus equipos.
+   */
+  private async validarOrdenFacturable(ordenId: number) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id: ordenId },
+      include: {
+        equipos: { select: { id: true, estado: true, equipo_descripcion: true } },
+        cliente: { select: { id: true, nombre: true } },
+      },
+    });
+    if (!orden) {
+      throw new NotFoundException(`Orden de trabajo ${ordenId} no encontrada`);
+    }
+    if (orden.equipos.length === 0) {
+      throw new BadRequestException(
+        `La orden ${orden.orden_trabajo_fisica} no tiene equipos registrados.`,
+      );
+    }
+    const incompletos = orden.equipos.filter((e) => e.estado !== 'FINALIZADO');
+    if (incompletos.length > 0) {
+      const nombres = incompletos
+        .slice(0, 3)
+        .map((e) => `"${e.equipo_descripcion}" (${e.estado})`)
+        .join(', ');
+      const restantes =
+        incompletos.length > 3
+          ? ` y ${incompletos.length - 3} más`
+          : '';
+      throw new BadRequestException(
+        `La factura se habilita cuando todos los equipos de la orden ${orden.orden_trabajo_fisica} estén FINALIZADO. Pendientes: ${nombres}${restantes}.`,
+      );
+    }
+    return orden;
+  }
+
+  private n(v: any): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  private esMismoDia(a: Date, b: Date): boolean {
+    return (
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate()
+    );
+  }
+
+  /** Subtotal/IVA/total vienen como DECIMAL de Prisma → number para JSON. */
+  private enriquecer(f: any) {
+    // Además de los pagos registrados, el comprobante de pago que adjuntó
+    // Servicio al Cliente (monto_comprobante) cuenta como cobro: es el pago que
+    // hizo el cliente al recibir el equipo.
+    const comprobante = this.n(f.monto_comprobante);
+    const pagado =
+      (f.pagos ?? []).reduce(
+        (s: number, p: any) => s + this.n(p.monto),
+        0,
+      ) + comprobante;
+    const total = this.n(f.total);
+    // Las retenciones (IVA y RENTA) las aplica el cliente (agente de retención)
+    // al pagar; por eso el saldo por cobrar es
+    // total − retención_iva − retención_renta − cobros.
+    const retencionIva = this.n(f.retencion_iva);
+    const retencionRenta = this.n(f.retencion_renta);
+    const saldo = total - retencionIva - retencionRenta - pagado;
+
+    // Última solicitud de autorización de compensación (si existe).
+    const { solicitudes_compensacion, ...resto } = f;
+    const solicitudCompensacion = Array.isArray(solicitudes_compensacion)
+      ? (solicitudes_compensacion[0] ?? null)
+      : null;
+
+    let estado: EstadoFactura = f.estado;
+    if (estado !== 'ANULADA') {
+      if (saldo <= 0.005) estado = 'PAGADA';
+      else if (pagado > 0) estado = 'PARCIAL';
+      else estado = 'EMITIDA';
+    }
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const venc = new Date(f.fecha_vencimiento);
+    venc.setHours(0, 0, 0, 0);
+    const dias = Math.round(
+      (venc.getTime() - hoy.getTime()) / 86400000,
+    );
+
+    return {
+      ...resto,
+      subtotal: this.n(f.subtotal),
+      iva: this.n(f.iva),
+      total,
+      retencion_iva: retencionIva,
+      porcentaje_retencion_iva: this.n(f.porcentaje_retencion_iva),
+      retencion_renta: retencionRenta,
+      porcentaje_retencion_renta: this.n(f.porcentaje_retencion_renta),
+      retenciones: f.retenciones ?? null,
+      monto_comprobante: comprobante > 0 ? comprobante : null,
+      pagado,
+      saldo,
+      estado,
+      solicitud_compensacion: solicitudCompensacion
+        ? {
+            id: solicitudCompensacion.id,
+            estado: solicitudCompensacion.estado,
+            observaciones: solicitudCompensacion.observaciones,
+            resuelto_at: solicitudCompensacion.resuelto_at,
+            createdAt: solicitudCompensacion.created_at,
+            solicitado_por: solicitudCompensacion.solicitado_por,
+            resuelto_por: solicitudCompensacion.resuelto_por,
+          }
+        : null,
+      estado_cartera:
+        estado !== 'ANULADA' && saldo > 0.005
+          ? dias < 0
+            ? 'VENCIDA'
+            : 'POR_VENCER'
+          : 'OK',
+      dias_vencida: dias < 0 ? Math.abs(dias) : 0,
+      dias_restantes: dias >= 0 ? dias : 0,
+    };
+  }
+
+  /** Genera numeración propia: PF-<año>-NNNN, FAC-<año>-NNNN, NE-<año>-NNNN. */
+  private async generarNumeroSecuencia(
+    tipo: 'proforma' | 'factura' | 'nota_entrega',
+  ): Promise<string> {
+    const anio = new Date().getFullYear();
+    let prefijo = '';
+    let buscar: () => Promise<{ numero: string } | null>;
+
+    if (tipo === 'proforma') {
+      prefijo = `PF-${anio}-`;
+      buscar = () =>
+        this.prisma.proforma.findFirst({
+          where: { numero: { startsWith: prefijo } },
+          orderBy: { numero: 'desc' },
+          select: { numero: true },
+        });
+    } else if (tipo === 'factura') {
+      prefijo = `FAC-${anio}-`;
+      buscar = () =>
+        this.prisma.factura.findFirst({
+          where: { numero: { startsWith: prefijo } },
+          orderBy: { numero: 'desc' },
+          select: { numero: true },
+        });
+    } else {
+      prefijo = `NE-${anio}-`;
+      buscar = () =>
+        this.prisma.notaEntrega.findFirst({
+          where: { numero: { startsWith: prefijo } },
+          orderBy: { numero: 'desc' },
+          select: { numero: true },
+        });
+    }
+
+    const ultimo = await buscar();
+    let n = 1;
+    if (ultimo) {
+      const partes = ultimo.numero.split('-');
+      n = parseInt(partes[partes.length - 1] ?? '0', 10) + 1;
+    }
+    return `${prefijo}${String(n).padStart(4, '0')}`;
+  }
+
+  /** Reintenta el create cuando el número generado choca (carrera). */
+  private async crearConNumeroUnico<T>(
+    generar: () => Promise<string>,
+    crear: (numero: string) => Promise<T>,
+  ): Promise<T> {
+    for (let intento = 0; intento < 5; intento++) {
+      try {
+        return await crear(await generar());
+      } catch (error: any) {
+        if (error?.code === 'P2002') continue;
+        throw error;
+      }
+    }
+    throw new BadRequestException(
+      'No se pudo asignar un número único. Intente de nuevo.',
+    );
+  }
+
+  /** Guarda un archivo en uploads/financiero/<carpeta>/<subcarpeta>/ */
+  private guardarArchivo(
+    file: Express.Multer.File,
+    subcarpeta: string,
+    prefijo: string,
+  ): { ruta: string; original: string } {
+    const dir = path.join(this.uploadsRoot, 'financiero', subcarpeta);
+    fs.mkdirSync(dir, { recursive: true });
+    const ext = path.extname(file.originalname || '.bin');
+    const nombre = `${prefijo}-${Date.now()}${ext}`;
+    fs.writeFileSync(path.join(dir, nombre), file.buffer);
+    return {
+      ruta: `/uploads/financiero/${subcarpeta}/${nombre}`,
+      original: file.originalname,
+    };
+  }
+
+  /**
+   * Elimina un archivo de uploads (best-effort) a partir de su ruta pública
+   * (las que empiezan por "/uploads/..."). Un fallo al borrar nunca debe
+   * romper la operación de negocio que ya quedó confirmada en BD.
+   */
+  private borrarArchivo(ruta?: string | null) {
+    if (!ruta) return;
+    try {
+      const abs = path.join(this.uploadsRoot, ruta.replace(/^\/uploads\//, ''));
+      fs.rmSync(abs, { force: true });
+    } catch {
+      // borrar el archivo es best-effort
+    }
+  }
+
+  /** Valida y guarda el PDF/imagen adjunto de una proforma. */
+  private guardarArchivoProforma(
+    file: Express.Multer.File,
+  ): { ruta: string; original: string } {
+    const permitidos = new Set([
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+    ]);
+    if (!permitidos.has(file.mimetype)) {
+      throw new BadRequestException(
+        'El archivo debe ser un PDF o una imagen (PNG/JPEG/WebP).',
+      );
+    }
+    return this.guardarArchivo(file, 'proformas', 'PF');
+  }
+
+  // ------------------------------------------------------------------
+  // PROFORMAS
+  // ------------------------------------------------------------------
+
+  async createProforma(dto: CreateProformaDto, file?: Express.Multer.File) {
+    const cliente = await this.prisma.clienteInstitucional.findUnique({
+      where: { id: dto.cliente_id },
+    });
+    if (!cliente) throw new NotFoundException('Cliente institucional no encontrado');
+
+    const archivo = file ? this.guardarArchivoProforma(file) : undefined;
+
+    return this.crearConNumeroUnico(
+      async () => dto.numero ?? (await this.generarNumeroSecuencia('proforma')),
+      async (numero) =>
+        this.prisma.proforma.create({
+          data: {
+            numero,
+            cliente_id: dto.cliente_id,
+            fecha_emision: this.toDate(dto.fecha_emision) ?? new Date(),
+            monto: dto.monto,
+            // Toda proforma nace EMITIDA; recién al vincularse a una orden de
+            // trabajo pasa a ACEPTADA (ver recepcion-equipos.service.ts).
+            estado: EstadoProforma.EMITIDA,
+            observaciones: dto.observaciones,
+            archivo: archivo?.ruta,
+            archivo_nombre: archivo?.original,
+          },
+          include: PROFORMA_INCLUDE,
+        }),
+    );
+  }
+
+  async findAllProformas() {
+    const proformas = await this.prisma.proforma.findMany({
+      include: PROFORMA_INCLUDE,
+      orderBy: { fecha_emision: 'desc' },
+    });
+    return proformas.map((p) => ({ ...p, monto: this.n(p.monto) }));
+  }
+
+  async findOneProforma(id: number) {
+    const proforma = await this.prisma.proforma.findUnique({
+      where: { id },
+      include: PROFORMA_INCLUDE,
+    });
+    if (!proforma) throw new NotFoundException(`Proforma ${id} no encontrada`);
+    return { ...proforma, monto: this.n(proforma.monto) };
+  }
+
+  /** Ruta física y nombre original del archivo adjunto de una proforma. */
+  async descargarArchivoProforma(id: number) {
+    const proforma = await this.findOneProforma(id);
+    if (!proforma.archivo) {
+      throw new NotFoundException('La proforma no tiene archivo adjunto.');
+    }
+    return {
+      filePath: path.join(
+        this.uploadsRoot,
+        proforma.archivo.replace(/^\/uploads\//, ''),
+      ),
+      nombreOriginal:
+        proforma.archivo_nombre || `proforma_${proforma.numero}.pdf`,
+    };
+  }
+
+  /**
+   * Datos mínimos de una orden de trabajo para el flujo de facturación:
+   * número físico, cliente y equipos. Lo consume el módulo financiero para
+   * precargar el alta/importación de la factura de una orden finalizada —
+   * no requiere acceso al módulo 'Recepcion Equipos'.
+   */
+  async findOrdenParaFactura(id: number) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        orden_trabajo_fisica: true,
+        n_proforma: true,
+        comprobante_ruta: true,
+        comprobante_nombre: true,
+        monto_comprobante: true,
+        comprobante_subido_at: true,
+        cliente: { select: { id: true, nombre: true } },
+        equipos: {
+          select: { id: true, equipo_descripcion: true, estado: true },
+          orderBy: { id: 'asc' },
+        },
+      },
+    });
+    if (!orden) throw new NotFoundException(`Orden de trabajo ${id} no encontrada`);
+    return orden;
+  }
+
+  async updateProforma(id: number, dto: UpdateProformaDto) {
+    await this.findOneProforma(id);
+    return this.prisma.proforma.update({
+      where: { id },
+      data: {
+        numero: dto.numero,
+        fecha_emision: this.toDate(dto.fecha_emision),
+        monto: dto.monto,
+        estado: dto.estado,
+        observaciones: dto.observaciones,
+      },
+      include: PROFORMA_INCLUDE,
+    });
+  }
+
+  async removeProforma(id: number) {
+    const proforma = await this.findOneProforma(id);
+    // Desvincula las órdenes que la referenciaban (n_proforma queda como texto)
+    await this.prisma.ordenTrabajo.updateMany({
+      where: { proforma_id: id },
+      data: { proforma_id: null },
+    });
+    await this.prisma.proforma.delete({ where: { id } });
+    // Limpia el archivo adjunto del disco, si la proforma lo tenía.
+    if (proforma.archivo) {
+      try {
+        const abs = path.join(
+          this.uploadsRoot,
+          proforma.archivo.replace(/^\/uploads\//, ''),
+        );
+        fs.rmSync(abs, { force: true });
+      } catch {
+        // El archivo pudo no existir; no bloqueamos la eliminación.
+      }
+    }
+    return { id };
+  }
+
+  // ------------------------------------------------------------------
+  // FACTURAS
+  // ------------------------------------------------------------------
+
+  async findAllFacturas() {
+    const facturas = await this.prisma.factura.findMany({
+      include: {
+        cliente: CLIENTE_SELECT,
+        // Orden de trabajo que originó la factura: lo usa el listado de órdenes
+        // para alternar "Facturar" / "Facturado" y enlazar al detalle.
+        orden_trabajo: {
+          select: {
+            id: true,
+            orden_trabajo_fisica: true,
+            fecha_ingreso: true,
+            proforma_id: true,
+            n_proforma: true,
+          },
+        },
+        pagos: { select: { monto: true } },
+      },
+      orderBy: { fecha_emision: 'desc' },
+    });
+    return facturas.map((f) => this.enriquecer(f));
+  }
+
+  async findOneFactura(id: number) {
+    const factura = await this.prisma.factura.findUnique({
+      where: { id },
+      include: FACTURA_INCLUDE,
+    });
+    if (!factura) throw new NotFoundException(`Factura ${id} no encontrada`);
+    return this.enriquecer(factura);
+  }
+
+  async createFactura(dto: CreateFacturaDto) {
+    const cliente = await this.prisma.clienteInstitucional.findUnique({
+      where: { id: dto.cliente_id },
+    });
+    if (!cliente) throw new NotFoundException('Cliente institucional no encontrado');
+
+    // Si la factura nace de una orden, ésta debe tener TODOS sus equipos FINALIZADO.
+    let ordenId: number | undefined;
+    let ordenFacturable: any = null;
+    if (dto.orden_trabajo_id !== undefined) {
+      const orden = await this.validarOrdenFacturable(dto.orden_trabajo_id);
+      ordenId = orden.id;
+      ordenFacturable = orden;
+    }
+
+    const detalle = (dto.detalle ?? []).map((d) => ({
+      concepto: d.concepto,
+      cantidad: d.cantidad ?? 1,
+      precio_unitario: d.precio_unitario ?? 0,
+      valor_total:
+        d.valor_total ?? (d.precio_unitario ?? 0) * (d.cantidad ?? 1),
+      equipo_recepcion_id: d.equipo_recepcion_id,
+    }));
+
+    const subtotal = dto.subtotal ?? detalle.reduce((s, d) => s + d.valor_total, 0);
+    const iva = dto.iva ?? 0;
+    // Si no se indica total, se precarga con el monto del comprobante que subió
+    // Servicio al Cliente (o, en su defecto, subtotal + IVA).
+    const montoComprobante = this.n(ordenFacturable?.monto_comprobante);
+    const total =
+      dto.total ??
+      (montoComprobante > 0 ? montoComprobante : subtotal + iva);
+    const fechaEmision = this.toDate(dto.fecha_emision) ?? new Date();
+    const plazo = dto.plazo_dias ?? 30;
+    const vencimiento = new Date(fechaEmision);
+    vencimiento.setDate(vencimiento.getDate() + plazo);
+
+    return this.crearConNumeroUnico(
+      async () => dto.numero ?? (await this.generarNumeroSecuencia('factura')),
+      async (numero) => {
+        const factura = await this.prisma.factura.create({
+          data: {
+            numero,
+            clave_acceso: dto.clave_acceso || null,
+            cliente_id: dto.cliente_id,
+            orden_trabajo_id: ordenId ?? null,
+            // Comprobante de entrega (hereda de la orden) → queda vinculado.
+            comprobante_ruta: ordenFacturable?.comprobante_ruta ?? null,
+            comprobante_nombre: ordenFacturable?.comprobante_nombre ?? null,
+            monto_comprobante: ordenFacturable?.monto_comprobante ?? null,
+            fecha_emision: fechaEmision,
+            subtotal,
+            iva,
+            total,
+            retencion_iva: dto.retencion_iva ?? 0,
+            porcentaje_retencion_iva: dto.porcentaje_retencion_iva ?? 0,
+            retencion_renta: dto.retencion_renta ?? 0,
+            porcentaje_retencion_renta: dto.porcentaje_retencion_renta ?? 0,
+            retenciones:
+              dto.retenciones && dto.retenciones.length > 0
+                ? (dto.retenciones as unknown as Prisma.InputJsonValue)
+                : undefined,
+            plazo_dias: plazo,
+            fecha_vencimiento: vencimiento,
+            notas: dto.notas,
+            detalle: { create: detalle },
+          },
+          include: FACTURA_INCLUDE,
+        });
+        return this.enriquecer(factura);
+      },
+    );
+  }
+
+  /**
+   * Fase B: la encargada del sistema financiero emite la factura en su propio
+   * sistema; aquí SOLO se absorbe el XML (SRI) y se guardan los datos.
+   */
+  async importarXml(
+    dto: { cliente_id: number; plazo_dias?: number; orden_trabajo_id?: number },
+    file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Debe adjuntar el archivo XML de la factura');
+
+    const xmlText = file.buffer.toString('utf-8');
+    const datos = this.parsearXmlSRI(xmlText);
+
+    const cliente = await this.prisma.clienteInstitucional.findUnique({
+      where: { id: dto.cliente_id },
+    });
+    if (!cliente) throw new NotFoundException('Cliente institucional no encontrado');
+
+    // Si la factura nace de una orden, ésta debe tener TODOS sus equipos FINALIZADO.
+    let ordenId: number | undefined;
+    let ordenFacturable: any = null;
+    if (dto.orden_trabajo_id !== undefined) {
+      const orden = await this.validarOrdenFacturable(dto.orden_trabajo_id);
+      ordenId = orden.id;
+      ordenFacturable = orden;
+    }
+
+    const existente = await this.prisma.factura.findUnique({
+      where: { numero: datos.numero },
+    });
+    if (existente) {
+      throw new BadRequestException(
+        `Ya existe una factura registrada con el número ${datos.numero}.`,
+      );
+    }
+    const conClave = datos.clave_acceso
+      ? await this.prisma.factura.findUnique({
+          where: { clave_acceso: datos.clave_acceso },
+        })
+      : null;
+    if (conClave) {
+      throw new BadRequestException(
+        'Esa clave de acceso ya está registrada en otra factura.',
+      );
+    }
+
+    const fechaEmision = datos.fecha_emision;
+    const plazo = dto.plazo_dias ?? datos.plazo_sugerido ?? 30;
+    const vencimiento = new Date(fechaEmision);
+    vencimiento.setDate(vencimiento.getDate() + plazo);
+
+    const guardado = this.guardarArchivo(file, 'facturas', datos.numero);
+
+    const factura = await this.prisma.factura.create({
+      data: {
+        numero: datos.numero,
+        clave_acceso: datos.clave_acceso,
+        ruta_xml: guardado.ruta,
+        nombre_original_xml: guardado.original,
+        numero_autorizacion: datos.numero_autorizacion ?? null,
+        fecha_autorizacion: datos.fecha_autorizacion ?? null,
+        ambiente: datos.ambiente ?? null,
+        info_adicional:
+          datos.info_adicional && Object.keys(datos.info_adicional).length > 0
+            ? datos.info_adicional
+            : undefined,
+        cliente_id: dto.cliente_id,
+        orden_trabajo_id: ordenId ?? null,
+        // Comprobante de entrega (hereda de la orden) → queda vinculado.
+        comprobante_ruta: ordenFacturable?.comprobante_ruta ?? null,
+        comprobante_nombre: ordenFacturable?.comprobante_nombre ?? null,
+        monto_comprobante: ordenFacturable?.monto_comprobante ?? null,
+        razon_social_cliente: datos.razon_social_cliente,
+        ruc_cliente: datos.ruc_cliente,
+        fecha_emision: fechaEmision,
+        subtotal: datos.subtotal,
+        iva: datos.iva,
+        total: datos.total,
+        retencion_iva: datos.retencion_iva,
+        porcentaje_retencion_iva: datos.porcentaje_retencion_iva,
+        retencion_renta: datos.retencion_renta,
+        porcentaje_retencion_renta: datos.porcentaje_retencion_renta,
+        retenciones:
+          datos.retenciones.length > 0
+            ? (datos.retenciones as unknown as Prisma.InputJsonValue)
+            : undefined,
+        plazo_dias: plazo,
+        fecha_vencimiento: vencimiento,
+        detalle: {
+          create: datos.detalle.map((d) => ({
+            concepto: d.concepto,
+            cantidad: d.cantidad,
+            precio_unitario: d.precio_unitario,
+            valor_total: d.valor_total,
+          })),
+        },
+      },
+      include: FACTURA_INCLUDE,
+    });
+    return this.enriquecer(factura);
+  }
+
+  /**
+   * Extrae la retención de un COMPROBANTE DE RETENCIÓN (codDoc 07) del SRI,
+   * para prellenar el panel de retención del detalle de la factura. Es solo
+   * lectura: NO persiste nada; el guardado lo hace `actualizarRetencion`
+   * (PATCH facturas/:id/retencion, exento de motivo).
+   */
+  parseRetencionXml(file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException(
+        'Debe adjuntar el XML del comprobante de retención',
+      );
+    }
+    return this.parsearXmlRetencion(file.buffer.toString('utf-8'));
+  }
+
+  async updateFactura(id: number, dto: UpdateFacturaDto) {
+    await this.findOneFactura(id);
+    const data: any = {
+      estado: dto.estado,
+      notas: dto.notas,
+    };
+    if (dto.retencion_iva !== undefined) {
+      data.retencion_iva = dto.retencion_iva;
+    }
+    if (dto.porcentaje_retencion_iva !== undefined) {
+      data.porcentaje_retencion_iva = dto.porcentaje_retencion_iva;
+    }
+    if (dto.retencion_renta !== undefined) {
+      data.retencion_renta = dto.retencion_renta;
+    }
+    if (dto.porcentaje_retencion_renta !== undefined) {
+      data.porcentaje_retencion_renta = dto.porcentaje_retencion_renta;
+    }
+    if (dto.plazo_dias !== undefined) {
+      const actual = await this.prisma.factura.findUnique({
+        where: { id },
+        select: { fecha_emision: true },
+      });
+      const venc = new Date(actual!.fecha_emision);
+      venc.setDate(venc.getDate() + dto.plazo_dias);
+      data.plazo_dias = dto.plazo_dias;
+      data.fecha_vencimiento = venc;
+    }
+    await this.prisma.factura.update({ where: { id }, data });
+    return this.findOneFactura(id);
+  }
+
+  /**
+   * Guarda la retención del comprobante (IVA, % y detalle) y, si llega, el
+   * archivo XML del comprobante para poder verlo/descargarlo desde la factura.
+   * Exento de motivo: es la captura del dato que emite el cliente (agente de
+   * retención), no una edición de negocio. El resto de cambios de la factura sí
+   * exigen motivo.
+   */
+  async actualizarRetencion(
+    id: number,
+    dto: UpdateRetencionDto,
+    file?: Express.Multer.File,
+  ) {
+    const actual = await this.prisma.factura.findUnique({
+      where: { id },
+      select: { id: true, retencion_ruta: true },
+    });
+    if (!actual) throw new NotFoundException(`Factura ${id} no encontrada`);
+
+    const data: any = {};
+    if (dto.retencion_iva !== undefined) {
+      data.retencion_iva = dto.retencion_iva;
+    }
+    if (dto.porcentaje_retencion_iva !== undefined) {
+      data.porcentaje_retencion_iva = dto.porcentaje_retencion_iva;
+    }
+    if (dto.retencion_renta !== undefined) {
+      data.retencion_renta = dto.retencion_renta;
+    }
+    if (dto.porcentaje_retencion_renta !== undefined) {
+      data.porcentaje_retencion_renta = dto.porcentaje_retencion_renta;
+    }
+    if (dto.retenciones !== undefined) {
+      data.retenciones = dto.retenciones as unknown as Prisma.InputJsonValue;
+    }
+
+    if (file) {
+      const esXml =
+        /\.xml$/i.test(file.originalname ?? '') ||
+        /xml/i.test(file.mimetype ?? '');
+      if (!esXml) {
+        throw new BadRequestException(
+          'El comprobante de retención debe ser un archivo XML.',
+        );
+      }
+      const guardado = this.guardarArchivo(file, 'retenciones', `F${id}`);
+      data.retencion_ruta = guardado.ruta;
+      data.retencion_nombre = guardado.original;
+    }
+
+    await this.prisma.factura.update({ where: { id }, data });
+
+    // Si se reemplazó el comprobante, se borra el anterior (best-effort).
+    if (file && actual.retencion_ruta) {
+      this.borrarArchivo(actual.retencion_ruta);
+    }
+    return this.findOneFactura(id);
+  }
+
+  async removeFactura(id: number) {
+    const factura = await this.prisma.factura.findUnique({
+      where: { id },
+      select: { id: true, ruta_xml: true, retencion_ruta: true },
+    });
+    if (!factura) throw new NotFoundException(`Factura ${id} no encontrada`);
+
+    await this.prisma.$transaction([
+      this.prisma.pago.deleteMany({ where: { factura_id: id } }),
+      this.prisma.notaEntrega.deleteMany({ where: { factura_id: id } }),
+      this.prisma.compensacion.deleteMany({ where: { factura_id: id } }),
+      this.prisma.facturaDetalle.deleteMany({ where: { factura_id: id } }),
+      this.prisma.factura.delete({ where: { id } }),
+    ]);
+
+    if (factura.ruta_xml) {
+      try {
+        const abs = path.join(
+          this.uploadsRoot,
+          factura.ruta_xml.replace(/^\/uploads\//, ''),
+        );
+        fs.rmSync(abs, { force: true });
+      } catch {
+        // eliminar el archivo es best-effort
+      }
+    }
+    this.borrarArchivo(factura.retencion_ruta);
+    return { id };
+  }
+
+  // ------------------------------------------------------------------
+  // NOTA DE ENTREGA
+  // ------------------------------------------------------------------
+
+  async crearNotaEntrega(
+    facturaId: number,
+    dto: CreateNotaEntregaDto,
+    personaId: number | null,
+    file?: Express.Multer.File,
+  ) {
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+    });
+    if (!factura) throw new NotFoundException(`Factura ${facturaId} no encontrada`);
+
+    const archivo = file
+      ? this.guardarArchivo(file, 'notas-entrega', `N${facturaId}`)
+      : null;
+
+    const nota = await this.crearConNumeroUnico(
+      async () => this.generarNumeroSecuencia('nota_entrega'),
+      async (numero) =>
+        this.prisma.notaEntrega.create({
+          data: {
+            numero,
+            factura_id: facturaId,
+            entregado_por_id: personaId ?? undefined,
+            recibido_por: dto.recibido_por,
+            fecha_entrega: this.toDate(dto.fecha_entrega),
+            observaciones: dto.observaciones,
+            archivo_ruta: archivo?.ruta,
+            archivo_nombre: archivo?.original,
+          },
+        }),
+    );
+    return nota;
+  }
+
+  // ------------------------------------------------------------------
+  // COBROS: pagos y compensación
+  // ------------------------------------------------------------------
+
+  private async obtenerSaldo(facturaId: number) {
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      include: { pagos: { select: { monto: true } } },
+    });
+    if (!factura) throw new NotFoundException(`Factura ${facturaId} no encontrada`);
+    if (factura.estado === 'ANULADA') {
+      throw new BadRequestException('No se puede registrar cobros en una factura anulada');
+    }
+    // El comprobante de pago (monto_comprobante) cuenta como cobro, igual que
+    // en el detalle de la factura: reduce el saldo disponible para nuevos pagos.
+    const pagado =
+      (factura.pagos ?? []).reduce(
+        (s, p) => s + this.n(p.monto),
+        0,
+      ) + this.n(factura.monto_comprobante);
+    const total = this.n(factura.total);
+    // Las dos retenciones (IVA y RENTA) reducen el cobro real.
+    const retencionIva = this.n(factura.retencion_iva);
+    const retencionRenta = this.n(factura.retencion_renta);
+    return {
+      factura,
+      pagado,
+      saldo: total - retencionIva - retencionRenta - pagado,
+    };
+  }
+
+  private async actualizarEstadoPorSaldo(facturaId: number) {
+    const { pagado, saldo } = await this.obtenerSaldo(facturaId);
+    // Sin cobros vuelve a EMITIDA (p. ej. al eliminar el único pago); con
+    // cobros parciales queda PARCIAL y al cubrir el saldo, PAGADA.
+    const estado: EstadoFactura =
+      saldo <= 0.005 ? 'PAGADA' : pagado <= 0.005 ? 'EMITIDA' : 'PARCIAL';
+    await this.prisma.factura.update({
+      where: { id: facturaId },
+      data: { estado },
+    });
+    return { pagado, saldo, estado };
+  }
+
+  async registrarPago(
+    facturaId: number,
+    dto: RegistrarPagoDto,
+    file: Express.Multer.File | undefined,
+    personaId: number | null,
+  ) {
+    const { saldo } = await this.obtenerSaldo(facturaId);
+    if (dto.monto > saldo + 0.005) {
+      throw new BadRequestException(
+        `El monto (${dto.monto}) excede el saldo pendiente (${saldo.toFixed(2)}).`,
+      );
+    }
+
+    const archivo = file
+      ? this.guardarArchivo(file, 'pagos', `F${facturaId}`)
+      : null;
+
+    await this.prisma.pago.create({
+      data: {
+        factura_id: facturaId,
+        monto: dto.monto,
+        fecha: this.toDate(dto.fecha) ?? new Date(),
+        metodo: dto.metodo,
+        referencia: dto.referencia,
+        compensacion_id: dto.compensacion_id,
+        observaciones: dto.observaciones,
+        ruta_comprobante: archivo?.ruta,
+        nombre_original_comprobante: archivo?.original,
+        registrado_por_id: personaId ?? undefined,
+      },
+    });
+
+    const { estado } = await this.actualizarEstadoPorSaldo(facturaId);
+    void estado;
+    return this.findOneFactura(facturaId);
+  }
+
+  /**
+   * Corrige el monto del comprobante de pago de la factura y, opcionalmente,
+   * reemplaza su archivo adjunto. Como el comprobante cuenta como cobro (ver
+   * `enriquecer`/`obtenerSaldo`), al guardarlo se recalcula el estado.
+   */
+  async actualizarComprobantePago(
+    facturaId: number,
+    dto: UpdateComprobantePagoDto,
+    file: Express.Multer.File | undefined,
+  ) {
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      select: {
+        id: true,
+        numero: true,
+        estado: true,
+        comprobante_ruta: true,
+      },
+    });
+    if (!factura) {
+      throw new NotFoundException(`Factura ${facturaId} no encontrada`);
+    }
+    if (factura.estado === 'ANULADA') {
+      throw new BadRequestException(
+        'No se pueden modificar los cobros de una factura anulada',
+      );
+    }
+
+    const archivo = file
+      ? this.guardarArchivo(file, 'facturas', `FC${factura.numero}`)
+      : null;
+    const archivoAnterior =
+      archivo && factura.comprobante_ruta ? factura.comprobante_ruta : null;
+
+    await this.prisma.factura.update({
+      where: { id: facturaId },
+      data: {
+        monto_comprobante: dto.monto,
+        ...(archivo && {
+          comprobante_ruta: archivo.ruta,
+          comprobante_nombre: archivo.original,
+        }),
+      },
+    });
+
+    if (archivoAnterior) this.borrarArchivo(archivoAnterior);
+
+    await this.actualizarEstadoPorSaldo(facturaId);
+    return this.findOneFactura(facturaId);
+  }
+
+  /**
+   * Edición de un pago manual (efectivo/transferencia/cheque). No se permite
+   * editar los pagos generados automáticamente por una compensación: su monto
+   * debe seguir coincidiendo con la compensación vinculada, así que se
+   * gestionan desde ese flujo.
+   */
+  async actualizarPago(
+    facturaId: number,
+    pagoId: number,
+    dto: UpdatePagoDto,
+    file: Express.Multer.File | undefined,
+  ) {
+    const pago = await this.prisma.pago.findUnique({ where: { id: pagoId } });
+    if (!pago || pago.factura_id !== facturaId) {
+      throw new NotFoundException(
+        `Pago ${pagoId} no encontrado en la factura ${facturaId}`,
+      );
+    }
+    if (pago.compensacion_id) {
+      throw new BadRequestException(
+        'Este pago proviene de una compensación; gestiónalo desde la compensación.',
+      );
+    }
+
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      select: { estado: true },
+    });
+    if (factura?.estado === 'ANULADA') {
+      throw new BadRequestException(
+        'No se pueden modificar los cobros de una factura anulada',
+      );
+    }
+
+    // El monto actual del pago ya forma parte de lo cubierto, así que el saldo
+    // disponible para reasignarlo es el saldo pendiente + su propio monto.
+    const { saldo } = await this.obtenerSaldo(facturaId);
+    const disponible = saldo + this.n(pago.monto);
+    if (dto.monto > disponible + 0.005) {
+      throw new BadRequestException(
+        `El monto (${dto.monto}) excede el saldo disponible (${disponible.toFixed(2)}).`,
+      );
+    }
+
+    const archivo = file
+      ? this.guardarArchivo(file, 'pagos', `F${facturaId}`)
+      : null;
+    const comprobanteAnterior =
+      archivo && pago.ruta_comprobante ? pago.ruta_comprobante : null;
+
+    await this.prisma.pago.update({
+      where: { id: pagoId },
+      data: {
+        monto: dto.monto,
+        fecha: this.toDate(dto.fecha) ?? pago.fecha,
+        metodo: dto.metodo,
+        referencia: dto.referencia?.trim() ? dto.referencia : null,
+        observaciones: dto.observaciones?.trim() ? dto.observaciones : null,
+        ...(archivo && {
+          ruta_comprobante: archivo.ruta,
+          nombre_original_comprobante: archivo.original,
+        }),
+      },
+    });
+
+    if (comprobanteAnterior) this.borrarArchivo(comprobanteAnterior);
+
+    await this.actualizarEstadoPorSaldo(facturaId);
+    return this.findOneFactura(facturaId);
+  }
+
+  /**
+   * Elimina un pago y recalcula el estado de la factura. Si el pago proviene de
+   * una compensación, elimina también la compensación vinculada (con sus
+   * archivos) para no dejar el saldo inconsistente.
+   */
+  async eliminarPago(facturaId: number, pagoId: number) {
+    const pago = await this.prisma.pago.findUnique({ where: { id: pagoId } });
+    if (!pago || pago.factura_id !== facturaId) {
+      throw new NotFoundException(
+        `Pago ${pagoId} no encontrado en la factura ${facturaId}`,
+      );
+    }
+
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      select: { estado: true },
+    });
+    if (factura?.estado === 'ANULADA') {
+      throw new BadRequestException(
+        'No se pueden modificar los cobros de una factura anulada',
+      );
+    }
+
+    const archivos: (string | null)[] = [pago.ruta_comprobante];
+    let compensacionId: number | null = null;
+
+    if (pago.compensacion_id) {
+      const comp = await this.prisma.compensacion.findUnique({
+        where: { id: pago.compensacion_id },
+      });
+      if (comp) {
+        compensacionId = comp.id;
+        archivos.push(comp.ruta_acta, comp.ruta_factura_compra);
+      }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.pago.delete({ where: { id: pagoId } });
+      if (compensacionId) {
+        await tx.compensacion.delete({ where: { id: compensacionId } });
+      }
+    });
+
+    for (const ruta of archivos) this.borrarArchivo(ruta);
+
+    await this.actualizarEstadoPorSaldo(facturaId);
+    return this.findOneFactura(facturaId);
+  }
+
+  /**
+   * Fase C: cancelación por entrega de equipos. Registra la compensación y
+   * genera automáticamente un pago con método COMPENSACION por el valor
+   * acordado (descuento_autorizado) o el saldo pendiente si no se especifica.
+   */
+  async registrarCompensacion(
+    facturaId: number,
+    dto: RegistrarCompensacionDto,
+    files: { factura_compra?: Express.Multer.File[]; acta?: Express.Multer.File[] },
+    personaId: number | null,
+  ) {
+    const { saldo } = await this.obtenerSaldo(facturaId);
+    const monto = dto.descuento_autorizado ?? saldo;
+    if (monto > saldo + 0.005) {
+      throw new BadRequestException(
+        `El valor de la compensación (${monto}) excede el saldo pendiente (${saldo.toFixed(2)}).`,
+      );
+    }
+
+    const dirBase = path.join('.', 'uploads', 'financiero', 'compensaciones');
+    fs.mkdirSync(dirBase, { recursive: true });
+
+    const guardar = (file?: Express.Multer.File, prefijo?: string) => {
+      if (!file) return null;
+      const ext = path.extname(file.originalname || '.bin');
+      const nombre = `${facturaId}-${prefijo ?? 'archivo'}-${Date.now()}${ext}`;
+      fs.writeFileSync(path.join(dirBase, nombre), file.buffer);
+      return `/uploads/financiero/compensaciones/${nombre}`;
+    };
+
+    const compensacion = await this.prisma.compensacion.create({
+      data: {
+        factura_id: facturaId,
+        descripcion_equipo: dto.descripcion_equipo,
+        autorizacion_previa: dto.autorizacion_previa ?? false,
+        ruta_factura_compra: guardar(files?.factura_compra?.[0], 'factura-compra'),
+        ruta_acta: guardar(files?.acta?.[0], 'acta'),
+        descuento_autorizado: dto.descuento_autorizado,
+        observaciones: dto.observaciones,
+      },
+    });
+
+    await this.prisma.pago.create({
+      data: {
+        factura_id: facturaId,
+        monto,
+        metodo: 'COMPENSACION',
+        compensacion_id: compensacion.id,
+        observaciones: 'Cancelación por entrega de equipos',
+        registrado_por_id: personaId ?? undefined,
+      },
+    });
+
+    await this.actualizarEstadoPorSaldo(facturaId);
+    return this.findOneFactura(facturaId);
+  }
+
+  // ------------------------------------------------------------------
+  // AUTORIZACIÓN DE COMPENSACIONES (por el Director)
+  // ------------------------------------------------------------------
+
+  /** Puestos cuyo nombre contiene "director" → destinatarios de las notificaciones. */
+  private async personasDirector() {
+    const puestos = await this.prisma.personaPuesto.findMany({
+      where: {
+        activo: true,
+        puesto: { nombre: { contains: 'director', mode: 'insensitive' } },
+      },
+      select: { persona_id: true },
+    });
+    return [...new Set(puestos.map((p) => p.persona_id))];
+  }
+
+  /**
+   * El usuario financiero solicita al Director la autorización para registrar
+   * una compensación. Crea la solicitud PENDIENTE y notifica a todos los
+   * directores activos para que la aprueben desde el detalle de la factura.
+   */
+  async solicitarAutorizacionCompensacion(facturaId: number, userId: number) {
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      select: { id: true, numero: true, estado: true },
+    });
+    if (!factura) {
+      throw new NotFoundException(`Factura ${facturaId} no encontrada`);
+    }
+    if (factura.estado === 'ANULADA') {
+      throw new BadRequestException(
+        'No se puede solicitar autorización para una factura anulada.',
+      );
+    }
+
+    const ultima = await this.prisma.solicitudCompensacion.findFirst({
+      where: { factura_id: facturaId },
+      orderBy: { id: 'desc' },
+    });
+    if (ultima?.estado === 'PENDIENTE') {
+      throw new BadRequestException(
+        'Ya existe una solicitud de autorización pendiente para esta factura.',
+      );
+    }
+    if (ultima?.estado === 'APROBADA') {
+      throw new BadRequestException(
+        'La compensación de esta factura ya fue autorizada por el Director.',
+      );
+    }
+
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: userId },
+      select: { persona_id: true },
+    });
+
+    const solicitud = await this.prisma.solicitudCompensacion.create({
+      data: {
+        factura_id: facturaId,
+        solicitado_por_id: usuario?.persona_id ?? null,
+        estado: 'PENDIENTE',
+      },
+      include: {
+        solicitado_por: { select: { id: true, nombre: true, apellidos: true } },
+      },
+    });
+
+    const mensaje = `Solicitud de autorización para compensar la factura ${factura.numero} (entrega de equipos). Apruebe o rechace desde el detalle de la factura.`;
+    for (const personaId of await this.personasDirector()) {
+      await this.notificaciones.crear(
+        'compensacion_autorizacion',
+        mensaje,
+        personaId,
+        factura.id,
+      );
+    }
+
+    return solicitud;
+  }
+
+  /**
+   * El Director aprueba o rechaza la solicitud pendiente. Solo pueden resolver
+   * los usuarios cuyo puesto contenga "director" (o el usuario administrador).
+   * Al resolver se notifica al solicitante: si es APROBADA, el formulario de
+   * compensación queda habilitado en el detalle de la factura.
+   */
+  async autorizarCompensacion(
+    facturaId: number,
+    userId: number,
+    isGod: boolean,
+    dto: ResolverAutorizacionCompensacionDto,
+  ) {
+    const factura = await this.prisma.factura.findUnique({
+      where: { id: facturaId },
+      select: { id: true, numero: true },
+    });
+    if (!factura) {
+      throw new NotFoundException(`Factura ${facturaId} no encontrada`);
+    }
+
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: userId },
+      include: {
+        persona: {
+          select: {
+            id: true,
+            puestos: {
+              where: { activo: true },
+              orderBy: { orden_puesto: 'asc' },
+              take: 1,
+              include: { puesto: { select: { nombre: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    const puesto =
+      usuario?.persona?.puestos?.[0]?.puesto?.nombre?.toLowerCase() ?? '';
+    const esDirector = puesto.includes('director');
+    if (!isGod && !esDirector) {
+      throw new ForbiddenException(
+        'Solo el Director puede autorizar compensaciones.',
+      );
+    }
+
+    const solicitud = await this.prisma.solicitudCompensacion.findFirst({
+      where: { factura_id: facturaId, estado: 'PENDIENTE' },
+      orderBy: { id: 'desc' },
+    });
+    if (!solicitud) {
+      throw new BadRequestException(
+        'No hay una solicitud de autorización pendiente para esta factura.',
+      );
+    }
+
+    const resuelta = await this.prisma.solicitudCompensacion.update({
+      where: { id: solicitud.id },
+      data: {
+        estado: dto.estado,
+        observaciones: dto.observaciones ?? null,
+        resuelto_por_id: usuario?.persona?.id ?? null,
+        resuelto_at: new Date(),
+      },
+    });
+
+    if (solicitud.solicitado_por_id) {
+      const mensaje =
+        dto.estado === 'APROBADA'
+          ? `La compensación de la factura ${factura.numero} fue APROBADA por el Director. Ya puede registrarla.`
+          : `La solicitud de compensación de la factura ${factura.numero} fue RECHAZADA${
+              dto.observaciones ? ` — Motivo: "${dto.observaciones}"` : ''
+            }.`;
+      await this.notificaciones.crear(
+        dto.estado === 'APROBADA'
+          ? 'compensacion_autorizada'
+          : 'compensacion_rechazada',
+        mensaje,
+        solicitud.solicitado_por_id,
+        factura.id,
+      );
+    }
+
+    return resuelta;
+  }
+
+  // ------------------------------------------------------------------
+  // CARTERA (por vencer / vencida)
+  // ------------------------------------------------------------------
+
+  async cartera() {
+    const facturas = await this.prisma.factura.findMany({
+      where: { NOT: { estado: 'ANULADA' } },
+      include: {
+        cliente: CLIENTE_SELECT,
+        pagos: { select: { monto: true } },
+      },
+      orderBy: { fecha_vencimiento: 'asc' },
+    });
+
+    const items = facturas.map((f) => this.enriquecer(f));
+    const vencida = items.filter((i) => i.estado_cartera === 'VENCIDA');
+    const porVencer = items.filter((i) => i.estado_cartera === 'POR_VENCER');
+
+    return {
+      vencida,
+      por_vencer: porVencer,
+      total_vencida: vencida.reduce((s, i) => s + i.saldo, 0),
+      total_por_vencer: porVencer.reduce((s, i) => s + i.saldo, 0),
+      conteo_vencida: vencida.length,
+      conteo_por_vencer: porVencer.length,
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // DISTRIBUCIÓN DE RESULTADOS (reparto 15% / 85% entre dos empresas)
+  // ------------------------------------------------------------------
+
+  /** Fila única de configuración; si no existe se crea con valores por defecto. */
+  private async obtenerDistribucion() {
+    let cfg = await this.prisma.distribucionResultado.findUnique({
+      where: { id: 1 },
+    });
+    if (!cfg) {
+      cfg = await this.prisma.distribucionResultado.create({
+        data: {
+          id: 1,
+          habilitada: true,
+          // Reparto por cada factura: 85% para el centro (CMEE) y 15% para
+          // ESPE Innovativa. Base por defecto `facturado` = total de cada
+          // factura (no incluye egresos ni pagos).
+          empresa_a_nombre: 'ESPE Innovativa',
+          empresa_a_porcentaje: 15,
+          empresa_b_nombre: 'Centro de Metrología del Ejército Ecuatoriano',
+          empresa_b_porcentaje: 85,
+          base: 'facturado',
+          nota: 'Reparto sobre el total de cada factura: 85% al centro (CMEE) y 15% a ESPE Innovativa.',
+        },
+      });
+    }
+    return cfg;
+  }
+
+  async configurarDistribucion() {
+    const cfg = await this.obtenerDistribucion();
+    return {
+      habilitada: cfg.habilitada,
+      empresa_a: {
+        nombre: cfg.empresa_a_nombre,
+        porcentaje: this.n(cfg.empresa_a_porcentaje),
+      },
+      empresa_b: {
+        nombre: cfg.empresa_b_nombre,
+        porcentaje: this.n(cfg.empresa_b_porcentaje),
+      },
+      base: cfg.base,
+      nota: cfg.nota,
+    };
+  }
+
+  async actualizarDistribucion(dto: UpdateDistribucionDto) {
+    await this.obtenerDistribucion();
+    const data: any = {};
+    if (dto.habilitada !== undefined) data.habilitada = dto.habilitada;
+    if (dto.empresa_a_nombre !== undefined)
+      data.empresa_a_nombre = dto.empresa_a_nombre;
+    if (dto.empresa_a_porcentaje !== undefined)
+      data.empresa_a_porcentaje = dto.empresa_a_porcentaje;
+    if (dto.empresa_b_nombre !== undefined)
+      data.empresa_b_nombre = dto.empresa_b_nombre;
+    if (dto.empresa_b_porcentaje !== undefined)
+      data.empresa_b_porcentaje = dto.empresa_b_porcentaje;
+    if (dto.base !== undefined) data.base = dto.base;
+    if (dto.nota !== undefined) data.nota = dto.nota;
+    await this.prisma.distribucionResultado.update({
+      where: { id: 1 },
+      data,
+    });
+    return this.resumenDistribucion();
+  }
+
+  /**
+   * Calcula el monto a repartir para cada base (`neto` = facturas − egresos,
+   * `cobrado` = pagos, `facturado` = total facturas) por mes y total, aplicando
+   * los % de cada empresa. La vista `todos` la arma el frontend con los totales.
+   */
+  async resumenDistribucion() {
+    const cfg = await this.obtenerDistribucion();
+    const [facturas, egresos] = await Promise.all([
+      this.prisma.factura.findMany({
+        where: { NOT: { estado: 'ANULADA' } },
+        select: {
+          fecha_emision: true,
+          total: true,
+          monto_comprobante: true,
+          pagos: { select: { monto: true, fecha: true } },
+        },
+      }),
+      this.prisma.egreso.findMany({ select: { fecha: true, total: true } }),
+    ]);
+
+    const redondear2 = (x: number) => Math.round(x * 100) / 100;
+    const mesDe = (d: Date) => d.toISOString().slice(0, 7);
+    const sumar = (map: Map<string, number>, key: string, valor: number) => {
+      map.set(key, (map.get(key) ?? 0) + valor);
+    };
+
+    const facturado = new Map<string, number>();
+    const cobrado = new Map<string, number>();
+    const egresosMes = new Map<string, number>();
+
+    for (const f of facturas) {
+      const t = this.n(f.total);
+      if (t) sumar(facturado, mesDe(f.fecha_emision), t);
+      for (const p of f.pagos ?? []) {
+        const m = this.n(p.monto);
+        if (m) sumar(cobrado, mesDe(p.fecha), m);
+      }
+      // El comprobante de pago también es un cobro; se imputa al mes de emisión
+      // de la factura (es la fecha disponible más cercana al pago).
+      const comp = this.n(f.monto_comprobante);
+      if (comp) sumar(cobrado, mesDe(f.fecha_emision), comp);
+    }
+    for (const e of egresos) {
+      const t = this.n(e.total);
+      if (t) sumar(egresosMes, mesDe(e.fecha), t);
+    }
+
+    const neto = new Map<string, number>();
+    for (const k of new Set([...facturado.keys(), ...egresosMes.keys()])) {
+      neto.set(k, (facturado.get(k) ?? 0) - (egresosMes.get(k) ?? 0));
+    }
+
+    const pctA = this.n(cfg.empresa_a_porcentaje);
+    const pctB = this.n(cfg.empresa_b_porcentaje);
+
+    const construir = (map: Map<string, number>) => {
+      const meses = [...map.keys()].sort();
+      const total = redondear2(meses.reduce((s, k) => s + (map.get(k) ?? 0), 0));
+      return {
+        total,
+        por_mes: meses.map((k) => {
+          const v = map.get(k) ?? 0;
+          return {
+            mes: k,
+            total: redondear2(v),
+            empresa_a: redondear2((v * pctA) / 100),
+            empresa_b: redondear2((v * pctB) / 100),
+          };
+        }),
+      };
+    };
+
+    return {
+      config: await this.configurarDistribucion(),
+      bases: {
+        neto: construir(neto),
+        cobrado: construir(cobrado),
+        facturado: construir(facturado),
+      },
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // FASE D — alertas de próxima calibración
+  // ------------------------------------------------------------------
+
+  async proximasCalibraciones(horizonte?: number) {
+    const h = horizonte ?? 90;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = new Date(hoy);
+    limite.setDate(limite.getDate() + h);
+
+    const equipos = await this.prisma.equipoRecepcion.findMany({
+      where: {
+        fecha_proxima_calibracion: { not: null, lte: limite },
+      },
+      include: {
+        orden_trabajo: {
+          select: {
+            id: true,
+            orden_trabajo_fisica: true,
+            cliente: { select: { id: true, nombre: true } },
+          },
+        },
+        laboratorio: { select: { id: true, nombre: true } },
+        tecnico: { select: { id: true, nombre: true, apellidos: true } },
+        certificados: {
+          select: { id: true, numero_certificado: true },
+          orderBy: { id: 'desc' as const },
+          take: 1,
+        },
+      },
+      orderBy: { fecha_proxima_calibracion: 'asc' as const },
+    });
+
+    return equipos.map((e) => {
+      const venc = new Date(e.fecha_proxima_calibracion!);
+      venc.setHours(0, 0, 0, 0);
+      const dias = Math.round(
+        (venc.getTime() - hoy.getTime()) / 86400000,
+      );
+      return {
+        ...e,
+        dias_restantes: dias,
+        estado_calibracion: dias < 0 ? 'VENCIDA' : 'PROXIMA',
+      };
+    });
+  }
+
+  /**
+   * Genera notificaciones a los responsables de servicio al cliente para los
+   * equipos con calibración vencida o que vence en los próximos 30 días.
+   */
+  async notificarProximasCalibraciones() {
+    const alertas = await this.proximasCalibraciones(30);
+    const relevantes = alertas.filter((a) => a.dias_restantes <= 30);
+    if (relevantes.length === 0) return { notificadas: 0, total: 0 };
+
+    const asignaciones = await this.prisma.personaPuesto.findMany({
+      where: {
+        activo: true,
+        puesto: {
+          nombre: { contains: 'responsable servicio al cliente', mode: 'insensitive' },
+        },
+      },
+      select: { persona_id: true },
+    });
+    const personaIds = [...new Set(asignaciones.map((a) => a.persona_id))];
+    if (personaIds.length === 0) return { notificadas: 0, total: relevantes.length };
+
+    let notificadas = 0;
+    for (const eq of relevantes) {
+      const cliente = eq.orden_trabajo?.cliente?.nombre ?? '';
+      const mensaje =
+        eq.dias_restantes < 0
+          ? `El equipo "${eq.equipo_descripcion}" (${cliente}) tiene la calibración VENCIDA desde hace ${Math.abs(eq.dias_restantes)} días.`
+          : `El equipo "${eq.equipo_descripcion}" (${cliente}) vence su calibración en ${eq.dias_restantes} día(s).`;
+      for (const personaId of personaIds) {
+        try {
+          await this.notificaciones.crear(
+            'calibracion_proxima',
+            mensaje,
+            personaId,
+            eq.id,
+          );
+          notificadas++;
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error('No se pudo notificar próxima calibración:', error);
+        }
+      }
+    }
+    return { notificadas, total: relevantes.length };
+  }
+
+  // ------------------------------------------------------------------
+  // Parser XML SRI (factura electrónica del sistema financiero)
+  // ------------------------------------------------------------------
+
+  private nDesdeString(v: any, def: number): number {
+    const n = parseFloat(String(v ?? '').replace(',', '.'));
+    return Number.isFinite(n) ? n : def;
+  }
+
+  /** Fecha SRI dd/MM/yyyy → Date. */
+  private parseFechaSRI(s: any): Date {
+    if (!s) return new Date();
+    const [dd, mm, yyyy] = String(s)
+      .split('/')
+      .map((x) => parseInt(x, 10));
+    const d = new Date(yyyy || 1970, (mm || 1) - 1, dd || 1);
+    return Number.isNaN(d.getTime()) ? new Date() : d;
+  }
+
+  /**
+   * Porcentaje de retención de IVA según el catálogo de codigoPorcentaje del
+   * SRI (usado cuando el XML no trae `porcentajeRetener`):
+   * 1=30% bienes/servicios, 2=70% servicios professionales/consultoría,
+   * 3=100% personas naturales, 6=10% contribuyente especial, 7=20% idem,
+   * 8=50% (régimen simplificado/TMC).
+   */
+  private porcentajePorCodigoRetencion(codigoPorcentaje: string): number {
+    const tabla: Record<string, number> = {
+      '1': 30,
+      '2': 70,
+      '3': 100,
+      '6': 10,
+      '7': 20,
+      '8': 50,
+    };
+    return tabla[codigoPorcentaje] ?? 0;
+  }
+
+  /**
+   * Resume las retenciones de un comprobante: la de IVA (código 2, se aplica
+   * sobre el IVA de la factura) y la de RENTA (código 1, sobre el subtotal),
+   * con sus montos y porcentajes. Ambas reducen el saldo por cobrar.
+   */
+  private resumirRetenciones(
+    retenciones: {
+      codigo: string;
+      codigoPorcentaje: string;
+      porcentajeRetener: number;
+      valorRetenido: number;
+    }[],
+  ) {
+    const redondear2 = (n: number) => Math.round(n * 100) / 100;
+    const resumir = (codigo: string) => {
+      const lista = retenciones.filter((r) => r.codigo === codigo);
+      const total = redondear2(
+        lista.reduce((s, r) => s + r.valorRetenido, 0),
+      );
+      const primera = lista[0];
+      // El porcentaje suele venir explícito en el XML; si falta, el catálogo de
+      // respaldo solo aplica al IVA (la RENTA usa otro catálogo de códigos).
+      const porcentaje =
+        primera && primera.porcentajeRetener > 0
+          ? redondear2(primera.porcentajeRetener)
+          : primera && codigo === '2'
+            ? this.porcentajePorCodigoRetencion(primera.codigoPorcentaje)
+            : 0;
+      return { total, porcentaje };
+    };
+    const iva = resumir('2');
+    const renta = resumir('1');
+    return {
+      retencionIvaTotal: iva.total,
+      porcentajeRetencionIva: iva.porcentaje,
+      retencionRentaTotal: renta.total,
+      porcentajeRetencionRenta: renta.porcentaje,
+    };
+  }
+
+  private parsearXmlSRI(xmlText: string) {
+    const parser = new XMLParser({ ignoreAttributes: true, parseTagValue: false });
+    let raiz: any;
+    try {
+      raiz = parser.parse(xmlText);
+    } catch {
+      throw new BadRequestException('El archivo no es un XML válido.');
+    }
+
+    // Estructura real con la que se trabaja (SRI):
+    //   <autorizacion>
+    //     <estado>AUTORIZADO</estado>
+    //     <numeroAutorizacion>…</numeroAutorizacion>
+    //     <fechaAutorizacion>…</fechaAutorizacion>
+    //     <ambiente>PRODUCCIÓN</ambiente>
+    //     <comprobante><![CDATA[ <factura …>…</factura> ]]></comprobante>
+    //     <mensajes/>
+    //   </autorizacion>
+    const autorizacion = raiz?.autorizacion ?? null;
+
+    let factura: any = null;
+    let informacionAutorizacion: {
+      numero: string | null;
+      fecha: Date | null;
+      ambiente: string | null;
+    } = { numero: null, fecha: null, ambiente: null };
+
+    if (autorizacion) {
+      informacionAutorizacion = {
+        numero: autorizacion.numeroAutorizacion ?? null,
+        fecha: autorizacion.fechaAutorizacion
+          ? new Date(String(autorizacion.fechaAutorizacion).replace(' ', 'T'))
+          : null,
+        ambiente: autorizacion.ambiente ?? null,
+      };
+
+      const comprobanteStr: unknown = autorizacion.comprobante;
+      if (typeof comprobanteStr !== 'string' || !comprobanteStr.trim()) {
+        throw new BadRequestException(
+          'El XML de autorización no contiene el comprobante (CDATA).',
+        );
+      }
+
+      // El comprobante viaja como texto CDATA: se re-parsea para obtener la
+      // factura. Con ignoreAttributes:false se capturan también los atributos
+      // (p. ej. campoAdicional nombre="…").
+      try {
+        const nodo = new XMLParser({
+          ignoreAttributes: false,
+          attributeNamePrefix: '@_',
+          parseTagValue: false,
+        }).parse(comprobanteStr);
+        factura = nodo?.factura ?? nodo?.comprobante ?? null;
+      } catch {
+        throw new BadRequestException(
+          'El comprobante dentro del XML no es un XML válido.',
+        );
+      }
+    } else {
+      // Compatibilidad: XML de la factura directo (sin envoltorio).
+      factura = raiz?.factura ?? raiz?.comprobante ?? null;
+    }
+
+    if (!factura?.infoTributaria || !factura?.infoFactura) {
+      throw new BadRequestException(
+        'El XML no parece ser una factura electrónica válida (faltan infoTributaria/infoFactura).',
+      );
+    }
+
+    const it: any = factura.infoTributaria;
+    const inf: any = factura.infoFactura;
+
+    const numero = [
+      String(it.estab ?? '').padStart(3, '0'),
+      String(it.ptoEmi ?? '').padStart(3, '0'),
+      String(it.secuencial ?? '').padStart(9, '0'),
+    ].join('-');
+
+    const totalImpuestos = Array.isArray(inf?.totalConImpuestos?.totalImpuesto)
+      ? inf.totalConImpuestos.totalImpuesto
+      : inf?.totalConImpuestos?.totalImpuesto
+        ? [inf.totalConImpuestos.totalImpuesto]
+        : [];
+    const iva = totalImpuestos.reduce(
+      (s: number, t: any) => s + this.nDesdeString(t?.valor, 0),
+      0,
+    );
+
+    const rawDetalles = factura?.detalles?.detalle;
+    const detalleArr = Array.isArray(rawDetalles)
+      ? rawDetalles
+      : rawDetalles
+        ? [rawDetalles]
+        : [];
+
+    const detalle = detalleArr.map((d: any) => ({
+      concepto: String(d?.descripcion ?? 'Ítem'),
+      cantidad: Math.max(1, Math.round(this.nDesdeString(d?.cantidad, 1))),
+      precio_unitario: this.nDesdeString(d?.precioUnitario, 0),
+      valor_total: this.nDesdeString(d?.precioTotalSinImpuesto, 0),
+    }));
+
+    // Retenciones del comprobante (<retenciones><retencion>): se aplican al
+    // pagar y van dirigidas al emisor. Código del SRI: 2 = IVA, 1 = RENTA (IR).
+    // Se conserva el detalle completo y se resume la parte de IVA.
+    const rawRetenciones = factura?.retenciones?.retencion;
+    const retencionesArr = Array.isArray(rawRetenciones)
+      ? rawRetenciones
+      : rawRetenciones
+        ? [rawRetenciones]
+        : [];
+    const retenciones = retencionesArr
+      .filter((r: any) => r && typeof r === 'object')
+      .map((r: any) => ({
+        codigo: String(r?.codigo ?? ''),
+        codigoPorcentaje: String(r?.codigoPorcentaje ?? ''),
+        baseImponible: this.nDesdeString(r?.baseImponible, 0),
+        porcentajeRetener: this.nDesdeString(r?.porcentajeRetener, 0),
+        valorRetenido: this.nDesdeString(r?.valorRetenido, 0),
+      }))
+      .filter((r) => r.codigo !== '');
+    const {
+      retencionIvaTotal,
+      porcentajeRetencionIva,
+      retencionRentaTotal,
+      porcentajeRetencionRenta,
+    } = this.resumirRetenciones(retenciones);
+
+    // infoAdicional → { [nombre]: valor } (p. ej. "RUC Proveedor").
+    const infoAdicional: Record<string, string> = {};
+    const rawCampos = factura?.infoAdicional?.campoAdicional;
+    const camposArr = Array.isArray(rawCampos)
+      ? rawCampos
+      : rawCampos
+        ? [rawCampos]
+        : [];
+    for (const c of camposArr) {
+      const nombre =
+        c && typeof c === 'object' ? (c['@_nombre'] ?? null) : null;
+      if (!nombre) continue;
+      const valor =
+        c && typeof c === 'object'
+          ? String(c['#text'] ?? '')
+          : String(c ?? '');
+      infoAdicional[String(nombre)] = valor.trim();
+    }
+
+    // Plazo de crédito que sugiere el propio XML (pagos/pago/plazo).
+    let plazoSugerido: number | null = null;
+    const rawPago = inf?.pagos?.pago;
+    const pagosArr = Array.isArray(rawPago) ? rawPago : rawPago ? [rawPago] : [];
+    for (const p of pagosArr) {
+      const plazo = parseInt(String(p?.plazo ?? ''), 10);
+      if (Number.isFinite(plazo) && plazo > 0) {
+        plazoSugerido = plazo;
+        break;
+      }
+    }
+
+    return {
+      numero,
+      clave_acceso: it?.claveAcceso ?? null,
+      razon_social_cliente: inf?.razonSocialComprador ?? null,
+      ruc_cliente: inf?.identificacionComprador ?? null,
+      fecha_emision: this.parseFechaSRI(inf?.fechaEmision),
+      subtotal: this.nDesdeString(inf?.totalSinImpuestos, 0),
+      iva,
+      total: this.nDesdeString(inf?.importeTotal, 0),
+      retencion_iva: retencionIvaTotal,
+      porcentaje_retencion_iva: porcentajeRetencionIva,
+      retencion_renta: retencionRentaTotal,
+      porcentaje_retencion_renta: porcentajeRetencionRenta,
+      retenciones,
+      detalle,
+      numero_autorizacion: informacionAutorizacion.numero,
+      fecha_autorizacion: informacionAutorizacion.fecha,
+      ambiente: informacionAutorizacion.ambiente,
+      info_adicional: infoAdicional,
+      plazo_sugerido: plazoSugerido,
+    };
+  }
+
+  /**
+   * Parser del COMPROBANTE DE RETENCIÓN del SRI (codDoc 07). A diferencia de
+   * una factura, este documento trae la retención que el cliente (agente de
+   * retención) aplica al pagar. Estructura:
+   *   <autorizacion>
+   *     <comprobante><![CDATA[
+   *       <comprobanteRetencion>
+   *         <infoCompRetencion>…</infoCompRetencion>
+   *         <docsSustento><docSustento>
+   *           <retenciones><retencion>…</retencion></retenciones>
+   *           <pagos>…</pagos>
+   *         </docSustento></docsSustento>
+   *       </comprobanteRetencion>
+   *     ]]></comprobante>
+   *   </autorizacion>
+   *
+   * Catálogo del SRI para el <codigo> de la retención: 1 = RENTA, 2 = IVA. El
+   * IVA se retiene sobre el propio IVA de la factura; la RENTA, sobre el
+   * subtotal. Aquí solo se resume la parte de IVA (lo que descuenta el saldo
+   * por cobrar); el resto queda en el detalle.
+   */
+  private parsearXmlRetencion(xmlText: string) {
+    const parser = new XMLParser({ ignoreAttributes: true, parseTagValue: false });
+    let raiz: any;
+    try {
+      raiz = parser.parse(xmlText);
+    } catch {
+      throw new BadRequestException('El archivo no es un XML válido.');
+    }
+
+    const autorizacion = raiz?.autorizacion ?? null;
+    let comprobante: any = null;
+    let informacionAutorizacion: {
+      numero: string | null;
+      fecha: Date | null;
+      ambiente: string | null;
+    } = { numero: null, fecha: null, ambiente: null };
+
+    if (autorizacion) {
+      informacionAutorizacion = {
+        numero: autorizacion.numeroAutorizacion ?? null,
+        fecha: autorizacion.fechaAutorizacion
+          ? new Date(String(autorizacion.fechaAutorizacion).replace(' ', 'T'))
+          : null,
+        ambiente: autorizacion.ambiente ?? null,
+      };
+
+      const comprobanteStr: unknown = autorizacion.comprobante;
+      if (typeof comprobanteStr !== 'string' || !comprobanteStr.trim()) {
+        throw new BadRequestException(
+          'El XML de autorización no contiene el comprobante (CDATA).',
+        );
+      }
+      try {
+        const nodo = new XMLParser({
+          ignoreAttributes: true,
+          parseTagValue: false,
+        }).parse(comprobanteStr);
+        comprobante = nodo?.comprobanteRetencion ?? null;
+      } catch {
+        throw new BadRequestException(
+          'El comprobante dentro del XML no es un XML válido.',
+        );
+      }
+    } else {
+      // Compatibilidad: comprobante de retención directo (sin envoltorio).
+      comprobante = raiz?.comprobanteRetencion ?? null;
+    }
+
+    if (!comprobante?.infoCompRetencion) {
+      throw new BadRequestException(
+        'El XML no parece ser un comprobante de retención válido (falta infoCompRetencion).',
+      );
+    }
+
+    const info: any = comprobante.infoCompRetencion;
+
+    // docsSustento/docSustento (puede haber más de uno). Se aplanan sus
+    // retenciones y se toma el primer documento de sustento como referencia.
+    const rawDoc = comprobante?.docsSustento?.docSustento;
+    const docsArr = Array.isArray(rawDoc) ? rawDoc : rawDoc ? [rawDoc] : [];
+
+    let numDocSustento: string | null = null;
+    let fechaDocSustento: string | null = null;
+    const retencionesRaw: any[] = [];
+    for (const doc of docsArr) {
+      if (!numDocSustento && doc?.numDocSustento) {
+        numDocSustento = String(doc.numDocSustento);
+      }
+      if (!fechaDocSustento && doc?.fechaEmisionDocSustento) {
+        fechaDocSustento = String(doc.fechaEmisionDocSustento);
+      }
+      const rawRet = doc?.retenciones?.retencion;
+      const arr = Array.isArray(rawRet) ? rawRet : rawRet ? [rawRet] : [];
+      retencionesRaw.push(...arr);
+    }
+
+    const retenciones = retencionesRaw
+      .filter((r) => r && typeof r === 'object')
+      .map((r) => ({
+        codigo: String(r?.codigo ?? ''),
+        // En el comprobante de retención el código de porcentaje se llama
+        // `codigoRetencion`; se normaliza al mismo nombre que usa la factura.
+        codigoPorcentaje: String(r?.codigoRetencion ?? ''),
+        baseImponible: this.nDesdeString(r?.baseImponible, 0),
+        porcentajeRetener: this.nDesdeString(r?.porcentajeRetener, 0),
+        valorRetenido: this.nDesdeString(r?.valorRetenido, 0),
+      }))
+      .filter((r) => r.codigo !== '');
+
+    // Se resumen IVA (código 2) y RENTA (código 1): ambas reducen el saldo.
+    const {
+      retencionIvaTotal,
+      porcentajeRetencionIva,
+      retencionRentaTotal,
+      porcentajeRetencionRenta,
+    } = this.resumirRetenciones(retenciones);
+
+    return {
+      numero_autorizacion: informacionAutorizacion.numero,
+      fecha_autorizacion: informacionAutorizacion.fecha,
+      ambiente: informacionAutorizacion.ambiente,
+      razon_social_sujeto_retenido: info?.razonSocialSujetoRetenido ?? null,
+      identificacion_sujeto_retenido:
+        info?.identificacionSujetoRetenido ?? null,
+      periodo_fiscal: info?.periodoFiscal ?? null,
+      fecha_emision: info?.fechaEmision
+        ? this.parseFechaSRI(info.fechaEmision)
+        : null,
+      num_doc_sustento: numDocSustento,
+      fecha_doc_sustento: fechaDocSustento,
+      retencion_iva: retencionIvaTotal,
+      porcentaje_retencion_iva: porcentajeRetencionIva,
+      retencion_renta: retencionRentaTotal,
+      porcentaje_retencion_renta: porcentajeRetencionRenta,
+      retenciones,
+    };
+  }
+}

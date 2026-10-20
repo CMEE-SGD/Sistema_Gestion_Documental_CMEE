@@ -27,6 +27,22 @@ function conNumeroFormateado<
   };
 }
 
+// Fase A del flujograma: fecha de calibración y fecha de la próxima
+// calibración, capturadas al momento de subir el certificado (el laboratorio
+// las conoce porque el propio certificado las declara). ''/undefined deja la
+// fecha como esté; un valor no parseable se rechaza a propósito (400).
+function fechaCalibracionDesdeStr(
+  valor: string | undefined,
+  campo: string,
+): Date | undefined {
+  if (valor === undefined || valor === '') return undefined;
+  const d = new Date(valor);
+  if (Number.isNaN(d.getTime())) {
+    throw new BadRequestException(`${campo} no es una fecha válida`);
+  }
+  return d;
+}
+
 // Mismo rango de diacríticos combinables (NFD) que ya usa normalizePuesto()
 // en recepcion-equipos.service.ts — construido desde códigos numéricos en
 // vez de ̀-ͯ literal para que el archivo no dependa de tener esos
@@ -60,6 +76,8 @@ export class CertificadosService {
     equipoRecepcionId: number,
     user: HydratedUser,
     servicioId?: number,
+    fechaCalibracion?: string,
+    fechaProximaCalibracion?: string,
   ) {
     const equipo = await this.prisma.equipoRecepcion.findUnique({
       where: { id: equipoRecepcionId },
@@ -96,6 +114,15 @@ export class CertificadosService {
         'El procedimiento seleccionado no pertenece al laboratorio del equipo o no está activo',
       );
     }
+
+    const fechaCal = fechaCalibracionDesdeStr(
+      fechaCalibracion,
+      'Fecha de calibración',
+    );
+    const fechaProxima = fechaCalibracionDesdeStr(
+      fechaProximaCalibracion,
+      'Fecha de próxima calibración',
+    );
 
     const personaId = user.persona_id;
     const puesto = user.puesto ?? '';
@@ -146,6 +173,10 @@ export class CertificadosService {
         data: {
           estado: EstadoRecepcion.REVISION_OBT,
           servicio_id: servicioId,
+          ...(fechaCal !== undefined && { fecha_calibracion: fechaCal }),
+          ...(fechaProxima !== undefined && {
+            fecha_proxima_calibracion: fechaProxima,
+          }),
         },
       });
 
