@@ -75,6 +75,13 @@ export const DESCRIPCION_NIVELES: Record<string, Partial<Record<number, string>>
     4: 'Ver dashboards',
     5: 'Ver dashboards',
   },
+  Inventario: {
+    1: 'Ver productos y movimientos',
+    2: 'Ver productos y movimientos',
+    3: 'Ver productos y movimientos',
+    4: 'Editar y registrar movimientos',
+    5: 'Dar de baja productos',
+  },
 };
 
 /** Texto corto a mostrar para un nivel de una aplicación. */
