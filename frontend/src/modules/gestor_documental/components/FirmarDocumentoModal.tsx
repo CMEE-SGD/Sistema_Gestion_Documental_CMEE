@@ -30,6 +30,8 @@ interface Props {
   archivoUrl: string | null;
   tituloAccion: string;
   onSuccess: () => void;
+  /** false para archivos que no son PDF (Word, Excel…): solo se puede aprobar o rechazar, no firmar. */
+  permiteFirma?: boolean;
 }
 
 type Accion = 'FIRMAR' | 'APROBAR' | 'RECHAZAR';
@@ -58,6 +60,7 @@ export default function FirmarDocumentoModal({
   archivoUrl,
   tituloAccion,
   onSuccess,
+  permiteFirma = true,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -365,7 +368,8 @@ export default function FirmarDocumentoModal({
               <label className="mb-2 block text-sm font-medium text-foreground">
                 Decisión
               </label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className={cn('grid gap-3', permiteFirma ? 'grid-cols-3' : 'grid-cols-2')}>
+                {permiteFirma && (
                 <button
                   type="button"
                   onClick={() => setAccion('FIRMAR')}
@@ -380,6 +384,7 @@ export default function FirmarDocumentoModal({
                   <FileSignature className="h-5 w-5" />
                   Firmar documento
                 </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setAccion('APROBAR')}

@@ -680,7 +680,7 @@ export const DetalleDocumentoPage = () => {
                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                                     >
                                         <FileSignature className="w-4 h-4" />
-                                        Firmar / Aprobar
+                                        {esArchivoPdf ? 'Firmar / Aprobar' : 'Aprobar / Rechazar'}
                                     </button>
                                 </div>
                             ) : null;
@@ -700,6 +700,7 @@ export const DetalleDocumentoPage = () => {
                 archivoUrl={documento.archivo_url}
                 tituloAccion={documento.workflow?.fases?.find((f: any) => f.estado === 'EN_CURSO')?.fase?.nombre || documento.nombre}
                 onSuccess={handleFirmaSuccess}
+                permiteFirma={esArchivoPdf}
             />
 
             {showLogModal && (
