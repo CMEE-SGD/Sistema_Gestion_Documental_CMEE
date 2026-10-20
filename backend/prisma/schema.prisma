@@ -185,6 +185,7 @@ model Persona {
   solicitudes_compensacion_enviadas SolicitudCompensacion[] @relation("PersonaSolicitaCompensacion")
   compensaciones_autorizadas       SolicitudCompensacion[] @relation("PersonaResuelveCompensacion")
   egresos_registrados              Egreso[]      @relation("PersonaRegistraEgreso")
+  movimientos_inventario           MovimientoInventario[] @relation("MovInventarioPersona")
 
   @@map("persona")
 }
@@ -1818,4 +1819,107 @@ model DistribucionResultado {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("distribucion_resultado")
+}
+
+// ==========================================
+// MÓDULO INVENTARIO (INSUMOS Y MATERIALES)
+// ==========================================
+// Inventario independiente de insumos/materiales del centro (reactivos,
+// gases, patrones de referencia, materiales de consumo). El stock vive
+// denormalizado en `productos_inventario.stock_actual` y cada cambio queda
+// registrado en el kardex `movimientos_inventario` con snapshot del stock
+// anterior/posterior, de modo que la tabla de movimientos es auditable sin
+// recalcular. Integración futura (compras desde Egresos, consumos desde
+// órdenes de trabajo) puede agregarse como columnas nullable sin migración
+// estructural.
+enum UnidadMedida {
+  UNIDAD
+  CAJA
+  KIT
+  KG
+  G
+  L
+  ML
+  M
+}
+
+enum TipoMovimientoInventario {
+  ENTRADA
+  SALIDA
+  AJUSTE
+}
+
+enum MotivoMovimiento {
+  COMPRA
+  CONSUMO_LABORATORIO
+  MERMA
+  DEVOLUCION
+  AJUSTE_INVENTARIO
+  OTRO
+}
+
+model CategoriaInsumo {
+  id        Int     @id @default(autoincrement())
+  nombre    String  @unique @db.VarChar(100)
+  activo    Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  productos Producto[]
+
+  @@map("categorias_insumo")
+}
+
+model Producto {
+  id          Int          @id @default(autoincrement())
+  codigo      String       @unique @db.VarChar(30)
+  nombre      String       @db.VarChar(200)
+  descripcion String?      @db.Text
+  unidad      UnidadMedida @default(UNIDAD)
+
+  categoria_id Int
+  categoria    CategoriaInsumo @relation(fields: [categoria_id], references: [id], onDelete: Restrict)
+
+  // Stock denormalizado: se actualiza en la MISMA transacción que registra
+  // cada movimiento (nunca se edita directamente desde el formulario).
+  stock_actual Decimal @default(0) @db.Decimal(12, 3)
+  stock_minimo Decimal @default(0) @db.Decimal(12, 3) // alerta: stock <= mínimo
+
+  ubicacion         String?  @db.VarChar(150) // estante/almacén
+  fecha_ultimo_mov DateTime? @db.Timestamptz
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  movimientos MovimientoInventario[]
+
+  @@index([categoria_id])
+  @@map("productos_inventario")
+}
+
+model MovimientoInventario {
+  id          Int      @id @default(autoincrement())
+  producto_id Int
+  producto    Producto @relation(fields: [producto_id], references: [id], onDelete: Restrict)
+
+  tipo     TipoMovimientoInventario
+  motivo   MotivoMovimiento @default(CONSUMO_LABORATORIO)
+  cantidad Decimal @db.Decimal(12, 3) // siempre > 0
+
+  // Snapshot al momento del movimiento: auditoría del kardex sin recálculo.
+  stock_anterior Decimal @db.Decimal(12, 3)
+  stock_posterior Decimal @db.Decimal(12, 3)
+
+  descripcion String?  @db.Text // p. ej. referencia a OT, compra o motivo
+  fecha       DateTime @default(now()) @db.Timestamptz
+
+  registrado_por_id Int?
+  registrado_por    Persona? @relation("MovInventarioPersona", fields: [registrado_por_id], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([producto_id])
+  @@index([fecha])
+  @@map("movimientos_inventario")
 }

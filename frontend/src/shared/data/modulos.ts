@@ -40,6 +40,9 @@ export const modules: Module[] = [
 
   { id: 20, name: "Gestion de Calidad", category: "Calidad", path: "/calidad/auditorias" },
 
+  { id: 28, name: "Inventario", category: "Insumos y Materiales", path: "/inventario/productos" },
+  { id: 29, name: "Movimientos de Inventario", category: "Insumos y Materiales", path: "/inventario/movimientos" },
+
   { id: 21, name: "Inicio", category: "General", path: "/welcome" },
   { id: 22, name: "Preferencias", category: "General", path: "/preferencias" },
 ];

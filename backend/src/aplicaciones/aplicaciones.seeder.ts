@@ -53,6 +53,10 @@ export class AplicacionesSeeder implements OnModuleInit {
         nombre: 'Resumen',
         descripcion: 'Dashboards del sistema por clientes y laboratorios',
       },
+      {
+        nombre: 'Inventario',
+        descripcion: 'Inventario de insumos y materiales del centro',
+      },
     ];
 
     for (const app of aplicacionesBase) {

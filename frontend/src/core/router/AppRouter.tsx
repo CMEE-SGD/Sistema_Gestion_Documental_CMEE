@@ -117,6 +117,12 @@ import DashboardClientes from '../../modules/resumen/pages/DashboardClientes';
 import DashboardLaboratorios from '../../modules/resumen/pages/DashboardLaboratorios';
 import DashboardFinanciero from '../../modules/resumen/pages/DashboardFinanciero';
 
+// --- MÓDULO INVENTARIO (insumos y materiales) ---
+import { InventarioLayout } from '../../modules/inventario/InventarioLayout';
+import ProductosPage from '../../modules/inventario/pages/ProductosPage';
+import DetalleProductoPage from '../../modules/inventario/pages/DetalleProductoPage';
+import MovimientosPage from '../../modules/inventario/pages/MovimientosPage';
+
 // --- PÚBLICO (sin sesión) ---
 import VerificarCertificadoPage from '../../modules/publico/pages/VerificarCertificadoPage';
 import VerificarDocumentoPage from '../../modules/publico/pages/VerificarDocumentoPage';
@@ -259,6 +265,14 @@ const AppContenido = () => {
           <Route path="financiero" element={<DashboardFinanciero />} />
           <Route path="clientes" element={<DashboardClientes />} />
           <Route path="laboratorios" element={<DashboardLaboratorios />} />
+        </Route>
+
+        {/* --- MÓDULO INVENTARIO (insumos y materiales) --- */}
+        <Route path="/inventario" element={<InventarioLayout />}>
+          <Route index element={<Navigate to="productos" replace />} />
+          <Route path="productos" element={<ProductosPage />} />
+          <Route path="productos/:id" element={<DetalleProductoPage />} />
+          <Route path="movimientos" element={<MovimientosPage />} />
         </Route>
         </Route>
 
