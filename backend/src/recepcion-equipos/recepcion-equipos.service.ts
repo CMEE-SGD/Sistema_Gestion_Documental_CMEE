@@ -20,6 +20,7 @@ import {
   resolverDestinatarios,
 } from '../common/helpers/notificar-responsables-equipo';
 import { RegistrarFechasCalibracionDto } from './dto/registrar-fechas-calibracion.dto';
+import { decodificarNombreArchivo } from '../common/helpers/encoding';
 
 // El filtro de `equipos` va DENTRO del include (no solo en el `where` de la
 // orden) porque una orden puede agrupar equipos de varios laboratorios —
@@ -252,7 +253,7 @@ export class RecepcionEquiposService {
     fs.writeFileSync(path.join(dir, nombre), file.buffer);
     return {
       ruta: `/uploads/entrega/comprobantes/${nombre}`,
-      original: file.originalname,
+      original: decodificarNombreArchivo(file.originalname),
     };
   }
 

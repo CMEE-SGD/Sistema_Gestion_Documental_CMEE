@@ -159,6 +159,29 @@ export class PersonasService {
   }
 
   /**
+   * Ficha de la persona asociada al usuario logueado. Es autoservicio: no
+   * exige permiso de Recursos Humanos y nunca recibe un id del cliente, solo
+   * el id del usuario autenticado.
+   * @param usuarioId - Id del usuario autenticado (req.user.id)
+   * @returns Objeto complejo / PrismaResponse
+   */
+  async findOneByUsuario(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { persona: { select: { id: true } } },
+    });
+
+    const personaId = usuario?.persona?.id;
+    if (!personaId) {
+      throw new NotFoundException(
+        'El usuario autenticado no tiene una persona asociada',
+      );
+    }
+
+    return this.findOne(personaId);
+  }
+
+  /**
    * Ejecuta la operación de negocio eliminarDocumento.
    * @param id - Datos o identificador requerido (number)
    * @returns Objeto complejo / PrismaResponse

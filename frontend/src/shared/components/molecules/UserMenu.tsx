@@ -86,7 +86,12 @@ const UserMenu = () => {
         <div className="absolute right-0 top-12 w-72 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
           
           {/* Cabecera del usuario */}
-          <div className="flex items-center gap-4 px-5 py-4 border-b border-border bg-muted/30">
+          <button
+            type="button"
+            onClick={() => { setShowUserMenu(false); navigate('/mi-perfil'); }}
+            className="flex items-center gap-4 px-5 py-4 border-b border-border bg-muted/30 w-full text-left hover:bg-muted/60 transition-colors"
+            title="Ver mi perfil"
+          >
             <div className="shrink-0 w-12 h-12 rounded-full border border-border bg-white flex items-center justify-center shadow-sm overflow-hidden">
               {avatarUrl ? (
                 <img
@@ -108,7 +113,7 @@ const UserMenu = () => {
                 {persona.puesto || 'Puesto no asignado'}
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Opciones del menú */}
           <div className="p-2 flex flex-col gap-1">

@@ -54,6 +54,7 @@ import { SesionesActivasPage } from '../../modules/usuarios/SesionesActivasPage'
 import { GrupoFormPage } from '../../modules/usuarios/GrupoFormPage';
 import { ConfiguracionGeneralPage } from '../../modules/usuarios/ConfiguracionGeneralPage';
 import { PreferenciasPage } from '../../modules/usuarios/PreferenciasPage';
+import { MiPerfilPage } from '../../modules/usuarios/MiPerfilPage';
 
 // --- GESTOR DOCUMENTAL ---
 import { GestorDocumentalPage } from '../../modules/gestor_documental/pages/index';
@@ -150,6 +151,7 @@ const AppContenido = () => {
         </Route>
 
         <Route path="/preferencias" element={<PreferenciasPage />} />
+        <Route path="/mi-perfil" element={<MiPerfilPage />} />
 
         <Route path="/rrhh" element={<RRHHLayout />}>
           <Route index element={<IndexRRHHPage />} />
