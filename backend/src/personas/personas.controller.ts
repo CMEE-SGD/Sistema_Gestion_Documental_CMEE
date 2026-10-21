@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, UseInterceptors, UploadedFiles, ConflictException, InternalServerErrorException, BadRequestException, Query
+  Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, UseInterceptors, UploadedFiles, ConflictException, InternalServerErrorException, BadRequestException, Query, Req, NotFoundException
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -14,6 +14,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
+import { decodificarNombreArchivo } from '../common/helpers/encoding';
 
 // Multer arma la carpeta de destino con nombre/apellidos/cédula tal como
 // llegan en el body, ANTES de que corra cualquier validación del controller
@@ -88,7 +89,7 @@ export class PersonasController {
       filename: (req, file, cb) => {
         const ext = extname(file.originalname);
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        cb(null, file.fieldname === 'foto' ? `Foto_${uniqueSuffix}${ext}` : `${file.originalname.split('.')[0]}_${uniqueSuffix}${ext}`);
+        cb(null, file.fieldname === 'foto' ? `Foto_${uniqueSuffix}${ext}` : `${decodificarNombreArchivo(file.originalname).split('.')[0]}_${uniqueSuffix}${ext}`);
       },
     }),
     fileFilter: filtroArchivosPersona,
@@ -113,12 +114,12 @@ export class PersonasController {
     return this.personasService.create(
       dto,
       files.documentos?.map((d) => ({
-        nombre_archivo: d.originalname,
+        nombre_archivo: decodificarNombreArchivo(d.originalname),
         ruta: d.path,
         tipo_documento: 'Adjunto',
       })),
       files.capacitaciones?.map((d) => ({
-        nombre_archivo: d.originalname,
+        nombre_archivo: decodificarNombreArchivo(d.originalname),
         ruta: d.path,
       })),
     );
@@ -137,6 +138,23 @@ export class PersonasController {
     return this.personasService.findAll(
       laboratorioId ? +laboratorioId : undefined,
     );
+  }
+
+  // Endpoint de autoservicio: cualquier usuario autenticado puede leer SU
+  // PROPIA ficha (con sus puestos y las responsabilidades de cada uno) sin
+  // depender del permiso de Recursos Humanos. Ignora cualquier id que venga
+  // en la petición: siempre opera sobre req.user.id, por lo que no puede
+  // usarse para consultar la ficha de otra persona.
+  //
+  // IMPORTANTE: debe declararse ANTES de @Get(':id'); si no, Express registra
+  // primero la ruta paramétrica y ParseIntPipe rechaza "mi-perfil" con 400.
+  @Get('mi-perfil')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Obtener la ficha de la persona logueada (con puestos y responsabilidades)',
+  })
+  miPerfil(@Req() req: any) {
+    return this.personasService.findOneByUsuario(req.user.id);
   }
 
   @Get(':id')
@@ -186,12 +204,12 @@ export class PersonasController {
       id,
       dto,
       files.documentos?.map((d) => ({
-        nombre_archivo: d.originalname,
+        nombre_archivo: decodificarNombreArchivo(d.originalname),
         ruta: d.path,
         tipo_documento: 'Adjunto',
       })),
       files.capacitaciones?.map((d) => ({
-        nombre_archivo: d.originalname,
+        nombre_archivo: decodificarNombreArchivo(d.originalname),
         ruta: d.path,
       })),
     );

@@ -22,6 +22,7 @@ import { UpdateComprobantePagoDto } from './dto/update-comprobante-pago.dto';
 import { RegistrarCompensacionDto } from './dto/registrar-compensacion.dto';
 import { ResolverAutorizacionCompensacionDto } from './dto/resolver-autorizacion-compensacion.dto';
 import { CreateNotaEntregaDto } from './dto/create-nota-entrega.dto';
+import { decodificarNombreArchivo } from '../common/helpers/encoding';
 
 const CLIENTE_SELECT = {
   select: {
@@ -305,7 +306,7 @@ export class FacturacionService {
     fs.writeFileSync(path.join(dir, nombre), file.buffer);
     return {
       ruta: `/uploads/financiero/${subcarpeta}/${nombre}`,
-      original: file.originalname,
+      original: decodificarNombreArchivo(file.originalname),
     };
   }
 

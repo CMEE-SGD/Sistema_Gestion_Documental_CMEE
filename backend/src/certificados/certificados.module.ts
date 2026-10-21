@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import { CertificadosController } from './certificados.controller';
 import { CertificadosService } from './certificados.service';
 import { NotificacionesModule } from '../notificaciones/notificaciones.module';
+import { decodificarNombreArchivo } from '../common/helpers/encoding';
 
 const UPLOAD_DIR = path.resolve('./uploads/certificados');
 
@@ -21,7 +22,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
         destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
         filename: (_req, file, cb) => {
           const timestamp = Date.now();
-          const safeName = file.originalname.replace(/\s+/g, '_');
+          const safeName = decodificarNombreArchivo(file.originalname).replace(/\s+/g, '_');
           cb(null, `${timestamp}_${safeName}`);
         },
       }),
