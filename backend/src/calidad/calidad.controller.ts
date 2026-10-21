@@ -20,6 +20,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
 import { SinMotivo } from '../auditoria/sin-motivo.decorator';
+import { decodificarNombreArchivo } from '../common/helpers/encoding';
 
 @Controller('calidad')
 @UseGuards(JwtAuthGuard, AccessGuard)
@@ -34,7 +35,7 @@ export class CalidadController {
    * devuelve la URL pública (/uploads/...) para persistirla en BD.
    */
   private guardarArchivo(file: Express.Multer.File, codigoAuditoria: string, subcarpeta: string): string {
-    const original = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    const original = decodificarNombreArchivo(file.originalname);
     const ext = extname(original);
     const name = original.replace(ext, '').replace(/\s+/g, '_');
     const filename = `${name}_${Date.now()}${ext}`;
@@ -67,7 +68,7 @@ export class CalidadController {
    * con el nombre NC-{numero}-{DDMMYYYY}{ext} y devuelve su URL pública.
    */
   private guardarArchivoNc(file: Express.Multer.File, numero: number): string {
-    const original = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    const original = decodificarNombreArchivo(file.originalname);
     const ext = extname(original);
     const now = new Date();
     const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -87,7 +88,7 @@ export class CalidadController {
    * uploads/calidad/noconformidades/{año}/{mes} y devuelve su URL pública.
    */
   private guardarArchivoGeneral(file: Express.Multer.File): string {
-    const original = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    const original = decodificarNombreArchivo(file.originalname);
     const ext = extname(original);
     const name = original.replace(ext, '').replace(/\s+/g, '_');
     const filename = `${name}_${Date.now()}${ext}`;
@@ -270,7 +271,7 @@ export class CalidadController {
         data.plan_accion = {
           ...(typeof data.plan_accion === 'object' && data.plan_accion !== null ? data.plan_accion : {}),
           archivo: this.guardarArchivoGeneral(files.plan_accion_archivo[0]),
-          archivo_nombre: files.plan_accion_archivo[0].originalname,
+          archivo_nombre: decodificarNombreArchivo(files.plan_accion_archivo[0].originalname),
         };
       }
     }
