@@ -157,6 +157,15 @@ export class PersonasController {
     return this.personasService.findOneByUsuario(req.user.id);
   }
 
+  @Get('mi-capacitaciones')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Obtener las capacitaciones de la persona logueada',
+  })
+  miCapacitaciones(@Req() req: any) {
+    return this.personasService.findCapacitacionesByUsuario(req.user.id);
+  }
+
   @Get(':id')
   @RequireAccess('Recursos Humanos', 2)
   findOne(@Param('id', ParseIntPipe) id: number) { return this.personasService.findOne(id); }

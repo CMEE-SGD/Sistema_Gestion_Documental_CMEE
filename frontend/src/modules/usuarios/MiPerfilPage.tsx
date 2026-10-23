@@ -12,6 +12,8 @@ import {
     Contact,
     Save,
     KeyRound,
+    BookOpen,
+    GraduationCap,
 } from 'lucide-react';
 import api from '../../core/api/axios';
 import Navbar from '../../shared/components/organisms/Navbar';
@@ -55,6 +57,7 @@ export const MiPerfilPage = () => {
 
     const [perfil, setPerfil] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [misCapacitaciones, setMisCapacitaciones] = useState<any[]>([]);
 
     const [idioma, setIdioma] = useState('Español (Ecuador)');
     const [guardandoIdioma, setGuardandoIdioma] = useState(false);
@@ -95,6 +98,17 @@ export const MiPerfilPage = () => {
             }
         };
         cargar();
+
+        const cargarCapacitaciones = async () => {
+            try {
+                const res = await api.get('/personas/mi-capacitaciones');
+                setMisCapacitaciones(res.data || []);
+            } catch (error) {
+                console.error('No se pudieron cargar las capacitaciones del perfil');
+                setMisCapacitaciones([]);
+            }
+        };
+        cargarCapacitaciones();
     }, []);
 
     const handleGuardarIdioma = async (e: React.FormEvent) => {
@@ -297,7 +311,79 @@ export const MiPerfilPage = () => {
                                 )}
                             </Bloque>
 
-                            {/* 5. DATOS DEL SISTEMA */}
+                            {/* 5. DOCUMENTOS ADJUNTOS */}
+                            <Bloque icono={<BookOpen className="w-4 h-4" />} titulo="Documentos Adjuntos">
+                                {Array.isArray(persona?.documentos) && persona.documentos.length > 0 ? (
+                                    <div className="flex flex-col gap-2.5">
+                                        {persona.documentos
+                                            .filter((doc: any) => doc.activo !== false)
+                                            .map((doc: any) => (
+                                                <div
+                                                    key={doc.id}
+                                                    className="flex items-center justify-between bg-white border border-gray-300 px-3 py-1.5 rounded-sm"
+                                                >
+                                                    <a
+                                                        href={buildFileUrl(doc.ruta) ?? undefined}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-600 underline hover:text-blue-800 text-[11px]"
+                                                    >
+                                                        {doc.nombre_archivo}
+                                                    </a>
+                                                </div>
+                                            ))}
+                                    </div>
+                                ) : (
+                                    <span className="text-gray-500 italic">No hay documentos adjuntos.</span>
+                                )}
+                            </Bloque>
+
+                            {/* 5b. CAPACITACIONES */}
+                            <Bloque icono={<GraduationCap className="w-4 h-4" />} titulo="Capacitaciones">
+                                {misCapacitaciones.length > 0 ? (
+                                    <div className="flex flex-col gap-1.5">
+                                        {misCapacitaciones.map((cap: any) => {
+                                            const participante = cap.participantes?.find(
+                                                (p: any) => p.persona?.id === persona.id,
+                                            );
+                                            const certificado = participante?.certificado;
+                                            const contenido = (
+                                                <span className="text-blue-600 underline hover:text-blue-800 text-[11px]">
+                                                    {cap.nombre}
+                                                </span>
+                                            );
+                                            const nombre = certificado ? (
+                                                <a
+                                                    href={buildFileUrl(certificado) ?? undefined}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    {contenido}
+                                                </a>
+                                            ) : (
+                                                contenido
+                                            );
+                                            return (
+                                                <div
+                                                    key={cap.id}
+                                                    className="flex items-center justify-between bg-white border border-gray-300 px-3 py-1.5 rounded-sm"
+                                                >
+                                                    {nombre}
+                                                    {!certificado && (
+                                                        <span className="text-[10px] text-gray-400 italic">
+                                                            Sin certificado
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <span className="text-gray-500 italic">No hay capacitaciones registradas.</span>
+                                )}
+                            </Bloque>
+
+                            {/* 6. DATOS DEL SISTEMA */}
                             <Bloque icono={<IdCard className="w-4 h-4" />} titulo="Datos de Usuario">
                                 <DataRow label="Nombre de usuario" value={perfil?.nombre_usuario} />
                                 <DataRow label="Perfil">
