@@ -181,6 +181,34 @@ export class PersonasService {
     return this.findOne(personaId);
   }
 
+  async findCapacitacionesByUsuario(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { persona: { select: { id: true } } },
+    });
+
+    const personaId = usuario?.persona?.id;
+    if (!personaId) {
+      throw new NotFoundException(
+        'El usuario autenticado no tiene una persona asociada',
+      );
+    }
+
+    return this.prisma.capacitacion.findMany({
+      where: {
+        participantes: {
+          some: { persona_id: personaId },
+        },
+      },
+      orderBy: { fecha_inicio: 'desc' },
+      include: {
+        participantes: {
+          include: { persona: { select: { id: true, nombre: true, apellidos: true } } },
+        },
+      },
+    });
+  }
+
   /**
    * Ejecuta la operación de negocio eliminarDocumento.
    * @param id - Datos o identificador requerido (number)
