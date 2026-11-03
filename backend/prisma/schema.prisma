@@ -1375,6 +1375,9 @@ model RiesgoOportunidad {
   cerrada_por    String?           @db.VarChar(150)
   estado         EstadoRiesgo      @default(IDENTIFICADO)
   observaciones  String?           @db.Text
+  // Plan de tratamiento (archivo adjunto)
+  plan_archivo   String?           @db.VarChar(500)
+  plan_nombre    String?           @db.VarChar(255)
   activo         Boolean           @default(true)
   createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
@@ -1462,6 +1465,73 @@ model QuejaResponsable {
 
   @@index([queja_id])
   @@map("queja_responsable")
+}
+
+// ==========================================
+// TRABAJOS DE ENSAYO Y/O CALIBRACIÓN NO CONFORMES (GD4.1.F1-1)
+// Formulario con 5 secciones: descripción, tratamiento, acción
+// correctiva/preventiva, seguimiento y observaciones/cierre.
+// `estado` se deriva de las secciones completadas (ver CalidadService).
+// ==========================================
+enum CategoriaTrabajoNC {
+  EQUIPO
+  INSUMOS
+  MATERIAL
+  SERVICIO_CONTRATADO
+  CALIBRACION
+  ENSAYO
+  CERTIFICADO
+  REPORTE
+  OTRO
+}
+
+enum EstadoTrabajoNC {
+  REGISTRADA
+  EN_TRATAMIENTO
+  EN_SEGUIMIENTO
+  CERRADA
+}
+
+model TrabajoNoConforme {
+  id     Int    @id @default(autoincrement())
+  codigo String @unique @db.VarChar(50)
+
+  // --- 1. DESCRIPCIÓN DEL ENSAYO Y/O CALIBRACIÓN NO CONFORME ---
+  elaborado_por          String              @db.VarChar(150)
+  fecha                  DateTime            @db.Date
+  categoria              CategoriaTrabajoNC  @default(EQUIPO)
+  descripcion_problema   String              @db.Text
+
+  // --- 2. TRATAMIENTO ---
+  tratamiento_responsable String?            @db.VarChar(150)
+  tratamiento_fecha       DateTime?          @db.Date
+  // ["SUSPENDER","CORREGIR",...] — mismo criterio que los demás Json del schema
+  acciones_tomadas        Json?
+  tratamiento_descripcion String?            @db.Text
+
+  // --- 3. REQUIERE ACCIÓN CORRECTIVA / PREVENTIVA ---
+  requiere_accion_correctiva Boolean         @default(false)
+  accion_correctiva_num      String?         @db.VarChar(50)
+  requiere_accion_preventiva Boolean         @default(false)
+  accion_preventiva_num      String?         @db.VarChar(50)
+
+  // --- 4. SEGUIMIENTO ---
+  seguimiento_responsable String?            @db.VarChar(150)
+  seguimiento_fecha       DateTime?          @db.Date
+  eficaz                  Boolean?
+  eficacia_verificada     String?            @db.Text
+
+  // --- 5. OBSERVACIONES Y CIERRE ---
+  observaciones  String?   @db.Text
+  cerrado_por    String?   @db.VarChar(150)
+  fecha_cierre   DateTime? @db.Date
+
+  estado    EstadoTrabajoNC @default(REGISTRADA)
+  activo    Boolean         @default(true)
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("trabajo_no_conforme")
 }
 
 enum EstadoCapacitacion {

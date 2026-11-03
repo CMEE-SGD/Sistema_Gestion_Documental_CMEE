@@ -14,6 +14,8 @@ import { CreateRiesgoDto } from './dto/create-riesgo.dto';
 import { UpdateRiesgoDto } from './dto/update-riesgo.dto';
 import { CreateQuejaDto } from './dto/create-queja.dto';
 import { UpdateQuejaDto } from './dto/update-queja.dto';
+import { CreateTrabajoNoConformeDto } from './dto/create-trabajo-no-conforme.dto';
+import { UpdateTrabajoNoConformeDto } from './dto/update-trabajo-no-conforme.dto';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -358,6 +360,61 @@ export class CalidadController {
     return this.calidadService.removeQueja(id);
   }
 
+  // ==================== TRABAJOS NO CONFORMES (GD4.1.F1-1) ====================
+
+  @Post('trabajos-no-conformes')
+  @RequireAccess('Gestion de Calidad', 5)
+  async createTrabajoNoConforme(@Body() dto: CreateTrabajoNoConformeDto) {
+    try {
+      return await this.calidadService.createTrabajoNoConforme(dto);
+    } catch (error: any) {
+      console.error('Error creando trabajo no conforme:', error);
+      if (error instanceof BadRequestException) throw error;
+      if (error.code === 'P2002') throw new BadRequestException(`El código "${dto.codigo}" ya existe`);
+      throw new InternalServerErrorException(error?.message || 'Error al crear el trabajo no conforme');
+    }
+  }
+
+  @Get('trabajos-no-conformes')
+  @RequireAccess('Gestion de Calidad', 2)
+  findAllTrabajosNoConformes() {
+    return this.calidadService.findAllTrabajosNoConformes();
+  }
+
+  // Declarado antes de ':id' para que no lo capture.
+  @Get('trabajos-no-conformes/siguiente-codigo')
+  @RequireAccess('Gestion de Calidad', 2)
+  async siguienteCodigoTrabajoNoConforme() {
+    return this.calidadService.siguienteNumeroTrabajoNoConforme();
+  }
+
+  @Get('trabajos-no-conformes/:id')
+  @RequireAccess('Gestion de Calidad', 2)
+  findOneTrabajoNoConforme(@Param('id', ParseIntPipe) id: number) {
+    return this.calidadService.findOneTrabajoNoConforme(id);
+  }
+
+  @Patch('trabajos-no-conformes/:id')
+  @RequireAccess('Gestion de Calidad', 4)
+  async updateTrabajoNoConforme(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTrabajoNoConformeDto) {
+    try {
+      return await this.calidadService.updateTrabajoNoConforme(id, dto);
+    } catch (error: any) {
+      console.error('Error actualizando trabajo no conforme:', error);
+      if (error instanceof NotFoundException) throw error;
+      if (error instanceof BadRequestException) throw error;
+      if (error.code === 'P2002') throw new BadRequestException(`El código "${dto.codigo}" ya existe`);
+      if (error.code === 'P2025') throw new NotFoundException('El trabajo no conforme no existe');
+      throw new InternalServerErrorException(error?.message || 'Error al actualizar el trabajo no conforme');
+    }
+  }
+
+  @Delete('trabajos-no-conformes/:id')
+  @RequireAccess('Gestion de Calidad', 5)
+  removeTrabajoNoConforme(@Param('id', ParseIntPipe) id: number) {
+    return this.calidadService.removeTrabajoNoConforme(id);
+  }
+
   // ==================== RIESGOS Y OPORTUNIDADES ====================
 
   @Post('riesgos')
@@ -390,6 +447,43 @@ export class CalidadController {
   @RequireAccess('Gestion de Calidad', 2)
   findOneRiesgo(@Param('id', ParseIntPipe) id: number) {
     return this.calidadService.findOneRiesgo(id);
+  }
+
+  @Post('riesgos/:id/plan')
+  @RequireAccess('Gestion de Calidad', 4)
+  @UseInterceptors(FileInterceptor('archivo', { storage: memoryStorage() }))
+  async subirPlanRiesgo(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No se envio ningun archivo');
+    const ext = extname(file.originalname || '').toLowerCase();
+    if (!['.pdf', '.doc', '.docx', '.xls', '.xlsx'].includes(ext)) {
+      throw new BadRequestException('Solo se permiten archivos PDF, Word (.DOC/.DOCX) o Excel (.XLS/.XLSX)');
+    }
+    const riesgo = await this.prisma.riesgoOportunidad.findUnique({ where: { id }, select: { codigo: true } });
+    if (!riesgo) throw new NotFoundException('Riesgo/Oportunidad no encontrado');
+    const original = decodificarNombreArchivo(file.originalname);
+    const name = original.replace(ext, '').replace(/\s+/g, '_');
+    const filename = `${name}_${Date.now()}${ext}`;
+    const p = join('.', 'uploads', 'calidad', 'riesgos', riesgo.codigo);
+    if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+    fs.writeFileSync(join(p, filename), file.buffer);
+    const url = `/uploads/calidad/riesgos/${riesgo.codigo}/${filename}`;
+    return this.prisma.riesgoOportunidad.update({
+      where: { id },
+      data: { plan_archivo: url, plan_nombre: original },
+    });
+  }
+
+  @Delete('riesgos/:id/plan')
+  @RequireAccess('Gestion de Calidad', 4)
+  async eliminarPlanRiesgo(@Param('id', ParseIntPipe) id: number) {
+    await this.prisma.riesgoOportunidad.update({
+      where: { id },
+      data: { plan_archivo: null, plan_nombre: null },
+    });
+    return { ok: true };
   }
 
   @Patch('riesgos/:id')

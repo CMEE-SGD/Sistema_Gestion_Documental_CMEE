@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { EstadoNC, CondicionRiesgo, EstadoAuditoria } from '@prisma/client';
+import { EstadoNC, CondicionRiesgo, EstadoAuditoria, EstadoTrabajoNC } from '@prisma/client';
 import { CreateAuditoriaDto } from './dto/create-auditoria.dto';
 import { UpdateAuditoriaDto } from './dto/update-auditoria.dto';
 import { CambiarEstadoAuditoriaDto } from './dto/cambiar-estado-auditoria.dto';
@@ -11,6 +11,8 @@ import { CreateRiesgoDto } from './dto/create-riesgo.dto';
 import { UpdateRiesgoDto } from './dto/update-riesgo.dto';
 import { CreateQuejaDto } from './dto/create-queja.dto';
 import { UpdateQuejaDto } from './dto/update-queja.dto';
+import { CreateTrabajoNoConformeDto } from './dto/create-trabajo-no-conforme.dto';
+import { UpdateTrabajoNoConformeDto } from './dto/update-trabajo-no-conforme.dto';
 
 
 /**
@@ -941,6 +943,104 @@ export class CalidadService {
   async removeQueja(id: number) {
     await this.findOneQueja(id);
     return this.prisma.queja.update({
+      where: { id },
+      data: { activo: false },
+    });
+  }
+
+  // ==================== TRABAJOS NO CONFORMES (GD4.1.F1-1) ====================
+
+  /**
+   * Código correlativo TNC-0001, TNC-0002, ...
+   */
+  async siguienteNumeroTrabajoNoConforme() {
+    const items = await this.prisma.trabajoNoConforme.findMany({ select: { codigo: true } });
+    let max = 0;
+    for (const item of items) {
+      const n = parseInt(item.codigo.split('-')[1], 10);
+      if (!isNaN(n) && n > max) max = n;
+    }
+    return `TNC-${String(max + 1).padStart(4, '0')}`;
+  }
+
+  /**
+   * Estado derivado de las secciones del formulario GD4.1.F1-1:
+   * REGISTRADA → solo se describió el problema
+   * EN_TRATAMIENTO → ya se describió el tratamiento
+   * EN_SEGUIMIENTO → ya se verificó la eficacia
+   * CERRADA → tiene fecha de cierre
+   */
+  private calcularEstadoTrabajoNC(datos: Record<string, any>): EstadoTrabajoNC {
+    if (datos.fecha_cierre) return 'CERRADA';
+    if (datos.eficaz !== null && datos.eficaz !== undefined) return 'EN_SEGUIMIENTO';
+    if (datos.tratamiento_descripcion) return 'EN_TRATAMIENTO';
+    return 'REGISTRADA';
+  }
+
+  /**
+   * Convierte los campos de fecha (llegan como 'YYYY-MM-DD') a Date.
+   * Una clave ausente (undefined) se respeta: en un PATCH significa
+   * "no modificar", mientras que null significa "borrar el valor".
+   */
+  private fechasTrabajoNoConforme(data: Record<string, any>): any {
+    const salida = { ...data };
+    for (const campo of ['fecha', 'tratamiento_fecha', 'seguimiento_fecha', 'fecha_cierre']) {
+      if (salida[campo] === undefined) continue;
+      salida[campo] = salida[campo] ? new Date(salida[campo]) : null;
+    }
+    return salida;
+  }
+
+  async createTrabajoNoConforme(data: CreateTrabajoNoConformeDto) {
+    const codigo = data.codigo || (await this.siguienteNumeroTrabajoNoConforme());
+    const { acciones_tomadas, ...resto } = data;
+    const datos = this.fechasTrabajoNoConforme(resto);
+    if (!datos.fecha) datos.fecha = new Date();
+
+    return this.prisma.trabajoNoConforme.create({
+      data: {
+        ...datos,
+        codigo,
+        acciones_tomadas: acciones_tomadas ?? undefined,
+        estado: this.calcularEstadoTrabajoNC(datos),
+      },
+    });
+  }
+
+  findAllTrabajosNoConformes() {
+    return this.prisma.trabajoNoConforme.findMany({
+      where: { activo: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOneTrabajoNoConforme(id: number) {
+    const item = await this.prisma.trabajoNoConforme.findUnique({ where: { id } });
+    if (!item || !item.activo) {
+      throw new NotFoundException(`Trabajo no conforme con ID ${id} no encontrado`);
+    }
+    return item;
+  }
+
+  async updateTrabajoNoConforme(id: number, data: UpdateTrabajoNoConformeDto) {
+    const existente = await this.findOneTrabajoNoConforme(id);
+    const { acciones_tomadas, ...resto } = data;
+    const actualizacion = this.fechasTrabajoNoConforme(resto);
+    if (acciones_tomadas !== undefined) actualizacion.acciones_tomadas = acciones_tomadas;
+
+    // El estado se calcula sobre el registro completo, no solo sobre lo
+    // enviado, porque en un PATCH las secciones no mencionadas no cambian.
+    actualizacion.estado = this.calcularEstadoTrabajoNC({ ...existente, ...actualizacion });
+
+    return this.prisma.trabajoNoConforme.update({
+      where: { id },
+      data: actualizacion,
+    });
+  }
+
+  async removeTrabajoNoConforme(id: number) {
+    await this.findOneTrabajoNoConforme(id);
+    return this.prisma.trabajoNoConforme.update({
       where: { id },
       data: { activo: false },
     });

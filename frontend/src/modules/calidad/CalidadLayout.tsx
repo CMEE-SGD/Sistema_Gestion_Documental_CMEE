@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { ClipboardCheck, ShieldAlert, Target, MessageSquare } from 'lucide-react';
+import { ClipboardCheck, ShieldAlert, Target, MessageSquare, FlaskConical } from 'lucide-react';
 import Navbar from '../../shared/components/organisms/Navbar';
 import { LayoutUIContext } from '../../shared/context/LayoutUIContext';
 
@@ -19,6 +19,7 @@ export const CalidadLayout = () => {
         { name: 'Auditorías', path: '/calidad/auditorias', icon: <ClipboardCheck className="w-4 h-4" /> },
         { name: 'Riesgos y Oportunidades', path: '/calidad/riesgos', icon: <Target className="w-4 h-4" /> },
         { name: 'Quejas', path: '/calidad/quejas', icon: <MessageSquare className="w-4 h-4" /> },
+        { name: 'Trabajos No Conformes', path: '/calidad/trabajos-no-conformes', icon: <FlaskConical className="w-4 h-4" /> },
     ];
 
     const Sidebar = ({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) => (

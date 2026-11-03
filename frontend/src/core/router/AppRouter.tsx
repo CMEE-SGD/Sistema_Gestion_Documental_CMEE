@@ -92,6 +92,9 @@ import { QuejasPage } from '../../modules/calidad/pages/QuejasPage';
 import { QuejaFormPage } from '../../modules/calidad/pages/QuejaFormPage';
 import { QuejaDetallePage } from '../../modules/calidad/pages/QuejaDetallePage';
 import { QuejaSeguimientoPage } from '../../modules/calidad/pages/QuejaSeguimientoPage';
+import { TrabajosNoConformesPage } from '../../modules/calidad/pages/TrabajosNoConformesPage';
+import { TrabajoNoConformeFormPage } from '../../modules/calidad/pages/TrabajoNoConformeFormPage';
+import { TrabajoNoConformeDetallePage } from '../../modules/calidad/pages/TrabajoNoConformeDetallePage';
 
 // --- IMPORTACIONES ADMINISTRATIVO (NUEVO) ---
 import { AdministrativoLayout } from '../../modules/administrativo/components/AdministrativoLayout';
@@ -229,6 +232,10 @@ const AppContenido = () => {
           <Route path="quejas/editar/:id" element={<QuejaFormPage />} />
           <Route path="quejas/:id/seguimiento" element={<QuejaSeguimientoPage />} />
           <Route path="quejas/:id" element={<QuejaDetallePage />} />
+          <Route path="trabajos-no-conformes" element={<TrabajosNoConformesPage />} />
+          <Route path="trabajos-no-conformes/nueva" element={<TrabajoNoConformeFormPage />} />
+          <Route path="trabajos-no-conformes/editar/:id" element={<TrabajoNoConformeFormPage />} />
+          <Route path="trabajos-no-conformes/:id" element={<TrabajoNoConformeDetallePage />} />
         </Route>
 
         {/* --- NUEVO MÓDULO ADMINISTRATIVO --- */}
