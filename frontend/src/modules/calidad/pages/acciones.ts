@@ -34,6 +34,22 @@ export const ESTADO_ACCION_STYLES: Record<string, string> = {
     CERRADA: 'bg-emerald-100 text-emerald-700',
 };
 
+/** "Grado Nombre Apellidos" de una persona (o '—' si no hay). */
+export const nombrePersona = (p?: { grado?: string | null; nombre?: string; apellidos?: string } | null): string =>
+    p ? [p.grado, p.nombre, p.apellidos].filter(Boolean).join(' ') : '—';
+
+/** "Apellidos Nombre", para listas desplegables ordenadas por apellido. */
+export const etiquetaPersonaOrdenada = (p: { nombre?: string; apellidos?: string }): string =>
+    [p.apellidos, p.nombre].filter(Boolean).join(' ');
+
+/** Personas ordenadas alfabéticamente por apellidos y luego por nombre. */
+export const ordenarPersonas = <T extends { nombre?: string; apellidos?: string }>(personas: T[]): T[] =>
+    [...personas].sort(
+        (a, b) =>
+            (a.apellidos || '').localeCompare(b.apellidos || '', 'es', { sensitivity: 'base' }) ||
+            (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }),
+    );
+
 export interface OrigenAccionInfo {
     tipo: OrigenAccion;
     id: number;

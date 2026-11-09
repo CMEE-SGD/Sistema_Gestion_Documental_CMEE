@@ -12,6 +12,9 @@ import {
     ESTADO_ACCION_STYLES,
     TIPO_LABEL,
     TIPO_STYLES,
+    etiquetaPersonaOrdenada,
+    nombrePersona,
+    ordenarPersonas,
     type OrigenAccion,
 } from '../pages/acciones';
 import { formatearFecha } from '../pages/trabajosNoConformes';
@@ -19,7 +22,7 @@ import { formatearFecha } from '../pages/trabajosNoConformes';
 const inputCls = 'w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500';
 const labelCls = 'text-sm font-medium text-gray-700';
 
-const vacio = () => ({ tipo: 'CORRECTIVA', descripcion: '', causa: '', responsable: '', fecha_limite: '' });
+const vacio = () => ({ tipo: 'CORRECTIVA', descripcion: '', causa: '', responsable_id: '', fecha_limite: '' });
 
 /**
  * Acciones correctivas / preventivas de un registro de origen. Se pueden
@@ -34,6 +37,11 @@ export const AccionesVinculadas = ({ origenTipo, origenId }: { origenTipo: Orige
     const [abierto, setAbierto] = useState(false);
     const [guardando, setGuardando] = useState(false);
     const [form, setForm] = useState(vacio());
+    const [personas, setPersonas] = useState<any[]>([]);
+
+    useEffect(() => {
+        api.get('/personas').then((r) => setPersonas(Array.isArray(r.data) ? ordenarPersonas(r.data) : [])).catch(() => {});
+    }, []);
 
     const puedeCrear = tienePermiso('Gestion de Calidad', 5);
 
@@ -65,7 +73,7 @@ export const AccionesVinculadas = ({ origenTipo, origenId }: { origenTipo: Orige
                 origen_id: origenId,
                 descripcion: form.descripcion,
                 causa: form.causa || undefined,
-                responsable: form.responsable || undefined,
+                responsable_id: form.responsable_id ? Number(form.responsable_id) : undefined,
                 fecha_limite: form.fecha_limite || undefined,
             });
             toast({ message: 'Acción registrada correctamente.' });
@@ -117,7 +125,12 @@ export const AccionesVinculadas = ({ origenTipo, origenId }: { origenTipo: Orige
                         </div>
                         <div className="flex flex-col gap-1.5 md:col-span-2">
                             <label className={labelCls}>Responsable</label>
-                            <input type="text" name="responsable" value={form.responsable} onChange={handleChange} className={inputCls} placeholder="Nombres y cargo" />
+                            <select name="responsable_id" value={form.responsable_id} onChange={handleChange} className={`${inputCls} bg-white`}>
+                                <option value="">— Sin asignar —</option>
+                                {personas.map((p) => (
+                                    <option key={p.id} value={p.id}>{etiquetaPersonaOrdenada(p)}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="md:col-span-2 flex justify-end gap-3">
                             <button
@@ -143,6 +156,7 @@ export const AccionesVinculadas = ({ origenTipo, origenId }: { origenTipo: Orige
                                 <th className="text-left px-4 py-2">Código</th>
                                 <th className="text-left px-4 py-2">Tipo</th>
                                 <th className="text-left px-4 py-2">Descripción</th>
+                                <th className="text-left px-4 py-2">Responsable</th>
                                 <th className="text-left px-4 py-2">Fecha límite</th>
                                 <th className="text-left px-4 py-2">Estado</th>
                             </tr>
@@ -159,6 +173,7 @@ export const AccionesVinculadas = ({ origenTipo, origenId }: { origenTipo: Orige
                                         <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${TIPO_STYLES[a.tipo]}`}>{TIPO_LABEL[a.tipo]}</span>
                                     </td>
                                     <td className="px-4 py-2 max-w-sm truncate">{a.descripcion}</td>
+                                    <td className="px-4 py-2">{nombrePersona(a.responsable)}</td>
                                     <td className="px-4 py-2">{formatearFecha(a.fecha_limite)}</td>
                                     <td className="px-4 py-2">
                                         <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${ESTADO_ACCION_STYLES[a.estado]}`}>{ESTADO_ACCION_LABEL[a.estado]}</span>

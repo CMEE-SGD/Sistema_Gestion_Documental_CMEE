@@ -177,7 +177,8 @@ model Persona {
 
   auditorias_responsables      AuditoriaInterna[] @relation("AuditoriaResponsable")
   no_conformidades_responsable NoConformidad[]    @relation("NcResponsable")
-  capacitaciones               CapacitacionPersona[]
+  acciones_responsable         AccionCorrectivaPreventiva[] @relation("AccionResponsable")
+  capacitaciones              CapacitacionPersona[]
 
   // --- Módulo financiero: quién entrega y quién registra pagos ---
   notas_entrega_entregadas NotaEntrega[] @relation("PersonaEntregaNota")
@@ -1925,8 +1926,9 @@ model AccionCorrectivaPreventiva {
 
   descripcion  String    @db.Text
   causa        String?   @db.Text
-  responsable  String?   @db.VarChar(150)
-  fecha_limite DateTime? @db.Date
+  responsable_id Int?
+  responsable    Persona?  @relation("AccionResponsable", fields: [responsable_id], references: [id], onDelete: SetNull)
+  fecha_limite   DateTime? @db.Date
 
   estado                EstadoAccion @default(ABIERTA)
   eficaz                Boolean?
@@ -1938,5 +1940,6 @@ model AccionCorrectivaPreventiva {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([origen_tipo, origen_id])
+  @@index([responsable_id])
   @@map("accion_correctiva_preventiva")
 }

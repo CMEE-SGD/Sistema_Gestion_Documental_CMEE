@@ -3,6 +3,10 @@ import { OrigenAccion, TipoAccion } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAccionDto, UpdateAccionDto } from './dto/create-accion.dto';
 
+const INCLUIR_RESPONSABLE = {
+  responsable: { select: { id: true, grado: true, nombre: true, apellidos: true } },
+};
+
 export interface OrigenResuelto {
   tipo: OrigenAccion;
   id: number;
@@ -72,12 +76,20 @@ export class AccionesService {
     return salida;
   }
 
+  private async validarResponsable(id: number) {
+    const persona = await this.prisma.persona.findUnique({ where: { id }, select: { id: true } });
+    if (!persona) throw new BadRequestException('La persona responsable no existe');
+  }
+
   async create(dto: CreateAccionDto) {
     const origen = await this.resolverOrigen(dto.origen_tipo, dto.origen_id);
     if (!origen) throw new BadRequestException('El registro de origen no existe');
 
+    if (dto.responsable_id) await this.validarResponsable(dto.responsable_id);
+
     const creada = await this.prisma.accionCorrectivaPreventiva.create({
       data: { ...this.fechas(dto), codigo: await this.siguienteCodigo(dto.tipo) } as any,
+      include: INCLUIR_RESPONSABLE,
     });
     return this.conOrigen(creada);
   }
@@ -93,12 +105,13 @@ export class AccionesService {
         ...(filtros.estado && { estado: filtros.estado as any }),
       },
       orderBy: { createdAt: 'desc' },
+      include: INCLUIR_RESPONSABLE,
     });
     return Promise.all(filas.map((f) => this.conOrigen(f)));
   }
 
   async findOne(id: number) {
-    const accion = await this.prisma.accionCorrectivaPreventiva.findUnique({ where: { id } });
+    const accion = await this.prisma.accionCorrectivaPreventiva.findUnique({ where: { id }, include: INCLUIR_RESPONSABLE });
     if (!accion || !accion.activo) throw new NotFoundException(`Acción con ID ${id} no encontrada`);
     return this.conOrigen(accion);
   }
@@ -116,7 +129,13 @@ export class AccionesService {
       datos.fecha_cierre = new Date();
     }
 
-    const actualizada = await this.prisma.accionCorrectivaPreventiva.update({ where: { id }, data: datos });
+    if (datos.responsable_id) await this.validarResponsable(datos.responsable_id);
+
+    const actualizada = await this.prisma.accionCorrectivaPreventiva.update({
+      where: { id },
+      data: datos,
+      include: INCLUIR_RESPONSABLE,
+    });
     return this.conOrigen(actualizada);
   }
 

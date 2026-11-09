@@ -19,8 +19,8 @@ export class CreateAccionDto {
   @IsString() @IsOptional()
   causa?: string;
 
-  @IsString() @IsOptional()
-  responsable?: string;
+  @Type(() => Number) @IsInt() @IsOptional()
+  responsable_id?: number | null;
 
   @IsDateString() @IsOptional()
   fecha_limite?: string;
@@ -37,8 +37,8 @@ export class UpdateAccionDto {
   @IsString() @IsOptional()
   causa?: string;
 
-  @IsString() @IsOptional()
-  responsable?: string;
+  @Type(() => Number) @IsInt() @IsOptional()
+  responsable_id?: number | null;
 
   @IsDateString() @IsOptional()
   fecha_limite?: string;

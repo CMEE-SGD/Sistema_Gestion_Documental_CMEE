@@ -13,6 +13,9 @@ import {
     ORIGEN_LABEL,
     TIPO_LABEL,
     TIPO_STYLES,
+    etiquetaPersonaOrdenada,
+    nombrePersona,
+    ordenarPersonas,
     rutaOrigen,
 } from './acciones';
 import { formatearFecha } from './trabajosNoConformes';
@@ -33,13 +36,19 @@ export const AccionDetallePage = () => {
         tipo: 'CORRECTIVA',
         descripcion: '',
         causa: '',
-        responsable: '',
+        responsable_id: '',
         fecha_limite: '',
         estado: 'ABIERTA',
         eficaz: '' as '' | 'true' | 'false',
         verificacion_eficacia: '',
         fecha_cierre: '',
     });
+
+    const [personas, setPersonas] = useState<any[]>([]);
+
+    useEffect(() => {
+        api.get('/personas').then((r) => setPersonas(Array.isArray(r.data) ? ordenarPersonas(r.data) : [])).catch(() => {});
+    }, []);
 
     const puedeEditar = tienePermiso('Gestion de Calidad', 4);
     const puedeEliminar = tienePermiso('Gestion de Calidad', 5);
@@ -50,7 +59,7 @@ export const AccionDetallePage = () => {
             tipo: r.tipo,
             descripcion: r.descripcion || '',
             causa: r.causa || '',
-            responsable: r.responsable || '',
+            responsable_id: r.responsable_id ? String(r.responsable_id) : '',
             fecha_limite: r.fecha_limite ? r.fecha_limite.slice(0, 10) : '',
             estado: r.estado,
             eficaz: r.eficaz === true ? 'true' : r.eficaz === false ? 'false' : '',
@@ -94,7 +103,7 @@ export const AccionDetallePage = () => {
                     tipo: form.tipo,
                     descripcion: form.descripcion,
                     causa: form.causa || null,
-                    responsable: form.responsable || null,
+                    responsable_id: form.responsable_id ? Number(form.responsable_id) : null,
                     fecha_limite: form.fecha_limite || null,
                     estado: form.estado,
                     eficaz: form.eficaz === '' ? null : form.eficaz === 'true',
@@ -205,7 +214,12 @@ export const AccionDetallePage = () => {
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <label className={labelCls}>Responsable</label>
-                                <input type="text" name="responsable" value={form.responsable} onChange={handleChange} className={inputCls} />
+                                <select name="responsable_id" value={form.responsable_id} onChange={handleChange} className={`${inputCls} bg-white`}>
+                                    <option value="">— Sin asignar —</option>
+                                    {personas.map((p) => (
+                                        <option key={p.id} value={p.id}>{etiquetaPersonaOrdenada(p)}</option>
+                                    ))}
+                                </select>
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <label className={labelCls}>Fecha límite</label>
@@ -238,7 +252,7 @@ export const AccionDetallePage = () => {
                     <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                         <div className="md:col-span-2"><span className="font-semibold text-gray-700">Descripción:</span><p className="text-gray-600 whitespace-pre-wrap mt-1">{item.descripcion}</p></div>
                         <div className="md:col-span-2"><span className="font-semibold text-gray-700">Causa:</span><p className="text-gray-600 whitespace-pre-wrap mt-1">{item.causa || '—'}</p></div>
-                        <div><span className="font-semibold text-gray-700">Responsable:</span> <span className="text-gray-600">{item.responsable || '—'}</span></div>
+                        <div><span className="font-semibold text-gray-700">Responsable:</span> <span className="text-gray-600">{nombrePersona(item.responsable)}</span></div>
                         <div><span className="font-semibold text-gray-700">Fecha límite:</span> <span className="text-gray-600">{formatearFecha(item.fecha_limite)}</span></div>
                         <div><span className="font-semibold text-gray-700">¿Eficaz?:</span> <span className="text-gray-600">{item.eficaz === true ? 'Sí' : item.eficaz === false ? 'No' : 'Pendiente'}</span></div>
                         <div><span className="font-semibold text-gray-700">Fecha de cierre:</span> <span className="text-gray-600">{formatearFecha(item.fecha_cierre)}</span></div>

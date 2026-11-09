@@ -10,6 +10,7 @@ import {
     ORIGEN_LABEL,
     TIPO_LABEL,
     TIPO_STYLES,
+    nombrePersona,
     rutaOrigen,
 } from './acciones';
 import { formatearFecha } from './trabajosNoConformes';
@@ -47,7 +48,7 @@ export const AccionesPage = () => {
             && (!estado || it.estado === estado)
             && ((it.codigo || '').toLowerCase().includes(texto)
                 || (it.descripcion || '').toLowerCase().includes(texto)
-                || (it.responsable || '').toLowerCase().includes(texto)
+                || nombrePersona(it.responsable).toLowerCase().includes(texto)
                 || (it.origen?.codigo || '').toLowerCase().includes(texto));
     });
 
@@ -133,7 +134,7 @@ export const AccionesPage = () => {
                                                 )}
                                             </td>
                                             <td className="px-4 py-3 text-gray-600 max-w-sm truncate">{item.descripcion}</td>
-                                            <td className="px-4 py-3 text-gray-600 max-w-[160px] truncate">{item.responsable || '—'}</td>
+                                            <td className="px-4 py-3 text-gray-600 max-w-[160px] truncate">{nombrePersona(item.responsable)}</td>
                                             <td className="px-4 py-3 text-gray-500">{formatearFecha(item.fecha_limite)}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-block px-2 py-1 rounded text-[11px] font-bold ${ESTADO_ACCION_STYLES[item.estado]}`}>{ESTADO_ACCION_LABEL[item.estado]}</span>
