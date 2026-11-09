@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { X, Printer } from 'lucide-react';
+import { X, Printer, ClipboardList } from 'lucide-react';
 import ClienteDatosCard, {
   type ClienteDatos,
 } from './ClienteDatosCard';
 import VistaDetalleEquipo from './VistaDetalleEquipo';
+import NotaEntregaModal, { useNotaEntrega } from './NotaEntregaModal';
 
 // ---------------------------------------------------------------------------
 // Tipos basados en el include del backend (recepcion-equipos.service.ts)
@@ -140,6 +141,11 @@ export default function VistaDetalleOrden({ orden, onClose }: Props) {
   // Clic sobre un equipo dentro de la tabla → detalle de su calibración.
   const [detalleEquipoId, setDetalleEquipoId] = useState<number | null>(null);
 
+  // Nota de entrega (formato AC1.2.F2-1): si la orden ya la tiene, se puede
+  // consultar e imprimir desde aquí.
+  const { data: notaInfo } = useNotaEntrega(orden.id, true);
+  const [notaAbierta, setNotaAbierta] = useState(false);
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 py-4">
       {/* PATCH: mismo ancho del modal de edición */}
@@ -154,6 +160,16 @@ export default function VistaDetalleOrden({ orden, onClose }: Props) {
             </h2>
           </div>
           <div className="flex items-center gap-2">
+            {notaInfo?.nota && (
+              <button
+                type="button"
+                onClick={() => setNotaAbierta(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent"
+              >
+                <ClipboardList className="h-4 w-4" />
+                Nota de entrega
+              </button>
+            )}
             <button
               type="button"
               onClick={() => window.print()}
@@ -363,6 +379,13 @@ export default function VistaDetalleOrden({ orden, onClose }: Props) {
           onClose={() => setDetalleEquipoId(null)}
         />
       )}
+
+      <NotaEntregaModal
+        isOpen={notaAbierta}
+        onClose={() => setNotaAbierta(false)}
+        ordenId={orden.id}
+        ordenFisica={orden.orden_trabajo_fisica}
+      />
     </div>
   );
 }
