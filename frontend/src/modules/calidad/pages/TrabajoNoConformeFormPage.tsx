@@ -6,7 +6,14 @@ import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
-import { ACCIONES_TOMADAS, CATEGORIAS, hoy } from './trabajosNoConformes';
+import {
+    ACCIONES_TOMADAS,
+    CATEGORIAS,
+    ESTADO_LABEL,
+    ESTADO_STYLES,
+    calcularEstado,
+    hoy,
+} from './trabajosNoConformes';
 
 const inputCls = 'w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500';
 const labelCls = 'text-sm font-medium text-gray-700';
@@ -127,6 +134,10 @@ export const TrabajoNoConformeFormPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (form.tratamiento_fecha && form.fecha && form.tratamiento_fecha < form.fecha) {
+            await alert({ message: 'La fecha de tratamiento no puede ser anterior a la fecha de detección.' });
+            return;
+        }
         setGuardando(true);
         try {
             const payload: any = {
@@ -174,6 +185,12 @@ export const TrabajoNoConformeFormPage = () => {
 
     if (loading) return <div className="text-center py-10 text-gray-400">Cargando...</div>;
 
+    const estado = calcularEstado({
+        fecha_cierre: form.fecha_cierre,
+        eficaz: form.eficaz === '' ? null : form.eficaz === 'true',
+        tratamiento_descripcion: form.tratamiento_descripcion,
+    });
+
     return (
         <div>
             <button
@@ -184,6 +201,18 @@ export const TrabajoNoConformeFormPage = () => {
             </button>
 
             <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+                    <span className="text-xs text-gray-500">
+                        El estado se calcula según las secciones completadas.
+                    </span>
+                    <span className="flex items-center gap-2 text-sm text-gray-700">
+                        Estado:
+                        <span className={`inline-block px-2 py-1 rounded text-[11px] font-bold ${ESTADO_STYLES[estado]}`}>
+                            {ESTADO_LABEL[estado]}
+                        </span>
+                    </span>
+                </div>
+
                 {/* ============ 1. DESCRIPCIÓN ============ */}
                 <Seccion titulo="1. DESCRIPCIÓN DEL ENSAYO Y/O CALIBRACIÓN NO CONFORME" color="bg-[#88bddf]">
                     <div className="flex flex-col gap-1.5">
@@ -243,6 +272,7 @@ export const TrabajoNoConformeFormPage = () => {
                             type="date"
                             name="tratamiento_fecha"
                             value={form.tratamiento_fecha}
+                            min={form.fecha || undefined}
                             onChange={handleChange}
                             className={inputCls}
                         />

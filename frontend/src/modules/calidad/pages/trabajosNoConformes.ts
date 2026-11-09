@@ -42,6 +42,22 @@ export const ESTADO_STYLES: Record<string, string> = {
     CERRADA: 'bg-emerald-100 text-emerald-700',
 };
 
+/**
+ * Replica la lógica del backend (calcularEstadoTrabajoNC) para mostrar en el
+ * formulario el estado que resultará al guardar. El backend sigue siendo la
+ * fuente de verdad.
+ */
+export const calcularEstado = (d: {
+    fecha_cierre?: string | null;
+    eficaz?: boolean | null;
+    tratamiento_descripcion?: string | null;
+}): string => {
+    if (d.fecha_cierre) return 'CERRADA';
+    if (d.eficaz !== null && d.eficaz !== undefined) return 'EN_SEGUIMIENTO';
+    if (d.tratamiento_descripcion) return 'EN_TRATAMIENTO';
+    return 'REGISTRADA';
+};
+
 export const etiquetaCategoria = (valor?: string | null): string =>
     CATEGORIAS.find((c) => c.valor === valor)?.label || valor || '—';
 
