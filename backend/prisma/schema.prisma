@@ -1889,3 +1889,54 @@ model DistribucionResultado {
 
   @@map("distribucion_resultado")
 }
+
+// ==========================================
+// ACCIONES CORRECTIVAS / PREVENTIVAS (MC21)
+// Registro central. Cada acción nace desde un módulo de origen (no
+// conformidad de auditoría, queja, riesgo/oportunidad o trabajo no conforme)
+// y un mismo origen puede tener varias. El vínculo es polimórfico
+// (origen_tipo + origen_id), sin FK, porque apunta a cuatro tablas distintas.
+// ==========================================
+enum TipoAccion {
+  CORRECTIVA
+  PREVENTIVA
+}
+
+enum OrigenAccion {
+  AUDITORIA_NC
+  QUEJA
+  RIESGO
+  TRABAJO_NC
+}
+
+enum EstadoAccion {
+  ABIERTA
+  EN_EJECUCION
+  VERIFICADA
+  CERRADA
+}
+
+model AccionCorrectivaPreventiva {
+  id          Int          @id @default(autoincrement())
+  codigo      String       @unique @db.VarChar(50)
+  tipo        TipoAccion
+  origen_tipo OrigenAccion
+  origen_id   Int
+
+  descripcion  String    @db.Text
+  causa        String?   @db.Text
+  responsable  String?   @db.VarChar(150)
+  fecha_limite DateTime? @db.Date
+
+  estado                EstadoAccion @default(ABIERTA)
+  eficaz                Boolean?
+  verificacion_eficacia String?      @db.Text
+  fecha_cierre          DateTime?    @db.Date
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([origen_tipo, origen_id])
+  @@map("accion_correctiva_preventiva")
+}

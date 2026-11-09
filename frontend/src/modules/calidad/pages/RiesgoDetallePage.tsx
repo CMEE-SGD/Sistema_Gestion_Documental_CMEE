@@ -7,6 +7,7 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 import { nombreProceso } from './procesos';
+import { AccionesVinculadas } from '../components/AccionesVinculadas';
 
 const condicionStyles: Record<string, string> = {
     ALTO: 'bg-red-100 text-red-700',
@@ -296,6 +297,10 @@ export const RiesgoDetallePage = () => {
                         </div>
                     </div>
                 )}
+
+                <div className="pt-4">
+                    <AccionesVinculadas origenTipo="RIESGO" origenId={item.id} />
+                </div>
             </div>
         </div>
     );

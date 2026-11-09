@@ -6,6 +6,7 @@ import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
+import { AccionesVinculadas } from '../components/AccionesVinculadas';
 import {
     ESTADO_LABEL,
     ESTADO_STYLES,
@@ -187,6 +188,9 @@ export const TrabajoNoConformeDetallePage = () => {
                         <Campo label="Fecha de cierre" valor={formatearFecha(item.fecha_cierre)} />
                     </div>
                 </div>
+
+                {/* ACCIONES CORRECTIVAS / PREVENTIVAS */}
+                <AccionesVinculadas origenTipo="TRABAJO_NC" origenId={item.id} />
             </div>
         </div>
     );
