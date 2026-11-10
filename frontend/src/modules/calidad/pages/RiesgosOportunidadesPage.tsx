@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Edit3, Trash2 } from 'lucide-react';
+import { Plus, Search, Eye, Edit3, Trash2, FileText, Upload, X } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
@@ -100,27 +100,31 @@ export const RiesgosOportunidadesPage = () => {
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
-                <table className="w-full text-left text-sm min-w-[1500px]">
+                <table className="w-full text-left text-sm min-w-[1600px]">
                     <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
                         <tr>
-                            <th className="px-4 py-3 font-semibold">Num.</th>
-                            <th className="px-4 py-3 font-semibold">Proceso</th>
-                            <th className="px-4 py-3 font-semibold">Riesgo / Oportunidad</th>
-                            <th className="px-4 py-3 font-semibold">Efecto</th>
-                            <th className="px-4 py-3 font-semibold">Causas</th>
-                            <th className="px-4 py-3 font-semibold text-center">1. Prob.</th>
-                            <th className="px-4 py-3 font-semibold text-center">2. Imp.</th>
-                            <th className="px-4 py-3 font-semibold text-center">3. Det.</th>
-                            <th className="px-4 py-3 font-semibold text-center">Valor Real</th>
-                            <th className="px-4 py-3 font-semibold">Significante</th>
-                            <th className="px-4 py-3 font-semibold text-center">Acciones</th>
+                            <th rowSpan={2} className="px-4 py-3 font-semibold align-middle">Num.</th>
+                            <th rowSpan={2} className="px-4 py-3 font-semibold align-middle">Proceso</th>
+                            <th rowSpan={2} className="px-4 py-3 font-semibold align-middle">Riesgo / Oportunidad</th>
+                            <th rowSpan={2} className="px-4 py-3 font-semibold align-middle">Efecto</th>
+                            <th rowSpan={2} className="px-4 py-3 font-semibold align-middle">Causas</th>
+                            <th colSpan={5} className="px-4 py-1.5 font-semibold text-center border-l border-gray-200">Nivel de Riesgo P*I*D</th>
+                            <th rowSpan={2} className="px-4 py-3 font-semibold align-middle">Plan</th>
+                            <th rowSpan={2} className="px-4 py-3 font-semibold text-center align-middle">Acciones</th>
+                        </tr>
+                        <tr>
+                            <th className="px-4 py-2 font-semibold text-center border-l border-gray-200 leading-tight">1. Prob.</th>
+                            <th className="px-4 py-2 font-semibold text-center leading-tight">2. Imp.</th>
+                            <th className="px-4 py-2 font-semibold text-center leading-tight">3. Det.</th>
+                            <th className="px-4 py-2 font-semibold text-center leading-tight">Valor Real</th>
+                            <th className="px-4 py-2 font-semibold leading-tight">Significante</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {loading ? (
-                            <tr><td colSpan={11} className="text-center py-10 text-gray-400">Cargando...</td></tr>
+                            <tr><td colSpan={12} className="text-center py-10 text-gray-400">Cargando...</td></tr>
                         ) : filtradas.length === 0 ? (
-                            <tr><td colSpan={11} className="text-center py-10 text-gray-400">No se encontraron registros</td></tr>
+                            <tr><td colSpan={12} className="text-center py-10 text-gray-400">No se encontraron registros</td></tr>
                         ) : filtradas.map((item, idx) => (
                             <tr key={item.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/calidad/riesgos/${encodeId(item.id)}`)}>
                                 <td className="px-4 py-3 text-gray-400">{idx + 1}</td>
@@ -133,6 +137,74 @@ export const RiesgosOportunidadesPage = () => {
                                 <td className="px-4 py-3 text-center text-gray-700">{item.deteccion}</td>
                                 <td className="px-4 py-3 text-center font-bold text-gray-800">{item.nivel_riesgo}</td>
                                 <td className={`px-4 py-3 text-center font-bold ${condicionStyles[item.condicion] || 'bg-gray-100 text-gray-700'}`}>{item.condicion}</td>
+                                <td className="px-4 py-3">
+                                    {item.plan_archivo ? (
+                                        <div className="flex items-center gap-1">
+                                            <a
+                                                href={item.plan_archivo.startsWith('http') ? item.plan_archivo : (item.plan_archivo.startsWith('/') ? `http://localhost:3001${item.plan_archivo}` : item.plan_archivo)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                                                title={item.plan_nombre || 'Ver plan'}
+                                            >
+                                                <FileText className="w-3 h-3" />
+                                                <span className="max-w-[110px] truncate">Ver plan</span>
+                                            </a>
+                                            {puedeEditar && (
+                                                <button
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        const motivo = await pedirMotivo({ title: 'Quitar plan', message: '¿Quitar el archivo del plan de tratamiento?', confirmLabel: 'Quitar' });
+                                                        if (!motivo) return;
+                                                        try {
+                                                            await api.delete(`/calidad/riesgos/${item.id}/plan`, { motivo });
+                                                            toast({ message: 'Plan eliminado.' });
+                                                            fetchItems();
+                                                        } catch {
+                                                            alert({ message: 'Error al quitar el plan.' });
+                                                        }
+                                                    }}
+                                                    className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                                    title="Quitar plan"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : puedeEditar ? (
+                                        <label
+                                            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded cursor-pointer transition-colors w-fit"
+                                            title="Subir PDF, DOC, DOCX, XLS, XLSX"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <Upload className="w-3 h-3" />
+                                            <span>Subir</span>
+                                            <input
+                                                type="file"
+                                                accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                                className="hidden"
+                                                onChange={async (e) => {
+                                                    const f = e.target.files?.[0];
+                                                    if (!f) return;
+                                                    const fd = new FormData();
+                                                    fd.append('archivo', f);
+                                                    try {
+                                                        await api.post(`/calidad/riesgos/${item.id}/plan`, fd);
+                                                        toast({ message: 'Plan subido correctamente.' });
+                                                        fetchItems();
+                                                    } catch (err: any) {
+                                                        alert({ message: err?.response?.data?.message || 'Error al subir el plan.' });
+                                                    } finally {
+                                                        e.target.value = '';
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    ) : (
+                                        <span className="text-gray-400">—</span>
+                                    )}
+                                </td>
                                 <td className="px-4 py-3">
                                     <div className="flex justify-center gap-1">
                                         <button onClick={() => navigate(`/calidad/riesgos/${encodeId(item.id)}`)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver detalle"><Eye className="w-4 h-4" /></button>

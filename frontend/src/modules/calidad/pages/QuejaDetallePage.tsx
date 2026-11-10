@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
+import { AccionesVinculadas } from '../components/AccionesVinculadas';
 
 const estadoStyles: Record<string, string> = {
   RECIBIDA: 'bg-gray-100 text-gray-700',
@@ -245,6 +246,10 @@ export const QuejaDetallePage = () => {
             </div>
           </div>
         )}
+
+        <div className="pt-4">
+          <AccionesVinculadas origenTipo="QUEJA" origenId={item.id} />
+        </div>
       </div>
     </div>
   );

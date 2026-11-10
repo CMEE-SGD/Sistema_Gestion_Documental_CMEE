@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Patch,
+  Put,
   Param,
   Query,
   Delete,
@@ -23,6 +24,7 @@ import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
 import { CambiarFaseAdminDto } from './dto/cambiar-fase-admin.dto';
 import { RegistrarFechasCalibracionDto } from './dto/registrar-fechas-calibracion.dto';
+import { GuardarNotaEntregaDto } from './dto/guardar-nota-entrega.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
@@ -61,6 +63,30 @@ export class RecepcionEquiposController {
   ])
   resumen(@Req() req: any) {
     return this.recepcionService.resumen(req.user);
+  }
+
+  // Nota de entrega (formato AC1.2.F2-1) de la orden: la guardada y una
+  // sugerencia prellenada con los datos de la orden.
+  @Get('orden/:id/nota-entrega')
+  @RequireAccess([
+    { app: 'Recepcion Equipos', level: 1 },
+    { app: 'Gestion Financiera', level: 1 },
+  ])
+  obtenerNotaEntrega(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.recepcionService.obtenerNotaEntrega(id, req.user);
+  }
+
+  // Se llena como parte del flujo de entrega (igual que el comprobante), así
+  // que va exenta de la exigencia de motivo.
+  @Put('orden/:id/nota-entrega')
+  @SinMotivo()
+  @RequireAccess('Recepcion Equipos', 4)
+  guardarNotaEntrega(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: GuardarNotaEntregaDto,
+    @Req() req: any,
+  ) {
+    return this.recepcionService.guardarNotaEntrega(id, dto, req.user);
   }
 
   @Get(':id')

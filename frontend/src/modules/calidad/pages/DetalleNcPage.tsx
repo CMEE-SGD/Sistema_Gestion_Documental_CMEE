@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { VerificarEficaciaModal } from '../components/VerificarEficaciaModal';
+import { AccionesVinculadas } from '../components/AccionesVinculadas';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
@@ -296,6 +297,10 @@ export const DetalleNcPage = () => {
                     )}
                 </div>
             )}
+
+            <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 pt-4">
+                <AccionesVinculadas origenTipo="AUDITORIA_NC" origenId={nc.id} />
+            </div>
 
             {(nc.estado === 'EN_CURSO' || nc.estado === 'VERIFICADA') && (
                 <div className="mt-6 flex justify-end gap-3">

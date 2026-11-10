@@ -276,9 +276,9 @@ export const RiesgoFormPage = () => {
 
     if (loading) return <div className="p-6 text-center text-gray-400">Cargando...</div>;
 
-    const showValoracion = esEdicion && (form.probabilidad > 1 || form.impacto > 1 || form.deteccion > 1 || form.nivel_riesgo > 0);
-    const showTratamiento = esEdicion && !!form.acciones;
-    const showSeguimiento = esEdicion && !!form.verificacion_eficacia;
+    const showValoracion = true;
+    const showTratamiento = true;
+    const showSeguimiento = true;
 
     return (
         <div className="p-6">
