@@ -641,11 +641,71 @@ export class RecepcionEquiposService {
   async update(id: number, dto: UpdateOrdenTrabajoDto) {
     await this.findOne(id);
 
-    const { equipos, proforma_id, ...header } = dto;
+    const { equipos, equipos_eliminar, proforma_id, ...header } = dto;
     const proformaSync = await this.resolverProformaSync(proforma_id);
 
     if (equipos && equipos.length > 0) {
       await this.validarSubAreasDeEquipos(equipos);
+    }
+
+    // Equipos que el usuario quitó expresamente en el formulario. Se eliminan
+    // solo los ids indicados en `equipos_eliminar` y NO los que simplemente
+    // faltan en `equipos`: la lista que recibe el formulario está filtrada por
+    // rol y laboratorio (findAll), así que un equipo ausente puede ser uno que
+    // el usuario ni siquiera ve.
+    let equiposAEliminar: { id: number; equipo_descripcion: string }[] = [];
+    if (equipos_eliminar && equipos_eliminar.length > 0) {
+      equiposAEliminar = await this.prisma.equipoRecepcion.findMany({
+        where: { orden_trabajo_id: id, id: { in: equipos_eliminar } },
+        select: { id: true, equipo_descripcion: true },
+      });
+      if (equiposAEliminar.length !== new Set(equipos_eliminar).size) {
+        throw new BadRequestException(
+          'Alguno de los equipos a eliminar no pertenece a esta orden.',
+        );
+      }
+
+      // La orden debe conservar al menos un equipo.
+      const totalActual = await this.prisma.equipoRecepcion.count({
+        where: { orden_trabajo_id: id },
+      });
+      const nuevos = (equipos ?? []).filter((e) => !e.id).length;
+      if (totalActual - equiposAEliminar.length + nuevos < 1) {
+        throw new BadRequestException(
+          'La orden debe conservar al menos un equipo.',
+        );
+      }
+
+      // Un equipo con certificados o facturado ya tiene trazabilidad que no
+      // debe perderse: se rechaza antes de tocar nada.
+      if (equiposAEliminar.length > 0) {
+        const idsBorrar = equiposAEliminar.map((e) => e.id);
+        const [conCertificado, facturados] = await Promise.all([
+          this.prisma.certificado.findMany({
+            where: { equipo_recepcion_id: { in: idsBorrar } },
+            select: { equipo_recepcion_id: true },
+          }),
+          this.prisma.facturaDetalle.findMany({
+            where: { equipo_recepcion_id: { in: idsBorrar } },
+            select: { equipo_recepcion_id: true },
+          }),
+        ]);
+        const bloqueados = new Set<number>([
+          ...conCertificado.map((c) => c.equipo_recepcion_id),
+          ...facturados
+            .map((f) => f.equipo_recepcion_id)
+            .filter((v): v is number => v !== null),
+        ]);
+        if (bloqueados.size > 0) {
+          const nombres = equiposAEliminar
+            .filter((e) => bloqueados.has(e.id))
+            .map((e) => e.equipo_descripcion)
+            .join(', ');
+          throw new BadRequestException(
+            `No se puede eliminar: ${nombres} ya tiene certificados o facturación asociados.`,
+          );
+        }
+      }
     }
 
     try {
@@ -697,6 +757,18 @@ export class RecepcionEquiposService {
               });
             }
           }
+        }
+
+        // 3) Equipos quitados en el formulario (el historial de fases del
+        // equipo se elimina con él; los certificados ya se descartaron arriba).
+        if (equiposAEliminar.length > 0) {
+          const idsBorrar = equiposAEliminar.map((e) => e.id);
+          await tx.historialEstado.deleteMany({
+            where: { equipo_recepcion_id: { in: idsBorrar } },
+          });
+          await tx.equipoRecepcion.deleteMany({
+            where: { id: { in: idsBorrar } },
+          });
         }
 
         return tx.ordenTrabajo.findUnique({
