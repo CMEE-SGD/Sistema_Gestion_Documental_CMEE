@@ -1,7 +1,9 @@
 // Modal de edición directa de una orden de trabajo y sus equipos.
 // Administrador: PATCH directo a /recepcion-equipos/:id (sin pasar por el
 // flujo de estados). Edita la cabecera Y los datos de cada equipo; también
-// permite agregar equipos nuevos a la orden. La fase de cada equipo no se
+// permite agregar equipos nuevos y quitar los existentes (se envían en
+// `equipos_eliminar`; el backend rechaza los que ya tienen certificados o factura).
+// La fase de cada equipo no se
 // toca desde aquí (se mueve con el flujo o con "cambiar fase" del admin).
 
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -96,6 +98,7 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
   >([]);
 
   const [equipos, setEquipos] = useState<EquipoEdit[]>([]);
+  const [equiposEliminados, setEquiposEliminados] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
 
@@ -202,6 +205,7 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
       fecha_ingreso_laboratorio: toDateInput(eq.fecha_ingreso_laboratorio),
     }));
     setEquipos(filas.length > 0 ? filas : [nuevoEquipoVacio()]);
+    setEquiposEliminados([]);
     setErrors({});
 
     // Precargar sub-áreas de los laboratorios ya asignados
@@ -222,7 +226,10 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
           : undefined,
         cliente_id: Number(header.cliente_id),
         fecha_ingreso: header.fecha_ingreso || undefined,
-        observaciones: header.observaciones.trim() || undefined,
+        // null (no undefined) para que dejar el campo vacío lo borre.
+        observaciones: header.observaciones.trim() || null,
+        equipos_eliminar:
+          equiposEliminados.length > 0 ? equiposEliminados : undefined,
         equipos: equipos.map((eq) => ({
           id: eq.id ?? undefined,
           equipo_descripcion: eq.equipo_descripcion.trim(),
@@ -281,8 +288,14 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
 
   const addEquipo = () => setEquipos((prev) => [...prev, nuevoEquipoVacio()]);
 
-  const removeEquipo = (index: number) =>
+  const removeEquipo = (index: number) => {
+    const quitado = equipos[index];
+    // Solo los equipos ya guardados (con id) hay que eliminarlos en el backend.
+    if (quitado?.id) {
+      setEquiposEliminados((prev) => [...prev, quitado.id as number]);
+    }
     setEquipos((prev) => prev.filter((_, i) => i !== index));
+  };
 
   // ── Validación ──────────────────────────────────────────────────────
   const validate = (): boolean => {
