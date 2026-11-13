@@ -54,6 +54,18 @@ function construirOrdenInclude(equipoWhere?: object) {
         sub_area: { select: { id: true, nombre: true } },
         tecnico: { select: { id: true, nombre: true, apellidos: true } },
         certificados: { select: { id: true } },
+        equipo_principal: {
+          select: {
+            id: true,
+            laboratorio: { select: { id: true, nombre: true } },
+            equipos_adicionales: {
+              select: { id: true, laboratorio: { select: { id: true, nombre: true } } },
+            },
+          },
+        },
+        equipos_adicionales: {
+          select: { id: true, laboratorio: { select: { id: true, nombre: true } } },
+        },
         historial_estado: {
           select: {
             id: true,
@@ -81,6 +93,18 @@ const EQUIPO_INCLUDE = {
   sub_area: { select: { id: true, nombre: true } },
   tecnico: { select: { id: true, nombre: true, apellidos: true } },
   certificados: { select: { id: true } },
+  equipo_principal: {
+    select: {
+      id: true,
+      laboratorio: { select: { id: true, nombre: true } },
+      equipos_adicionales: {
+        select: { id: true, laboratorio: { select: { id: true, nombre: true } } },
+      },
+    },
+  },
+  equipos_adicionales: {
+    select: { id: true, laboratorio: { select: { id: true, nombre: true } } },
+  },
   historial_estado: {
     select: {
       id: true,
@@ -427,21 +451,44 @@ export class RecepcionEquiposService {
     const proformaSync = await this.resolverProformaSync(proforma_id);
 
     await this.validarSubAreasDeEquipos(equipos);
+    this.validarEnlacesDeEquipos(equipos);
 
     try {
-      const orden = await this.prisma.ordenTrabajo.create({
-        data: {
-          ...header,
-          ...proformaSync,
-          fecha_ingreso: toDate(dto.fecha_ingreso),
-          equipos: {
-            create: equipos.map((equipo) => ({
-              ...equipo,
-              fecha_ingreso_laboratorio: toDate(equipo.fecha_ingreso_laboratorio),
-            })),
+      const orden = await this.prisma.$transaction(async (tx) => {
+        const creada = await tx.ordenTrabajo.create({
+          data: {
+            ...header,
+            ...proformaSync,
+            fecha_ingreso: toDate(dto.fecha_ingreso),
+            equipos: {
+              create: equipos.map((equipo) => {
+                // `equipo_principal_indice` solo sirve para enlazar (abajo).
+                const { equipo_principal_indice: _ignorado, ...datos } = equipo;
+                return {
+                  ...datos,
+                  fecha_ingreso_laboratorio: toDate(datos.fecha_ingreso_laboratorio),
+                };
+              }),
+            },
           },
-        },
-        include: construirOrdenInclude(),
+          include: { equipos: { select: { id: true }, orderBy: { id: 'asc' as const } } },
+        });
+
+        // Las filas "mismo equipo en otro laboratorio" se enlazan a su principal
+        // (los equipos se crean en el orden recibido, así que por posición).
+        for (let i = 0; i < equipos.length; i++) {
+          const indice = equipos[i].equipo_principal_indice;
+          if (indice == null) continue;
+          await tx.equipoRecepcion.update({
+            where: { id: creada.equipos[i].id },
+            data: { equipo_principal_id: creada.equipos[indice].id },
+          });
+        }
+
+        return tx.ordenTrabajo.findUnique({
+          where: { id: creada.id },
+          include: construirOrdenInclude(),
+        });
       });
       this.notificacionesService.notificarRecepcionActualizada();
       return orden;
@@ -486,6 +533,84 @@ export class RecepcionEquiposService {
       data: { estado: 'ACEPTADA' },
     });
     return { proforma_id: proforma.id, n_proforma: proforma.numero };
+  }
+
+  /**
+   * Un mismo equipo puede calibrarse en varios laboratorios (una fila por
+   * laboratorio, enlazadas). Aquí se valida, al crear la orden, que cada enlace
+   * apunte a una fila anterior que no sea a su vez un enlace y que un mismo
+   * equipo no repita laboratorio.
+   */
+  private validarEnlacesDeEquipos(
+    equipos: { equipo_principal_indice?: number; laboratorio_id?: number }[],
+  ) {
+    const labsPorPrincipal = new Map<number, Set<number>>();
+    equipos.forEach((equipo, i) => {
+      if (equipo.equipo_principal_indice == null) {
+        labsPorPrincipal.set(i, new Set([equipo.laboratorio_id as number]));
+      }
+    });
+    equipos.forEach((equipo, i) => {
+      const indice = equipo.equipo_principal_indice;
+      if (indice == null) return;
+      if (indice >= i || equipos[indice]?.equipo_principal_indice != null) {
+        throw new BadRequestException(
+          'Un equipo en otro laboratorio debe enlazarse a un equipo principal anterior de la misma orden.',
+        );
+      }
+      const usados = labsPorPrincipal.get(indice)!;
+      if (usados.has(equipo.laboratorio_id as number)) {
+        throw new BadRequestException(
+          'Un mismo equipo no puede repetir el laboratorio: elija otro laboratorio para esa fila.',
+        );
+      }
+      usados.add(equipo.laboratorio_id as number);
+    });
+  }
+
+  /**
+   * Al editar una orden, un equipo NUEVO puede enlazarse como "el mismo equipo
+   * en otro laboratorio" de uno existente. El principal debe ser de esta misma
+   * orden y no ser él mismo un enlace, y el laboratorio no puede repetirse
+   * dentro del grupo.
+   */
+  private async validarEnlacesAlEditar(
+    ordenId: number,
+    equipos: { id?: number; equipo_principal_id?: number; laboratorio_id?: number }[],
+  ) {
+    const nuevosEnlazados = equipos.filter((e) => !e.id && e.equipo_principal_id);
+    if (nuevosEnlazados.length === 0) return;
+
+    const grupo = await this.prisma.equipoRecepcion.findMany({
+      where: { orden_trabajo_id: ordenId },
+      select: { id: true, laboratorio_id: true, equipo_principal_id: true },
+    });
+    const porId = new Map(grupo.map((e) => [e.id, e]));
+
+    // Laboratorios ya usados por el equipo principal y sus filas adicionales.
+    const usadosPorPrincipal = new Map<number, Set<number>>();
+    for (const nuevo of nuevosEnlazados) {
+      const principal = porId.get(nuevo.equipo_principal_id as number);
+      if (!principal || principal.equipo_principal_id != null) {
+        throw new BadRequestException(
+          'El equipo principal no pertenece a esta orden o ya es una fila de otro laboratorio.',
+        );
+      }
+      if (!usadosPorPrincipal.has(principal.id)) {
+        const usados = new Set<number>([principal.laboratorio_id]);
+        grupo
+          .filter((e) => e.equipo_principal_id === principal.id)
+          .forEach((e) => usados.add(e.laboratorio_id));
+        usadosPorPrincipal.set(principal.id, usados);
+      }
+      const usados = usadosPorPrincipal.get(principal.id)!;
+      if (usados.has(nuevo.laboratorio_id as number)) {
+        throw new BadRequestException(
+          'Ese equipo ya se calibra en ese laboratorio: elija otro laboratorio.',
+        );
+      }
+      usados.add(nuevo.laboratorio_id as number);
+    }
   }
 
   // Evita que un equipo quede etiquetado con una sub-área que en realidad
@@ -646,6 +771,7 @@ export class RecepcionEquiposService {
 
     if (equipos && equipos.length > 0) {
       await this.validarSubAreasDeEquipos(equipos);
+      await this.validarEnlacesAlEditar(id, equipos);
     }
 
     // Equipos que el usuario quitó expresamente en el formulario. Se eliminan
@@ -753,7 +879,14 @@ export class RecepcionEquiposService {
               });
             } else {
               await tx.equipoRecepcion.create({
-                data: { ...dataEquipo, orden_trabajo_id: id },
+                data: {
+                  ...dataEquipo,
+                  orden_trabajo_id: id,
+                  // "Mismo equipo en otro laboratorio" (ver validarEnlacesAlEditar).
+                  ...(equipo.equipo_principal_id
+                    ? { equipo_principal_id: equipo.equipo_principal_id }
+                    : {}),
+                },
               });
             }
           }
@@ -1505,6 +1638,7 @@ export class RecepcionEquiposService {
             codigo_cmee: true,
             accesorios: true,
             fecha_calibracion: true,
+            equipo_principal_id: true,
             certificados: { select: { id: true }, take: 1 },
           },
         },
@@ -1548,16 +1682,26 @@ export class RecepcionEquiposService {
       cliente_firma_ci: '',
       cmee_firma_nombre: entrega.nombre,
       cmee_firma_ci: entrega.ci,
-      equipos: orden.equipos.map((e) => ({
-        equipo: e.equipo_descripcion,
-        marca: e.marca ?? '',
-        modelo: e.modelo ?? '',
-        serie_codigo: e.codigo_serie ?? e.codigo_cmee ?? '',
-        accesorios: e.accesorios ?? '',
-        calibracion: e.fecha_calibracion ? 'CALIBRADO' : '',
-        certificado: e.certificados.length > 0 ? 'CON_CERTIFICADO' : '',
-        informe: '',
-      })),
+      // Un equipo calibrado en varios laboratorios sale UNA sola vez: es calibrado
+      // y con certificado solo si todas sus calibraciones lo están.
+      equipos: orden.equipos
+        .filter((e) => e.equipo_principal_id == null)
+        .map((e) => {
+          const filas = [
+            e,
+            ...orden.equipos.filter((x) => x.equipo_principal_id === e.id),
+          ];
+          return {
+            equipo: e.equipo_descripcion,
+            marca: e.marca ?? '',
+            modelo: e.modelo ?? '',
+            serie_codigo: e.codigo_serie ?? e.codigo_cmee ?? '',
+            accesorios: e.accesorios ?? '',
+            calibracion: filas.every((f) => f.fecha_calibracion) ? 'CALIBRADO' : '',
+            certificado: filas.every((f) => f.certificados.length > 0) ? 'CON_CERTIFICADO' : '',
+            informe: '',
+          };
+        }),
     };
 
     const n = orden.nota_entrega;

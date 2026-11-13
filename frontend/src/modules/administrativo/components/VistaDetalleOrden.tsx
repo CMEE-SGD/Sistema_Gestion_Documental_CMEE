@@ -31,7 +31,34 @@ interface CertificadoResumen {
   id: number;
 }
 
+/** Otra fila del mismo equipo, calibrada en otro laboratorio. */
+export interface EquipoEnlace {
+  id: number;
+  laboratorio: { id: number; nombre: string } | null;
+}
+
+/**
+ * Nombres de los OTROS laboratorios en los que se calibra el mismo equipo
+ * (cada laboratorio tiene su propia fila, enlazada a la principal).
+ */
+export function otrosLaboratorios(eq: {
+  id: number;
+  equipo_principal?: (EquipoEnlace & { equipos_adicionales: EquipoEnlace[] }) | null;
+  equipos_adicionales?: EquipoEnlace[];
+}): string[] {
+  const principal = eq.equipo_principal;
+  const enlaces = principal
+    ? [principal, ...principal.equipos_adicionales]
+    : (eq.equipos_adicionales ?? []);
+  return enlaces
+    .filter((e) => e.id !== eq.id)
+    .map((e) => e.laboratorio?.nombre)
+    .filter((n): n is string => !!n);
+}
+
 export interface EquipoResumen {
+  equipo_principal?: (EquipoEnlace & { equipos_adicionales: EquipoEnlace[] }) | null;
+  equipos_adicionales?: EquipoEnlace[];
   id: number;
   equipo_descripcion: string;
   marca: string | null;
@@ -316,6 +343,11 @@ export default function VistaDetalleOrden({ orden, onClose }: Props) {
                       >
                         {eq.equipo_descripcion}
                       </button>
+                      {otrosLaboratorios(eq).length > 0 && (
+                        <span className="mt-0.5 block text-[11px] font-medium text-sky-700">
+                          También en: {otrosLaboratorios(eq).join(', ')}
+                        </span>
+                      )}
                     </td>
                       <td className="px-2 py-1 border-r border-slate-200 align-top">
                         {eq.marca || '—'}

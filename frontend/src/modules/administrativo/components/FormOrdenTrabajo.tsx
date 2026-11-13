@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Loader2, UserPlus } from 'lucide-react';
+import { Plus, Trash2, Loader2, UserPlus, Split } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
@@ -29,6 +29,10 @@ interface SubAreaOption {
 }
 
 interface EquipoForm {
+  // Identificador interno de la fila y, si es "el mismo equipo en otro
+  // laboratorio", el de la fila principal a la que está enlazada.
+  uid: string;
+  principalUid?: string;
   equipo_descripcion: string;
   marca: string;
   modelo: string;
@@ -63,6 +67,34 @@ interface Props {
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
+
+// Datos del equipo físico: se copian y se mantienen iguales en todas las filas
+// del mismo equipo (una por laboratorio). Los requerimientos de calibración, el
+// laboratorio y la fecha de ingreso son propios de cada laboratorio.
+const CAMPOS_FISICOS: (keyof EquipoForm)[] = [
+  'equipo_descripcion',
+  'marca',
+  'modelo',
+  'codigo_serie',
+  'codigo_cmee',
+  'accesorios',
+];
+
+const nuevoUid = () => Math.random().toString(36).slice(2, 10);
+
+const equipoVacio = (): EquipoForm => ({
+  uid: nuevoUid(),
+  equipo_descripcion: '',
+  marca: '',
+  modelo: '',
+  codigo_serie: '',
+  codigo_cmee: '',
+  accesorios: '',
+  requerimientos_calibracion: '',
+  laboratorio_id: '',
+  sub_area_id: '',
+  fecha_ingreso_laboratorio: '',
+});
 
 export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
   const { alert } = useAlert();
@@ -107,20 +139,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
   });
 
   // Detail state — dynamic array of equipos
-  const [equipos, setEquipos] = useState<EquipoForm[]>([
-    {
-      equipo_descripcion: '',
-      marca: '',
-      modelo: '',
-      codigo_serie: '',
-      codigo_cmee: '',
-      accesorios: '',
-      requerimientos_calibracion: '',
-      laboratorio_id: '',
-      sub_area_id: '',
-      fecha_ingreso_laboratorio: '',
-    },
-  ]);
+  const [equipos, setEquipos] = useState<EquipoForm[]>(() => [equipoVacio()]);
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -207,31 +226,61 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
       if (value) cargarSubAreas(Number(value));
       return;
     }
-    setEquipos((prev) =>
-      prev.map((eq, i) => (i === index ? { ...eq, [field]: value } : eq)),
-    );
+    setEquipos((prev) => {
+      const origen = prev[index];
+      return prev.map((eq, i) => {
+        if (i === index) return { ...eq, [field]: value };
+        // Los datos del equipo físico se replican en sus otras filas.
+        if (
+          origen &&
+          !origen.principalUid &&
+          eq.principalUid === origen.uid &&
+          CAMPOS_FISICOS.includes(field)
+        ) {
+          return { ...eq, [field]: value };
+        }
+        return eq;
+      });
+    });
   };
 
   const addEquipo = () => {
-    setEquipos((prev) => [
-      ...prev,
-      {
-        equipo_descripcion: '',
-        marca: '',
-        modelo: '',
-        codigo_serie: '',
-        codigo_cmee: '',
-        accesorios: '',
-        requerimientos_calibracion: '',
-        laboratorio_id: '',
-        sub_area_id: '',
-        fecha_ingreso_laboratorio: '',
-      },
-    ]);
+    setEquipos((prev) => [...prev, equipoVacio()]);
+  };
+
+  // "Agregar este equipo en otro laboratorio": copia el equipo en una fila
+  // nueva, enlazada a la principal, para elegir allí el otro laboratorio.
+  const addOtroLaboratorio = (index: number) => {
+    setEquipos((prev) => {
+      const principal = prev[index];
+      if (!principal || principal.principalUid) return prev;
+      const copia: EquipoForm = {
+        ...equipoVacio(),
+        principalUid: principal.uid,
+        equipo_descripcion: principal.equipo_descripcion,
+        marca: principal.marca,
+        modelo: principal.modelo,
+        codigo_serie: principal.codigo_serie,
+        codigo_cmee: principal.codigo_cmee,
+        accesorios: principal.accesorios,
+      };
+      // Se coloca justo después de la última fila del mismo equipo.
+      let ultimo = index;
+      prev.forEach((eq, i) => {
+        if (eq.principalUid === principal.uid) ultimo = i;
+      });
+      return [...prev.slice(0, ultimo + 1), copia, ...prev.slice(ultimo + 1)];
+    });
   };
 
   const removeEquipo = (index: number) => {
-    setEquipos((prev) => prev.filter((_, i) => i !== index));
+    setEquipos((prev) => {
+      const quitado = prev[index];
+      // Quitar el equipo principal quita también sus filas de otros laboratorios.
+      return prev.filter(
+        (eq, i) => i !== index && !(quitado && !quitado.principalUid && eq.principalUid === quitado.uid),
+      );
+    });
   };
 
   // ------------------------------------------------------------------
@@ -249,6 +298,19 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
         errs[`equipos.${i}.equipo_descripcion`] = 'Descripción requerida';
       if (!eq.laboratorio_id)
         errs[`equipos.${i}.laboratorio_id`] = 'Seleccione un laboratorio';
+      else {
+        // Un mismo equipo no puede repetir laboratorio entre sus filas.
+        const grupo = eq.principalUid ?? eq.uid;
+        const repetido = equipos.some(
+          (otro, j) =>
+            j < i &&
+            (otro.principalUid ?? otro.uid) === grupo &&
+            otro.laboratorio_id === eq.laboratorio_id,
+        );
+        if (repetido)
+          errs[`equipos.${i}.laboratorio_id`] =
+            'Este equipo ya se calibra en ese laboratorio';
+      }
     });
 
     setErrors(errs);
@@ -277,6 +339,10 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
           : undefined,
         observaciones: header.observaciones.trim() || undefined,
         equipos: equipos.map((eq) => ({
+          // Fila enlazada: posición de su equipo principal dentro de esta lista.
+          equipo_principal_indice: eq.principalUid
+            ? equipos.findIndex((p) => p.uid === eq.principalUid)
+            : undefined,
           equipo_descripcion: eq.equipo_descripcion.trim(),
           marca: eq.marca.trim() || undefined,
           modelo: eq.modelo.trim() || undefined,
@@ -500,8 +566,10 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
             <tbody>
               {equipos.map((eq, i) => (
                 <tr
-                  key={i}
-                  className="border-b border-border transition-colors hover:bg-muted/50"
+                  key={eq.uid}
+                  className={`border-b border-border transition-colors hover:bg-muted/50 ${
+                    eq.principalUid ? 'bg-sky-50/60' : ''
+                  }`}
                 >
                   {/* PATCH: orden de columnas según layout Excel */}
                   <td className="px-3 py-2.5 align-top">
@@ -528,6 +596,11 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
                     {errors[`equipos.${i}.equipo_descripcion`] && (
                       <p className="mt-1 text-xs text-destructive">
                         {errors[`equipos.${i}.equipo_descripcion`]}
+                      </p>
+                    )}
+                    {eq.principalUid && (
+                      <p className="mt-1 text-xs font-medium text-sky-700">
+                        ↳ Mismo equipo, en otro laboratorio
                       </p>
                     )}
                   </td>
@@ -647,6 +720,16 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
                     />
                   </td>
                   <td className="px-3 py-2.5 text-center align-top">
+                    {!eq.principalUid && (
+                      <button
+                        type="button"
+                        onClick={() => addOtroLaboratorio(i)}
+                        className="mb-1 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-sky-100 hover:text-sky-700"
+                        title="Calibrar este mismo equipo en otro laboratorio"
+                      >
+                        <Split className="h-5 w-5" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeEquipo(i)}

@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsEnum,
   IsDateString,
+  Min,
 } from 'class-validator';
 import { EstadoRecepcion } from '@prisma/client';
 
@@ -55,4 +56,12 @@ export class CreateEquipoRecepcionDto {
   @IsEnum(EstadoRecepcion)
   @IsOptional()
   estado?: EstadoRecepcion;
+
+  // Al CREAR una orden: posición (0, 1, 2…) dentro de `equipos` de la fila
+  // principal cuando esta fila es el mismo equipo calibrado en OTRO laboratorio.
+  // Debe apuntar a una fila anterior. No se guarda: solo sirve para enlazarlas.
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  equipo_principal_indice?: number;
 }

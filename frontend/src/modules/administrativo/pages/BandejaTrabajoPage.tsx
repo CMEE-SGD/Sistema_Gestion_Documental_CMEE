@@ -47,7 +47,7 @@ import CambiarFaseModal from '../components/CambiarFaseModal';
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
 import EditarOrdenModal from '../components/EditarOrdenModal';
 import VistaDetalleEquipo from '../components/VistaDetalleEquipo';
-import { type OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
+import { type OrdenTrabajoDetalle, otrosLaboratorios } from '../components/VistaDetalleOrden';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -65,6 +65,8 @@ type EstadoKey =
 
 interface BandejaRecepcion {
   id: number;
+  /** Otros laboratorios donde se calibra este mismo equipo. */
+  otros_laboratorios: string[];
   orden_trabajo_fisica: string;
   fecha_ingreso: string;
   equipo_descripcion: string;
@@ -602,6 +604,7 @@ function useBandejaData() {
             orden_trabajo_fisica: orden.orden_trabajo_fisica,
             fecha_ingreso: orden.fecha_ingreso,
             equipo_descripcion: equipo.equipo_descripcion,
+            otros_laboratorios: otrosLaboratorios(equipo),
             estado: equipo.estado as EstadoKey,
             observacion: rechazoVigente,
             orden,
@@ -1177,6 +1180,11 @@ export default function BandejaTrabajoPage() {
                       >
                         {req.equipo_descripcion}
                       </button>
+                      {req.otros_laboratorios.length > 0 && (
+                        <span className="mt-0.5 block truncate text-[11px] font-medium text-sky-700">
+                          También en: {req.otros_laboratorios.join(', ')}
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
                       {req.laboratorio?.nombre ?? (

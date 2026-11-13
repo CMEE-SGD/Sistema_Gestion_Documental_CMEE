@@ -991,9 +991,17 @@ model EquipoRecepcion {
   // Ítems de factura que referencian este equipo (opcional)
   facturas_detalle FacturaDetalle[] @relation("FacturaDetalleEquipo")
 
+  // Mismo equipo físico calibrado en VARIOS laboratorios: cada laboratorio
+  // tiene su propia fila (su flujo, técnico, certificado y firmas) y las filas
+  // adicionales apuntan a la principal. Nulo en un equipo normal.
+  equipo_principal_id Int?
+  equipo_principal    EquipoRecepcion?  @relation("EquipoOtrosLaboratorios", fields: [equipo_principal_id], references: [id], onDelete: SetNull)
+  equipos_adicionales EquipoRecepcion[] @relation("EquipoOtrosLaboratorios")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
+  @@index([equipo_principal_id])
   @@index([orden_trabajo_id])
   @@index([tecnico_id])
   @@index([laboratorio_id])
@@ -1360,34 +1368,34 @@ model NoConformidadHistorial {
 // Condición: >= 200 Alto | 80..199 Moderado | < 80 Leve
 // ==========================================
 model RiesgoOportunidad {
-  id             Int               @id @default(autoincrement())
-  codigo         String            @unique @db.VarChar(50)
-  tipo           TipoRiesgo        @default(RIESGO)
-  proceso        String            @db.VarChar(100)
-  evento         String            @db.Text
-  causa          String?           @db.Text
-  fuente         String?           @db.Text
-  consecuencias  String?           @db.Text
-  probabilidad   Int               @db.SmallInt
-  impacto        Int               @db.SmallInt
-  deteccion      Int               @db.SmallInt
-  nivel_riesgo   Int               @db.SmallInt
-  condicion      CondicionRiesgo   @default(LEVE)
-  tratamiento    TratamientoRiesgo?
-  acciones       String?           @db.Text
-  fecha_limite   DateTime?         @db.Date
-  verificacion_eficacia String?    @db.Text
-  cierre_fecha   DateTime?         @db.Date
-  cerrada_por    String?           @db.VarChar(150)
-  estado         EstadoRiesgo      @default(IDENTIFICADO)
-  observaciones  String?           @db.Text
+  id                    Int                 @id @default(autoincrement())
+  codigo                String              @unique @db.VarChar(50)
+  tipo                  TipoRiesgo          @default(RIESGO)
+  proceso               String              @db.VarChar(100)
+  evento                String              @db.Text
+  causa                 String?             @db.Text
+  fuente                String?             @db.Text
+  consecuencias         String?             @db.Text
+  probabilidad          Int                 @db.SmallInt
+  impacto               Int                 @db.SmallInt
+  deteccion             Int                 @db.SmallInt
+  nivel_riesgo          Int                 @db.SmallInt
+  condicion             CondicionRiesgo     @default(LEVE)
+  tratamiento           TratamientoRiesgo?
+  acciones              String?             @db.Text
+  fecha_limite          DateTime?           @db.Date
+  verificacion_eficacia String?             @db.Text
+  cierre_fecha          DateTime?           @db.Date
+  cerrada_por           String?             @db.VarChar(150)
+  estado                EstadoRiesgo        @default(IDENTIFICADO)
+  observaciones         String?             @db.Text
   // Plan de tratamiento (archivo adjunto)
-  plan_archivo   String?           @db.VarChar(500)
-  plan_nombre    String?           @db.VarChar(255)
-  activo         Boolean           @default(true)
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
-  responsables   RiesgoResponsable[]
+  plan_archivo          String?             @db.VarChar(500)
+  plan_nombre           String?             @db.VarChar(255)
+  activo                Boolean             @default(true)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+  responsables          RiesgoResponsable[]
 
   @@map("riesgo_oportunidad")
 }
@@ -1503,34 +1511,34 @@ model TrabajoNoConforme {
   codigo String @unique @db.VarChar(50)
 
   // --- 1. DESCRIPCIÓN DEL ENSAYO Y/O CALIBRACIÓN NO CONFORME ---
-  elaborado_por          String              @db.VarChar(150)
-  fecha                  DateTime            @db.Date
-  categoria              CategoriaTrabajoNC  @default(EQUIPO)
-  descripcion_problema   String              @db.Text
+  elaborado_por        String             @db.VarChar(150)
+  fecha                DateTime           @db.Date
+  categoria            CategoriaTrabajoNC @default(EQUIPO)
+  descripcion_problema String             @db.Text
 
   // --- 2. TRATAMIENTO ---
-  tratamiento_responsable String?            @db.VarChar(150)
-  tratamiento_fecha       DateTime?          @db.Date
+  tratamiento_responsable String?   @db.VarChar(150)
+  tratamiento_fecha       DateTime? @db.Date
   // ["SUSPENDER","CORREGIR",...] — mismo criterio que los demás Json del schema
   acciones_tomadas        Json?
-  tratamiento_descripcion String?            @db.Text
+  tratamiento_descripcion String?   @db.Text
 
   // --- 3. REQUIERE ACCIÓN CORRECTIVA / PREVENTIVA ---
-  requiere_accion_correctiva Boolean         @default(false)
-  accion_correctiva_num      String?         @db.VarChar(50)
-  requiere_accion_preventiva Boolean         @default(false)
-  accion_preventiva_num      String?         @db.VarChar(50)
+  requiere_accion_correctiva Boolean @default(false)
+  accion_correctiva_num      String? @db.VarChar(50)
+  requiere_accion_preventiva Boolean @default(false)
+  accion_preventiva_num      String? @db.VarChar(50)
 
   // --- 4. SEGUIMIENTO ---
-  seguimiento_responsable String?            @db.VarChar(150)
-  seguimiento_fecha       DateTime?          @db.Date
+  seguimiento_responsable String?   @db.VarChar(150)
+  seguimiento_fecha       DateTime? @db.Date
   eficaz                  Boolean?
-  eficacia_verificada     String?            @db.Text
+  eficacia_verificada     String?   @db.Text
 
   // --- 5. OBSERVACIONES Y CIERRE ---
-  observaciones  String?   @db.Text
-  cerrado_por    String?   @db.VarChar(150)
-  fecha_cierre   DateTime? @db.Date
+  observaciones String?   @db.Text
+  cerrado_por   String?   @db.VarChar(150)
+  fecha_cierre  DateTime? @db.Date
 
   estado    EstadoTrabajoNC @default(REGISTRADA)
   activo    Boolean         @default(true)
@@ -1929,8 +1937,8 @@ model AccionCorrectivaPreventiva {
   origen_tipo OrigenAccion
   origen_id   Int
 
-  descripcion  String    @db.Text
-  causa        String?   @db.Text
+  descripcion    String    @db.Text
+  causa          String?   @db.Text
   responsable_id Int?
   responsable    Persona?  @relation("AccionResponsable", fields: [responsable_id], references: [id], onDelete: SetNull)
   fecha_limite   DateTime? @db.Date
