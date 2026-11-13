@@ -71,12 +71,12 @@ async function logoLigero(): Promise<ArrayBuffer> {
   }
 }
 
-/** "2026-10-06" → "6-10-2026" (como se escribe en la hoja). */
+/** "2026-10-06" tal cual: las fechas del sistema van en orden año-mes-día. */
 function fechaHoja(iso?: string): string {
   if (!iso) return '';
   const [a, m, d] = iso.slice(0, 10).split('-');
   if (!a || !m || !d) return iso;
-  return `${Number(d)}-${Number(m)}-${a}`;
+  return `${a}-${m}-${d}`;
 }
 
 export async function generarNotaEntregaPdf(datos: NotaEntregaPdfDatos): Promise<Uint8Array> {
