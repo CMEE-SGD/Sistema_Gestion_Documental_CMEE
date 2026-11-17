@@ -14,6 +14,7 @@ import { formatearNumeroCertificado } from '../common/helpers/certificado-format
 import { verificarFirmaPdf } from '../common/helpers/pdf-signature';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import { notificarResponsablesEquipo } from '../common/helpers/notificar-responsables-equipo';
+import { decodificarNombreArchivo } from '../common/helpers/encoding';
 
 function conNumeroFormateado<
   T extends { numero_certificado: number; fecha_subida: Date },
@@ -161,9 +162,9 @@ export class CertificadosService {
         data: {
           equipo_recepcion_id: equipoRecepcionId,
           ruta_archivo_reporte: file.path,
-          nombre_original_reporte: file.originalname,
+          nombre_original_reporte: decodificarNombreArchivo(file.originalname),
           ruta_archivo_certificado: file.path,
-          nombre_original_certificado: file.originalname,
+          nombre_original_certificado: decodificarNombreArchivo(file.originalname),
           tecnico_id: user.isGod ? 1 : personaId,
         },
       });

@@ -12,9 +12,15 @@ import { CreateEquipoRecepcionDto } from './create-equipo-recepcion.dto';
  * manual del administrador (cambiar-fase).
  */
 export class UpdateEquipoRecepcionDto extends PartialType(
-  OmitType(CreateEquipoRecepcionDto, ['estado'] as const),
+  OmitType(CreateEquipoRecepcionDto, ['estado', 'equipo_principal_indice'] as const),
 ) {
   @IsInt()
   @IsOptional()
   id?: number;
+
+  // Solo para un equipo NUEVO: id del equipo de esta misma orden del que es
+  // "el mismo equipo en otro laboratorio". Se ignora al actualizar uno existente.
+  @IsInt()
+  @IsOptional()
+  equipo_principal_id?: number;
 }

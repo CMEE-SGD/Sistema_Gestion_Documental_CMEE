@@ -8,6 +8,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import { esExtensionAdicional } from './formatos-permitidos';
+import { decodificarNombreArchivo } from '../common/helpers/encoding';
 
 // Asegurarnos de que la carpeta temp exista al arrancar el módulo
 const tempFolder = './uploads/Gestor_Documental/temp';
@@ -27,7 +28,7 @@ if (!fs.existsSync(tempFolder)) {
         filename: (req, file, cb) => {
           // 👉 CAMBIO: Eliminamos el sufijo numérico y conservamos el nombre original
           // Opcional: Reemplazamos los espacios por guiones bajos para evitar problemas en URLs
-          const nombreLimpio = file.originalname.replace(/\s+/g, '_');
+          const nombreLimpio = decodificarNombreArchivo(file.originalname).replace(/\s+/g, '_');
           cb(null, nombreLimpio);
         },
       }),

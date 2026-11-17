@@ -8,7 +8,7 @@ import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { Button } from '../../../shared/components/atoms/button';
 import VistaDetalleEquipo from '../components/VistaDetalleEquipo';
-import type { OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
+import { otrosLaboratorios, type OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
 
 // ---------------------------------------------------------------------------
 // Equipos archivados: los que ya terminaron su flujo (estado FINALIZADO, es
@@ -28,6 +28,7 @@ interface FilaArchivada {
   fecha_ingreso: string;
   cliente: string;
   equipo_descripcion: string;
+  otros_laboratorios: string[];
   laboratorio: { id: number; nombre: string } | null;
   tecnico: string;
   /** Cuándo pasó a FINALIZADO (sale del historial de estados). */
@@ -86,6 +87,7 @@ function useArchivadas() {
             fecha_ingreso: orden.fecha_ingreso,
             cliente: orden.cliente?.nombre ?? '',
             equipo_descripcion: equipo.equipo_descripcion,
+            otros_laboratorios: otrosLaboratorios(equipo),
             laboratorio: equipo.laboratorio
               ? { id: equipo.laboratorio.id, nombre: equipo.laboratorio.nombre }
               : null,
@@ -353,6 +355,11 @@ export default function ArchivadasPage() {
                     </td>
                     <td className="max-w-[220px] truncate px-4 py-4 text-sm font-medium text-foreground" title={f.equipo_descripcion}>
                       {f.equipo_descripcion}
+                      {f.otros_laboratorios.length > 0 && (
+                        <span className="block truncate text-[11px] font-medium text-sky-700">
+                          También en: {f.otros_laboratorios.join(', ')}
+                        </span>
+                      )}
                     </td>
                     <td className="max-w-[200px] truncate px-4 py-4 text-sm text-foreground" title={f.laboratorio?.nombre}>
                       {f.laboratorio?.nombre ?? (

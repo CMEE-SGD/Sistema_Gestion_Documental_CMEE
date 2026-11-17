@@ -8,10 +8,19 @@ import {
   Upload,
   FileText,
   ExternalLink,
+  ClipboardList,
+  Printer,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import {
+  generarNotaEntregaPdf,
+  mostrarPdf,
+  prepararVentanaPdf,
+  type NotaEntregaPdfDatos,
+} from '../../../shared/utils/notaEntregaPdf';
+import NotaEntregaModal, { useNotaEntrega } from './NotaEntregaModal';
 
 interface ComprobanteActual {
   ruta?: string | null;
@@ -56,12 +65,34 @@ export default function EntregaComprobanteModal({
   const tieneComprobante = !!comprobanteActual?.ruta;
   const montoValido = Number(monto) > 0;
 
+  // Nota de entrega (formato AC1.2.F2-1): obligatoria para entregar. Se llena
+  // en una ventana aparte y se imprime para la firma del cliente.
+  const [notaAbierta, setNotaAbierta] = useState(false);
+  const { data: notaInfo, isLoading: cargandoNota } = useNotaEntrega(
+    ordenId,
+    isOpen && accion === 'APROBAR',
+  );
+  const notaGuardada = !!notaInfo?.nota;
+
+  const imprimirNota = async () => {
+    if (!notaInfo?.nota) return;
+    const ventana = prepararVentanaPdf();
+    try {
+      const bytes = await generarNotaEntregaPdf(notaInfo.nota as unknown as NotaEntregaPdfDatos);
+      mostrarPdf(bytes, `nota-de-entrega-${notaInfo.nota.numero}.pdf`, ventana);
+    } catch {
+      ventana?.close();
+      await alert({ message: 'No se pudo generar el PDF de la nota de entrega.' });
+    }
+  };
+
   // El modal permanece montado (solo alterna isOpen), así que reiniciamos el
   // formulario cada vez que se abre para una orden/equipo distinto.
   useEffect(() => {
     if (isOpen) {
       setAccion(null);
       setObservaciones('');
+      setNotaAbierta(false);
       setFile(null);
       setMonto(
         comprobanteActual?.monto != null ? String(comprobanteActual.monto) : '',
@@ -78,6 +109,9 @@ export default function EntregaComprobanteModal({
       // 1) Si se entrega, primero se sube/actualiza el comprobante + monto
       //    (la entrega es por orden, así que el comprobante también).
       if (accion === 'APROBAR') {
+        if (!notaGuardada) {
+          throw { message: 'Llene la nota de entrega antes de entregar la orden.' };
+        }
         if (!file && !tieneComprobante) {
           throw { message: 'Adjunte la foto o PDF del comprobante de pago.' };
         }
@@ -148,6 +182,7 @@ export default function EntregaComprobanteModal({
     e.preventDefault();
     if (!accion) return;
     if (accion === 'RECHAZAR' && !observaciones.trim()) return;
+    if (accion === 'APROBAR' && !notaGuardada) return;
     if (accion === 'APROBAR' && (!file && !tieneComprobante)) return;
     if (accion === 'APROBAR' && !montoValido) return;
     mutation.mutate();
@@ -178,9 +213,9 @@ export default function EntregaComprobanteModal({
         <form onSubmit={handleSubmit}>
           <div className="p-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              El receptor de la orden debe registrar el comprobante de pago
-              (foto o PDF) con el monto recibido antes de entregar. Esto
-              habilita la facturación.
+              El receptor de la orden debe llenar la nota de entrega y registrar
+              el comprobante de pago (foto o PDF) con el monto recibido antes
+              de entregar. Esto habilita la facturación.
             </p>
 
             {/* Decisión */}
@@ -224,6 +259,48 @@ export default function EntregaComprobanteModal({
             {/* Comprobante + monto (solo al entregar) */}
             {accion === 'APROBAR' && (
               <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
+                {/* Nota de entrega */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">
+                    Nota de entrega <span className="text-destructive">*</span>
+                  </label>
+                  {cargandoNota ? (
+                    <p className="text-sm text-muted-foreground">Consultando…</p>
+                  ) : notaGuardada ? (
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <CheckCircle className="h-4 w-4 text-emerald-600" />
+                      <span>
+                        Nota N.º <strong>{notaInfo?.nota?.numero}</strong> guardada.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setNotaAbierta(true)}
+                        className="rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent"
+                      >
+                        Ver / editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={imprimirNota}
+                        className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent"
+                      >
+                        <Printer className="h-3.5 w-3.5" /> Imprimir
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-sm text-amber-700">Falta llenar la nota de entrega.</p>
+                      <button
+                        type="button"
+                        onClick={() => setNotaAbierta(true)}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                      >
+                        <ClipboardList className="h-4 w-4" /> Llenar nota de entrega
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-foreground">
                     Comprobante (foto o PDF){' '}
@@ -330,6 +407,7 @@ export default function EntregaComprobanteModal({
               disabled={
                 !accion ||
                 mutation.isPending ||
+                (accion === 'APROBAR' && !notaGuardada) ||
                 (accion === 'APROBAR' && (!file && !tieneComprobante)) ||
                 (accion === 'APROBAR' && !montoValido)
               }
@@ -364,6 +442,13 @@ export default function EntregaComprobanteModal({
           </div>
         </form>
       </div>
+
+      <NotaEntregaModal
+        isOpen={notaAbierta}
+        onClose={() => setNotaAbierta(false)}
+        ordenId={ordenId}
+        ordenFisica={ordenFisica}
+      />
     </div>
   );
 }

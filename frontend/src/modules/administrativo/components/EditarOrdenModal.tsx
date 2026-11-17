@@ -1,12 +1,14 @@
 // Modal de edición directa de una orden de trabajo y sus equipos.
 // Administrador: PATCH directo a /recepcion-equipos/:id (sin pasar por el
 // flujo de estados). Edita la cabecera Y los datos de cada equipo; también
-// permite agregar equipos nuevos a la orden. La fase de cada equipo no se
+// permite agregar equipos nuevos y quitar los existentes (se envían en
+// `equipos_eliminar`; el backend rechaza los que ya tienen certificados o factura).
+// La fase de cada equipo no se
 // toca desde aquí (se mueve con el flujo o con "cambiar fase" del admin).
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Loader2, Plus, Trash2, UserPlus } from 'lucide-react';
+import { X, Loader2, Plus, Trash2, UserPlus, Split } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
@@ -39,6 +41,8 @@ interface SubAreaOption {
 // uno nuevo (se crea).
 interface EquipoEdit {
   id?: number;
+  // Si la fila es "el mismo equipo en otro laboratorio": id de la fila principal.
+  equipo_principal_id?: number | null;
   equipo_descripcion: string;
   marca: string;
   modelo: string;
@@ -61,6 +65,18 @@ function toDateInput(iso: string | null | undefined): string {
   return `${y}-${m}-${day}`;
 }
 
+// Datos del equipo físico: se mantienen iguales en las filas de un mismo equipo
+// (una por laboratorio). Los requerimientos de calibración, el laboratorio y la
+// fecha de ingreso son propios de cada laboratorio.
+const CAMPOS_FISICOS: (keyof EquipoEdit)[] = [
+  'equipo_descripcion',
+  'marca',
+  'modelo',
+  'codigo_serie',
+  'codigo_cmee',
+  'accesorios',
+];
+
 function nuevoEquipoVacio(): EquipoEdit {
   return {
     equipo_descripcion: '',
@@ -80,6 +96,7 @@ function nuevoEquipoVacio(): EquipoEdit {
 // sub_area_id aunque el tipo base de VistaDetalleOrden no lo declare.
 type EquipoDetalleConSubArea = OrdenTrabajoDetalle['equipos'][number] & {
   sub_area_id?: number | null;
+  equipo_principal_id?: number | null;
 };
 
 export default function EditarOrdenModal({ orden, onClose }: Props) {
@@ -96,6 +113,7 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
   >([]);
 
   const [equipos, setEquipos] = useState<EquipoEdit[]>([]);
+  const [equiposEliminados, setEquiposEliminados] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
 
@@ -190,6 +208,7 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
     const ordenEquipos = (orden.equipos ?? []) as EquipoDetalleConSubArea[];
     const filas: EquipoEdit[] = ordenEquipos.map((eq) => ({
       id: eq.id,
+      equipo_principal_id: eq.equipo_principal_id ?? null,
       equipo_descripcion: eq.equipo_descripcion ?? '',
       marca: eq.marca ?? '',
       modelo: eq.modelo ?? '',
@@ -202,6 +221,7 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
       fecha_ingreso_laboratorio: toDateInput(eq.fecha_ingreso_laboratorio),
     }));
     setEquipos(filas.length > 0 ? filas : [nuevoEquipoVacio()]);
+    setEquiposEliminados([]);
     setErrors({});
 
     // Precargar sub-áreas de los laboratorios ya asignados
@@ -222,9 +242,15 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
           : undefined,
         cliente_id: Number(header.cliente_id),
         fecha_ingreso: header.fecha_ingreso || undefined,
-        observaciones: header.observaciones.trim() || undefined,
+        // null (no undefined) para que dejar el campo vacío lo borre.
+        observaciones: header.observaciones.trim() || null,
+        equipos_eliminar:
+          equiposEliminados.length > 0 ? equiposEliminados : undefined,
         equipos: equipos.map((eq) => ({
           id: eq.id ?? undefined,
+          // Solo una fila NUEVA lleva el enlace a su equipo principal.
+          equipo_principal_id:
+            !eq.id && eq.equipo_principal_id ? eq.equipo_principal_id : undefined,
           equipo_descripcion: eq.equipo_descripcion.trim(),
           marca: eq.marca.trim() || undefined,
           modelo: eq.modelo.trim() || undefined,
@@ -274,15 +300,66 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
       if (value) cargarSubAreas(Number(value));
       return;
     }
-    setEquipos((prev) =>
-      prev.map((eq, i) => (i === index ? { ...eq, [field]: value } : eq)),
-    );
+    setEquipos((prev) => {
+      const origen = prev[index];
+      return prev.map((eq, i) => {
+        if (i === index) return { ...eq, [field]: value };
+        // Los datos del equipo físico se replican en sus otras filas.
+        if (
+          origen?.id &&
+          !origen.equipo_principal_id &&
+          eq.equipo_principal_id === origen.id &&
+          CAMPOS_FISICOS.includes(field)
+        ) {
+          return { ...eq, [field]: value };
+        }
+        return eq;
+      });
+    });
   };
 
   const addEquipo = () => setEquipos((prev) => [...prev, nuevoEquipoVacio()]);
 
-  const removeEquipo = (index: number) =>
-    setEquipos((prev) => prev.filter((_, i) => i !== index));
+  // "Calibrar este mismo equipo en otro laboratorio": agrega una fila nueva
+  // enlazada a la fila ya guardada, para elegir allí el otro laboratorio.
+  const addOtroLaboratorio = (index: number) => {
+    setEquipos((prev) => {
+      const principal = prev[index];
+      if (!principal?.id || principal.equipo_principal_id) return prev;
+      const copia: EquipoEdit = {
+        ...nuevoEquipoVacio(),
+        equipo_principal_id: principal.id,
+        equipo_descripcion: principal.equipo_descripcion,
+        marca: principal.marca,
+        modelo: principal.modelo,
+        codigo_serie: principal.codigo_serie,
+        codigo_cmee: principal.codigo_cmee,
+        accesorios: principal.accesorios,
+      };
+      // Se coloca justo después de la última fila del mismo equipo.
+      let ultimo = index;
+      prev.forEach((eq, i) => {
+        if (eq.equipo_principal_id === principal.id) ultimo = i;
+      });
+      return [...prev.slice(0, ultimo + 1), copia, ...prev.slice(ultimo + 1)];
+    });
+  };
+
+  const removeEquipo = (index: number) => {
+    const quitado = equipos[index];
+    // Solo los equipos ya guardados (con id) hay que eliminarlos en el backend.
+    if (quitado?.id) {
+      setEquiposEliminados((prev) => [...prev, quitado.id as number]);
+    }
+    setEquipos((prev) =>
+      prev.filter(
+        (eq, i) =>
+          i !== index &&
+          // Las filas nuevas enlazadas al equipo que se quita se quitan con él.
+          !(quitado?.id && !eq.id && eq.equipo_principal_id === quitado.id),
+      ),
+    );
+  };
 
   // ── Validación ──────────────────────────────────────────────────────
   const validate = (): boolean => {
@@ -297,6 +374,21 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
         errs[`equipos.${i}.equipo_descripcion`] = 'Descripción requerida';
       if (!eq.laboratorio_id)
         errs[`equipos.${i}.laboratorio_id`] = 'Seleccione un laboratorio';
+      else {
+        // Un mismo equipo no puede repetir laboratorio entre sus filas.
+        const grupo = eq.equipo_principal_id ?? eq.id;
+        const repetido =
+          grupo != null &&
+          equipos.some(
+            (otro, j) =>
+              j < i &&
+              (otro.equipo_principal_id ?? otro.id) === grupo &&
+              otro.laboratorio_id === eq.laboratorio_id,
+          );
+        if (repetido)
+          errs[`equipos.${i}.laboratorio_id`] =
+            'Este equipo ya se calibra en ese laboratorio';
+      }
     });
 
     setErrors(errs);
@@ -517,7 +609,9 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
                     {equipos.map((eq, i) => (
                       <tr
                         key={eq.id ?? `nuevo-${i}`}
-                        className="border-b border-border transition-colors hover:bg-muted/50"
+                        className={`border-b border-border transition-colors hover:bg-muted/50 ${
+                          eq.equipo_principal_id ? 'bg-sky-50/60' : ''
+                        }`}
                       >
                         <td className="px-3 py-2.5 align-top">
                           <input
@@ -543,6 +637,11 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
                           {errors[`equipos.${i}.equipo_descripcion`] && (
                             <p className="mt-1 text-xs text-destructive">
                               {errors[`equipos.${i}.equipo_descripcion`]}
+                            </p>
+                          )}
+                          {eq.equipo_principal_id && (
+                            <p className="mt-1 text-xs font-medium text-sky-700">
+                              ↳ Mismo equipo, en otro laboratorio
                             </p>
                           )}
                         </td>
@@ -663,6 +762,16 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
                           />
                         </td>
                         <td className="px-3 py-2.5 text-center align-top">
+                          {eq.id && !eq.equipo_principal_id && (
+                            <button
+                              type="button"
+                              onClick={() => addOtroLaboratorio(i)}
+                              className="mb-1 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-sky-100 hover:text-sky-700"
+                              title="Calibrar este mismo equipo en otro laboratorio"
+                            >
+                              <Split className="h-5 w-5" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => removeEquipo(i)}

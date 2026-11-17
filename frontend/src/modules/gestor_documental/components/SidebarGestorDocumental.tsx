@@ -207,7 +207,7 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
                         className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-500"
                     />
 
-                    <div className="flex flex-col gap-1 mt-2 overflow-y-auto pb-20 flex-1 min-h-0">
+                    <div className="flex flex-col gap-1 mt-2 overflow-y-auto overflow-x-auto pb-20 flex-1 min-h-0">
                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Estructura Documental</h4>
                         {loading ? (
                             <span className="text-xs text-gray-400 italic">Cargando estructura...</span>
@@ -216,7 +216,9 @@ const SidebarGestorDocumental = ({ mobile = false, onNavigate }: SidebarGestorDo
                         ) : idsVisibles && idsVisibles.size === 0 ? (
                             <div className="text-xs text-gray-400 italic py-1">Sin resultados para "{busqueda}".</div>
                         ) : (
-                            <RenderTree parentId={null} />
+                            <div className="min-w-max">
+                                <RenderTree parentId={null} />
+                            </div>
                         )}
                     </div>
                 </div>

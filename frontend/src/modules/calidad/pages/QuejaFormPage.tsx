@@ -216,21 +216,19 @@ export const QuejaFormPage = () => {
         descripcion_queja: form.descripcion_queja,
         recibida_por: form.recibida_por,
         recibida_fecha: form.recibida_fecha || null,
+        area_afectada: form.area_afectada || null,
+        procedente: form.procedente === true ? true : form.procedente === false ? false : null,
+        num_iac: form.num_iac || null,
+        justificativo_no_procede: form.justificativo_no_procede || null,
+        acciones: form.acciones || null,
+        fecha_limite: form.fecha_limite || null,
+        verificacion_eficacia: form.verificacion_eficacia || null,
+        cierre_fecha: form.cierre_fecha || null,
+        cerrada_por: form.cerrada_por || null,
+        observaciones: form.observaciones || null,
+        responsables: allResponsables,
       };
       if (esEdicion) {
-        Object.assign(payload, {
-          area_afectada: form.area_afectada || null,
-          procedente: form.procedente === true ? true : form.procedente === false ? false : null,
-          num_iac: form.num_iac || null,
-          justificativo_no_procede: form.justificativo_no_procede || null,
-          acciones: form.acciones || null,
-          fecha_limite: form.fecha_limite || null,
-          verificacion_eficacia: form.verificacion_eficacia || null,
-          cierre_fecha: form.cierre_fecha || null,
-          cerrada_por: form.cerrada_por || null,
-          observaciones: form.observaciones || null,
-          responsables: allResponsables,
-        });
         const motivo = await pedirMotivo({ title: 'Guardar cambios', message: 'Va a modificar esta queja.', confirmLabel: 'Guardar' });
         if (!motivo) return;
         await api.patch(`/calidad/quejas/${id}`, payload, { motivo });
@@ -249,9 +247,9 @@ export const QuejaFormPage = () => {
 
   if (loading) return <div className="p-6 text-center text-gray-400">Cargando...</div>;
 
-  const showAnalisis = esEdicion && (form.procedente !== '' && form.procedente !== null);
-  const showAcciones = esEdicion && !!form.acciones;
-  const showCierre = esEdicion && !!form.verificacion_eficacia;
+  const showAnalisis = true;
+  const showAcciones = true;
+  const showCierre = true;
 
   return (
     <div className="p-6">

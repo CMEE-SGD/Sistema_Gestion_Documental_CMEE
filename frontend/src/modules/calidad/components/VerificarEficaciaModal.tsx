@@ -68,6 +68,12 @@ export const VerificarEficaciaModal = ({ nc, isOpen, onClose, onSuccess }: Verif
         }
         setLoading(true);
         try {
+            // Una NC cerrada solo se modifica reabriéndola con motivo: la
+            // verificación no puede ser la vía para saltarse esa reapertura.
+            if (nc.estado === 'CERRADA') {
+                await alert({ message: 'La no conformidad está CERRADA. Debe reabrirla indicando el motivo antes de registrar una nueva verificación de eficacia.' });
+                return;
+            }
             const persona = personas.find(p => p.id === Number(verificadorId));
             const verif = {
                 aprobado_por: persona ? `${persona.nombre} ${persona.apellidos}` : '',

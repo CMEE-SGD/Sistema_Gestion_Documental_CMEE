@@ -41,9 +41,6 @@ export class DocumentosService {
 
     // Antes de mover nada: el tipo de archivo debe corresponder a la carpeta.
     validarArchivoParaCarpeta(file, await this.carpetasService.admiteCualquierFormato(carpetaId));
-    // Solo los PDF entran a un circuito de aprobación y firma.
-    if (!esPdf(file.originalname || file.filename)) data.circuito_id = null;
-
     if (usuarioId) {
       const usuario = await this.prisma.usuario.findUnique({
         where: { id: usuarioId },
@@ -283,6 +280,10 @@ export class DocumentosService {
   async firmarFase(documentoId: number, file: Express.Multer.File, body: any, user: HydratedUser) {
     const doc = await this.prisma.documento.findUnique({ where: { id: documentoId } });
     if (!doc) throw new NotFoundException('Documento no encontrado');
+
+    if (!esPdf(doc.archivo_url || '')) {
+      throw new BadRequestException('Este documento no es un PDF: no se puede firmar electrónicamente. Use "Aprobar".');
+    }
 
     const workflow = await this.prisma.documentoWorkflow.findUnique({
       where: { documento_id: documentoId },

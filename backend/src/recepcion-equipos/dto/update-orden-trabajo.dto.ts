@@ -11,8 +11,10 @@ import { UpdateEquipoRecepcionDto } from './update-equipo-recepcion.dto';
 /**
  * Actualización de una orden de trabajo (administrador): campos de cabecera
  * (mismo conjunto que al crear) más el detalle `equipos`, que permite editar
- * los datos de los equipos existentes (los que traen `id`) o agregar nuevos.
- * No se eliminan equipos desde aquí — ver update() en el servicio.
+ * los datos de los equipos existentes (los que traen `id`), agregar nuevos y
+ * eliminar los indicados en `equipos_eliminar`. Un equipo que simplemente no
+ * viene en `equipos` NO se elimina (la lista del formulario puede estar
+ * filtrada por rol/laboratorio). Ver update() en el servicio.
  */
 export class UpdateOrdenTrabajoDto {
   @IsString()
@@ -47,4 +49,10 @@ export class UpdateOrdenTrabajoDto {
   @ValidateNested({ each: true })
   @Type(() => UpdateEquipoRecepcionDto)
   equipos?: UpdateEquipoRecepcionDto[];
+
+  // Ids de los equipos que el usuario quitó de la orden en el formulario.
+  @IsArray()
+  @IsOptional()
+  @IsInt({ each: true })
+  equipos_eliminar?: number[];
 }

@@ -20,6 +20,8 @@ import {
   resolverDestinatarios,
 } from '../common/helpers/notificar-responsables-equipo';
 import { RegistrarFechasCalibracionDto } from './dto/registrar-fechas-calibracion.dto';
+import { GuardarNotaEntregaDto } from './dto/guardar-nota-entrega.dto';
+import { decodificarNombreArchivo } from '../common/helpers/encoding';
 
 // El filtro de `equipos` va DENTRO del include (no solo en el `where` de la
 // orden) porque una orden puede agrupar equipos de varios laboratorios —
@@ -52,6 +54,18 @@ function construirOrdenInclude(equipoWhere?: object) {
         sub_area: { select: { id: true, nombre: true } },
         tecnico: { select: { id: true, nombre: true, apellidos: true } },
         certificados: { select: { id: true } },
+        equipo_principal: {
+          select: {
+            id: true,
+            laboratorio: { select: { id: true, nombre: true } },
+            equipos_adicionales: {
+              select: { id: true, laboratorio: { select: { id: true, nombre: true } } },
+            },
+          },
+        },
+        equipos_adicionales: {
+          select: { id: true, laboratorio: { select: { id: true, nombre: true } } },
+        },
         historial_estado: {
           select: {
             id: true,
@@ -79,6 +93,18 @@ const EQUIPO_INCLUDE = {
   sub_area: { select: { id: true, nombre: true } },
   tecnico: { select: { id: true, nombre: true, apellidos: true } },
   certificados: { select: { id: true } },
+  equipo_principal: {
+    select: {
+      id: true,
+      laboratorio: { select: { id: true, nombre: true } },
+      equipos_adicionales: {
+        select: { id: true, laboratorio: { select: { id: true, nombre: true } } },
+      },
+    },
+  },
+  equipos_adicionales: {
+    select: { id: true, laboratorio: { select: { id: true, nombre: true } } },
+  },
   historial_estado: {
     select: {
       id: true,
@@ -252,7 +278,7 @@ export class RecepcionEquiposService {
     fs.writeFileSync(path.join(dir, nombre), file.buffer);
     return {
       ruta: `/uploads/entrega/comprobantes/${nombre}`,
-      original: file.originalname,
+      original: decodificarNombreArchivo(file.originalname),
     };
   }
 
@@ -425,21 +451,44 @@ export class RecepcionEquiposService {
     const proformaSync = await this.resolverProformaSync(proforma_id);
 
     await this.validarSubAreasDeEquipos(equipos);
+    this.validarEnlacesDeEquipos(equipos);
 
     try {
-      const orden = await this.prisma.ordenTrabajo.create({
-        data: {
-          ...header,
-          ...proformaSync,
-          fecha_ingreso: toDate(dto.fecha_ingreso),
-          equipos: {
-            create: equipos.map((equipo) => ({
-              ...equipo,
-              fecha_ingreso_laboratorio: toDate(equipo.fecha_ingreso_laboratorio),
-            })),
+      const orden = await this.prisma.$transaction(async (tx) => {
+        const creada = await tx.ordenTrabajo.create({
+          data: {
+            ...header,
+            ...proformaSync,
+            fecha_ingreso: toDate(dto.fecha_ingreso),
+            equipos: {
+              create: equipos.map((equipo) => {
+                // `equipo_principal_indice` solo sirve para enlazar (abajo).
+                const { equipo_principal_indice: _ignorado, ...datos } = equipo;
+                return {
+                  ...datos,
+                  fecha_ingreso_laboratorio: toDate(datos.fecha_ingreso_laboratorio),
+                };
+              }),
+            },
           },
-        },
-        include: construirOrdenInclude(),
+          include: { equipos: { select: { id: true }, orderBy: { id: 'asc' as const } } },
+        });
+
+        // Las filas "mismo equipo en otro laboratorio" se enlazan a su principal
+        // (los equipos se crean en el orden recibido, así que por posición).
+        for (let i = 0; i < equipos.length; i++) {
+          const indice = equipos[i].equipo_principal_indice;
+          if (indice == null) continue;
+          await tx.equipoRecepcion.update({
+            where: { id: creada.equipos[i].id },
+            data: { equipo_principal_id: creada.equipos[indice].id },
+          });
+        }
+
+        return tx.ordenTrabajo.findUnique({
+          where: { id: creada.id },
+          include: construirOrdenInclude(),
+        });
       });
       this.notificacionesService.notificarRecepcionActualizada();
       return orden;
@@ -484,6 +533,84 @@ export class RecepcionEquiposService {
       data: { estado: 'ACEPTADA' },
     });
     return { proforma_id: proforma.id, n_proforma: proforma.numero };
+  }
+
+  /**
+   * Un mismo equipo puede calibrarse en varios laboratorios (una fila por
+   * laboratorio, enlazadas). Aquí se valida, al crear la orden, que cada enlace
+   * apunte a una fila anterior que no sea a su vez un enlace y que un mismo
+   * equipo no repita laboratorio.
+   */
+  private validarEnlacesDeEquipos(
+    equipos: { equipo_principal_indice?: number; laboratorio_id?: number }[],
+  ) {
+    const labsPorPrincipal = new Map<number, Set<number>>();
+    equipos.forEach((equipo, i) => {
+      if (equipo.equipo_principal_indice == null) {
+        labsPorPrincipal.set(i, new Set([equipo.laboratorio_id as number]));
+      }
+    });
+    equipos.forEach((equipo, i) => {
+      const indice = equipo.equipo_principal_indice;
+      if (indice == null) return;
+      if (indice >= i || equipos[indice]?.equipo_principal_indice != null) {
+        throw new BadRequestException(
+          'Un equipo en otro laboratorio debe enlazarse a un equipo principal anterior de la misma orden.',
+        );
+      }
+      const usados = labsPorPrincipal.get(indice)!;
+      if (usados.has(equipo.laboratorio_id as number)) {
+        throw new BadRequestException(
+          'Un mismo equipo no puede repetir el laboratorio: elija otro laboratorio para esa fila.',
+        );
+      }
+      usados.add(equipo.laboratorio_id as number);
+    });
+  }
+
+  /**
+   * Al editar una orden, un equipo NUEVO puede enlazarse como "el mismo equipo
+   * en otro laboratorio" de uno existente. El principal debe ser de esta misma
+   * orden y no ser él mismo un enlace, y el laboratorio no puede repetirse
+   * dentro del grupo.
+   */
+  private async validarEnlacesAlEditar(
+    ordenId: number,
+    equipos: { id?: number; equipo_principal_id?: number; laboratorio_id?: number }[],
+  ) {
+    const nuevosEnlazados = equipos.filter((e) => !e.id && e.equipo_principal_id);
+    if (nuevosEnlazados.length === 0) return;
+
+    const grupo = await this.prisma.equipoRecepcion.findMany({
+      where: { orden_trabajo_id: ordenId },
+      select: { id: true, laboratorio_id: true, equipo_principal_id: true },
+    });
+    const porId = new Map(grupo.map((e) => [e.id, e]));
+
+    // Laboratorios ya usados por el equipo principal y sus filas adicionales.
+    const usadosPorPrincipal = new Map<number, Set<number>>();
+    for (const nuevo of nuevosEnlazados) {
+      const principal = porId.get(nuevo.equipo_principal_id as number);
+      if (!principal || principal.equipo_principal_id != null) {
+        throw new BadRequestException(
+          'El equipo principal no pertenece a esta orden o ya es una fila de otro laboratorio.',
+        );
+      }
+      if (!usadosPorPrincipal.has(principal.id)) {
+        const usados = new Set<number>([principal.laboratorio_id]);
+        grupo
+          .filter((e) => e.equipo_principal_id === principal.id)
+          .forEach((e) => usados.add(e.laboratorio_id));
+        usadosPorPrincipal.set(principal.id, usados);
+      }
+      const usados = usadosPorPrincipal.get(principal.id)!;
+      if (usados.has(nuevo.laboratorio_id as number)) {
+        throw new BadRequestException(
+          'Ese equipo ya se calibra en ese laboratorio: elija otro laboratorio.',
+        );
+      }
+      usados.add(nuevo.laboratorio_id as number);
+    }
   }
 
   // Evita que un equipo quede etiquetado con una sub-área que en realidad
@@ -639,11 +766,72 @@ export class RecepcionEquiposService {
   async update(id: number, dto: UpdateOrdenTrabajoDto) {
     await this.findOne(id);
 
-    const { equipos, proforma_id, ...header } = dto;
+    const { equipos, equipos_eliminar, proforma_id, ...header } = dto;
     const proformaSync = await this.resolverProformaSync(proforma_id);
 
     if (equipos && equipos.length > 0) {
       await this.validarSubAreasDeEquipos(equipos);
+      await this.validarEnlacesAlEditar(id, equipos);
+    }
+
+    // Equipos que el usuario quitó expresamente en el formulario. Se eliminan
+    // solo los ids indicados en `equipos_eliminar` y NO los que simplemente
+    // faltan en `equipos`: la lista que recibe el formulario está filtrada por
+    // rol y laboratorio (findAll), así que un equipo ausente puede ser uno que
+    // el usuario ni siquiera ve.
+    let equiposAEliminar: { id: number; equipo_descripcion: string }[] = [];
+    if (equipos_eliminar && equipos_eliminar.length > 0) {
+      equiposAEliminar = await this.prisma.equipoRecepcion.findMany({
+        where: { orden_trabajo_id: id, id: { in: equipos_eliminar } },
+        select: { id: true, equipo_descripcion: true },
+      });
+      if (equiposAEliminar.length !== new Set(equipos_eliminar).size) {
+        throw new BadRequestException(
+          'Alguno de los equipos a eliminar no pertenece a esta orden.',
+        );
+      }
+
+      // La orden debe conservar al menos un equipo.
+      const totalActual = await this.prisma.equipoRecepcion.count({
+        where: { orden_trabajo_id: id },
+      });
+      const nuevos = (equipos ?? []).filter((e) => !e.id).length;
+      if (totalActual - equiposAEliminar.length + nuevos < 1) {
+        throw new BadRequestException(
+          'La orden debe conservar al menos un equipo.',
+        );
+      }
+
+      // Un equipo con certificados o facturado ya tiene trazabilidad que no
+      // debe perderse: se rechaza antes de tocar nada.
+      if (equiposAEliminar.length > 0) {
+        const idsBorrar = equiposAEliminar.map((e) => e.id);
+        const [conCertificado, facturados] = await Promise.all([
+          this.prisma.certificado.findMany({
+            where: { equipo_recepcion_id: { in: idsBorrar } },
+            select: { equipo_recepcion_id: true },
+          }),
+          this.prisma.facturaDetalle.findMany({
+            where: { equipo_recepcion_id: { in: idsBorrar } },
+            select: { equipo_recepcion_id: true },
+          }),
+        ]);
+        const bloqueados = new Set<number>([
+          ...conCertificado.map((c) => c.equipo_recepcion_id),
+          ...facturados
+            .map((f) => f.equipo_recepcion_id)
+            .filter((v): v is number => v !== null),
+        ]);
+        if (bloqueados.size > 0) {
+          const nombres = equiposAEliminar
+            .filter((e) => bloqueados.has(e.id))
+            .map((e) => e.equipo_descripcion)
+            .join(', ');
+          throw new BadRequestException(
+            `No se puede eliminar: ${nombres} ya tiene certificados o facturación asociados.`,
+          );
+        }
+      }
     }
 
     try {
@@ -691,10 +879,29 @@ export class RecepcionEquiposService {
               });
             } else {
               await tx.equipoRecepcion.create({
-                data: { ...dataEquipo, orden_trabajo_id: id },
+                data: {
+                  ...dataEquipo,
+                  orden_trabajo_id: id,
+                  // "Mismo equipo en otro laboratorio" (ver validarEnlacesAlEditar).
+                  ...(equipo.equipo_principal_id
+                    ? { equipo_principal_id: equipo.equipo_principal_id }
+                    : {}),
+                },
               });
             }
           }
+        }
+
+        // 3) Equipos quitados en el formulario (el historial de fases del
+        // equipo se elimina con él; los certificados ya se descartaron arriba).
+        if (equiposAEliminar.length > 0) {
+          const idsBorrar = equiposAEliminar.map((e) => e.id);
+          await tx.historialEstado.deleteMany({
+            where: { equipo_recepcion_id: { in: idsBorrar } },
+          });
+          await tx.equipoRecepcion.deleteMany({
+            where: { id: { in: idsBorrar } },
+          });
         }
 
         return tx.ordenTrabajo.findUnique({
@@ -1281,6 +1488,17 @@ export class RecepcionEquiposService {
       if (pendientes.length === 0) {
         throw new BadRequestException('La orden ya fue entregada por completo.');
       }
+      // La nota de entrega (formato AC1.2.F2-1) es obligatoria: se llena en el
+      // aplicativo y se imprime para la firma del cliente.
+      const nota = await this.prisma.notaEntregaOrden.findUnique({
+        where: { orden_trabajo_id: ordenId },
+        select: { id: true },
+      });
+      if (!nota) {
+        throw new BadRequestException(
+          'Antes de entregar debe llenar la nota de entrega de la orden.',
+        );
+      }
 
       await this.prisma.$transaction(async (tx) => {
         for (const eq of pendientes) {
@@ -1364,5 +1582,271 @@ export class RecepcionEquiposService {
     }
 
     throw new BadRequestException('Acción no válida (debe ser APROBAR o RECHAZAR)');
+  }
+
+  // ---------------------------------------------------------------------
+  // NOTA DE ENTREGA (formato AC1.2.F2-1)
+  // ---------------------------------------------------------------------
+
+  private aFechaIso(d: Date | null | undefined): string | null {
+    return d ? d.toISOString().slice(0, 10) : null;
+  }
+
+  private deFechaIso(valor: string | undefined | null): Date | null {
+    if (!valor) return null;
+    // "YYYY-MM-DD" → medianoche UTC, para que la fecha no se corra por zona horaria.
+    return new Date(`${valor.slice(0, 10)}T00:00:00.000Z`);
+  }
+
+  /** Quién puede llenar la nota: igual que la entrega (receptor o RSEC). */
+  private puedeGestionarEntrega(
+    user: any,
+    recibeResponsableId: number | null,
+  ): boolean {
+    if (user?.isGod) return true;
+    const n = normalizePuesto(user?.puesto ?? '');
+    const esRSEC = n.includes('responsable servicio al cliente');
+    const esReceptor =
+      recibeResponsableId != null && recibeResponsableId === user?.persona_id;
+    return esRSEC || esReceptor;
+  }
+
+  /**
+   * Nota de entrega de la orden: la guardada (si existe) y una SUGERENCIA
+   * prellenada con los datos de la orden (cliente y equipos), para que quien
+   * entrega solo complete lo que falta.
+   */
+  async obtenerNotaEntrega(ordenId: number, user: any) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id: ordenId },
+      select: {
+        id: true,
+        orden_trabajo_fisica: true,
+        recibe_responsable_id: true,
+        cliente: {
+          select: { nombre: true, representante: true, direccion: true, telefono: true },
+        },
+        equipos: {
+          orderBy: { id: 'asc' },
+          select: {
+            id: true,
+            estado: true,
+            equipo_descripcion: true,
+            marca: true,
+            modelo: true,
+            codigo_serie: true,
+            codigo_cmee: true,
+            accesorios: true,
+            fecha_calibracion: true,
+            equipo_principal_id: true,
+            certificados: { select: { id: true }, take: 1 },
+          },
+        },
+        facturas: { select: { numero: true }, orderBy: { id: 'desc' }, take: 1 },
+        nota_entrega: { include: { equipos: { orderBy: { orden: 'asc' } } } },
+      },
+    });
+    if (!orden) {
+      throw new NotFoundException(`Orden de trabajo ${ordenId} no encontrada`);
+    }
+
+    let entrega = { nombre: '', ci: '' };
+    if (user?.persona_id) {
+      const persona = await this.prisma.persona.findUnique({
+        where: { id: user.persona_id },
+        select: { nombre: true, apellidos: true, cedula_identidad: true },
+      });
+      if (persona) {
+        entrega = {
+          nombre: `${persona.nombre} ${persona.apellidos}`.trim(),
+          ci: persona.cedula_identidad ?? '',
+        };
+      }
+    }
+
+    const sugerencia = {
+      numero: '',
+      fecha_egreso: new Date().toISOString().slice(0, 10),
+      cliente: orden.cliente.nombre,
+      representante: orden.cliente.representante,
+      direccion: orden.cliente.direccion,
+      telefono: orden.cliente.telefono,
+      observaciones: '',
+      envio_empresa: '',
+      envio_destinatario: '',
+      envio_ciudad: '',
+      envio_guia: '',
+      envio_fecha: '',
+      envio_factura_cmee: orden.facturas[0]?.numero ?? '',
+      cliente_firma_nombre: '',
+      cliente_firma_ci: '',
+      cmee_firma_nombre: entrega.nombre,
+      cmee_firma_ci: entrega.ci,
+      // Un equipo calibrado en varios laboratorios sale UNA sola vez: es calibrado
+      // y con certificado solo si todas sus calibraciones lo están.
+      equipos: orden.equipos
+        .filter((e) => e.equipo_principal_id == null)
+        .map((e) => {
+          const filas = [
+            e,
+            ...orden.equipos.filter((x) => x.equipo_principal_id === e.id),
+          ];
+          return {
+            equipo: e.equipo_descripcion,
+            marca: e.marca ?? '',
+            modelo: e.modelo ?? '',
+            serie_codigo: e.codigo_serie ?? e.codigo_cmee ?? '',
+            accesorios: e.accesorios ?? '',
+            calibracion: filas.every((f) => f.fecha_calibracion) ? 'CALIBRADO' : '',
+            certificado: filas.every((f) => f.certificados.length > 0) ? 'CON_CERTIFICADO' : '',
+            informe: '',
+          };
+        }),
+    };
+
+    const n = orden.nota_entrega;
+    const nota = n
+      ? {
+          id: n.id,
+          numero: n.numero,
+          fecha_egreso: this.aFechaIso(n.fecha_egreso),
+          cliente: n.cliente,
+          representante: n.representante,
+          direccion: n.direccion,
+          telefono: n.telefono,
+          observaciones: n.observaciones ?? '',
+          envio_empresa: n.envio_empresa ?? '',
+          envio_destinatario: n.envio_destinatario ?? '',
+          envio_ciudad: n.envio_ciudad ?? '',
+          envio_guia: n.envio_guia ?? '',
+          envio_fecha: this.aFechaIso(n.envio_fecha) ?? '',
+          envio_factura_cmee: n.envio_factura_cmee ?? '',
+          cliente_firma_nombre: n.cliente_firma_nombre ?? '',
+          cliente_firma_ci: n.cliente_firma_ci ?? '',
+          cmee_firma_nombre: n.cmee_firma_nombre ?? '',
+          cmee_firma_ci: n.cmee_firma_ci ?? '',
+          equipos: n.equipos.map((e) => ({
+            equipo: e.equipo,
+            marca: e.marca ?? '',
+            modelo: e.modelo ?? '',
+            serie_codigo: e.serie_codigo ?? '',
+            accesorios: e.accesorios ?? '',
+            calibracion: e.calibracion ?? '',
+            certificado: e.certificado ?? '',
+            informe: e.informe ?? '',
+          })),
+        }
+      : null;
+
+    const entregada =
+      orden.equipos.length > 0 &&
+      orden.equipos.every((e) => e.estado === EstadoRecepcion.FINALIZADO);
+
+    return {
+      orden_trabajo_fisica: orden.orden_trabajo_fisica,
+      entregada,
+      puede_editar:
+        !entregada && this.puedeGestionarEntrega(user, orden.recibe_responsable_id),
+      nota,
+      sugerencia,
+    };
+  }
+
+  /** Crea o reemplaza la nota de entrega de la orden (una por orden). */
+  async guardarNotaEntrega(ordenId: number, dto: GuardarNotaEntregaDto, user: any) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id: ordenId },
+      select: {
+        id: true,
+        recibe_responsable_id: true,
+        equipos: { select: { estado: true } },
+      },
+    });
+    if (!orden) {
+      throw new NotFoundException(`Orden de trabajo ${ordenId} no encontrada`);
+    }
+    if (!this.puedeGestionarEntrega(user, orden.recibe_responsable_id)) {
+      throw new ForbiddenException(
+        'Solo el receptor de la orden puede llenar la nota de entrega',
+      );
+    }
+    if (
+      orden.equipos.length > 0 &&
+      orden.equipos.every((e) => e.estado === EstadoRecepcion.FINALIZADO)
+    ) {
+      throw new BadRequestException(
+        'La orden ya fue entregada: su nota de entrega no se puede modificar.',
+      );
+    }
+
+    const numero = dto.numero.trim();
+    const otra = await this.prisma.notaEntregaOrden.findUnique({
+      where: { numero },
+      select: { orden_trabajo_id: true },
+    });
+    if (otra && otra.orden_trabajo_id !== ordenId) {
+      throw new BadRequestException(
+        `El número de nota ${numero} ya está registrado en otra orden.`,
+      );
+    }
+
+    const limpiar = (v?: string) => (v && v.trim() ? v.trim() : null);
+    const datos = {
+      numero,
+      fecha_egreso: this.deFechaIso(dto.fecha_egreso) as Date,
+      cliente: dto.cliente.trim(),
+      representante: dto.representante.trim(),
+      direccion: dto.direccion.trim(),
+      telefono: dto.telefono.trim(),
+      observaciones: limpiar(dto.observaciones),
+      envio_empresa: limpiar(dto.envio_empresa),
+      envio_destinatario: limpiar(dto.envio_destinatario),
+      envio_ciudad: limpiar(dto.envio_ciudad),
+      envio_guia: limpiar(dto.envio_guia),
+      envio_fecha: this.deFechaIso(dto.envio_fecha),
+      envio_factura_cmee: limpiar(dto.envio_factura_cmee),
+      cliente_firma_nombre: limpiar(dto.cliente_firma_nombre),
+      cliente_firma_ci: limpiar(dto.cliente_firma_ci),
+      cmee_firma_nombre: limpiar(dto.cmee_firma_nombre),
+      cmee_firma_ci: limpiar(dto.cmee_firma_ci),
+    };
+    const filas = dto.equipos.map((e, i) => ({
+      orden: i + 1,
+      equipo: e.equipo.trim(),
+      marca: limpiar(e.marca),
+      modelo: limpiar(e.modelo),
+      serie_codigo: limpiar(e.serie_codigo),
+      accesorios: limpiar(e.accesorios),
+      calibracion: e.calibracion ?? null,
+      certificado: e.certificado ?? null,
+      informe: limpiar(e.informe),
+    }));
+
+    await this.prisma.$transaction(async (tx) => {
+      const existente = await tx.notaEntregaOrden.findUnique({
+        where: { orden_trabajo_id: ordenId },
+        select: { id: true },
+      });
+      if (existente) {
+        await tx.notaEntregaOrdenEquipo.deleteMany({
+          where: { nota_entrega_id: existente.id },
+        });
+        await tx.notaEntregaOrden.update({
+          where: { id: existente.id },
+          data: { ...datos, equipos: { create: filas } },
+        });
+      } else {
+        await tx.notaEntregaOrden.create({
+          data: {
+            ...datos,
+            orden_trabajo_id: ordenId,
+            creada_por_id: user?.persona_id ?? null,
+            equipos: { create: filas },
+          },
+        });
+      }
+    });
+
+    return this.obtenerNotaEntrega(ordenId, user);
   }
 }
