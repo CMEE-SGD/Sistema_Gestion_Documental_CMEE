@@ -57,6 +57,11 @@ export class AplicacionesSeeder implements OnModuleInit {
         nombre: 'Inventario',
         descripcion: 'Inventario de insumos y materiales del centro',
       },
+      {
+        nombre: 'Alertas',
+        descripcion:
+          'Icono de alertas: facturas por vencer, próximas calibraciones e inventario bajo el mínimo (los administradores siempre lo ven)',
+      },
     ];
 
     for (const app of aplicacionesBase) {
