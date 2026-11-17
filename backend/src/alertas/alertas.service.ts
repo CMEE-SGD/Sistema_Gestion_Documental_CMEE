@@ -4,9 +4,11 @@ import { FacturacionService } from '../facturacion/facturacion.service';
 import { InventarioService } from '../inventario/inventario.service';
 
 /**
- * Aplicación del catálogo que habilita el icono de alertas. Los
- * administradores siempre tienen acceso; cualquier otro grupo lo obtiene
- * cuando se le asigna esta aplicación en Grupos y Permisos (cualquier nivel).
+ * Aplicación del catálogo que habilita el icono de alertas. El acceso se
+ * decide solo por este permiso: ningún grupo lo tiene por defecto (ni siquiera
+ * el de Administrador); se asigna en Grupos y Permisos con cualquier nivel.
+ * La única excepción es el super administrador en memoria (GOD_MODE), que
+ * como en el resto del sistema tiene acceso a todas las aplicaciones.
  */
 export const APP_ALERTAS = 'Alertas';
 
@@ -62,15 +64,11 @@ export class AlertasService {
   ) {}
 
   /**
-   * Nivel máximo del usuario por aplicación (a partir de sus grupos) y si es
-   * administrador: pertenece al grupo "Administrador" o es el super
-   * administrador en memoria (mismo criterio que `esUsuarioAdministrador` del
-   * frontend). `niveles === null` significa acceso total (usuario "Dios").
+   * Nivel máximo del usuario por aplicación, a partir de sus grupos.
+   * `null` significa acceso total (usuario "Dios" en memoria).
    */
-  private async contextoUsuario(user: { id: number; isGod?: boolean }) {
-    if (user.isGod === true && user.id === -1) {
-      return { niveles: null, esAdmin: true };
-    }
+  private async nivelesPorApp(user: { id: number; isGod?: boolean }) {
+    if (user.isGod === true && user.id === -1) return null;
     const usuario = await this.prisma.usuario.findUnique({
       where: { id: user.id },
       include: {
@@ -78,29 +76,24 @@ export class AlertasService {
       },
     });
     const niveles = new Map<string, number>();
-    if (!usuario || !usuario.estado_cuenta || usuario.bloqueado) {
-      return { niveles, esAdmin: false };
-    }
-    const esAdmin = usuario.grupos.some(
-      (g) => g.nombre?.toLowerCase() === 'administrador',
-    );
+    if (!usuario || !usuario.estado_cuenta || usuario.bloqueado) return niveles;
     for (const g of usuario.grupos) {
       for (const a of g.aplicaciones) {
         const actual = niveles.get(a.aplicacion.nombre) ?? 0;
         if (a.nivel > actual) niveles.set(a.aplicacion.nombre, a.nivel);
       }
     }
-    return { niveles, esAdmin };
+    return niveles;
   }
 
   async obtener(user: { id: number; isGod?: boolean }) {
-    const { niveles, esAdmin } = await this.contextoUsuario(user);
+    const niveles = await this.nivelesPorApp(user);
     const puede = (app: string) => niveles === null || (niveles.get(app) ?? 0) >= 1;
 
-    // Acceso al icono: administradores, o grupos con la aplicación "Alertas".
+    // Acceso al icono: solo con la aplicación "Alertas" asignada al grupo.
     // Aun con acceso, cada usuario solo recibe los grupos de alertas de los
     // módulos a los que ya tiene permiso (facturas, calibraciones, inventario).
-    if (!esAdmin && !puede(APP_ALERTAS)) {
+    if (!puede(APP_ALERTAS)) {
       throw new ForbiddenException('No tiene acceso a las alertas');
     }
 

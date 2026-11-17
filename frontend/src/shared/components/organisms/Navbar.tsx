@@ -5,7 +5,7 @@ import UserMenu from '../molecules/UserMenu';
 import NotificationBell from '../molecules/NotificationBell';
 import AlertasBell from '../molecules/AlertasBell';
 import { useLayoutUI } from '../../context/LayoutUIContext';
-import { esUsuarioAdministrador, tienePermiso } from '../../utils/auth';
+import { tienePermiso } from '../../utils/auth';
 
 const Navbar = () => {
   const { toggleSidebar } = useLayoutUI();
@@ -26,8 +26,8 @@ const Navbar = () => {
         <SearchDropdown />
       </div>
       <div className="flex-1 min-w-0" />
-      {/* Alertas: administradores, o grupos con la aplicación "Alertas". */}
-      {(esUsuarioAdministrador() || tienePermiso('Alertas', 1)) && <AlertasBell />}
+      {/* Alertas: solo grupos con la aplicación "Alertas" (ni el admin la tiene por defecto). */}
+      {tienePermiso('Alertas', 1) && <AlertasBell />}
       <NotificationBell />
       <UserMenu />
     </nav>
