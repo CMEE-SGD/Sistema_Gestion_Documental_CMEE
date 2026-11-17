@@ -1,5 +1,6 @@
 // src/modules/laboratorios/components/LaboratorioForm.tsx
 import { useState, useEffect } from 'react';
+import { Trash2 } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { Button } from '../../../shared/components/atoms/button';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
@@ -66,6 +67,7 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
     const [subAreas, setSubAreas] = useState<{ id: number; nombre: string; responsable_id: number | null; responsable: { id: number; nombre: string; apellidos: string } | null }[]>([]);
     const [nuevaSubArea, setNuevaSubArea] = useState({ nombre: '', responsable_id: '' });
     const [guardandoSubArea, setGuardandoSubArea] = useState(false);
+    const [eliminandoSubAreaId, setEliminandoSubAreaId] = useState<number | null>(null);
 
     useEffect(() => {
         const cargarDatos = async () => {
@@ -207,6 +209,32 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
             await alert({ title: 'Error', message: mensaje });
         } finally {
             setGuardandoSubArea(false);
+        }
+    };
+
+    const handleEliminarSubArea = async (subArea: { id: number; nombre: string }) => {
+        if (!laboratorioId) return;
+        const motivo = await pedirMotivo({
+            title: 'Eliminar sub-área',
+            message: `¿Eliminar la sub-área "${subArea.nombre}"? Si ya hay equipos asignados a ella, se desactivará y esos equipos conservarán su sub-área.`,
+            confirmLabel: 'Eliminar',
+        });
+        if (!motivo) return;
+        setEliminandoSubAreaId(subArea.id);
+        try {
+            const res = await api.delete(`/laboratorios/${laboratorioId}/sub-areas/${subArea.id}`, { motivo });
+            setSubAreas(prev => prev.filter(s => s.id !== subArea.id));
+            const desactivada = res.data?.modo === 'DESACTIVADA';
+            toast({
+                message: desactivada
+                    ? `Sub-área desactivada (${res.data.equipos_asociados} equipo(s) la conservan).`
+                    : 'Sub-área eliminada.',
+            });
+        } catch (error) {
+            const mensaje = extraerMensajeError(error, 'No se pudo eliminar la sub-área.');
+            await alert({ title: 'Error', message: mensaje });
+        } finally {
+            setEliminandoSubAreaId(null);
         }
     };
 
@@ -424,11 +452,23 @@ export const LaboratorioForm = ({ laboratorioId, onClose, onSuccess }: Laborator
                     </p>
 
                     {subAreas.length > 0 && (
-                        <ul className="text-sm text-gray-700 list-disc list-inside">
+                        <ul className="text-sm text-gray-700 flex flex-col gap-1">
                             {subAreas.map(s => (
-                                <li key={s.id}>
-                                    {s.nombre}
-                                    {s.responsable && ` — ${s.responsable.nombre} ${s.responsable.apellidos}`}
+                                <li key={s.id} className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-md px-3 py-1.5">
+                                    <span>
+                                        {s.nombre}
+                                        {s.responsable && ` — ${s.responsable.nombre} ${s.responsable.apellidos}`}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleEliminarSubArea(s)}
+                                        disabled={eliminandoSubAreaId === s.id}
+                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                        title="Eliminar sub-área"
+                                        aria-label={`Eliminar sub-área ${s.nombre}`}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
                                 </li>
                             ))}
                         </ul>

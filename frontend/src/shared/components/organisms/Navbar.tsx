@@ -3,6 +3,7 @@ import BrandLogo from '../molecules/BrandLogo';
 import SearchDropdown from '../molecules/SearchDropdown';
 import UserMenu from '../molecules/UserMenu';
 import NotificationBell from '../molecules/NotificationBell';
+import AlertasBell from '../molecules/AlertasBell';
 import { useLayoutUI } from '../../context/LayoutUIContext';
 
 const Navbar = () => {
@@ -24,6 +25,7 @@ const Navbar = () => {
         <SearchDropdown />
       </div>
       <div className="flex-1 min-w-0" />
+      <AlertasBell />
       <NotificationBell />
       <UserMenu />
     </nav>
