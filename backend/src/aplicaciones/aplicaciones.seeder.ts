@@ -60,7 +60,7 @@ export class AplicacionesSeeder implements OnModuleInit {
       {
         nombre: 'Alertas',
         descripcion:
-          'Icono de alertas: facturas por vencer, próximas calibraciones e inventario bajo el mínimo (los administradores siempre lo ven)',
+          'Icono de alertas: facturas por vencer, próximas calibraciones e inventario bajo el mínimo (cada grupo ve solo las de sus módulos)',
       },
     ];
 
