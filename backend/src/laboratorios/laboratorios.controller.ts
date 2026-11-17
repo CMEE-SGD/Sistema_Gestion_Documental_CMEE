@@ -173,4 +173,13 @@ export class LaboratoriosController {
   ) {
     return this.laboratoriosService.actualizarSubArea(id, subAreaId, dto);
   }
+
+  @Delete(':id/sub-areas/:subAreaId')
+  @RequireAccess('Laboratorios', 4)
+  eliminarSubArea(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('subAreaId', ParseIntPipe) subAreaId: number,
+  ) {
+    return this.laboratoriosService.eliminarSubArea(id, subAreaId);
+  }
 }

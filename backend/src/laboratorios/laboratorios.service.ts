@@ -215,10 +215,25 @@ export class LaboratoriosService {
     const existe = await this.prisma.subAreaLaboratorio.findFirst({
       where: { laboratorio_id: laboratorioId, nombre: dto.nombre },
     });
-    if (existe) {
+    if (existe?.activo) {
       throw new ConflictException(
         `Ya existe una sub-área "${dto.nombre}" en este laboratorio.`,
       );
+    }
+    // Una sub-área eliminada que seguía en uso por equipos quedó desactivada
+    // (no se puede borrar sin perder su etiqueta). Si se vuelve a crear con el
+    // mismo nombre se reactiva, porque (laboratorio, nombre) es único.
+    if (existe) {
+      return this.prisma.subAreaLaboratorio.update({
+        where: { id: existe.id },
+        data: { activo: true, responsable_id: dto.responsable_id ?? null },
+        select: {
+          id: true,
+          nombre: true,
+          responsable_id: true,
+          responsable: { select: { id: true, nombre: true, apellidos: true } },
+        },
+      });
     }
 
     return this.prisma.subAreaLaboratorio.create({
@@ -262,6 +277,39 @@ export class LaboratoriosService {
         responsable: { select: { id: true, nombre: true, apellidos: true } },
       },
     });
+  }
+
+  /**
+   * Elimina una sub-área. Si ningún equipo la usa se borra de verdad (así el
+   * nombre queda libre); si ya hay equipos de recepción etiquetados con ella
+   * solo se desactiva, para que esos equipos no pierdan su sub-área. En ambos
+   * casos deja de aparecer en el catálogo del laboratorio.
+   */
+  async eliminarSubArea(laboratorioId: number, subAreaId: number) {
+    const subArea = await this.prisma.subAreaLaboratorio.findUnique({
+      where: { id: subAreaId },
+      select: { id: true, nombre: true, laboratorio_id: true },
+    });
+    if (!subArea || subArea.laboratorio_id !== laboratorioId) {
+      throw new NotFoundException(
+        `Sub-área con ID ${subAreaId} no encontrada en este laboratorio`,
+      );
+    }
+
+    const equiposAsociados = await this.prisma.equipoRecepcion.count({
+      where: { sub_area_id: subAreaId },
+    });
+
+    if (equiposAsociados > 0) {
+      await this.prisma.subAreaLaboratorio.update({
+        where: { id: subAreaId },
+        data: { activo: false },
+      });
+      return { id: subAreaId, modo: 'DESACTIVADA' as const, equipos_asociados: equiposAsociados };
+    }
+
+    await this.prisma.subAreaLaboratorio.delete({ where: { id: subAreaId } });
+    return { id: subAreaId, modo: 'ELIMINADA' as const, equipos_asociados: 0 };
   }
 
   private async findOneSimple(id: number) {
