@@ -82,6 +82,16 @@ export const DESCRIPCION_NIVELES: Record<string, Partial<Record<number, string>>
     4: 'Editar y registrar movimientos',
     5: 'Dar de baja productos',
   },
+  // Cualquier nivel habilita el icono de alertas; el contenido sigue limitado
+  // a los módulos (facturación, recepción, inventario) a los que el grupo ya
+  // tenga acceso.
+  Alertas: {
+    1: 'Ver alertas de sus módulos',
+    2: 'Ver alertas de sus módulos',
+    3: 'Ver alertas de sus módulos',
+    4: 'Ver alertas de sus módulos',
+    5: 'Ver alertas de sus módulos',
+  },
 };
 
 /** Texto corto a mostrar para un nivel de una aplicación. */
