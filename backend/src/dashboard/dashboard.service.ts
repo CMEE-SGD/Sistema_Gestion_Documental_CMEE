@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -494,5 +494,151 @@ export class DashboardService {
         equiposCalibradosPrevTotal: prevFinalizados,
       },
     };
+  }
+
+  // Equipos por provincia del cliente para el mapa de calor. Un equipo cuenta
+  // como calibrado si ya tiene fecha de calibración o llegó a FINALIZADO; si no,
+  // está por calibrar. "Próximos" son los que vencen en los próximos `dias`.
+  async getMapaCalor(dias: number = 60) {
+    const { hoy, limite } = this.ventanaProximos(dias);
+
+    const equipos = await this.prisma.equipoRecepcion.findMany({
+      select: {
+        estado: true,
+        fecha_calibracion: true,
+        fecha_proxima_calibracion: true,
+        orden_trabajo: {
+          select: {
+            cliente: {
+              select: { id: true, nombre: true, provincia: true, ciudad: true },
+            },
+          },
+        },
+      },
+    });
+
+    type Conteo = { calibrados: number; porCalibrar: number; proximos: number };
+    type Empresa = Conteo & { id: number; nombre: string; ciudad: string | null };
+    type Fila = Conteo & { provincia: string; empresas: Map<number, Empresa> };
+    const porProvincia = new Map<string, Fila>();
+    let sinProvincia = 0;
+
+    for (const e of equipos) {
+      const { id, nombre, provincia, ciudad } = e.orden_trabajo.cliente;
+      if (!provincia) {
+        sinProvincia++;
+        continue;
+      }
+      let fila = porProvincia.get(provincia);
+      if (!fila) {
+        fila = {
+          provincia,
+          calibrados: 0,
+          porCalibrar: 0,
+          proximos: 0,
+          empresas: new Map(),
+        };
+        porProvincia.set(provincia, fila);
+      }
+      let empresa = fila.empresas.get(id);
+      if (!empresa) {
+        empresa = { id, nombre, ciudad, calibrados: 0, porCalibrar: 0, proximos: 0 };
+        fila.empresas.set(id, empresa);
+      }
+
+      const calibrado =
+        e.fecha_calibracion !== null || e.estado === 'FINALIZADO';
+      const proxima = e.fecha_proxima_calibracion;
+      const proximo = !!proxima && proxima >= hoy && proxima <= limite;
+
+      for (const c of [fila, empresa]) {
+        if (calibrado) c.calibrados++;
+        else c.porCalibrar++;
+        if (proximo) c.proximos++;
+      }
+    }
+
+    return {
+      dias,
+      sinProvincia,
+      provincias: [...porProvincia.values()]
+        .map(({ empresas, ...resto }) => ({
+          ...resto,
+          clientes: empresas.size,
+          // Las más activas primero; el frontend reordena según el filtro.
+          empresas: [...empresas.values()].sort(
+            (a, b) => b.calibrados - a.calibrados || a.nombre.localeCompare(b.nombre, 'es'),
+          ),
+        }))
+        .sort((a, b) => a.provincia.localeCompare(b.provincia, 'es')),
+    };
+  }
+
+  // Hoy (a medianoche) y el límite de la ventana "próximos N días".
+  private ventanaProximos(dias: number) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = new Date(hoy);
+    limite.setDate(limite.getDate() + dias);
+    return { hoy, limite };
+  }
+
+  // Equipos de una empresa para el detalle del mapa de calor. Aplica las mismas
+  // reglas de getMapaCalor: calibrado, próximo a vencer y (aquí además) vencido.
+  async getMapaCalorEmpresa(clienteId: number, dias: number = 60) {
+    const cliente = await this.prisma.clienteInstitucional.findUnique({
+      where: { id: clienteId },
+      select: { id: true, nombre: true, provincia: true, ciudad: true },
+    });
+    if (!cliente) {
+      throw new NotFoundException(`Cliente con ID ${clienteId} no encontrado`);
+    }
+
+    const { hoy, limite } = this.ventanaProximos(dias);
+    const equipos = await this.prisma.equipoRecepcion.findMany({
+      where: { orden_trabajo: { cliente_id: clienteId } },
+      select: {
+        id: true,
+        equipo_descripcion: true,
+        marca: true,
+        modelo: true,
+        codigo_serie: true,
+        codigo_cmee: true,
+        estado: true,
+        fecha_calibracion: true,
+        fecha_proxima_calibracion: true,
+        laboratorio: { select: { nombre: true } },
+        orden_trabajo: { select: { orden_trabajo_fisica: true } },
+      },
+    });
+
+    const filas = equipos.map((e) => {
+      const proxima = e.fecha_proxima_calibracion;
+      return {
+        id: e.id,
+        descripcion: e.equipo_descripcion,
+        marca: e.marca,
+        modelo: e.modelo,
+        serie: e.codigo_serie,
+        codigoCmee: e.codigo_cmee,
+        laboratorio: e.laboratorio.nombre,
+        orden: e.orden_trabajo.orden_trabajo_fisica,
+        estado: e.estado,
+        fechaCalibracion: e.fecha_calibracion,
+        fechaProximaCalibracion: proxima,
+        calibrado: e.fecha_calibracion !== null || e.estado === 'FINALIZADO',
+        proximo: !!proxima && proxima >= hoy && proxima <= limite,
+        vencido: !!proxima && proxima < hoy,
+      };
+    });
+
+    // Los calibrados más recientes primero; los que aún no tienen fecha, al final.
+    filas.sort((a, b) => {
+      const fa = a.fechaCalibracion?.getTime() ?? -Infinity;
+      const fb = b.fechaCalibracion?.getTime() ?? -Infinity;
+      return fb - fa || a.id - b.id;
+    });
+
+    return { dias, cliente, equipos: filas };
   }
 }

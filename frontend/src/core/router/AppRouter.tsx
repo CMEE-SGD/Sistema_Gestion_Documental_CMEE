@@ -120,6 +120,7 @@ import EgresosPage from '../../modules/financiero/pages/EgresosPage';
 // --- MÓDULO RESUMEN (dashboards) ---
 import { ResumenLayout } from '../../modules/resumen/ResumenLayout';
 import DashboardClientes from '../../modules/resumen/pages/DashboardClientes';
+import DashboardMapa from '../../modules/resumen/pages/DashboardMapa';
 import DashboardLaboratorios from '../../modules/resumen/pages/DashboardLaboratorios';
 import DashboardFinanciero from '../../modules/resumen/pages/DashboardFinanciero';
 
@@ -271,6 +272,7 @@ const AppContenido = () => {
           <Route index element={<Navigate to="financiero" replace />} />
           <Route path="financiero" element={<DashboardFinanciero />} />
           <Route path="clientes" element={<DashboardClientes />} />
+          <Route path="mapa" element={<DashboardMapa />} />
           <Route path="laboratorios" element={<DashboardLaboratorios />} />
         </Route>
         </Route>

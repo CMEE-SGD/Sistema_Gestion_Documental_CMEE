@@ -855,6 +855,10 @@ model ClienteInstitucional {
   ruc           String?     @unique @db.VarChar(20)
   representante String      @db.VarChar(150)
   direccion     String      @db.VarChar(250)
+  // Ubicación para el mapa de calor del módulo Resumen. Nulas en los clientes
+  // anteriores a este campo; se completan a mano desde la pantalla de clientes.
+  provincia     String?     @db.VarChar(50)
+  ciudad        String?     @db.VarChar(100)
   telefono      String      @db.VarChar(20)
   email         String?     @db.VarChar(150)
   tipo          TipoCliente @default(CIVIL)

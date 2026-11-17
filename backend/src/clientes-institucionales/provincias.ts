@@ -1,0 +1,28 @@
+// Provincias continentales e insulares del Ecuador. El valor guardado en
+// clientes_institucionales.provincia debe coincidir con uno de estos nombres.
+export const PROVINCIAS_ECUADOR = [
+  'Azuay',
+  'Bolívar',
+  'Cañar',
+  'Carchi',
+  'Chimborazo',
+  'Cotopaxi',
+  'El Oro',
+  'Esmeraldas',
+  'Galápagos',
+  'Guayas',
+  'Imbabura',
+  'Loja',
+  'Los Ríos',
+  'Manabí',
+  'Morona Santiago',
+  'Napo',
+  'Orellana',
+  'Pastaza',
+  'Pichincha',
+  'Santa Elena',
+  'Santo Domingo de los Tsáchilas',
+  'Sucumbíos',
+  'Tungurahua',
+  'Zamora Chinchipe',
+] as const;

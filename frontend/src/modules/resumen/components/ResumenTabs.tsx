@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { BarChart3, FlaskConical, Users } from 'lucide-react';
+import { BarChart3, FlaskConical, MapPinned, Users } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 
 // Módulo Resumen: agrupa todos los dashboards del sistema, separados por
@@ -16,6 +16,11 @@ export default function ResumenTabs() {
       label: 'Clientes',
       path: '/resumen/clientes',
       icon: Users,
+    },
+    {
+      label: 'Mapa',
+      path: '/resumen/mapa',
+      icon: MapPinned,
     },
     {
       label: 'Laboratorios',

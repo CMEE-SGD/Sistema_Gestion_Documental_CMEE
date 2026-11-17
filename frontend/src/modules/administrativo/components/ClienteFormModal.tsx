@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, X } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
+import { PROVINCIAS_ECUADOR } from '../../../shared/data/provincias';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -13,6 +14,8 @@ interface ClienteFormState {
   ruc: string;
   representante: string;
   direccion: string;
+  provincia: string;
+  ciudad: string;
   telefono: string;
   email: string;
 }
@@ -23,6 +26,8 @@ export interface ClienteInstitucionalCreado {
   ruc: string | null;
   representante: string;
   direccion: string;
+  provincia?: string | null;
+  ciudad?: string | null;
   telefono: string;
   email: string | null;
   tipo: 'CIVIL' | 'MILITAR';
@@ -42,6 +47,8 @@ const EMPTY_FORM: ClienteFormState = {
   ruc: '',
   representante: '',
   direccion: '',
+  provincia: '',
+  ciudad: '',
   telefono: '',
   email: '',
 };
@@ -67,6 +74,8 @@ export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: 
             ruc: cliente.ruc ?? '',
             representante: cliente.representante,
             direccion: cliente.direccion,
+            provincia: cliente.provincia ?? '',
+            ciudad: cliente.ciudad ?? '',
             telefono: cliente.telefono,
             email: cliente.email ?? '',
           }
@@ -88,6 +97,8 @@ export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: 
         ruc: data.ruc.trim() || undefined,
         representante: data.representante.trim(),
         direccion: data.direccion.trim(),
+        provincia: data.provincia || undefined,
+        ciudad: data.ciudad.trim() || undefined,
         telefono: data.telefono.trim(),
         email: data.email.trim() || undefined,
       };
@@ -115,7 +126,9 @@ export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: 
   if (!open) return null;
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -310,6 +323,41 @@ export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: 
                   {errors.direccion}
                 </p>
               )}
+            </div>
+
+            {/* Provincia / Ciudad — ubican al cliente en el mapa de calor */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">
+                  Provincia
+                </label>
+                <select
+                  name="provincia"
+                  value={form.provincia}
+                  onChange={handleChange}
+                  className={inputClass('provincia')}
+                >
+                  <option value="">Sin especificar</option>
+                  {PROVINCIAS_ECUADOR.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">
+                  Ciudad
+                </label>
+                <input
+                  type="text"
+                  name="ciudad"
+                  placeholder="Ej: Quito"
+                  value={form.ciudad}
+                  onChange={handleChange}
+                  className={inputClass('ciudad')}
+                />
+              </div>
             </div>
           </div>
 

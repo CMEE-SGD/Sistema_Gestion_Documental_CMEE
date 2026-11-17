@@ -5,9 +5,11 @@ import {
   IsOptional,
   IsBoolean,
   IsEmail,
+  IsIn,
   MaxLength,
 } from 'class-validator';
 import { TipoCliente } from '@prisma/client';
+import { PROVINCIAS_ECUADOR } from '../provincias';
 
 export class CreateClienteInstitucionalDto {
   @IsString()
@@ -29,6 +31,15 @@ export class CreateClienteInstitucionalDto {
   @IsNotEmpty({ message: 'La dirección es obligatoria' })
   @MaxLength(250)
   direccion: string;
+
+  @IsOptional()
+  @IsIn(PROVINCIAS_ECUADOR, { message: 'La provincia no es válida' })
+  provincia?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  ciudad?: string;
 
   @IsString()
   @IsNotEmpty({ message: 'El teléfono es obligatorio' })
