@@ -28,6 +28,7 @@ import {
   labelCls,
 } from '../inventarioUtils';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 export default function MovimientosPage() {
   const [busqueda, setBusqueda] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('');
@@ -123,9 +124,8 @@ export default function MovimientosPage() {
           <label className={labelCls} htmlFor="mov-desde">
             Desde
           </label>
-          <input
+          <CampoFecha
             id="mov-desde"
-            type="date"
             value={desde}
             onChange={(e) => setDesde(e.target.value)}
             className={`${inputCls} w-auto`}
@@ -135,9 +135,8 @@ export default function MovimientosPage() {
           <label className={labelCls} htmlFor="mov-hasta">
             Hasta
           </label>
-          <input
+          <CampoFecha
             id="mov-hasta"
-            type="date"
             value={hasta}
             onChange={(e) => setHasta(e.target.value)}
             className={`${inputCls} w-auto`}
