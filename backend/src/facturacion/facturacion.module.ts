@@ -7,5 +7,6 @@ import { NotificacionesModule } from '../notificaciones/notificaciones.module';
   imports: [NotificacionesModule],
   controllers: [FacturacionController],
   providers: [FacturacionService],
+  exports: [FacturacionService],
 })
 export class FacturacionModule {}

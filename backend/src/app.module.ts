@@ -28,6 +28,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { CapacitacionesModule } from './capacitaciones/capacitaciones.module';
 import { FacturacionModule } from './facturacion/facturacion.module';
 import { EgresosModule } from './egresos/egresos.module';
+import { InventarioModule } from './inventario/inventario.module';
+import { AlertasModule } from './alertas/alertas.module';
 
 /** Módulo controlador o servicio para gestionar la entidad AppModule. */
 @Module({
@@ -63,6 +65,8 @@ import { EgresosModule } from './egresos/egresos.module';
     CapacitacionesModule,
     FacturacionModule,
     EgresosModule,
+    InventarioModule,
+    AlertasModule,
   ],
   controllers: [],
   providers: [],

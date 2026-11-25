@@ -15,6 +15,7 @@ const MODULES = [
   { id: 7, name: 'Gestion de Calidad', path: '/calidad/auditorias' },
   { id: 8, name: 'Resumen', path: '/resumen' },
   { id: 9, name: 'Gestion Financiera', path: '/financiero' },
+  { id: 10, name: 'Inventario', path: '/inventario/productos' },
 ];
 
 const Index = () => {
