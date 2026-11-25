@@ -31,7 +31,7 @@ const FichaPersona = ({ persona, documentos, capacitaciones, mostrarLogs, logsPe
         if (!fecha) return '-';
         if (fecha.includes('T')) {
             const [year, month, day] = fecha.split('T')[0].split('-');
-            return `${day}/${month}/${year}`;
+            return `${year}-${month}-${day}`;
         }
         return fecha;
     };

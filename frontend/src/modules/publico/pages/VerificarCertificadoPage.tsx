@@ -48,7 +48,7 @@ const DOCUMENTO_LABEL: Record<Documento, string> = {
 function formatearFecha(iso: string): string {
   return new Date(iso).toLocaleString('es-EC', {
     day: '2-digit',
-    month: 'long',
+    month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',

@@ -33,7 +33,7 @@ function formatearFecha(iso: string | null): string {
   if (!iso) return '-';
   return new Date(iso).toLocaleString('es-EC', {
     day: '2-digit',
-    month: 'long',
+    month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
