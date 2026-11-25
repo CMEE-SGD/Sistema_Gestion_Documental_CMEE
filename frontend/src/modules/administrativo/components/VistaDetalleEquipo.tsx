@@ -298,7 +298,7 @@ export default function VistaDetalleEquipo({
               </div>
               <div>
                 <span className="block text-xs font-medium text-slate-400 uppercase tracking-wide">
-                  Próxima calibración
+                  Tentativa de próxima calibración
                 </span>
                 {puedeEditarFechas ? (
                   <CampoFecha
@@ -325,7 +325,7 @@ export default function VistaDetalleEquipo({
                 </div>
               )}
               <div className="flex items-end text-xs text-muted-foreground">
-                La próxima calibración alimenta las alertas de vencimiento.
+                La tentativa de próxima calibración alimenta las alertas de vencimiento.
               </div>
             </div>
           </div>

@@ -128,7 +128,7 @@ export default function ProximasCalibracionesPage() {
           tono="red"
         />
         <TablaAlertas
-          titulo={`Próxima calibración (${proximas.length})`}
+          titulo={`Tentativa de próxima calibración (${proximas.length})`}
           items={proximas}
           tono="sky"
         />

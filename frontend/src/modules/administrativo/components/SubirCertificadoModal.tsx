@@ -240,7 +240,7 @@ export default function SubirCertificadoModal({
     if (fechaProxima < fechaCalibracion) {
       await alert({
         message:
-          'La fecha de próxima calibración debe ser posterior a la fecha de calibración.',
+          'La tentativa de próxima calibración debe ser posterior a la fecha de calibración.',
       });
       return;
     }
@@ -331,7 +331,7 @@ export default function SubirCertificadoModal({
                   htmlFor="fecha-proxima"
                   className="mb-1.5 block text-sm font-medium text-foreground"
                 >
-                  Fecha de próxima calibración{' '}
+                  Tentativa de próxima calibración{' '}
                   <span className="text-destructive">*</span>
                 </label>
                 <CampoFecha
@@ -345,12 +345,12 @@ export default function SubirCertificadoModal({
             </div>
             <p className="text-xs text-muted-foreground">
               Corresponde a las fechas declaradas en el certificado: cuándo se
-              calibró el equipo y cuándo vence la próxima calibración (base de
+              calibró el equipo y la tentativa de próxima calibración (base de
               las alertas de próxima calibración).
             </p>
             {fechaProxima && fechaProxima < fechaCalibracion && (
               <p className="text-xs text-destructive">
-                La fecha de próxima calibración debe ser posterior a la fecha
+                La tentativa de próxima calibración debe ser posterior a la fecha
                 de calibración.
               </p>
             )}

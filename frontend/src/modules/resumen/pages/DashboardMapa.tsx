@@ -61,7 +61,7 @@ const METRICAS: {
 }[] = [
   { id: 'calibrados', label: 'Calibrados', icon: CheckCircle2, color: '#2f8a5c', fuerte: '#1f7a4d', textoSobreColor: '#ffffff' },
   { id: 'porCalibrar', label: 'Por calibrar', icon: Hourglass, color: '#f5b400', fuerte: '#a16207', textoSobreColor: '#1f2937' },
-  { id: 'proximos', label: 'Próxima calibración', icon: CalendarClock, color: '#d62839', fuerte: '#b91c3c', textoSobreColor: '#ffffff' },
+  { id: 'proximos', label: 'Tentativa de próxima calibración', icon: CalendarClock, color: '#d62839', fuerte: '#b91c3c', textoSobreColor: '#ffffff' },
 ];
 
 const DIAS_OPCIONES = [30, 60, 90, 180];
