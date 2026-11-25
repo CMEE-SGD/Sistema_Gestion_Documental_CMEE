@@ -8,6 +8,7 @@ import { decodeId } from '../../../shared/utils/ids';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
 import { MOTIVOS_AUDITORIA_ADICIONAL } from './auditorias';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 const AutoGrowTextarea = (props: TextareaHTMLAttributes<HTMLTextAreaElement>) => {
     const ref = useRef<HTMLTextAreaElement>(null);
     const autoGrow = () => {
@@ -466,11 +467,11 @@ const motivoAdicionalActual = MOTIVOS_AUDITORIA_ADICIONAL.find(m => m.value === 
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-medium text-gray-700">Fecha de inicio <span className="text-red-500">*</span></label>
-                            <input type="date" name="fecha_inicio" required value={formData.fecha_inicio} onChange={handleChange} className={inputCls} />
+                            <CampoFecha name="fecha_inicio" required value={formData.fecha_inicio} onChange={handleChange} className={inputCls} />
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-medium text-gray-700">Fecha de fin</label>
-                            <input type="date" name="fecha_fin" value={formData.fecha_fin} onChange={handleChange} className={inputCls} />
+                            <CampoFecha name="fecha_fin" value={formData.fecha_fin} onChange={handleChange} className={inputCls} />
                         </div>
                     </div>
                 </div>
@@ -964,8 +965,7 @@ const motivoAdicionalActual = MOTIVOS_AUDITORIA_ADICIONAL.find(m => m.value === 
                             <Fragment key={gi}>
                                 <div className="grid grid-cols-12 border-b border-gray-200 bg-gray-50 gap-2 p-2 md:gap-0 md:p-0">
                                     <div className="col-span-3 p-1 flex items-center justify-center">
-                                        <input
-                                            type="date"
+                                        <CampoFecha
                                             value={g.fecha}
                                             onChange={e => {
                                                 const copy = [...cronograma];
@@ -1052,7 +1052,7 @@ const motivoAdicionalActual = MOTIVOS_AUDITORIA_ADICIONAL.find(m => m.value === 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-t-0 border-gray-300 rounded-b p-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-sm font-medium text-gray-700">Fecha de elaboración</label>
-                                <input type="date" name="fecha_elaboracion" value={formData.fecha_elaboracion} onChange={handleChange} className={inputCls} />
+                                <CampoFecha name="fecha_elaboracion" value={formData.fecha_elaboracion} onChange={handleChange} className={inputCls} />
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-sm font-medium text-gray-700">Elaborado por</label>

@@ -19,6 +19,7 @@ import {
 } from '../pages/acciones';
 import { formatearFecha } from '../pages/trabajosNoConformes';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 const inputCls = 'w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500';
 const labelCls = 'text-sm font-medium text-gray-700';
 
@@ -113,7 +114,7 @@ export const AccionesVinculadas = ({ origenTipo, origenId }: { origenTipo: Orige
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className={labelCls}>Fecha límite</label>
-                            <input type="date" name="fecha_limite" value={form.fecha_limite} onChange={handleChange} className={inputCls} />
+                            <CampoFecha name="fecha_limite" value={form.fecha_limite} onChange={handleChange} className={inputCls} />
                         </div>
                         <div className="flex flex-col gap-1.5 md:col-span-2">
                             <label className={labelCls}>Descripción de la acción</label>

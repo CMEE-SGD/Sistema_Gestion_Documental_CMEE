@@ -47,6 +47,7 @@ export default function CampoFecha({
   min,
   max,
   disabled,
+  readOnly,
   required,
   className = '',
   ...resto
@@ -88,7 +89,7 @@ export default function CampoFecha({
 
   const abrirCalendario = () => {
     const el = selectorRef.current;
-    if (!el || disabled) return;
+    if (!el || disabled || readOnly) return;
     try {
       el.showPicker();
     } catch {
@@ -113,6 +114,7 @@ export default function CampoFecha({
         maxLength={10}
         value={texto}
         disabled={disabled}
+        readOnly={readOnly}
         required={required}
         onChange={alEscribir}
         onBlur={alSalir}
@@ -131,7 +133,7 @@ export default function CampoFecha({
       <button
         type="button"
         onClick={abrirCalendario}
-        disabled={disabled}
+        disabled={disabled || readOnly}
         title="Elegir en el calendario"
         aria-label="Elegir fecha en el calendario"
         style={{ display: 'inline-flex', color: 'inherit', opacity: 0.65 }}

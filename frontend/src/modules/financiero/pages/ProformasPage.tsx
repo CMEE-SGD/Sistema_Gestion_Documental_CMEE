@@ -40,6 +40,7 @@ import {
   type FiltrosFinanciero,
 } from '../components/BarraFiltrosFinanciero';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 interface ClienteOption {
   id: number;
   nombre: string;
@@ -578,8 +579,7 @@ function ModalNuevaProforma({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Fecha de emisión</label>
-              <input
-                type="date"
+              <CampoFecha
                 className={inputCls}
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}

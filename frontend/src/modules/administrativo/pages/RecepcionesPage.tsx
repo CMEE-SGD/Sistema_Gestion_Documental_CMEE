@@ -33,6 +33,7 @@ import VistaDetalleOrden, {
 import FormOrdenTrabajo from '../components/FormOrdenTrabajo';
 import EditarOrdenModal from '../components/EditarOrdenModal';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -395,16 +396,14 @@ export default function RecepcionesPage() {
             ))}
           </select>
 
-          <input
-            type="date"
+          <CampoFecha
             value={fechaDesde}
             onChange={(e) => setFechaDesde(e.target.value)}
             title="Desde fecha de ingreso"
             aria-label="Filtrar desde fecha de ingreso"
             className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <input
-            type="date"
+          <CampoFecha
             value={fechaHasta}
             onChange={(e) => setFechaHasta(e.target.value)}
             title="Hasta fecha de ingreso"

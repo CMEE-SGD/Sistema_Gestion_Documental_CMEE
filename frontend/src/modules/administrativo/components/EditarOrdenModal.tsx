@@ -15,6 +15,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import type { OrdenTrabajoDetalle } from './VistaDetalleOrden';
 import ClienteFormModal from './ClienteFormModal';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 interface Props {
   orden: OrdenTrabajoDetalle | null;
   onClose: () => void;
@@ -543,8 +544,7 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
                   <label className="mb-1.5 block text-sm font-medium text-foreground">
                     Fecha de Ingreso
                   </label>
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={header.fecha_ingreso}
                     onChange={(e) =>
                       setHeader({ ...header, fecha_ingreso: e.target.value })
@@ -748,8 +748,7 @@ export default function EditarOrdenModal({ orden, onClose }: Props) {
                           })()}
                         </td>
                         <td className="px-3 py-2.5 align-top">
-                          <input
-                            type="date"
+                          <CampoFecha
                             value={eq.fecha_ingreso_laboratorio}
                             onChange={(e) =>
                               handleEquipoChange(

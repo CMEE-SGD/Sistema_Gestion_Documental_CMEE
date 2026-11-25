@@ -8,6 +8,7 @@ import { useAlert } from '../../../../shared/components/molecules/AlertModal';
 import { decodeId, encodeId } from '../../../../shared/utils/ids';
 import { buildFileUrl } from '../../../../shared/utils/backendUrl';
 
+import CampoFecha from '../../../../shared/components/atoms/CampoFecha';
 interface Persona {
   id: number;
   nombre: string;
@@ -207,12 +208,12 @@ export const CapacitacionFormPage = () => {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-600">Fecha inicio *</label>
-            <input type="date" name="fecha_inicio" value={form.fecha_inicio} onChange={handleChange} required
+            <CampoFecha name="fecha_inicio" value={form.fecha_inicio} onChange={handleChange} required
               className="border border-gray-300 rounded px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-600">Fecha fin *</label>
-            <input type="date" name="fecha_fin" value={form.fecha_fin} onChange={handleChange} required
+            <CampoFecha name="fecha_fin" value={form.fecha_fin} onChange={handleChange} required
               className="border border-gray-300 rounded px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
           </div>
           <div className="flex flex-col gap-1">

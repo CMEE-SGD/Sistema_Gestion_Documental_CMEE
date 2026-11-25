@@ -9,6 +9,7 @@ import {
   Package, BadgeCheck, Clock, Percent, TrendingUp, TrendingDown, Minus, FlaskConical, UserCog, ClipboardList,
 } from 'lucide-react';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 type Periodo = 'ultimos30' | 'esteMes' | 'mesAnterior' | 'esteAnio' | 'personalizado';
 
 const now = new Date();
@@ -219,8 +220,7 @@ export default function DashboardLaboratorios() {
             <>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-muted-foreground">Fecha de inicio</label>
-                <input
-                  type="date"
+                <CampoFecha
                   className={inputCls}
                   value={fechaInicio}
                   onChange={(e) => setFechaInicio(e.target.value)}
@@ -228,8 +228,7 @@ export default function DashboardLaboratorios() {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-muted-foreground">Fecha de fin</label>
-                <input
-                  type="date"
+                <CampoFecha
                   className={inputCls}
                   value={fechaFin}
                   onChange={(e) => setFechaFin(e.target.value)}

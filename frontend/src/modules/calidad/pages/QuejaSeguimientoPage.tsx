@@ -7,6 +7,7 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 const inputCls = 'w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500';
 
 interface ResponsableRow {
@@ -207,7 +208,7 @@ export const QuejaSeguimientoPage = () => {
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-500">Fecha</label>
             <div className="flex gap-2">
-              <input type="date" value={r.fecha} onChange={e => handleRespChange(idx, 'fecha', e.target.value)} className={inputCls} />
+              <CampoFecha value={r.fecha} onChange={e => handleRespChange(idx, 'fecha', e.target.value)} className={inputCls} />
               <button type="button" onClick={() => removeResp(idx)} className="px-2 text-red-400 hover:text-red-600 transition-colors">
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -297,7 +298,7 @@ export const QuejaSeguimientoPage = () => {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Fecha límite</label>
-            <input type="date" name="fecha_limite" value={form.fecha_limite} onChange={handleChange} className={inputCls} />
+            <CampoFecha name="fecha_limite" value={form.fecha_limite} onChange={handleChange} className={inputCls} />
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <label className="text-sm font-medium text-gray-700">Observaciones</label>
@@ -332,7 +333,7 @@ export const QuejaSeguimientoPage = () => {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Fecha de cierre</label>
-            <input type="date" name="cierre_fecha" value={form.cierre_fecha} onChange={handleChange} className={inputCls} />
+            <CampoFecha name="cierre_fecha" value={form.cierre_fecha} onChange={handleChange} className={inputCls} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Cerrada por</label>

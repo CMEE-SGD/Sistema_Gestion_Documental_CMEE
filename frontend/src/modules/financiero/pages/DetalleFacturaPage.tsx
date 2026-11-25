@@ -45,6 +45,7 @@ import {
 } from './financieroUtils';
 import { type FacturaResumen } from './FacturasPage';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 // ---------------------------------------------------------------------------
 // Tipos del detalle
 // ---------------------------------------------------------------------------
@@ -1523,8 +1524,7 @@ function FormPago({
         </div>
         <div>
           <label className={labelCls}>Fecha</label>
-          <input
-            type="date"
+          <CampoFecha
             className={inputCls}
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
@@ -1927,8 +1927,7 @@ function FormNotaEntrega({
       </div>
       <div>
         <label className={labelCls}>Fecha de entrega</label>
-        <input
-          type="date"
+        <CampoFecha
           className={inputCls}
           value={fechaEntrega}
           onChange={(e) => setFechaEntrega(e.target.value)}
