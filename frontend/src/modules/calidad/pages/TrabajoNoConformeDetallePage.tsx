@@ -7,6 +7,7 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { tienePermiso } from '../../../shared/utils/auth';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 import { AccionesVinculadas } from '../components/AccionesVinculadas';
+import { ArchivosTrabajoNC } from '../components/ArchivosTrabajoNC';
 import {
     ESTADO_LABEL,
     ESTADO_STYLES,
@@ -171,6 +172,7 @@ export const TrabajoNoConformeDetallePage = () => {
                             <span className="font-semibold text-gray-700">Eficacia verificada:</span>
                             <p className="text-gray-600 whitespace-pre-wrap mt-1">{item.eficacia_verificada || '—'}</p>
                         </div>
+                        <ArchivosTrabajoNC trabajoId={item.id} puedeEditar={puedeEditar} />
                     </div>
                 </div>
 

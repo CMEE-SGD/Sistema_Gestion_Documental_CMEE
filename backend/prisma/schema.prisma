@@ -1550,7 +1550,28 @@ model TrabajoNoConforme {
   createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
+  archivos TrabajoNoConformeArchivo[]
+
   @@map("trabajo_no_conforme")
+}
+
+/// Documentos de respaldo de un trabajo no conforme (cualquier formato).
+/// Se guardan en disco sin extensión y se descargan por un endpoint
+/// autenticado, nunca servidos directamente al navegador.
+model TrabajoNoConformeArchivo {
+  id                     Int               @id @default(autoincrement())
+  trabajo_no_conforme_id Int
+  trabajo_no_conforme    TrabajoNoConforme @relation(fields: [trabajo_no_conforme_id], references: [id], onDelete: Cascade)
+  /// Sección del formato a la que pertenece (por ahora, SEGUIMIENTO).
+  seccion                String            @default("SEGUIMIENTO") @db.VarChar(30)
+  nombre_original        String            @db.VarChar(255)
+  ruta                   String            @db.VarChar(500)
+  tamano                 Int
+  subido_por_id          Int?
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([trabajo_no_conforme_id])
+  @@map("trabajo_no_conforme_archivo")
 }
 
 enum EstadoCapacitacion {
@@ -1947,9 +1968,9 @@ enum MotivoMovimiento {
 }
 
 model CategoriaInsumo {
-  id        Int     @id @default(autoincrement())
-  nombre    String  @unique @db.VarChar(100)
-  activo    Boolean @default(true)
+  id        Int      @id @default(autoincrement())
+  nombre    String   @unique @db.VarChar(100)
+  activo    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -1973,7 +1994,7 @@ model Producto {
   stock_actual Decimal @default(0) @db.Decimal(12, 3)
   stock_minimo Decimal @default(0) @db.Decimal(12, 3) // alerta: stock <= mínimo
 
-  ubicacion         String?  @db.VarChar(150) // estante/almacén
+  ubicacion        String?   @db.VarChar(150) // estante/almacén
   fecha_ultimo_mov DateTime? @db.Timestamptz
 
   activo    Boolean  @default(true)
@@ -1992,11 +2013,11 @@ model MovimientoInventario {
   producto    Producto @relation(fields: [producto_id], references: [id], onDelete: Restrict)
 
   tipo     TipoMovimientoInventario
-  motivo   MotivoMovimiento @default(CONSUMO_LABORATORIO)
-  cantidad Decimal @db.Decimal(12, 3) // siempre > 0
+  motivo   MotivoMovimiento         @default(CONSUMO_LABORATORIO)
+  cantidad Decimal                  @db.Decimal(12, 3) // siempre > 0
 
   // Snapshot al momento del movimiento: auditoría del kardex sin recálculo.
-  stock_anterior Decimal @db.Decimal(12, 3)
+  stock_anterior  Decimal @db.Decimal(12, 3)
   stock_posterior Decimal @db.Decimal(12, 3)
 
   descripcion String?  @db.Text // p. ej. referencia a OT, compra o motivo

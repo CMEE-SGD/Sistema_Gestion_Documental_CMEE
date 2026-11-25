@@ -31,6 +31,16 @@ function esFechaReal(texto: string): boolean {
   );
 }
 
+/**
+ * El valor puede llegar del servidor con hora ("2026-11-18T00:00:00.000Z"):
+ * el campo solo muestra y trabaja con la parte de la fecha, "2026-11-18".
+ */
+function normalizar(v: unknown): string {
+  if (typeof v !== 'string' || v === '') return '';
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(v);
+  return m ? m[1] : v;
+}
+
 /** Deja solo dígitos y pone los guiones: 20261113 → 2026-11-13. */
 function aplicarMascara(crudo: string): string {
   const d = crudo.replace(/\D/g, '').slice(0, 8);
@@ -52,12 +62,12 @@ export default function CampoFecha({
   className = '',
   ...resto
 }: Props) {
-  const [texto, setTexto] = useState(value || '');
+  const [texto, setTexto] = useState(normalizar(value));
   const selectorRef = useRef<HTMLInputElement>(null);
 
   // Si el valor cambia desde afuera (por ejemplo, se limpia el formulario).
   useEffect(() => {
-    setTexto(value || '');
+    setTexto(normalizar(value));
   }, [value]);
 
   const emitir = (nuevo: string) => {
@@ -68,7 +78,7 @@ export default function CampoFecha({
   };
 
   const dentroDelRango = (v: string) =>
-    (!min || v >= String(min)) && (!max || v <= String(max));
+    (!min || v >= normalizar(String(min))) && (!max || v <= normalizar(String(max)));
 
   const alEscribir = (e: ChangeEvent<HTMLInputElement>) => {
     const nuevo = aplicarMascara(e.target.value);
@@ -83,7 +93,7 @@ export default function CampoFecha({
   // Al salir del campo, si lo escrito no es una fecha válida, vuelve al último valor bueno.
   const alSalir = () => {
     if (texto !== '' && !(esFechaReal(texto) && dentroDelRango(texto))) {
-      setTexto(value || '');
+      setTexto(normalizar(value));
     }
   };
 
@@ -147,8 +157,8 @@ export default function CampoFecha({
         tabIndex={-1}
         aria-hidden="true"
         value={esFechaReal(texto) ? texto : ''}
-        min={min}
-        max={max}
+        min={min ? normalizar(String(min)) : undefined}
+        max={max ? normalizar(String(max)) : undefined}
         disabled={disabled}
         onChange={(e) => {
           setTexto(e.target.value);

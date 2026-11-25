@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, UploadedFiles, InternalServerErrorException, BadRequestException, NotFoundException, Query, Request } from '@nestjs/common';
-import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, UploadedFiles, InternalServerErrorException, BadRequestException, NotFoundException, Query, Request, Res } from '@nestjs/common';
+import { FileInterceptor, FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { randomUUID } from 'crypto';
 import { memoryStorage } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
@@ -23,6 +24,10 @@ import { AccessGuard } from '../auth/guards/access.guard';
 import { RequireAccess } from '../auth/decorators/access.decorator';
 import { SinMotivo } from '../auditoria/sin-motivo.decorator';
 import { decodificarNombreArchivo } from '../common/helpers/encoding';
+
+/** Documentos de respaldo de un trabajo no conforme: hasta 10 por envío, 25 MB cada uno. */
+const MAX_ARCHIVOS_TNC = 10;
+const MAX_BYTES_ARCHIVO_TNC = 25 * 1024 * 1024;
 
 @Controller('calidad')
 @UseGuards(JwtAuthGuard, AccessGuard)
@@ -413,6 +418,102 @@ export class CalidadController {
   @RequireAccess('Gestion de Calidad', 5)
   removeTrabajoNoConforme(@Param('id', ParseIntPipe) id: number) {
     return this.calidadService.removeTrabajoNoConforme(id);
+  }
+
+  // ---- Documentos de respaldo (sección 4. Seguimiento) ----
+  // Se acepta cualquier formato. Para que un archivo subido nunca se ejecute
+  // en el navegador (por ejemplo un .html), se guarda en disco SIN extensión
+  // y solo se entrega por el endpoint de descarga, como adjunto.
+
+  @Get('trabajos-no-conformes/:id/archivos')
+  @RequireAccess('Gestion de Calidad', 2)
+  listarArchivosTrabajoNoConforme(@Param('id', ParseIntPipe) id: number) {
+    return this.prisma.trabajoNoConformeArchivo.findMany({
+      where: { trabajo_no_conforme_id: id },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, seccion: true, nombre_original: true, tamano: true, subido_por_id: true, createdAt: true },
+    });
+  }
+
+  @Post('trabajos-no-conformes/:id/archivos')
+  @RequireAccess('Gestion de Calidad', 4)
+  @UseInterceptors(
+    FilesInterceptor('archivos', MAX_ARCHIVOS_TNC, {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_BYTES_ARCHIVO_TNC, files: MAX_ARCHIVOS_TNC },
+    }),
+  )
+  async subirArchivosTrabajoNoConforme(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Request() req: any,
+  ) {
+    if (!files?.length) throw new BadRequestException('No se envió ningún archivo');
+    const tnc = await this.prisma.trabajoNoConforme.findUnique({ where: { id }, select: { codigo: true, activo: true } });
+    if (!tnc || !tnc.activo) throw new NotFoundException('El trabajo no conforme no existe');
+
+    const carpetaCodigo = tnc.codigo.replace(/[^A-Za-z0-9_-]/g, '_');
+    const relCarpeta = join('uploads', 'calidad', 'trabajos-no-conformes', carpetaCodigo);
+    const absCarpeta = join('.', relCarpeta);
+    if (!fs.existsSync(absCarpeta)) fs.mkdirSync(absCarpeta, { recursive: true });
+
+    const usuarioId = typeof req.user?.id === 'number' && req.user.id > 0 ? req.user.id : null;
+    const creados: { ruta: string }[] = [];
+    try {
+      const filas = [];
+      for (const file of files) {
+        const nombre = (decodificarNombreArchivo(file.originalname) || 'archivo').slice(0, 255);
+        const ruta = join(relCarpeta, randomUUID()).split('\\').join('/');
+        fs.writeFileSync(join('.', ruta), file.buffer);
+        creados.push({ ruta });
+        filas.push({ trabajo_no_conforme_id: id, nombre_original: nombre, ruta, tamano: file.size, subido_por_id: usuarioId });
+      }
+      await this.prisma.trabajoNoConformeArchivo.createMany({ data: filas });
+    } catch (error) {
+      // Si algo falla, no deja archivos huérfanos en disco.
+      for (const c of creados) fs.rmSync(join('.', c.ruta), { force: true });
+      throw error;
+    }
+    return this.listarArchivosTrabajoNoConforme(id);
+  }
+
+  @Get('trabajos-no-conformes/:id/archivos/:archivoId/descargar')
+  @RequireAccess('Gestion de Calidad', 2)
+  async descargarArchivoTrabajoNoConforme(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('archivoId', ParseIntPipe) archivoId: number,
+    @Res() res: any,
+  ) {
+    const archivo = await this.prisma.trabajoNoConformeArchivo.findFirst({
+      where: { id: archivoId, trabajo_no_conforme_id: id },
+    });
+    if (!archivo) throw new NotFoundException('El archivo no existe');
+    const ruta = join('.', archivo.ruta);
+    if (!fs.existsSync(ruta)) throw new NotFoundException('El archivo ya no está en el servidor');
+
+    const nombre = archivo.nombre_original;
+    const nombreAscii = nombre.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', `attachment; filename="${nombreAscii}"; filename*=UTF-8''${encodeURIComponent(nombre)}`);
+    fs.createReadStream(ruta)
+      .on('error', () => (res.headersSent ? res.end() : res.status(500).end()))
+      .pipe(res);
+  }
+
+  @Delete('trabajos-no-conformes/:id/archivos/:archivoId')
+  @RequireAccess('Gestion de Calidad', 4)
+  async eliminarArchivoTrabajoNoConforme(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('archivoId', ParseIntPipe) archivoId: number,
+  ) {
+    const archivo = await this.prisma.trabajoNoConformeArchivo.findFirst({
+      where: { id: archivoId, trabajo_no_conforme_id: id },
+    });
+    if (!archivo) throw new NotFoundException('El archivo no existe');
+    await this.prisma.trabajoNoConformeArchivo.delete({ where: { id: archivo.id } });
+    fs.rmSync(join('.', archivo.ruta), { force: true });
+    return { ok: true };
   }
 
   // ==================== RIESGOS Y OPORTUNIDADES ====================

@@ -95,10 +95,10 @@ export default function VistaDetalleEquipo({
   // Fase A: fechas de calibración (editables por quien tenga nivel 4+)
   const puedeEditarFechas = tienePermiso('Recepcion Equipos', 4);
   const [fechaCalibracion, setFechaCalibracion] = useState(
-    equipo.fecha_calibracion ?? '',
+    (equipo.fecha_calibracion ?? '').slice(0, 10),
   );
   const [fechaProxima, setFechaProxima] = useState(
-    equipo.fecha_proxima_calibracion ?? '',
+    (equipo.fecha_proxima_calibracion ?? '').slice(0, 10),
   );
   const [guardandoFechas, setGuardandoFechas] = useState(false);
 
