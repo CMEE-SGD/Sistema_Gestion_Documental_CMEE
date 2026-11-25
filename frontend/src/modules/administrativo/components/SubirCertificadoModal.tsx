@@ -7,6 +7,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import { descifrarPdf } from '../../../shared/utils/firma-pdf/descifrarPdf';
 import { pdfEstaCifrado } from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -318,9 +319,8 @@ export default function SubirCertificadoModal({
                   Fecha de calibración{' '}
                   <span className="text-destructive">*</span>
                 </label>
-                <input
+                <CampoFecha
                   id="fecha-calibracion"
-                  type="date"
                   value={fechaCalibracion}
                   onChange={(e) => setFechaCalibracion(e.target.value)}
                   className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -334,9 +334,8 @@ export default function SubirCertificadoModal({
                   Fecha de próxima calibración{' '}
                   <span className="text-destructive">*</span>
                 </label>
-                <input
+                <CampoFecha
                   id="fecha-proxima"
-                  type="date"
                   min={fechaCalibracion}
                   value={fechaProxima}
                   onChange={(e) => setFechaProxima(e.target.value)}

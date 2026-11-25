@@ -130,8 +130,8 @@ const labelMes = (k: string) => {
     Date.UTC(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, 1),
   );
   return d.toLocaleDateString('es-BO', {
-    month: 'short',
-    year: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
     timeZone: 'UTC',
   });
 };

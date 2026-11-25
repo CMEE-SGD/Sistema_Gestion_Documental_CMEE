@@ -10,6 +10,7 @@ import { encodeId, decodeId } from '../../../shared/utils/ids';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
 import { nombreMotivoAdicional } from './auditorias';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 const GRUPOS_EQUIPO = [
     { label: null, secciones: ['EVALUADOR_LIDER', 'EVALUADOR_CALIDAD'] },
     { label: 'Evaluadores Técnicos', secciones: ['EVALUADOR_TECNICO'] },
@@ -597,8 +598,7 @@ export const AuditoriaDetallePage = () => {
                                     <label className="text-sm font-medium text-gray-700">
                                         Fecha de término de la ejecución <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                        type="date"
+                                    <CampoFecha
                                         value={fechaFin}
                                         min={new Date(auditoria.fecha_inicio).toISOString().slice(0, 10)}
                                         onChange={(e) => setFechaFin(e.target.value)}

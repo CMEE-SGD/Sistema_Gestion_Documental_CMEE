@@ -7,6 +7,7 @@ import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 const TRATAMIENTOS = [
     { value: 'EVITAR', label: 'Evitar' },
     { value: 'REDUCIR', label: 'Reducir' },
@@ -77,7 +78,7 @@ const RespSection = ({ title, items, personas, onChange, onAdd, onRemove }: {
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-medium text-gray-500">Fecha</label>
                     <div className="flex gap-2">
-                        <input type="date" value={r.fecha} onChange={e => onChange(idx, 'fecha', e.target.value)} className={inputCls} />
+                        <CampoFecha value={r.fecha} onChange={e => onChange(idx, 'fecha', e.target.value)} className={inputCls} />
                         <button type="button" onClick={() => onRemove(idx)} className="px-2 text-red-400 hover:text-red-600 transition-colors">
                             <Trash2 className="w-4 h-4" />
                         </button>
@@ -295,7 +296,7 @@ export const RiesgoSeguimientoPage = () => {
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-medium text-gray-700">Fecha límite</label>
-                        <input type="date" name="fecha_limite" value={form.fecha_limite} onChange={handleChange} className={inputCls} />
+                        <CampoFecha name="fecha_limite" value={form.fecha_limite} onChange={handleChange} className={inputCls} />
                     </div>
                     <div className="flex flex-col gap-1.5 md:col-span-2">
                         <label className="text-sm font-medium text-gray-700">Acciones del plan</label>
@@ -320,7 +321,7 @@ export const RiesgoSeguimientoPage = () => {
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-medium text-gray-700">Fecha de cierre</label>
-                        <input type="date" name="cierre_fecha" value={form.cierre_fecha} onChange={handleChange} className={inputCls} />
+                        <CampoFecha name="cierre_fecha" value={form.cierre_fecha} onChange={handleChange} className={inputCls} />
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-medium text-gray-700">Cerrada por</label>

@@ -8,6 +8,7 @@ import ClienteFormModal, {
   type ClienteInstitucionalCreado,
 } from './ClienteFormModal';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -493,8 +494,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
             <label className="mb-1.5 block text-sm font-medium text-foreground">
               Fecha de Ingreso
             </label>
-            <input
-              type="date"
+            <CampoFecha
               name="fecha_ingreso"
               value={header.fecha_ingreso}
               onChange={handleHeaderChange}
@@ -710,8 +710,7 @@ export default function FormOrdenTrabajo({ onSuccess, onCancel }: Props) {
                     })()}
                   </td>
                   <td className="px-3 py-2.5 align-top">
-                    <input
-                      type="date"
+                    <CampoFecha
                       value={eq.fecha_ingreso_laboratorio}
                       onChange={(e) =>
                         handleEquipoChange(i, 'fecha_ingreso_laboratorio', e.target.value)

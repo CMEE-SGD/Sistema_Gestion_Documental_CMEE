@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+// Etiquetas de fecha del sistema: año-mes-día (2026-11-13) y año-mes (2026-11).
+const dos = (n: number) => String(n).padStart(2, '0');
+const etiquetaDia = (d: Date) => `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+const etiquetaMes = (d: Date) => `${d.getFullYear()}-${dos(d.getMonth() + 1)}`;
+
 @Injectable()
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
   async getClientesStats(periodo: string = 'ultimos30', mes?: string, anio?: string) {
     const today = new Date();
-    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
     let startDate: Date;
     let endDate: Date;
@@ -20,7 +24,7 @@ export class DashboardService {
         const daysInMonth = endDate.getDate();
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(today.getFullYear(), today.getMonth(), d);
-          bucketsMap.set(`${dt.getDate()} ${monthNames[dt.getMonth()]}`, 0);
+          bucketsMap.set(etiquetaDia(dt), 0);
         }
         break;
       }
@@ -32,7 +36,7 @@ export class DashboardService {
         const daysInMonth = endDate.getDate();
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(prevYear, prevMonth, d);
-          bucketsMap.set(`${dt.getDate()} ${monthNames[dt.getMonth()]}`, 0);
+          bucketsMap.set(etiquetaDia(dt), 0);
         }
         break;
       }
@@ -40,7 +44,7 @@ export class DashboardService {
         startDate = new Date(today.getFullYear(), 0, 1);
         endDate = new Date(today.getFullYear(), 11, 31, 23, 59, 59);
         for (let m = 0; m < 12; m++) {
-          bucketsMap.set(`${monthNames[m]} ${today.getFullYear().toString().slice(-2)}`, 0);
+          bucketsMap.set(`${today.getFullYear()}-${String(m + 1).padStart(2, '0')}`, 0);
         }
         break;
       }
@@ -52,7 +56,7 @@ export class DashboardService {
         const daysInMonth = endDate.getDate();
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(y, m - 1, d);
-          bucketsMap.set(`${dt.getDate()} ${monthNames[dt.getMonth()]}`, 0);
+          bucketsMap.set(etiquetaDia(dt), 0);
         }
         break;
       }
@@ -65,7 +69,7 @@ export class DashboardService {
         for (let i = 29; i >= 0; i--) {
           const d = new Date();
           d.setDate(today.getDate() - i);
-          bucketsMap.set(`${d.getDate()} ${monthNames[d.getMonth()]}`, 0);
+          bucketsMap.set(etiquetaDia(d), 0);
         }
         break;
       }
@@ -123,9 +127,9 @@ export class DashboardService {
     // era correcto (se calcula aparte, sin pasar por los buckets).
     const getBucketKey = (d: Date) => {
       if (periodo === 'esteAnio') {
-        return `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+        return etiquetaMes(d);
       }
-      return `${d.getDate()} ${monthNames[d.getMonth()]}`;
+      return etiquetaDia(d);
     };
 
     // 1. Clientes Atendidos Serie
@@ -218,7 +222,6 @@ export class DashboardService {
     laboratorioId?: string,
   ) {
     const today = new Date();
-    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
     // Filtro opcional por laboratorio (se aplica a todas las consultas).
     const labFilter = laboratorioId
@@ -238,7 +241,7 @@ export class DashboardService {
         const daysInMonth = endDate.getDate();
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(today.getFullYear(), today.getMonth(), d);
-          bucketsMap.set(`${dt.getDate()} ${monthNames[dt.getMonth()]}`, 0);
+          bucketsMap.set(etiquetaDia(dt), 0);
         }
         break;
       }
@@ -250,7 +253,7 @@ export class DashboardService {
         const daysInMonth = endDate.getDate();
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(prevYear, prevMonth, d);
-          bucketsMap.set(`${dt.getDate()} ${monthNames[dt.getMonth()]}`, 0);
+          bucketsMap.set(etiquetaDia(dt), 0);
         }
         break;
       }
@@ -258,7 +261,7 @@ export class DashboardService {
         startDate = new Date(today.getFullYear(), 0, 1);
         endDate = new Date(today.getFullYear(), 11, 31, 23, 59, 59);
         for (let m = 0; m < 12; m++) {
-          bucketsMap.set(`${monthNames[m]} ${today.getFullYear().toString().slice(-2)}`, 0);
+          bucketsMap.set(`${today.getFullYear()}-${String(m + 1).padStart(2, '0')}`, 0);
         }
         break;
       }
@@ -279,13 +282,13 @@ export class DashboardService {
             const dt = new Date(inicioSemana);
             dt.setDate(inicioSemana.getDate() + d);
             if (dt > endDate) break;
-            bucketsMap.set(`${dt.getDate()}-${dt.getMonth() + 1}-${dt.getFullYear().toString().slice(-2)}`, 0);
+            bucketsMap.set(etiquetaDia(dt), 0);
           }
         } else {
           for (let d = 0; d < duracionDias; d++) {
             const dt = new Date(ini);
             dt.setDate(ini.getDate() + d);
-            bucketsMap.set(`${dt.getDate()}-${dt.getMonth() + 1}-${dt.getFullYear().toString().slice(-2)}`, 0);
+            bucketsMap.set(etiquetaDia(dt), 0);
           }
         }
         break;
@@ -299,7 +302,7 @@ export class DashboardService {
         for (let i = 29; i >= 0; i--) {
           const d = new Date();
           d.setDate(today.getDate() - i);
-          bucketsMap.set(`${d.getDate()} ${monthNames[d.getMonth()]}`, 0);
+          bucketsMap.set(etiquetaDia(d), 0);
         }
         break;
       }
@@ -308,15 +311,15 @@ export class DashboardService {
     const dateFilter = { gte: startDate, lte: endDate };
 
     const getBucketKey = (d: Date) => {
-      if (periodo === 'esteAnio') return `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+      if (periodo === 'esteAnio') return etiquetaMes(d);
       if (periodo === 'personalizado') {
         // Para rangos diarios o semanales. Los buckets de día usan "d MMM"
         // indistintamente del año; para evitar colisiones entre dos períodos
         // con el mismo día en distinto año (p.ej. rango 20 Dic 2025 - 10 Ene
         // 2026) normalizamos el formato a d-M-yy.
-        return `${d.getDate()}-${d.getMonth() + 1}-${d.getFullYear().toString().slice(-2)}`;
+        return etiquetaDia(d);
       }
-      return `${d.getDate()} ${monthNames[d.getMonth()]}`;
+      return etiquetaDia(d);
     };
 
     // Comparativo: misma duración del período, inmediatamente anterior.

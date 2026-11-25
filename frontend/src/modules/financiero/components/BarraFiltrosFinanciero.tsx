@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { OPCIONES_PERIODO, type PeriodoFechas } from '../pages/financieroUtils';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 export interface FiltrosFinanciero {
   /** id de la opción de estado seleccionada ('todos' para mostrar todo). */
   estado: string;
@@ -100,8 +101,7 @@ export function BarraFiltrosFinanciero({
             <span className="text-xs font-medium text-muted-foreground">
               Desde
             </span>
-            <input
-              type="date"
+            <CampoFecha
               value={valores.fechaInicio}
               onChange={(e) =>
                 onChange({ ...valores, fechaInicio: e.target.value })
@@ -113,8 +113,7 @@ export function BarraFiltrosFinanciero({
             <span className="text-xs font-medium text-muted-foreground">
               Hasta
             </span>
-            <input
-              type="date"
+            <CampoFecha
               value={valores.fechaFin}
               onChange={(e) =>
                 onChange({ ...valores, fechaFin: e.target.value })

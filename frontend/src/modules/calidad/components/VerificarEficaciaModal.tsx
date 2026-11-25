@@ -8,6 +8,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 const autoResize = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const el = e.target;
     el.style.height = 'auto';
@@ -226,7 +227,7 @@ export const VerificarEficaciaModal = ({ nc, isOpen, onClose, onSuccess }: Verif
                             </div>
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs font-semibold text-gray-700">Fecha de verificación <span className="text-red-500">*</span></label>
-                                <input type="date" value={fechaVerif} onChange={e => setFechaVerif(e.target.value)} className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full" />
+                                <CampoFecha value={fechaVerif} onChange={e => setFechaVerif(e.target.value)} className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full" />
                             </div>
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs font-semibold text-gray-700">Resultado</label>

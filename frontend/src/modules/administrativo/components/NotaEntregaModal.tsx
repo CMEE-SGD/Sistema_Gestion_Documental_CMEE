@@ -11,6 +11,7 @@ import {
   type NotaEntregaPdfDatos,
 } from '../../../shared/utils/notaEntregaPdf';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 // ---------------------------------------------------------------------------
 // Tipos
 // ---------------------------------------------------------------------------
@@ -209,13 +210,22 @@ export default function NotaEntregaModal({ isOpen, onClose, ordenId, ordenFisica
       <label className={etiqueta}>
         {titulo} {opts.requerido && <span className="text-destructive">*</span>}
       </label>
-      <input
-        type={opts.type ?? 'text'}
-        value={(form?.[campo] as string) ?? ''}
-        onChange={(e) => set(campo, e.target.value as never)}
-        disabled={soloLectura}
-        className={input}
-      />
+      {opts.type === 'date' ? (
+        <CampoFecha
+          value={(form?.[campo] as string) ?? ''}
+          onChange={(e) => set(campo, e.target.value as never)}
+          disabled={soloLectura}
+          className={input}
+        />
+      ) : (
+        <input
+          type={opts.type ?? 'text'}
+          value={(form?.[campo] as string) ?? ''}
+          onChange={(e) => set(campo, e.target.value as never)}
+          disabled={soloLectura}
+          className={input}
+        />
+      )}
       {opts.ayuda && !errores[campo] && <p className="mt-1 text-xs text-muted-foreground">{opts.ayuda}</p>}
       {errores[campo] && <p className="mt-1 text-xs text-destructive">{errores[campo]}</p>}
     </div>

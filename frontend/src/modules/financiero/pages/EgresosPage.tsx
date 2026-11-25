@@ -23,6 +23,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import { esUsuarioAdministrador, tienePermiso } from '../../../shared/utils/auth';
 import { fmtFecha, fmtMoneda, inputCls, labelCls } from './financieroUtils';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 interface Egreso {
   id: number;
   fecha: string;
@@ -727,8 +728,7 @@ function ModalNuevoEgreso({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <label className={labelCls}>Fecha *</label>
-              <input
-                type="date"
+              <CampoFecha
                 value={form.fecha}
                 onChange={(e) => set('fecha', e.target.value)}
                 className={inputCls}

@@ -6,6 +6,7 @@ import RolesDropdown from './RolesDropdown';
 import { FormPersonaProps } from '../interfaces/FormPersonaProps';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 const PROVINCIAS_ECUADOR = [
     "Azuay", "Bolívar", "Cañar", "Carchi", "Chimborazo", "Cotopaxi", "El Oro", 
     "Esmeraldas", "Galápagos", "Guayas", "Imbabura", "Loja", "Los Ríos", "Manabí", 
@@ -199,7 +200,7 @@ const FormPersona = ({
           {/* COLUMNA 2: Contacto y Personal */}
           <div>
             <LabelRow label="Fecha Nacimiento: " mb="mb-4">
-              <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-40 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
+              <CampoFecha name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="border border-gray-300 px-2 py-1 w-40 bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-sm" />
             </LabelRow>
             <LabelRow label="Teléfonos: " mb="mb-4">
               <div className="flex flex-col gap-2">

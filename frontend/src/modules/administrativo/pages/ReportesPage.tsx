@@ -18,6 +18,7 @@ import {
 import { cn } from '../../../shared/utils/utils';
 import api from '../../../core/api/axios';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 // ---------------------------------------------------------------------------
 // Types — reflejan reportes.service.ts
 // ---------------------------------------------------------------------------
@@ -296,15 +297,13 @@ function FiltroFechas({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <input
-        type="date"
+      <CampoFecha
         value={desde}
         onChange={(e) => onDesde(e.target.value)}
         className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
       <span className="text-sm text-muted-foreground">a</span>
-      <input
-        type="date"
+      <CampoFecha
         value={hasta}
         onChange={(e) => onHasta(e.target.value)}
         className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

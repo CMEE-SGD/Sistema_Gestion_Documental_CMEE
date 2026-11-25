@@ -4,6 +4,7 @@ import { ShieldAlert, ArrowLeft, RefreshCw, Filter as FilterIcon, KeyRound } fro
 import api from '../../core/api/axios';
 import { TablaHistorial } from '../../shared/components/organisms/TablaHistorial';
 import { TablaIntentosLogin } from '../../shared/components/organisms/TablaIntentosLogin';
+import CampoFecha from '../../shared/components/atoms/CampoFecha';
 import Navbar from '../../shared/components/organisms/Navbar'; // 👇 Importamos el Navbar
 
 const MODULOS: { value: string; label: string }[] = [
@@ -251,8 +252,7 @@ export const AuditoriaPage = () => {
 
                     <label className="flex items-center gap-1 text-[10px] text-gray-500">
                         Desde
-                        <input
-                            type="date"
+                        <CampoFecha
                             value={desde}
                             onChange={(e) => setDesde(e.target.value)}
                             className={inputClass}
@@ -261,8 +261,7 @@ export const AuditoriaPage = () => {
 
                     <label className="flex items-center gap-1 text-[10px] text-gray-500">
                         Hasta
-                        <input
-                            type="date"
+                        <CampoFecha
                             value={hasta}
                             onChange={(e) => setHasta(e.target.value)}
                             className={inputClass}
@@ -312,8 +311,7 @@ export const AuditoriaPage = () => {
 
                     <label className="flex items-center gap-1 text-[10px] text-gray-500">
                         Desde
-                        <input
-                            type="date"
+                        <CampoFecha
                             value={desdeLogin}
                             onChange={(e) => setDesdeLogin(e.target.value)}
                             className={inputClass}
@@ -322,8 +320,7 @@ export const AuditoriaPage = () => {
 
                     <label className="flex items-center gap-1 text-[10px] text-gray-500">
                         Hasta
-                        <input
-                            type="date"
+                        <CampoFecha
                             value={hastaLogin}
                             onChange={(e) => setHastaLogin(e.target.value)}
                             className={inputClass}

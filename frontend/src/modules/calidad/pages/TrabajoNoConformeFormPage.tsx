@@ -15,6 +15,7 @@ import {
     hoy,
 } from './trabajosNoConformes';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 const inputCls = 'w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500';
 const labelCls = 'text-sm font-medium text-gray-700';
 
@@ -229,7 +230,7 @@ export const TrabajoNoConformeFormPage = () => {
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className={labelCls}>Fecha de detección</label>
-                        <input type="date" name="fecha" value={form.fecha} onChange={handleChange} className={inputCls} />
+                        <CampoFecha name="fecha" value={form.fecha} onChange={handleChange} className={inputCls} />
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className={labelCls}>Categoría</label>
@@ -268,8 +269,7 @@ export const TrabajoNoConformeFormPage = () => {
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className={labelCls}>Fecha</label>
-                        <input
-                            type="date"
+                        <CampoFecha
                             name="tratamiento_fecha"
                             value={form.tratamiento_fecha}
                             min={form.fecha || undefined}
@@ -363,8 +363,7 @@ export const TrabajoNoConformeFormPage = () => {
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className={labelCls}>Fecha</label>
-                        <input
-                            type="date"
+                        <CampoFecha
                             name="seguimiento_fecha"
                             value={form.seguimiento_fecha}
                             onChange={handleChange}
@@ -445,8 +444,7 @@ export const TrabajoNoConformeFormPage = () => {
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <label className={labelCls}>Fecha de cierre</label>
-                        <input
-                            type="date"
+                        <CampoFecha
                             name="fecha_cierre"
                             value={form.fecha_cierre}
                             onChange={handleChange}

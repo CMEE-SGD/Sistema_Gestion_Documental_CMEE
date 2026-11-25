@@ -9,6 +9,7 @@ import {
   pdfTieneFirmaDigital,
 } from '../../../shared/utils/firma-pdf/pdfEstaCifrado';
 import ErrorBoundary from '../../../shared/components/molecules/ErrorBoundary';
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 import type { PosicionFirma } from '../../../shared/components/organisms/SelectorPosicionFirma';
 
 // Carga diferida: pdfjs-dist (~350KB + worker) solo se descarga cuando
@@ -501,14 +502,13 @@ export default function FirmarDocumentoModal({
                     >
                       Fecha en que se realizó <span className="text-destructive">*</span>
                     </label>
-                    <input
+                    <CampoFecha
                       id="fecha-firma-doc"
-                      type="date"
                       value={fechaRealizacion}
                       max={hoyLocal()}
                       onChange={(e) => setFechaRealizacion(e.target.value)}
                       disabled={enviando}
-                      className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm disabled:opacity-50"
                     />
                   </div>
 
@@ -581,9 +581,8 @@ export default function FirmarDocumentoModal({
                   >
                     Fecha en que se realizó <span className="text-destructive">*</span>
                   </label>
-                  <input
+                  <CampoFecha
                     id="fecha-aprobacion-doc"
-                    type="date"
                     value={fechaRealizacion}
                     max={hoyLocal()}
                     onChange={(e) => setFechaRealizacion(e.target.value)}

@@ -89,5 +89,5 @@ export const formatearFecha = (fecha?: string | null): string => {
     if (!fecha) return '—';
     const [anio, mes, dia] = fecha.slice(0, 10).split('-');
     if (!anio || !mes || !dia) return '—';
-    return `${dia}/${mes}/${anio}`;
+    return `${anio}-${mes}-${dia}`;
 };

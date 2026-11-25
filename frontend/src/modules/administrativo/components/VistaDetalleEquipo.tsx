@@ -21,6 +21,7 @@ import {
   type OrdenTrabajoDetalle,
 } from './VistaDetalleOrden';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 interface Props {
   orden: OrdenTrabajoDetalle;
   equipoId: number;
@@ -284,8 +285,7 @@ export default function VistaDetalleEquipo({
                   Fecha de calibración
                 </span>
                 {puedeEditarFechas ? (
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={fechaCalibracion}
                     onChange={(e) => setFechaCalibracion(e.target.value)}
                     className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
@@ -301,8 +301,7 @@ export default function VistaDetalleEquipo({
                   Próxima calibración
                 </span>
                 {puedeEditarFechas ? (
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={fechaProxima}
                     onChange={(e) => setFechaProxima(e.target.value)}
                     className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"

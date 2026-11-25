@@ -11,6 +11,7 @@ import { useToast } from '../../../shared/components/molecules/Toast';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
 
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 const autoResize = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const el = e.target;
     el.style.height = 'auto';
@@ -337,7 +338,7 @@ export const PlanAccionPage = () => {
                                 <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={c.evidencia} onChange={e => updateCorreccion(i, 'evidencia', e.target.value)} onInput={autoResize} placeholder="Evidencia a presentar..." readOnly={readOnly} />
                             </div>
                             <div className="col-span-2 p-2 border-r border-gray-200">
-                                <input type="date" className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={c.fecha} onChange={e => updateCorreccion(i, 'fecha', e.target.value)} readOnly={readOnly} />
+                                <CampoFecha className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={c.fecha} onChange={e => updateCorreccion(i, 'fecha', e.target.value)} readOnly={readOnly} />
                             </div>
                             <div className="col-span-2 p-2 border-r border-gray-200">
                                 <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={c.observaciones} onChange={e => updateCorreccion(i, 'observaciones', e.target.value)} onInput={autoResize} placeholder="Sin observaciones" readOnly={readOnly} />
@@ -373,7 +374,7 @@ export const PlanAccionPage = () => {
                                 <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={a.evidencia} onChange={e => updateAccion(i, 'evidencia', e.target.value)} onInput={autoResize} placeholder="Evidencia a presentar..." readOnly={readOnly} />
                             </div>
                             <div className="col-span-2 p-2 border-r border-gray-200">
-                                <input type="date" className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={a.fecha} onChange={e => updateAccion(i, 'fecha', e.target.value)} readOnly={readOnly} />
+                                <CampoFecha className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={a.fecha} onChange={e => updateAccion(i, 'fecha', e.target.value)} readOnly={readOnly} />
                             </div>
                             <div className="col-span-2 p-2 border-r border-gray-200">
                                 <textarea className="w-full border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden" value={a.observaciones} onChange={e => updateAccion(i, 'observaciones', e.target.value)} onInput={autoResize} placeholder="Sin observaciones" readOnly={readOnly} />
@@ -472,7 +473,7 @@ export const PlanAccionPage = () => {
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <label className="text-xs font-semibold text-gray-700">Fecha de verificación <span className="text-red-500">*</span></label>
-                                    <input type="date" value={fechaVerif} onChange={e => setFechaVerif(e.target.value)} className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full" />
+                                    <CampoFecha value={fechaVerif} onChange={e => setFechaVerif(e.target.value)} className="border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full" />
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <label className="text-xs font-semibold text-gray-700">Resultado</label>

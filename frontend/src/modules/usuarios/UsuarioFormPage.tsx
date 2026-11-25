@@ -6,6 +6,7 @@ import { encodeId, decodeId } from '../../shared/utils/ids';
 import { useAlert } from '../../shared/components/molecules/AlertModal';
 import { useToast } from '../../shared/components/molecules/Toast';
 
+import CampoFecha from '../../shared/components/atoms/CampoFecha';
 // Toggle rediseñado: Estilo Switch moderno
 const Toggle = ({ label, checked, onChange, icon }: any) => (
     <label className="flex items-center cursor-pointer w-max my-2 group">
@@ -282,7 +283,7 @@ export const UsuarioFormPage = () => {
                                 <label className="text-sm font-semibold text-foreground">Fecha de caducidad</label>
                                 <div className="relative">
                                     <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                    <input type="date" name="fecha_caducidad" value={formData.fecha_caducidad} onChange={handleChange} className="w-full pl-9 pr-3 py-2 border border-input rounded-md outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm" />
+                                    <CampoFecha name="fecha_caducidad" value={formData.fecha_caducidad} onChange={handleChange} className="w-full pl-9 pr-3 py-2 border border-input rounded-md outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm" />
                                 </div>
                             </div>
 

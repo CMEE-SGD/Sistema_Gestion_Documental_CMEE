@@ -131,7 +131,7 @@ const fmtFecha = (iso: string | null) =>
     ? new Date(iso).toLocaleDateString('es-EC', {
         timeZone: 'UTC',
         day: '2-digit',
-        month: 'short',
+        month: '2-digit',
         year: 'numeric',
       })
     : null;
