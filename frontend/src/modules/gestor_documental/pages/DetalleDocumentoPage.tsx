@@ -5,6 +5,7 @@ import api from '../../../core/api/axios';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { buildFileUrl } from '../../../shared/utils/backendUrl';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 import FirmarDocumentoModal from '../components/FirmarDocumentoModal';
 import { encodeId, decodeId } from '../../../shared/utils/ids';
 
@@ -473,9 +474,9 @@ export const DetalleDocumentoPage = () => {
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-medium text-gray-600">Fecha</label>
-                            <input
-                                type="date" name="created_at" value={editFormData.created_at} onChange={handleEditFormChange}
-                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
+                            <CampoFecha
+                                name="created_at" value={editFormData.created_at} onChange={handleEditFormChange}
+                                className="border border-gray-300 rounded px-3 py-1.5 text-sm"
                             />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -536,11 +537,10 @@ export const DetalleDocumentoPage = () => {
                         />
                         <div className="flex items-center gap-2">
                             <label className="text-sm text-gray-700 font-medium">Fecha:</label>
-                            <input
-                                type="date"
+                            <CampoFecha
                                 value={versionFecha}
                                 onChange={(e) => setVersionFecha(e.target.value)}
-                                className="border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500 text-sm"
+                                className="border border-gray-300 rounded px-3 py-1.5 text-sm"
                             />
                         </div>
                         <div className="flex gap-2">

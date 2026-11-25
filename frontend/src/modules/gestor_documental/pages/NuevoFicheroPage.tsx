@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Upload, ArrowLeft } from 'lucide-react';
 import api from '../../../core/api/axios';
 import { useToast } from '../../../shared/components/molecules/Toast';
+import CampoFecha from '../../../shared/components/atoms/CampoFecha';
 
 export const NuevoFicheroPage = () => {
     const navigate = useNavigate();
@@ -198,9 +199,9 @@ export const NuevoFicheroPage = () => {
                     </div>
                     <div className="flex items-center gap-4">
                         <label className="w-24 md:w-16 text-gray-700 font-medium text-left md:text-right">Fecha:</label>
-                        <input 
-                            type="date" name="fecha" value={formData.fecha} onChange={handleChange}
-                            className="w-full md:w-40 border border-gray-300 rounded px-3 py-1.5 outline-none focus:border-blue-500"
+                        <CampoFecha
+                            name="fecha" value={formData.fecha} onChange={handleChange}
+                            className="w-full md:w-40 border border-gray-300 rounded px-3 py-1.5"
                         />
                     </div>
                 </div>
