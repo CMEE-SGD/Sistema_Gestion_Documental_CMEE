@@ -103,7 +103,7 @@ function EmptyState({ cols }: { cols: number }) {
 // Page component
 // ---------------------------------------------------------------------------
 
-const COLS = 6;
+const COLS = 7;
 
 export default function ClientesPage() {
   const { data: clientes, isLoading, isError, error } =
@@ -216,6 +216,7 @@ export default function ClientesPage() {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <TH>Nombre</TH>
+                <TH>Tipo</TH>
                 <TH>RUC</TH>
                 <TH>Representante</TH>
                 <TH>Teléfono</TH>
@@ -234,6 +235,18 @@ export default function ClientesPage() {
                   >
                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
                       {cliente.nombre}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm">
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                          cliente.tipo === 'MILITAR'
+                            ? 'border-slate-300 bg-slate-100 text-slate-700'
+                            : 'border-sky-200 bg-sky-50 text-sky-700',
+                        )}
+                      >
+                        {cliente.tipo === 'MILITAR' ? 'Militar' : 'Civil'}
+                      </span>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
                       {cliente.ruc || (

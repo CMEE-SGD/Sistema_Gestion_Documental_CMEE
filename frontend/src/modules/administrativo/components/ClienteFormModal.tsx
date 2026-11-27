@@ -18,6 +18,7 @@ interface ClienteFormState {
   ciudad: string;
   telefono: string;
   email: string;
+  tipo: 'CIVIL' | 'MILITAR';
 }
 
 export interface ClienteInstitucionalCreado {
@@ -51,6 +52,7 @@ const EMPTY_FORM: ClienteFormState = {
   ciudad: '',
   telefono: '',
   email: '',
+  tipo: 'CIVIL',
 };
 
 // ---------------------------------------------------------------------------
@@ -78,6 +80,7 @@ export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: 
             ciudad: cliente.ciudad ?? '',
             telefono: cliente.telefono,
             email: cliente.email ?? '',
+            tipo: cliente.tipo ?? 'CIVIL',
           }
         : EMPTY_FORM,
     );
@@ -101,6 +104,7 @@ export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: 
         ciudad: data.ciudad.trim() || undefined,
         telefono: data.telefono.trim(),
         email: data.email.trim() || undefined,
+        tipo: data.tipo,
       };
       const res = esEdicion
         ? await api.patch<ClienteInstitucionalCreado>(
@@ -227,6 +231,33 @@ export default function ClienteFormModal({ open, onClose, onSuccess, cliente }: 
               {errors.nombre && (
                 <p className="mt-1 text-xs text-destructive">{errors.nombre}</p>
               )}
+            </div>
+
+            {/* Tipo de cliente: los militares no pagan ni se facturan */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Tipo de cliente <span className="text-destructive">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  ['CIVIL', 'Civil', 'Se cobra y se factura'],
+                  ['MILITAR', 'Militar', 'Sin costo: no se cobra ni se factura'],
+                ] as const).map(([valor, titulo, ayuda]) => (
+                  <button
+                    key={valor}
+                    type="button"
+                    onClick={() => setForm({ ...form, tipo: valor })}
+                    className={`rounded-lg border-2 px-3 py-2 text-left text-sm transition-colors ${
+                      form.tipo === valor
+                        ? 'border-primary bg-primary/5 text-foreground'
+                        : 'border-border text-muted-foreground hover:border-primary/40'
+                    }`}
+                  >
+                    <span className="block font-medium">{titulo}</span>
+                    <span className="block text-xs">{ayuda}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* RUC / Teléfono */}
