@@ -14,35 +14,49 @@ const UserMenu = () => {
 
   const [personaExtra, setPersonaExtra] = useState<{
     foto_ruta?: string; nombre?: string; apellidos?: string; puesto?: string;
+    /** Puestos activos de la persona (puede tener más de uno). */
+    puestos?: string[];
+    /** Roles de RRHH asignados a la persona. */
+    roles?: string[];
   } | null>(null);
 
+  // Ficha propia (autoservicio: no requiere permiso de RRHH). Trae los puestos
+  // y los roles de RRHH para mostrarlos en el menú. El usuario administrador
+  // del sistema no tiene persona asociada: en ese caso no se muestra nada extra.
   useEffect(() => {
     if (!user) return;
-    if (user.persona?.foto_ruta || user.persona?.nombre) return;
-
-    const personaId = (user as any).persona_id ?? (user as any).personaId;
-    if (!personaId) return;
-
-    api.get(`/personas/${personaId}`)
+    api.get('/personas/mi-perfil')
       .then(res => {
         const p = res.data;
-        const primerPuesto = p.puestos?.[0]?.puesto?.nombre;
+        const puestos: string[] = (p.puestos ?? [])
+          .filter((rel: any) => rel.activo !== false)
+          .map((rel: any) => rel.puesto?.nombre)
+          .filter(Boolean);
         setPersonaExtra({
           foto_ruta: p.foto_ruta,
           nombre: p.nombre,
           apellidos: p.apellidos,
-          puesto: primerPuesto,
+          puesto: puestos[0],
+          puestos,
+          roles: (p.roles ?? []).map((r: any) => r.nombre).filter(Boolean),
         });
       })
       .catch(() => {});
-  }, [user]);
+  }, [user?.id]);
 
   const persona = {
-    nombre: user?.persona?.nombre ?? personaExtra?.nombre,
-    apellidos: user?.persona?.apellidos ?? personaExtra?.apellidos,
-    puesto: user?.persona?.puesto ?? personaExtra?.puesto,
-    foto_ruta: user?.persona?.foto_ruta ?? personaExtra?.foto_ruta,
+    nombre: user?.persona?.nombre || personaExtra?.nombre,
+    apellidos: user?.persona?.apellidos || personaExtra?.apellidos,
+    puesto: user?.persona?.puesto || personaExtra?.puesto,
+    foto_ruta: user?.persona?.foto_ruta || personaExtra?.foto_ruta,
   };
+  const puestos =
+    personaExtra?.puestos && personaExtra.puestos.length > 0
+      ? personaExtra.puestos
+      : persona.puesto
+        ? [persona.puesto]
+        : [];
+  const roles = personaExtra?.roles ?? [];
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -83,7 +97,7 @@ const UserMenu = () => {
 
       {/* Menú desplegable */}
       {showUserMenu && (
-        <div className="absolute right-0 top-12 w-72 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+        <div className="absolute right-0 top-12 w-80 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
           
           {/* Cabecera del usuario */}
           <button
@@ -109,11 +123,48 @@ const UserMenu = () => {
               <span className="text-sm font-semibold text-foreground truncate">
                 {persona.nombre} {persona.apellidos}
               </span>
-              <span className="text-xs font-medium text-muted-foreground truncate mt-0.5">
-                {persona.puesto || 'Puesto no asignado'}
+              <span className="text-xs text-muted-foreground truncate mt-0.5">
+                {user?.nombre_usuario}
               </span>
             </div>
           </button>
+
+          {/* Puesto y roles de RRHH */}
+          <div className="px-5 py-3 border-b border-border space-y-3">
+            <div>
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {puestos.length > 1 ? 'Puestos' : 'Puesto'}
+              </span>
+              {puestos.length > 0 ? (
+                <ul className="mt-1 space-y-0.5">
+                  {puestos.map((p) => (
+                    <li key={p} className="text-sm text-foreground leading-snug">{p}</li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="mt-1 block text-sm italic text-muted-foreground">Puesto no asignado</span>
+              )}
+            </div>
+            <div>
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Roles
+              </span>
+              {roles.length > 0 ? (
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {roles.map((r) => (
+                    <span
+                      key={r}
+                      className="rounded-full border border-border bg-muted/50 px-2 py-0.5 text-xs font-medium text-foreground"
+                    >
+                      {r}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="mt-1 block text-sm italic text-muted-foreground">Sin roles asignados</span>
+              )}
+            </div>
+          </div>
 
           {/* Opciones del menú */}
           <div className="p-2 flex flex-col gap-1">
