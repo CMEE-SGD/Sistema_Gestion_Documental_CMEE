@@ -227,6 +227,22 @@ export const MiPerfilPage = () => {
                                     <DataRow label="Nombre" value={persona.nombre} />
                                     <DataRow label="Apellidos" value={persona.apellidos} />
                                     <DataRow label="Usuario" value={perfil?.nombre_usuario} />
+                                    <DataRow
+                                        label={puestosActivos.length > 1 ? 'Puestos' : 'Puesto'}
+                                        value={
+                                            puestosActivos.length > 0
+                                                ? puestosActivos.map((rel: any) => rel.puesto?.nombre).filter(Boolean).join(', ')
+                                                : undefined
+                                        }
+                                    />
+                                    <DataRow
+                                        label="Roles"
+                                        value={
+                                            (persona.roles ?? []).length > 0
+                                                ? persona.roles.map((r: any) => r.nombre).join(', ')
+                                                : 'Sin roles asignados'
+                                        }
+                                    />
                                     <DataRow label="Estado" value={persona.estado ?? (persona.activo ? 'Activo' : 'Inactivo')} />
                                 </div>
                             </div>
