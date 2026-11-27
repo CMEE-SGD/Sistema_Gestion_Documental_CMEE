@@ -17,6 +17,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtService } from '@nestjs/jwt';
 import { CertificadosService } from './certificados.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessGuard } from '../auth/guards/access.guard';
@@ -24,7 +25,90 @@ import { RequireAccess } from '../auth/decorators/access.decorator';
 
 @Controller('certificados')
 export class CertificadosController {
-  constructor(private readonly certificadosService: CertificadosService) {}
+  constructor(
+    private readonly certificadosService: CertificadosService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  /** Envía el PDF con su nombre original (inline: el navegador lo muestra). */
+  private enviarPdf(res: any, filePath: string, nombre: string) {
+    if (!existsSync(filePath)) {
+      throw new NotFoundException(
+        'El archivo del certificado ya no está disponible en el servidor',
+      );
+    }
+    const nombreAscii = nombre.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${nombreAscii}"; filename*=UTF-8''${encodeURIComponent(nombre)}`,
+    );
+    const stream = createReadStream(filePath);
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(500).end();
+      else res.end();
+    });
+    stream.pipe(res);
+  }
+
+  // "Ver Documento": en vez de abrir una copia temporal del navegador (que no
+  // tiene nombre y al descargarse sale con un código), se genera un enlace
+  // de 10 minutos al PDF real. El navegador lo abre directo desde el
+  // servidor, así que al descargarlo usa el nombre original del documento.
+  // Los permisos se verifican aquí, igual que en download.
+  @Post(':id/enlace')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Recepcion Equipos', 2)
+  async enlace(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('tipo') tipo: string,
+    @Req() req: any,
+  ) {
+    const { filePath, nombreOriginal } = await this.certificadosService.download(
+      id,
+      tipo,
+      req.user,
+    );
+    if (!existsSync(filePath)) {
+      throw new NotFoundException(
+        'El archivo del certificado ya no está disponible en el servidor',
+      );
+    }
+    const token = this.jwtService.sign(
+      { proposito: 'ver-certificado', id, tipo },
+      { secret: process.env.JWT_SECRET || 'clave_secreta_desarrollo', expiresIn: '10m' },
+    );
+    const nombre = nombreOriginal || `${tipo}_${id}.pdf`;
+    return { url: `/certificados/ver/${token}/${encodeURIComponent(nombre)}` };
+  }
+
+  // Abre el PDF con un enlace temporal (sin cabecera de sesión: lo abre el
+  // navegador directamente). El nombre al final de la ruta es solo para que
+  // el navegador lo use al descargar; el documento lo decide el token.
+  @Get('ver/:token/:nombre')
+  async ver(@Param('token') token: string, @Res() res: any) {
+    let datos: { proposito?: string; id?: number; tipo?: string };
+    try {
+      datos = this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET || 'clave_secreta_desarrollo',
+      });
+    } catch {
+      throw new BadRequestException(
+        'El enlace del documento venció. Vuelva a abrirlo desde el sistema.',
+      );
+    }
+    if (
+      datos.proposito !== 'ver-certificado' ||
+      typeof datos.id !== 'number' ||
+      (datos.tipo !== 'reporte' && datos.tipo !== 'certificado')
+    ) {
+      throw new BadRequestException('Enlace de documento no válido.');
+    }
+    const { filePath, nombreOriginal } =
+      await this.certificadosService.rutaDocumento(datos.id, datos.tipo);
+    this.enviarPdf(res, filePath, nombreOriginal || `${datos.tipo}_${datos.id}.pdf`);
+  }
 
   // Un solo PDF: el laboratorio ya entrega el reporte y el certificado como
   // un único documento combinado. Técnico, jefe y director firman ese mismo

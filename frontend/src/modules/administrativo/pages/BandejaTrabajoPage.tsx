@@ -32,7 +32,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
-import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
+import { abrirCertificado } from '../../../shared/utils/abrirCertificado';
 import api from '../../../core/api/axios';
 import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 import { esUsuarioAdministrador, tienePermiso } from '../../../shared/utils/auth';
@@ -875,9 +875,7 @@ export default function BandejaTrabajoPage() {
     tipo: 'reporte' | 'certificado',
   ) => {
     try {
-      await abrirPdfProtegido(
-        `${import.meta.env.VITE_API_URL}/certificados/download/${certificadoId}?tipo=${tipo}`,
-      );
+      await abrirCertificado(certificadoId, tipo);
     } catch (err) {
       console.error('Error al descargar certificado:', err);
       await alert({

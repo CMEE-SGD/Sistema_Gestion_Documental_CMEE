@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Archive, ChevronLeft, ChevronRight, Eye, Inbox, Search, Wallet } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
-import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
+import { abrirCertificado } from '../../../shared/utils/abrirCertificado';
 import api from '../../../core/api/axios';
 import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
@@ -261,9 +261,7 @@ export default function ArchivadasPage() {
 
   const handleVerDocumento = async (certificadoId: number) => {
     try {
-      await abrirPdfProtegido(
-        `${import.meta.env.VITE_API_URL}/certificados/download/${certificadoId}?tipo=certificado`,
-      );
+      await abrirCertificado(certificadoId, 'certificado');
     } catch (err) {
       console.error('Error al descargar el documento:', err);
       await alert({ message: 'No se pudo abrir el documento' });

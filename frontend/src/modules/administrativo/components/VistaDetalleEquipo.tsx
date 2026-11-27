@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { X, Printer, FlaskConical, Eye, CalendarClock, FileX } from 'lucide-react';
 import api from '../../../core/api/axios';
-import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
+import { abrirCertificado } from '../../../shared/utils/abrirCertificado';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { useToast } from '../../../shared/components/molecules/Toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -125,9 +125,7 @@ export default function VistaDetalleEquipo({
 
   const handleVerDocumento = async (certificadoId: number) => {
     try {
-      await abrirPdfProtegido(
-        `${import.meta.env.VITE_API_URL}/certificados/download/${certificadoId}?tipo=certificado`,
-      );
+      await abrirCertificado(certificadoId, 'certificado');
     } catch {
       await alert({
         message: 'No se pudo abrir el certificado del equipo.',

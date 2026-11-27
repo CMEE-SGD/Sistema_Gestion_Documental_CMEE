@@ -346,6 +346,15 @@ export class CertificadosService {
       .createHash('sha256')
       .update(pdfBuffer)
       .digest('hex');
+
+    // El navegador sube cada versión firmada con un nombre genérico
+    // ("certificado_firmado.pdf"). Se guarda en disco con el nombre original
+    // que puso el técnico, para que el archivo conserve su nombre en todo el
+    // flujo (también en el servidor).
+    const rutaFirmada = await this.renombrarConNombreOriginal(
+      file.path,
+      certificado.nombre_original_certificado,
+    );
     const firmanteId = user.isGod ? 1 : (personaId as number);
 
     const resultadoFirma = await this.prisma.$transaction(async (tx) => {
@@ -360,8 +369,8 @@ export class CertificadosService {
       await tx.certificado.update({
         where: { id: certificadoId },
         data: {
-          ruta_archivo_reporte: file.path,
-          ruta_archivo_certificado: file.path,
+          ruta_archivo_reporte: rutaFirmada,
+          ruta_archivo_certificado: rutaFirmada,
         },
       });
 
@@ -416,6 +425,59 @@ export class CertificadosService {
     this.notificacionesService.notificarRecepcionActualizada();
 
     return resultadoFirma;
+  }
+
+  /**
+   * Renombra el PDF firmado recién subido a "<timestamp>_<nombre original>".
+   * Si algo falla, deja el archivo con el nombre con que llegó (la firma no
+   * depende del nombre del archivo).
+   */
+  private async renombrarConNombreOriginal(
+    rutaActual: string,
+    nombreOriginal: string | null | undefined,
+  ): Promise<string> {
+    if (!nombreOriginal) return rutaActual;
+    let seguro = nombreOriginal
+      .replace(/[\\/:*?"<>|\x00-\x1F]/g, '_')
+      .replace(/\s+/g, '_')
+      .slice(0, 180);
+    if (!seguro.toLowerCase().endsWith('.pdf')) seguro += '.pdf';
+    const destino = path.join(path.dirname(rutaActual), `${Date.now()}_${seguro}`);
+    try {
+      await fs.promises.rename(rutaActual, destino);
+      return destino;
+    } catch {
+      return rutaActual;
+    }
+  }
+
+  /**
+   * Ruta y nombre original del documento, sin chequeo de permisos. Solo para
+   * el enlace temporal de visualización, cuyo permiso ya se verificó al
+   * generarlo (ver controller: enlace y ver).
+   */
+  async rutaDocumento(id: number, tipo: 'reporte' | 'certificado') {
+    const certificado = await this.prisma.certificado.findUnique({
+      where: { id },
+      select: {
+        ruta_archivo_reporte: true,
+        ruta_archivo_certificado: true,
+        nombre_original_reporte: true,
+        nombre_original_certificado: true,
+      },
+    });
+    if (!certificado) {
+      throw new NotFoundException(`Certificado con ID ${id} no encontrado`);
+    }
+    return tipo === 'certificado'
+      ? {
+          filePath: path.resolve(certificado.ruta_archivo_certificado),
+          nombreOriginal: certificado.nombre_original_certificado,
+        }
+      : {
+          filePath: path.resolve(certificado.ruta_archivo_reporte),
+          nombreOriginal: certificado.nombre_original_reporte,
+        };
   }
 
   async download(id: number, tipo: unknown, user: HydratedUser) {

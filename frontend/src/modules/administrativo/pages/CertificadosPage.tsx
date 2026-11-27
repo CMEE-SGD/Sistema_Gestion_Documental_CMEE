@@ -9,7 +9,7 @@ import {
   Search,
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
-import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
+import { abrirCertificado } from '../../../shared/utils/abrirCertificado';
 import api from '../../../core/api/axios';
 
 // ---------------------------------------------------------------------------
@@ -118,9 +118,7 @@ async function verCertificado(
   certificadoId: number,
   tipo: 'reporte' | 'certificado',
 ) {
-  await abrirPdfProtegido(
-    `${import.meta.env.VITE_API_URL}/certificados/download/${certificadoId}?tipo=${tipo}`,
-  );
+  await abrirCertificado(certificadoId, tipo);
 }
 
 // ---------------------------------------------------------------------------
