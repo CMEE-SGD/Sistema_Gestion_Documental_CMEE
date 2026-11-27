@@ -507,6 +507,8 @@ export class DashboardService {
 
     const equipos = await this.prisma.equipoRecepcion.findMany({
       select: {
+        id: true,
+        equipo_descripcion: true,
         estado: true,
         fecha_calibracion: true,
         fecha_proxima_calibracion: true,
@@ -525,6 +527,17 @@ export class DashboardService {
     type Fila = Conteo & { provincia: string; empresas: Map<number, Empresa> };
     const porProvincia = new Map<string, Fila>();
     let sinProvincia = 0;
+    // Un punto por equipo para el mapa. Cada equipo tiene UN solo estado, con
+    // prioridad: próximo a vencer (rojo) > por calibrar (amarillo) > calibrado
+    // (verde). Así lo urgente siempre se ve.
+    const puntos: {
+      id: number;
+      provincia: string;
+      clienteId: number;
+      cliente: string;
+      descripcion: string;
+      estado: 'PROXIMO' | 'POR_CALIBRAR' | 'CALIBRADO';
+    }[] = [];
 
     for (const e of equipos) {
       const { id, nombre, provincia, ciudad } = e.orden_trabajo.cliente;
@@ -559,11 +572,21 @@ export class DashboardService {
         else c.porCalibrar++;
         if (proximo) c.proximos++;
       }
+
+      puntos.push({
+        id: e.id,
+        provincia,
+        clienteId: id,
+        cliente: nombre,
+        descripcion: e.equipo_descripcion,
+        estado: proximo ? 'PROXIMO' : calibrado ? 'CALIBRADO' : 'POR_CALIBRAR',
+      });
     }
 
     return {
       dias,
       sinProvincia,
+      puntos,
       provincias: [...porProvincia.values()]
         .map(({ empresas, ...resto }) => ({
           ...resto,
