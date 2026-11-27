@@ -37,8 +37,12 @@ interface Props {
   ordenId: number | null;
   ordenFisica?: string;
   comprobanteActual?: ComprobanteActual | null;
+  /** Cliente militar: no se cobra ni se factura (la orden queda sin costo). */
+  clienteMilitar?: boolean;
   onSuccess: () => void;
 }
+
+type CondicionPago = 'CONTADO' | 'CREDITO';
 
 const API_BASE = (import.meta as any).env.VITE_API_URL;
 
@@ -49,6 +53,7 @@ export default function EntregaComprobanteModal({
   ordenId,
   ordenFisica,
   comprobanteActual,
+  clienteMilitar = false,
   onSuccess,
 }: Props) {
   const queryClient = useQueryClient();
@@ -62,8 +67,19 @@ export default function EntregaComprobanteModal({
     comprobanteActual?.monto != null ? String(comprobanteActual.monto) : '',
   );
 
+  // Condición de pago al entregar: paga al retirar (contado) o después (crédito).
+  // Los clientes militares no pagan: la orden queda sin costo.
+  const [condicion, setCondicion] = useState<CondicionPago>('CONTADO');
+  const [montoSinIva, setMontoSinIva] = useState('');
+
   const tieneComprobante = !!comprobanteActual?.ruta;
   const montoValido = Number(monto) > 0;
+  const montoSinIvaValido = Number(montoSinIva) > 0;
+  const pideComprobante = !clienteMilitar && condicion === 'CONTADO';
+  const pideMontoSinIva = !clienteMilitar && condicion === 'CREDITO';
+  const faltaPago =
+    (pideComprobante && ((!file && !tieneComprobante) || !montoValido)) ||
+    (pideMontoSinIva && !montoSinIvaValido);
 
   // Nota de entrega (formato AC1.2.F2-1): obligatoria para entregar. Se llena
   // en una ventana aparte y se imprime para la firma del cliente.
@@ -97,6 +113,8 @@ export default function EntregaComprobanteModal({
       setMonto(
         comprobanteActual?.monto != null ? String(comprobanteActual.monto) : '',
       );
+      setCondicion('CONTADO');
+      setMontoSinIva('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, recepcionId]);
@@ -112,6 +130,11 @@ export default function EntregaComprobanteModal({
         if (!notaGuardada) {
           throw { message: 'Llene la nota de entrega antes de entregar la orden.' };
         }
+        if (pideMontoSinIva && !montoSinIvaValido) {
+          throw { message: 'Ingrese el monto sin IVA de la orden (mayor a 0).' };
+        }
+      }
+      if (accion === 'APROBAR' && pideComprobante) {
         if (!file && !tieneComprobante) {
           throw { message: 'Adjunte la foto o PDF del comprobante de pago.' };
         }
@@ -149,6 +172,14 @@ export default function EntregaComprobanteModal({
           body: JSON.stringify({
             accion,
             observaciones: observaciones.trim() || undefined,
+            ...(accion === 'APROBAR' && !clienteMilitar
+              ? {
+                  condicion_pago: condicion,
+                  ...(condicion === 'CREDITO'
+                    ? { monto_sin_iva: Number(montoSinIva) }
+                    : {}),
+                }
+              : {}),
           }),
         },
       );
@@ -162,9 +193,13 @@ export default function EntregaComprobanteModal({
       queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
       toast({
         message:
-          accion === 'APROBAR'
-            ? 'Orden entregada. Se notificó a Financiero para facturar.'
-            : 'Orden devuelta a revisión del Director.',
+          accion !== 'APROBAR'
+            ? 'Orden devuelta a revisión del Director.'
+            : clienteMilitar
+              ? 'Orden entregada sin costo (cliente militar). No se factura.'
+              : condicion === 'CREDITO'
+                ? 'Orden entregada con pago pendiente. Se notificó a Financiero para facturar.'
+                : 'Orden entregada. Se notificó a Financiero para facturar.',
       });
       onSuccess();
       onClose();
@@ -183,8 +218,7 @@ export default function EntregaComprobanteModal({
     if (!accion) return;
     if (accion === 'RECHAZAR' && !observaciones.trim()) return;
     if (accion === 'APROBAR' && !notaGuardada) return;
-    if (accion === 'APROBAR' && (!file && !tieneComprobante)) return;
-    if (accion === 'APROBAR' && !montoValido) return;
+    if (accion === 'APROBAR' && faltaPago) return;
     mutation.mutate();
   };
 
@@ -213,9 +247,10 @@ export default function EntregaComprobanteModal({
         <form onSubmit={handleSubmit}>
           <div className="p-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              El receptor de la orden debe llenar la nota de entrega y registrar
-              el comprobante de pago (foto o PDF) con el monto recibido antes
-              de entregar. Esto habilita la facturación.
+              El receptor de la orden debe llenar la nota de entrega e indicar
+              cómo paga el cliente: al retirar (con comprobante) o después
+              (pago pendiente, con el monto sin IVA). Los clientes militares no
+              pagan y su orden no se factura.
             </p>
 
             {/* Decisión */}
@@ -301,6 +336,66 @@ export default function EntregaComprobanteModal({
                   )}
                 </div>
 
+                {clienteMilitar ? (
+                  <div className="rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    <strong>Cliente militar: sin costo.</strong> No se pide
+                    comprobante ni monto y la orden no se factura.
+                  </div>
+                ) : (
+                <>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-foreground">
+                    Pago del cliente <span className="text-destructive">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      ['CONTADO', 'Pagado al retirar', 'Con comprobante'],
+                      ['CREDITO', 'Pago pendiente', 'Paga después'],
+                    ] as const).map(([valor, titulo, ayuda]) => (
+                      <button
+                        key={valor}
+                        type="button"
+                        onClick={() => setCondicion(valor)}
+                        className={cn(
+                          'rounded-lg border-2 px-3 py-2 text-left text-sm transition-colors',
+                          condicion === valor
+                            ? 'border-primary bg-primary/5 text-foreground'
+                            : 'border-border text-muted-foreground hover:border-primary/40',
+                        )}
+                      >
+                        <span className="block font-medium">{titulo}</span>
+                        <span className="block text-xs">{ayuda}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {condicion === 'CREDITO' ? (
+                  <div>
+                    <label
+                      htmlFor="monto-sin-iva"
+                      className="mb-1.5 block text-sm font-medium text-foreground"
+                    >
+                      Monto sin IVA (USD) <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      id="monto-sin-iva"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={montoSinIva}
+                      onChange={(e) => setMontoSinIva(e.target.value)}
+                      className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      La orden se archiva como "Pago pendiente". El comprobante se
+                      sube después desde Archivadas, con "Registrar pago".
+                    </p>
+                  </div>
+                ) : (
+                <>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-foreground">
                     Comprobante (foto o PDF){' '}
@@ -364,6 +459,10 @@ export default function EntregaComprobanteModal({
                     </p>
                   )}
                 </div>
+                </>
+                )}
+                </>
+                )}
               </div>
             )}
 
@@ -408,8 +507,7 @@ export default function EntregaComprobanteModal({
                 !accion ||
                 mutation.isPending ||
                 (accion === 'APROBAR' && !notaGuardada) ||
-                (accion === 'APROBAR' && (!file && !tieneComprobante)) ||
-                (accion === 'APROBAR' && !montoValido)
+                (accion === 'APROBAR' && faltaPago)
               }
               className={cn(
                 'inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors disabled:pointer-events-none disabled:opacity-50',

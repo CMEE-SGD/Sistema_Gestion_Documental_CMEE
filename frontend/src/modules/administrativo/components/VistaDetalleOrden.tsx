@@ -104,6 +104,10 @@ export interface OrdenTrabajoDetalle {
   comprobante_nombre?: string | null;
   monto_comprobante?: number | string | null;
   comprobante_subido_at?: string | null;
+  // Cómo paga el cliente (se fija al entregar). null = órdenes anteriores (contado).
+  condicion_pago?: 'CONTADO' | 'CREDITO' | 'SIN_COSTO' | null;
+  // Monto sin IVA de una orden entregada a crédito.
+  monto_sin_iva?: number | string | null;
   createdAt: string;
   updatedAt: string;
 }

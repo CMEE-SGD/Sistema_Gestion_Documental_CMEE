@@ -12,6 +12,7 @@ import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
+import { EntregarOrdenDto } from './dto/entregar-orden.dto';
 import { CambiarFaseAdminDto } from './dto/cambiar-fase-admin.dto';
 import { EstadoRecepcion } from '@prisma/client';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
@@ -343,6 +344,17 @@ export class RecepcionEquiposService {
       },
     });
 
+    // Si la orden ya está facturada (pago posterior de una orden a crédito),
+    // la factura recibe el comprobante y lo cuenta como cobro.
+    await this.prisma.factura.updateMany({
+      where: { orden_trabajo_id: ordenId },
+      data: {
+        comprobante_ruta: actualizada.comprobante_ruta,
+        comprobante_nombre: actualizada.comprobante_nombre,
+        monto_comprobante: actualizada.monto_comprobante,
+      },
+    });
+
     if (file && orden.comprobante_ruta && orden.comprobante_ruta !== ruta) {
       try {
         const abs = path.join(
@@ -394,6 +406,8 @@ export class RecepcionEquiposService {
           orden_trabajo_fisica: true,
           notificado_facturacion: true,
           monto_comprobante: true,
+          condicion_pago: true,
+          monto_sin_iva: true,
           cliente: { select: { nombre: true } },
           equipos: { select: { estado: true } },
         },
@@ -413,11 +427,14 @@ export class RecepcionEquiposService {
       });
 
       const monto = Number(orden.monto_comprobante ?? 0);
+      const sinIva = Number(orden.monto_sin_iva ?? 0);
+      const detalle =
+        orden.condicion_pago === 'CREDITO'
+          ? `Pago pendiente (crédito): monto sin IVA USD ${sinIva.toFixed(2)}; el comprobante se registrará cuando el cliente pague.`
+          : `Comprobante y monto${monto > 0 ? ` (USD ${monto.toFixed(2)})` : ''} registrados.`;
       const mensaje = `La orden #${orden.orden_trabajo_fisica} de ${
         orden.cliente?.nombre ?? 'su cliente'
-      } está lista para facturar: todos sus equipos fueron entregados. Comprobante y monto${
-        monto > 0 ? ` (USD ${monto.toFixed(2)})` : ''
-      } registrados.`;
+      } está lista para facturar: todos sus equipos fueron entregados. ${detalle}`;
 
       for (const personaId of await this.personasFinanciero()) {
         await this.notificacionesService.crear(
@@ -1413,7 +1430,7 @@ export class RecepcionEquiposService {
    * aunque sea uno por llegar a esa fase, se rechaza — así no se entregan
    * órdenes a medio camino.
    */
-  async entregarOrden(ordenId: number, dto: TransicionEstadoDto, user: any) {
+  async entregarOrden(ordenId: number, dto: EntregarOrdenDto, user: any) {
     const personaId = user.persona_id;
     const n = normalizePuesto(user.puesto ?? '');
     const esRSEC = n.includes('responsable servicio al cliente');
@@ -1426,6 +1443,7 @@ export class RecepcionEquiposService {
         comprobante_ruta: true,
         monto_comprobante: true,
         recibe_responsable_id: true,
+        cliente: { select: { tipo: true } },
         equipos: {
           select: {
             id: true,
@@ -1478,15 +1496,28 @@ export class RecepcionEquiposService {
           `No se puede entregar: ${atrasados.length} equipo(s) de la orden aún no están en "Listo para entrega".`,
         );
       }
-      // Antes de entregar, el receptor debe haber subido el comprobante y el
-      // monto de la orden (requisito del flujo y de la facturación).
-      if (!orden.comprobante_ruta || orden.monto_comprobante == null) {
+      if (pendientes.length === 0) {
+        throw new BadRequestException('La orden ya fue entregada por completo.');
+      }
+      // Condición de pago. Los clientes militares no pagan: siempre SIN_COSTO.
+      // Los demás pagan al retirar (CONTADO: comprobante + monto pagado) o
+      // después (CREDITO: solo el monto sin IVA; el comprobante se sube luego).
+      const condicion: 'CONTADO' | 'CREDITO' | 'SIN_COSTO' =
+        orden.cliente?.tipo === 'MILITAR'
+          ? 'SIN_COSTO'
+          : (dto.condicion_pago ?? 'CONTADO');
+      if (
+        condicion === 'CONTADO' &&
+        (!orden.comprobante_ruta || orden.monto_comprobante == null)
+      ) {
         throw new BadRequestException(
           'Antes de entregar debe subir el comprobante (foto o PDF) y el monto de la orden.',
         );
       }
-      if (pendientes.length === 0) {
-        throw new BadRequestException('La orden ya fue entregada por completo.');
+      if (condicion === 'CREDITO' && !(Number(dto.monto_sin_iva) > 0)) {
+        throw new BadRequestException(
+          'Para entregar con pago pendiente ingrese el monto sin IVA de la orden.',
+        );
       }
       // La nota de entrega (formato AC1.2.F2-1) es obligatoria: se llena en el
       // aplicativo y se imprime para la firma del cliente.
@@ -1501,6 +1532,14 @@ export class RecepcionEquiposService {
       }
 
       await this.prisma.$transaction(async (tx) => {
+        await tx.ordenTrabajo.update({
+          where: { id: ordenId },
+          data: {
+            condicion_pago: condicion,
+            monto_sin_iva:
+              condicion === 'CREDITO' ? Number(dto.monto_sin_iva) : null,
+          },
+        });
         for (const eq of pendientes) {
           await tx.equipoRecepcion.update({
             where: { id: eq.id },
@@ -1520,8 +1559,11 @@ export class RecepcionEquiposService {
       });
 
       // Tras el commit: se avisa a Financiero (una sola vez por orden) y se
-      // refresca la bandeja. Ninguna notificación revierte la entrega.
-      await this.notificarOrdenListaFacturar(ordenId);
+      // refresca la bandeja. Ninguna notificación revierte la entrega. Las
+      // órdenes sin costo (clientes militares) no se facturan.
+      if (condicion !== 'SIN_COSTO') {
+        await this.notificarOrdenListaFacturar(ordenId);
+      }
       this.notificacionesService.notificarRecepcionActualizada();
 
       return { entregados: pendientes.length, total: equipos.length };

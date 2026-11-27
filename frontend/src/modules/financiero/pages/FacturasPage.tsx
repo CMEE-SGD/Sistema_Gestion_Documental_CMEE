@@ -166,6 +166,8 @@ export default function FacturasPage() {
         comprobante_ruta?: string | null;
         comprobante_nombre?: string | null;
         monto_comprobante?: number | string | null;
+        condicion_pago?: 'CONTADO' | 'CREDITO' | 'SIN_COSTO' | null;
+        monto_sin_iva?: number | string | null;
         cliente?: { id: number; nombre: string };
         equipos?: Array<{
           id: number;
@@ -559,6 +561,12 @@ export default function FacturasPage() {
               : null
           }
           comprobanteRuta={ordenContextoData?.comprobante_ruta}
+          montoSinIva={
+            ordenContextoData?.condicion_pago === 'CREDITO' &&
+            ordenContextoData?.monto_sin_iva != null
+              ? Number(ordenContextoData.monto_sin_iva)
+              : null
+          }
           onElegir={(modo) => setTipoModal(modo)}
           onClose={() => setTipoModal(null)}
         />
@@ -614,6 +622,7 @@ function ModalElegirModoFactura({
   clienteNombre,
   montoComprobante,
   comprobanteRuta,
+  montoSinIva,
   onElegir,
   onClose,
 }: {
@@ -621,6 +630,7 @@ function ModalElegirModoFactura({
   clienteNombre?: string;
   montoComprobante?: number | null;
   comprobanteRuta?: string | null;
+  montoSinIva?: number | null;
   onElegir: (modo: 'manual' | 'xml') => void;
   onClose: () => void;
 }) {
@@ -637,6 +647,14 @@ function ModalElegirModoFactura({
           {clienteNombre ? ` de ${clienteNombre}` : ''} está lista para
           facturar. ¿Cómo desea registrar la factura?
         </p>
+
+        {monto == null && montoSinIva != null && montoSinIva > 0 && (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Pago pendiente (crédito) — monto sin IVA{' '}
+            <span className="font-semibold">{fmtMoneda(montoSinIva)}</span>.
+            El comprobante lo registrará Recepción cuando el cliente pague.
+          </p>
+        )}
 
         {monto != null && (
           <p className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900">

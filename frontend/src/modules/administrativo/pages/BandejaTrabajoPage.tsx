@@ -97,6 +97,8 @@ function formatDate(dateStr: string | null | undefined): string {
  * sobre la orden completa). El backend la valida de nuevo al crear/importar.
  */
 function esOrdenFacturable(orden: OrdenTrabajoDetalle): boolean {
+  // Las órdenes sin costo (clientes militares) no se facturan.
+  if (orden.condicion_pago === 'SIN_COSTO') return false;
   const equipos = orden.equipos ?? [];
   return equipos.length > 0 && equipos.every((e) => e.estado === 'FINALIZADO');
 }
@@ -853,6 +855,7 @@ export default function BandejaTrabajoPage() {
       nombre?: string | null;
       monto?: number | string | null;
     } | null;
+    clienteMilitar?: boolean;
   } | null>(null);
   const [isFirmaModalOpen, setIsFirmaModalOpen] = useState(false);
   const [selectedFirma, setSelectedFirma] = useState<{
@@ -1488,6 +1491,7 @@ export default function BandejaTrabajoPage() {
                                     nombre: req.orden.comprobante_nombre ?? null,
                                     monto: req.orden.monto_comprobante ?? null,
                                   },
+                                  clienteMilitar: req.orden.cliente?.tipo === 'MILITAR',
                                 });
                                 setIsEntregaModalOpen(true);
                               }}
@@ -1623,6 +1627,7 @@ export default function BandejaTrabajoPage() {
         ordenId={selectedEntrega?.ordenId ?? null}
         ordenFisica={selectedEntrega?.ordenFisica}
         comprobanteActual={selectedEntrega?.comprobanteActual}
+        clienteMilitar={selectedEntrega?.clienteMilitar}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['bandeja-trabajo'] });
         }}

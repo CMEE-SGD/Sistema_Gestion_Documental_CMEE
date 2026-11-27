@@ -126,6 +126,11 @@ export class FacturacionService {
         `La orden ${orden.orden_trabajo_fisica} no tiene equipos registrados.`,
       );
     }
+    if (orden.condicion_pago === 'SIN_COSTO') {
+      throw new BadRequestException(
+        `La orden ${orden.orden_trabajo_fisica} es sin costo (cliente militar): no se factura.`,
+      );
+    }
     const incompletos = orden.equipos.filter((e) => e.estado !== 'FINALIZADO');
     if (incompletos.length > 0) {
       const nombres = incompletos
@@ -426,6 +431,8 @@ export class FacturacionService {
         comprobante_nombre: true,
         monto_comprobante: true,
         comprobante_subido_at: true,
+        condicion_pago: true,
+        monto_sin_iva: true,
         cliente: { select: { id: true, nombre: true } },
         equipos: {
           select: { id: true, equipo_descripcion: true, estado: true },

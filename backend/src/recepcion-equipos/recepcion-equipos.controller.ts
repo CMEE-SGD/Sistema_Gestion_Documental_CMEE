@@ -22,6 +22,7 @@ import { CreateOrdenTrabajoDto } from './dto/create-orden-trabajo.dto';
 import { UpdateOrdenTrabajoDto } from './dto/update-orden-trabajo.dto';
 import { AsignarTecnicoDto } from './dto/asignar-tecnico.dto';
 import { TransicionEstadoDto } from './dto/transicion-estado.dto';
+import { EntregarOrdenDto } from './dto/entregar-orden.dto';
 import { CambiarFaseAdminDto } from './dto/cambiar-fase-admin.dto';
 import { RegistrarFechasCalibracionDto } from './dto/registrar-fechas-calibracion.dto';
 import { GuardarNotaEntregaDto } from './dto/guardar-nota-entrega.dto';
@@ -172,7 +173,7 @@ export class RecepcionEquiposController {
   @RequireAccess('Recepcion Equipos', 4)
   entregarOrden(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: TransicionEstadoDto,
+    @Body() dto: EntregarOrdenDto,
     @Req() req: any,
   ) {
     return this.recepcionService.entregarOrden(id, dto, req.user);

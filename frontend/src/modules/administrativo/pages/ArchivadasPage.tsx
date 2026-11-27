@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Archive, ChevronLeft, ChevronRight, Eye, Inbox, Search } from 'lucide-react';
+import { Archive, ChevronLeft, ChevronRight, Eye, Inbox, Search, Wallet } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { abrirPdfProtegido } from '../../../shared/utils/abrirPdfProtegido';
 import api from '../../../core/api/axios';
@@ -8,6 +8,7 @@ import { getUsuarioActual } from '../../../shared/hooks/useAuth';
 import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import { Button } from '../../../shared/components/atoms/button';
 import VistaDetalleEquipo from '../components/VistaDetalleEquipo';
+import RegistrarPagoModal from '../components/RegistrarPagoModal';
 import { otrosLaboratorios, type OrdenTrabajoDetalle } from '../components/VistaDetalleOrden';
 
 // ---------------------------------------------------------------------------
@@ -34,7 +35,30 @@ interface FilaArchivada {
   /** Cuándo pasó a FINALIZADO (sale del historial de estados). */
   entregadoEl: string | null;
   certificadoId: number | null;
+  /** Estado del pago de la orden: pagada, pendiente (crédito) o sin costo. */
+  pago: EstadoPago;
 }
+
+type EstadoPago = 'PAGADO' | 'PENDIENTE' | 'SIN_COSTO' | 'SIN_DATO';
+
+/**
+ * - SIN_COSTO: cliente militar, no se cobra.
+ * - PAGADO: tiene comprobante (al retirar o registrado después).
+ * - PENDIENTE: entregada a crédito y todavía sin comprobante.
+ */
+function estadoPago(orden: OrdenTrabajoDetalle): EstadoPago {
+  if (orden.condicion_pago === 'SIN_COSTO') return 'SIN_COSTO';
+  if (orden.comprobante_ruta) return 'PAGADO';
+  if (orden.condicion_pago === 'CREDITO') return 'PENDIENTE';
+  return 'SIN_DATO';
+}
+
+const PAGO_BADGE: Record<EstadoPago, { texto: string; clase: string } | null> = {
+  PAGADO: { texto: 'Pagado', clase: 'border-emerald-300 bg-emerald-50 text-emerald-700' },
+  PENDIENTE: { texto: 'Pago pendiente', clase: 'border-amber-300 bg-amber-50 text-amber-800' },
+  SIN_COSTO: { texto: 'Sin costo', clase: 'border-slate-300 bg-slate-100 text-slate-700' },
+  SIN_DATO: null,
+};
 
 function formatFecha(valor: string | null | undefined, utc = false): string {
   if (!valor) return '—';
@@ -96,6 +120,7 @@ function useArchivadas() {
               : '',
             entregadoEl: entrega?.createdAt ?? null,
             certificadoId: equipo.certificados?.[0]?.id ?? null,
+            pago: estadoPago(orden),
           };
         }),
       );
@@ -172,7 +197,7 @@ function EmptyState({ cols, hasFilter }: { cols: number; hasFilter: boolean }) {
 // Página
 // ---------------------------------------------------------------------------
 
-const COLS = 8;
+const COLS = 9;
 
 export default function ArchivadasPage() {
   const user = getUsuarioActual();
@@ -183,7 +208,9 @@ export default function ArchivadasPage() {
 
   const [busqueda, setBusqueda] = useState('');
   const [laboratorioFiltro, setLaboratorioFiltro] = useState('');
+  const [soloPendientes, setSoloPendientes] = useState(false);
   const [pagina, setPagina] = useState(0);
+  const [pagoOrden, setPagoOrden] = useState<OrdenTrabajoDetalle | null>(null);
   const [detalleEquipo, setDetalleEquipo] = useState<{
     orden: OrdenTrabajoDetalle;
     equipoId: number;
@@ -205,6 +232,7 @@ export default function ArchivadasPage() {
       if (laboratorioFiltro && String(f.laboratorio?.id) !== laboratorioFiltro) {
         return false;
       }
+      if (soloPendientes && f.pago !== 'PENDIENTE') return false;
       if (!termino) return true;
       return normalize(
         [
@@ -222,7 +250,7 @@ export default function ArchivadasPage() {
         new Date(b.entregadoEl ?? b.fecha_ingreso).getTime() -
         new Date(a.entregadoEl ?? a.fecha_ingreso).getTime(),
     );
-  }, [archivadas, busqueda, laboratorioFiltro]);
+  }, [archivadas, busqueda, laboratorioFiltro, soloPendientes]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA));
   const paginaActual = Math.min(pagina, totalPaginas - 1);
@@ -268,7 +296,8 @@ export default function ArchivadasPage() {
             Equipos archivados
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Equipos que ya terminaron su flujo y fueron entregados. Solo consulta.
+            Equipos que ya terminaron su flujo y fueron entregados. Las órdenes con pago
+            pendiente se completan aquí con "Registrar pago".
           </p>
         </div>
       </div>
@@ -313,6 +342,18 @@ export default function ArchivadasPage() {
             className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
+
+        <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={soloPendientes}
+            onChange={(e) => {
+              setSoloPendientes(e.target.checked);
+              setPagina(0);
+            }}
+          />
+          Solo pago pendiente
+        </label>
       </div>
 
       {/* Tabla */}
@@ -328,6 +369,7 @@ export default function ArchivadasPage() {
                 <TH>Laboratorio</TH>
                 <TH>Técnico</TH>
                 <TH>Entregado el</TH>
+                <TH>Pago</TH>
                 <TH className="text-center">Documento</TH>
               </tr>
             </thead>
@@ -373,6 +415,33 @@ export default function ArchivadasPage() {
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-sm text-foreground">
                       {formatFecha(f.entregadoEl)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-4 text-sm">
+                      {PAGO_BADGE[f.pago] ? (
+                        <span
+                          className={cn(
+                            'inline-block rounded-full border px-2 py-0.5 text-xs font-medium',
+                            PAGO_BADGE[f.pago]!.clase,
+                          )}
+                        >
+                          {PAGO_BADGE[f.pago]!.texto}
+                        </span>
+                      ) : (
+                        <span className="italic text-muted-foreground">—</span>
+                      )}
+                      {f.pago === 'PENDIENTE' && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPagoOrden(f.orden);
+                          }}
+                          className="mt-1 flex w-fit items-center gap-1 rounded-md border border-emerald-600 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+                          title="Subir el comprobante cuando el cliente pague"
+                        >
+                          <Wallet className="h-3.5 w-3.5" /> Registrar pago
+                        </button>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-center">
                       {f.certificadoId !== null ? (
@@ -440,6 +509,14 @@ export default function ArchivadasPage() {
           </div>
         )}
       </div>
+
+      <RegistrarPagoModal
+        isOpen={!!pagoOrden}
+        onClose={() => setPagoOrden(null)}
+        ordenId={pagoOrden?.id ?? null}
+        ordenFisica={pagoOrden?.orden_trabajo_fisica}
+        montoSinIva={pagoOrden?.monto_sin_iva}
+      />
 
       {detalleEquipo && (
         <VistaDetalleEquipo

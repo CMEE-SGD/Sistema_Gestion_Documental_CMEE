@@ -88,6 +88,8 @@ function estadoRepresentativo(orden: OrdenTrabajoDetalle): string | null {
  * a validar al crear/importar la factura.
  */
 function esOrdenFacturable(orden: OrdenTrabajoDetalle): boolean {
+  // Las órdenes sin costo (clientes militares) no se facturan.
+  if (orden.condicion_pago === 'SIN_COSTO') return false;
   const equipos = orden.equipos ?? [];
   return equipos.length > 0 && equipos.every((e) => e.estado === 'FINALIZADO');
 }
