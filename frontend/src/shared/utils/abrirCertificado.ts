@@ -14,9 +14,11 @@ export async function abrirCertificado(
 ): Promise<void> {
   const ventana = window.open('', '_blank');
   try {
+    // Cuerpo `{}` y no `null`: axios enviaría el texto "null", que el
+    // servidor rechaza con 400 por no ser un JSON válido.
     const res = await api.post<{ url: string }>(
       `/certificados/${certificadoId}/enlace`,
-      null,
+      {},
       { params: { tipo } },
     );
     const destino = `${import.meta.env.VITE_API_URL}${res.data.url}`;
