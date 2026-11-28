@@ -659,7 +659,7 @@ export default function BandejaTrabajoPage() {
   const navigate = useNavigate();
 
   const queryClient = useQueryClient();
-  const { alert, pedirMotivo } = useAlert();
+  const { alert, confirm, pedirMotivo } = useAlert();
   const { toast } = useToast();
 
   // --- RBAC / ABAC flags derived from the permission helpers ---
@@ -875,11 +875,13 @@ export default function BandejaTrabajoPage() {
     tipo: 'reporte' | 'certificado',
   ) => {
     try {
-      await abrirCertificado(certificadoId, tipo);
+      await abrirCertificado(certificadoId, tipo, confirm);
     } catch (err) {
-      console.error('Error al descargar certificado:', err);
       await alert({
-        message: `No se pudo abrir el ${tipo === 'certificado' ? 'certificado' : 'reporte'}`,
+        message:
+          err instanceof Error
+            ? err.message
+            : `No se pudo abrir el ${tipo === 'certificado' ? 'certificado' : 'reporte'}`,
       });
     }
   };

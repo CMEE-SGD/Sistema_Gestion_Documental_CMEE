@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../../shared/utils/utils';
 import { abrirCertificado } from '../../../shared/utils/abrirCertificado';
+import { useAlert } from '../../../shared/components/molecules/AlertModal';
 import api from '../../../core/api/axios';
 
 // ---------------------------------------------------------------------------
@@ -114,12 +115,6 @@ function useCertificados() {
   });
 }
 
-async function verCertificado(
-  certificadoId: number,
-  tipo: 'reporte' | 'certificado',
-) {
-  await abrirCertificado(certificadoId, tipo);
-}
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -197,6 +192,7 @@ export default function CertificadosPage() {
   const [laboratorioId, setLaboratorioId] = useState<string>('');
   const [copiadoId, setCopiadoId] = useState<number | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
+  const { confirm } = useAlert();
 
   const laboratorios = useMemo(() => {
     const mapa = new Map<number, string>();
@@ -232,7 +228,7 @@ export default function CertificadosPage() {
   const handleVer = async (id: number, tipo: 'reporte' | 'certificado') => {
     setErrorAccion(null);
     try {
-      await verCertificado(id, tipo);
+      await abrirCertificado(id, tipo, confirm);
     } catch (err) {
       setErrorAccion(
         err instanceof Error

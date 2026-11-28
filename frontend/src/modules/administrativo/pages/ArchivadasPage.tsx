@@ -202,7 +202,7 @@ const COLS = 9;
 export default function ArchivadasPage() {
   const user = getUsuarioActual();
   const puesto = user?.persona?.puesto ?? '';
-  const { alert } = useAlert();
+  const { alert, confirm } = useAlert();
 
   const { data: archivadas, isLoading, error } = useArchivadas();
 
@@ -261,10 +261,9 @@ export default function ArchivadasPage() {
 
   const handleVerDocumento = async (certificadoId: number) => {
     try {
-      await abrirCertificado(certificadoId, 'certificado');
+      await abrirCertificado(certificadoId, 'certificado', confirm);
     } catch (err) {
-      console.error('Error al descargar el documento:', err);
-      await alert({ message: 'No se pudo abrir el documento' });
+      await alert({ message: err instanceof Error ? err.message : 'No se pudo abrir el documento' });
     }
   };
 

@@ -1042,7 +1042,8 @@ model Certificado {
   // Identificador público no adivinable para verificación de autenticidad
   codigo_verificacion String @unique @default(uuid())
 
-  firmas FirmaDigital[]
+  firmas    FirmaDigital[]
+  descargas DescargaCertificado[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -1050,6 +1051,22 @@ model Certificado {
   @@index([equipo_recepcion_id])
   @@index([tecnico_id])
   @@map("certificado")
+}
+
+/// Cada vez que el sistema entrega el PDF de un certificado ("Ver Documento").
+/// Cada persona puede recibirlo una sola vez; el Jefe del Departamento de
+/// Calidad, las veces que quiera. Las descargas para firmar no se registran.
+model DescargaCertificado {
+  id             Int         @id @default(autoincrement())
+  certificado_id Int
+  certificado    Certificado @relation(fields: [certificado_id], references: [id], onDelete: Cascade)
+  /// null = usuario administrador del sistema (no tiene persona).
+  persona_id     Int?
+  usuario_id     Int?
+  fecha          DateTime    @default(now()) @db.Timestamptz
+
+  @@index([certificado_id, persona_id])
+  @@map("descarga_certificado")
 }
 
 /// CONTADO: paga al retirar. CREDITO: paga después (el comprobante se sube luego).

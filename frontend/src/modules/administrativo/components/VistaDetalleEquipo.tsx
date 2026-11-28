@@ -78,7 +78,7 @@ export default function VistaDetalleEquipo({
   equipoId,
   onClose,
 }: Props) {
-  const { alert, pedirMotivo } = useAlert();
+  const { alert, confirm, pedirMotivo } = useAlert();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const esAdministrador = esUsuarioAdministrador();
@@ -125,10 +125,10 @@ export default function VistaDetalleEquipo({
 
   const handleVerDocumento = async (certificadoId: number) => {
     try {
-      await abrirCertificado(certificadoId, 'certificado');
-    } catch {
+      await abrirCertificado(certificadoId, 'certificado', confirm);
+    } catch (err) {
       await alert({
-        message: 'No se pudo abrir el certificado del equipo.',
+        message: err instanceof Error ? err.message : 'No se pudo abrir el certificado del equipo.',
       });
     }
   };
