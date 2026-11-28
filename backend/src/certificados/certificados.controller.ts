@@ -52,6 +52,20 @@ export class CertificadosController {
     stream.pipe(res);
   }
 
+  // Antes de abrir: si la persona puede abrirlo sin límite (Jefe de Calidad)
+  // o si ya usó su única vez. El frontend pide confirmación en la primera.
+  @Get(':id/descarga-estado')
+  @UseGuards(JwtAuthGuard, AccessGuard)
+  @RequireAccess('Recepcion Equipos', 2)
+  async descargaEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('tipo') tipo: string,
+    @Req() req: any,
+  ) {
+    await this.certificadosService.download(id, tipo || 'certificado', req.user);
+    return this.certificadosService.estadoDescarga(id, req.user);
+  }
+
   // "Ver Documento": en vez de abrir una copia temporal del navegador (que no
   // tiene nombre y al descargarse sale con un código), se genera un enlace
   // de 10 minutos al PDF real. El navegador lo abre directo desde el
@@ -75,6 +89,8 @@ export class CertificadosController {
         'El archivo del certificado ya no está disponible en el servidor',
       );
     }
+    // Cada persona lo recibe una sola vez (salvo el Jefe de Calidad).
+    await this.certificadosService.registrarEntrega(id, req.user);
     const token = this.jwtService.sign(
       { proposito: 'ver-certificado', id, tipo },
       { secret: process.env.JWT_SECRET || 'clave_secreta_desarrollo', expiresIn: '10m' },
@@ -189,6 +205,8 @@ export class CertificadosController {
       tipo,
       req.user,
     );
+    // Esta descarga no se registra: es la que usa la ventana de firma.
+    await this.certificadosService.autorizarDescargaDirecta(id, req.user);
     if (!existsSync(filePath)) {
       throw new NotFoundException(
         'El archivo del certificado ya no está disponible en el servidor',

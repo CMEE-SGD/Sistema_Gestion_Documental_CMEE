@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -480,6 +481,103 @@ export class CertificadosService {
         };
   }
 
+  // ------------------------------------------------------------------------
+  // Control de descargas: cada persona recibe el certificado UNA sola vez; el
+  // Jefe del Departamento de Calidad, las veces que quiera.
+  // ------------------------------------------------------------------------
+
+  private normalizar(texto: string): string {
+    return texto
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  /**
+   * ¿Tiene la persona, entre sus puestos ACTIVOS, el de Jefe del Departamento
+   * de Calidad? Se revisan todos los puestos (no solo el primero), porque una
+   * persona puede tener varios. El administrador del sistema no tiene límite.
+   */
+  async esJefeCalidad(user: HydratedUser): Promise<boolean> {
+    if (user.isGod) return true;
+    if (!user.persona_id) return false;
+    const puestos = await this.prisma.personaPuesto.findMany({
+      where: { persona_id: user.persona_id, activo: true },
+      select: { puesto: { select: { nombre: true } } },
+    });
+    return puestos.some((p) => {
+      const n = this.normalizar(p.puesto?.nombre ?? '');
+      return n.includes('jefe') && n.includes('calidad');
+    });
+  }
+
+  private async yaDescargado(certificadoId: number, user: HydratedUser) {
+    if (!user.persona_id) return false;
+    const previa = await this.prisma.descargaCertificado.findFirst({
+      where: { certificado_id: certificadoId, persona_id: user.persona_id },
+      select: { id: true },
+    });
+    return !!previa;
+  }
+
+  /** Para el frontend: si puede abrirlo sin límite y si ya usó su única vez. */
+  async estadoDescarga(certificadoId: number, user: HydratedUser) {
+    const ilimitado = await this.esJefeCalidad(user);
+    return {
+      ilimitado,
+      yaDescargado: ilimitado ? false : await this.yaDescargado(certificadoId, user),
+    };
+  }
+
+  /**
+   * Registra la entrega del PDF. Si la persona ya lo recibió una vez (y no es
+   * el Jefe de Calidad), lo rechaza.
+   */
+  async registrarEntrega(certificadoId: number, user: HydratedUser) {
+    const ilimitado = await this.esJefeCalidad(user);
+    if (!ilimitado && (await this.yaDescargado(certificadoId, user))) {
+      throw new ConflictException(
+        'Ya abrió este certificado una vez. Solo el Jefe del Departamento de Calidad puede volver a descargarlo.',
+      );
+    }
+    await this.prisma.descargaCertificado.create({
+      data: {
+        certificado_id: certificadoId,
+        persona_id: user.persona_id ?? null,
+        usuario_id: typeof user.id === 'number' && user.id > 0 ? user.id : null,
+      },
+    });
+  }
+
+  /**
+   * La descarga directa (sin registro) solo se usa para FIRMAR: se permite al
+   * firmante de la etapa actual (técnico asignado, jefe de laboratorio o
+   * director, con las mismas reglas que firmar()) y al Jefe de Calidad.
+   */
+  async autorizarDescargaDirecta(certificadoId: number, user: HydratedUser) {
+    if (await this.esJefeCalidad(user)) return;
+    const certificado = await this.prisma.certificado.findUnique({
+      where: { id: certificadoId },
+      select: { equipo_recepcion: { select: { estado: true, tecnico_id: true } } },
+    });
+    const equipo = certificado?.equipo_recepcion;
+    const n = this.normalizar(user.puesto ?? '');
+    const esTecnico = n.includes('tecnico') && !n.includes('observador');
+    const esJefe = n.includes('jefe') && !n.includes('calidad');
+    const esDirector = n.includes('director');
+    const leTocaFirmar =
+      (equipo?.estado === EstadoRecepcion.PENDIENTE_FIRMA_TECNICO &&
+        esTecnico &&
+        equipo.tecnico_id === user.persona_id) ||
+      (equipo?.estado === EstadoRecepcion.REVISION_JEFE && esJefe) ||
+      (equipo?.estado === EstadoRecepcion.REVISION_DIRECTOR && esDirector);
+    if (!leTocaFirmar) {
+      throw new ForbiddenException(
+        'La descarga directa del certificado solo está disponible para firmarlo. Use "Ver Documento".',
+      );
+    }
+  }
+
   async download(id: number, tipo: unknown, user: HydratedUser) {
     if (!esTipoDocumentoValido(tipo)) {
       throw new BadRequestException(
@@ -509,7 +607,9 @@ export class CertificadosService {
     const puesto = user.puesto ?? '';
     const labId: number | null = user.laboratorio_id ?? null;
 
-    if (!user.isGod) {
+    // El Jefe del Departamento de Calidad administra los certificados de todos
+    // los laboratorios: no se le aplica el límite por laboratorio ni por técnico.
+    if (!user.isGod && !(await this.esJefeCalidad(user))) {
       const n = puesto
         .toLowerCase()
         .normalize('NFD')
